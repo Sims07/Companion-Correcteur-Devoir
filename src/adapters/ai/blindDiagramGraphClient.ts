@@ -5,7 +5,7 @@ import {
   BLIND_VISUAL_OBSERVATION_ZOOM_SCHEMA, BLIND_VISUAL_ZOOM_LOCALIZATION_HINT,
   BLIND_VISUAL_ZOOM_TIP_SCHEMA, parseObservedVisualGraph,
   type ObservedVisualGraph, type ObservedArrowBounds, type BlindGraphDiagnostic, type BlindGraphPromptVariant,
-} from '../../domain/scientificDiagramBlindGraph.ts';
+} from '../../domain/evaluation/scientificDiagramBlindGraph.ts';
 import { currentFetch } from './currentFetch.ts';
 import { createOpenAiCompatibleFetch } from './openAiCompatibleTransport.ts';
 

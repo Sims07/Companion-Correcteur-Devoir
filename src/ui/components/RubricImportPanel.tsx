@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { FilePicker } from './FilePicker.tsx';
 import { StatusNotice, type StatusTone } from '../design-system/index.ts';
-import { previewRubricImport, resolveRubricImport, type RubricImportPreview } from '../../domain/rubricImport.ts';
-import type { Rubric, RubricCriterion } from '../../domain/rubric.ts';
+import { previewRubricImport, resolveRubricImport, type RubricImportPreview } from '../../domain/correction/rubricImport.ts';
+import type { Rubric, RubricCriterion } from '../../domain/correction/rubric.ts';
 import './RubricImportPanel.css';
 
 interface RubricImportPanelProps { rubric: Rubric; onImport: (criteria: RubricCriterion[]) => void }

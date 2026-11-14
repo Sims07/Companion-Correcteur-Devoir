@@ -1,10 +1,10 @@
-import type { LocalCorrection } from '../../domain/localCorrection.ts';
-import { toBackgroundJobOverview, type BackgroundCorrectionJob } from '../../domain/backgroundCorrection.ts';
+import type { LocalCorrection } from '../../domain/correction/localCorrection.ts';
+import { toBackgroundJobOverview, type BackgroundCorrectionJob } from '../../domain/correction/backgroundCorrection.ts';
 import type { BackgroundCorrectionRepository } from '../../ports/backgroundCorrectionRepository.ts';
 import type { ImageInput } from '../../ports/aiProvider.ts';
-import { toModelEvaluationSummary, type ModelEvaluationRecord } from '../../domain/modelEvaluation.ts';
-import type { LocalMemoryEntry, LocalMemoryQuery } from '../../domain/localMemory.ts';
-import { rankLocalMemories } from '../../domain/localMemory.ts';
+import { toModelEvaluationSummary, type ModelEvaluationRecord } from '../../domain/evaluation/modelEvaluation.ts';
+import type { LocalMemoryEntry, LocalMemoryQuery } from '../../domain/correction/localMemory.ts';
+import { rankLocalMemories } from '../../domain/correction/localMemory.ts';
 
 const DATABASE_NAME = 'companion-correcteur-devoir';
 const DATABASE_VERSION = 6;

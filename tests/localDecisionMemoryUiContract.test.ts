@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 const app = readFileSync(new URL('../src/ui/App.tsx', import.meta.url), 'utf8');
-const memoryDomain = readFileSync(new URL('../src/domain/localMemory.ts', import.meta.url), 'utf8');
+const memoryDomain = readFileSync(new URL('../src/domain/correction/localMemory.ts', import.meta.url), 'utf8');
 const memoryBridge = readFileSync(new URL('../src/adapters/ai/localMemoryFetchBridge.ts', import.meta.url), 'utf8');
 const memoryCompanion = readFileSync(new URL('../src/ui/LocalMemoryCompanion.tsx', import.meta.url), 'utf8');
 

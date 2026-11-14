@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Button, Field, TextArea, TextInput } from '../design-system/index.ts';
 import { DesignSystemSelect } from './DesignSystemSelect.tsx';
-import type { AssignmentKind } from '../../domain/assignmentKind.ts';
+import type { AssignmentKind } from '../../domain/correction/assignmentKind.ts';
 
 export interface NewAssignmentDetails {
   title: string;

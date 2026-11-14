@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { defaultAiModelConfiguration } from '../../src/domain/aiModelProfiles.ts';
-import type { Rubric } from '../../src/domain/rubric.ts';
+import type { Rubric } from '../../src/domain/correction/rubric.ts';
 import type { CorrectionWorkspaceService } from '../../src/application/correctionWorkspaceService.ts';
 import { correctScientificDiagramDirect } from '../../src/application/directScientificDiagramCorrection.ts';
 

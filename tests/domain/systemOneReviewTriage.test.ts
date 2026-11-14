@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   prepareSystemOneCriterion, prepareSystemOneRubric,
   scoreSystemOneCriterion, scoreSystemOneRubric,
-} from '../../src/domain/systemOneDecision.ts';
-import type { RubricCriterion } from '../../src/domain/rubric.ts';
+} from '../../src/domain/correction/systemOneDecision.ts';
+import type { RubricCriterion } from '../../src/domain/correction/rubric.ts';
 
 const choice = (selected: string, probability = 0.96, runner?: [string,number]) => ({
   type: 'choice' as const, choice: selected,

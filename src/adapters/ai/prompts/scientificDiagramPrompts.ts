@@ -1,5 +1,5 @@
-import { SCIENTIFIC_DIAGRAM_OBSERVATION_RULES } from '../../../domain/scientificDiagramObservation.ts';
-import { getRubricSubcriteria } from '../../../domain/rubric.ts';
+import { SCIENTIFIC_DIAGRAM_OBSERVATION_RULES } from '../../../domain/correction/scientificDiagramObservation.ts';
+import { getRubricSubcriteria } from '../../../domain/correction/rubric.ts';
 import type { ScientificDiagramAnalysisRequest } from '../../../ports/scientificDiagramAnalysis.ts';
 
 /** Prompt builders for classification, scientific criteria, retry and response repair. */

@@ -1,0 +1,319 @@
+import type { GradingProposal } from '../correction/grading.ts';
+import type { CorrectionMethod } from '../correctionMethod.ts';
+import { rubricEvaluationSignature, type Rubric } from '../correction/rubric.ts';
+import { modelEvaluationImageSignature } from './modelEvaluationImageIdentity.ts';
+
+export interface ModelEvaluationConfiguration {
+  id: string;
+  name: string;
+  endpoint: string;
+  apiCompatible?: boolean;
+  apiKey?: string;
+  visionModel: string;
+  analysisModel: string;
+  thinking: boolean;
+  /** Native Ollama named thinking level discovered for this diagram run, if required. */
+  thinkingLevel?: string;
+  criterionByCriterion?: boolean;
+  correctionMethod?: CorrectionMethod;
+  /** Direct image decisions are an experimental evaluation option, not a teacher default. */
+  directVisualDecision?: boolean;
+  /** Explicit one-step multimodal experiment; not enabled for teacher corrections. */
+  directGenerativeVision?: boolean;
+}
+
+export interface ModelEvaluationOutput<T> {
+  configuration: ModelEvaluationConfiguration;
+  startedAt: string;
+  finishedAt: string;
+  elapsedMs: number;
+  status: 'success' | 'failed' | 'cancelled';
+  value?: T;
+  error?: string;
+}
+
+export interface ModelEvaluationProgress {
+  completed: number;
+  total: number;
+  currentConfiguration: ModelEvaluationConfiguration | null;
+  status: 'running' | 'completed' | 'cancelled';
+  completedSteps: number;
+  totalSteps: number;
+  currentStage: 'reading' | 'analysis' | null;
+}
+
+export interface ModelEvaluationOptions<T> {
+  configurations: ModelEvaluationConfiguration[];
+  /** Restrict progress accounting to the independently evaluated stage(s). */
+  stages?: Array<'reading' | 'analysis'>;
+  stagesForConfiguration?: (configuration: ModelEvaluationConfiguration) => Array<'reading' | 'analysis'>;
+  execute: (configuration: ModelEvaluationConfiguration, isCancelled: () => boolean, onStage: (stage: 'reading' | 'analysis') => void) => Promise<T>;
+  /** Await cleanup after a completed or failed configuration; explicit cancellation returns promptly. */
+  onConfigurationSettled?: (configuration: ModelEvaluationConfiguration, output: ModelEvaluationOutput<T>) => Promise<void> | void;
+  isCancelled?: () => boolean;
+  onProgress?: (progress: ModelEvaluationProgress) => void;
+  now?: () => number;
+}
+
+/**
+ * Executes model configurations sequentially so local machines are not forced to
+ * keep multiple large models resident at once. A failed configuration is recorded
+ * and does not prevent the remaining configurations from running.
+ */
+export async function runModelEvaluation<T>(options: ModelEvaluationOptions<T>): Promise<ModelEvaluationOutput<T>[]> {
+  const { configurations, execute, onProgress } = options;
+  const isCancelled = options.isCancelled ?? (() => false);
+  const now = options.now ?? Date.now;
+  const outputs: ModelEvaluationOutput<T>[] = [];
+  const stages = options.stages?.length ? options.stages : ['reading', 'analysis'];
+  const totalSteps = configurations.reduce((sum, configuration) => sum +
+    (options.stagesForConfiguration?.(configuration) ?? stages).length, 0);
+  let completedSteps = 0;
+  const report = (currentConfiguration: ModelEvaluationConfiguration | null, status: ModelEvaluationProgress['status'], currentStage: ModelEvaluationProgress['currentStage'] = null) => {
+    onProgress?.({ completed: outputs.length, total: configurations.length, currentConfiguration, status, completedSteps, totalSteps, currentStage });
+  };
+
+  for (const configuration of configurations) {
+    if (isCancelled()) break;
+    const activeStages = options.stagesForConfiguration?.(configuration) ?? stages;
+    let currentStage: 'reading' | 'analysis' | null = null;
+    report(configuration, 'running');
+    const started = now();
+    const startedAt = new Date(started).toISOString();
+    try {
+      const value = await execute(configuration, isCancelled, (stage) => {
+        if (isCancelled()) return;
+        if (currentStage === 'reading' && stage === 'analysis' && activeStages.includes('reading')) completedSteps += 1;
+        currentStage = stage;
+        report(configuration, 'running', currentStage);
+      });
+      const finished = now();
+      if (!isCancelled() && currentStage && activeStages.includes(currentStage)) completedSteps += 1;
+      outputs.push({ configuration, startedAt, finishedAt: new Date(finished).toISOString(), elapsedMs: Math.max(0, finished - started),
+        ...(isCancelled() ? { status: 'cancelled' as const } : { status: 'success' as const, value }) });
+    } catch (cause) {
+      const finished = now();
+      const partialValue = typeof cause === 'object' && cause !== null && 'partialValue' in cause
+        ? (cause as { partialValue?: T }).partialValue
+        : undefined;
+      outputs.push({
+        configuration, startedAt, finishedAt: new Date(finished).toISOString(), elapsedMs: Math.max(0, finished - started),
+        status: isCancelled() ? 'cancelled' : 'failed',
+        ...(partialValue !== undefined ? { value: partialValue } : {}),
+        ...(isCancelled() ? {} : { error: cause instanceof Error ? cause.message : String(cause) }),
+      });
+    }
+    // A protocol may release Ollama RAM here. Never start the next profile
+    // until its cleanup has completed; do this even after a failed generation.
+    if (!isCancelled() && options.onConfigurationSettled) await options.onConfigurationSettled(configuration, outputs[outputs.length - 1]!);
+    if (isCancelled()) break;
+    report(null, 'running');
+  }
+
+  report(null, isCancelled() ? 'cancelled' : 'completed');
+  return outputs;
+}
+
+export interface ModelEvaluationImage {
+  base64: string;
+  mimeType: string;
+  fileName?: string;
+}
+
+export interface ModelEvaluationTokenUsage {
+  stage?: 'reading' | 'analysis' | 'arbitration';
+  promptTokens?: number;
+  generatedTokens?: number;
+  totalTokens?: number;
+  /** Ollama's generation duration in milliseconds, excluding prompt evaluation. */
+  generationMs?: number;
+}
+
+/** Sum only counters reported for one stage; missing metadata stays unknown, not zero. */
+export function sumReportedTokensForStage(runs: readonly ModelEvaluationTokenUsage[], stage: 'reading' | 'analysis'): number | null {
+  const stageRuns = runs.filter((run) => run.stage === stage);
+  if (!stageRuns.some((run) => run.promptTokens !== undefined || run.generatedTokens !== undefined || run.totalTokens !== undefined)) return null;
+  return stageRuns.reduce((sum, run) => sum + (run.totalTokens ?? (run.promptTokens ?? 0) + (run.generatedTokens ?? 0)), 0);
+}
+
+/**
+ * Computes weighted generation throughput reported by Ollama, not wall-clock throughput.
+ * Return unknown if any request in the stage lacks either counter.
+ */
+export function calculateReportedTokensPerSecondForStage(
+  runs: readonly ModelEvaluationTokenUsage[],
+  stage: 'reading' | 'analysis',
+): number | null {
+  const stageRuns = runs.filter((run) => run.stage === stage);
+  if (!stageRuns.length || stageRuns.some((run) =>
+    typeof run.generatedTokens !== 'number' ||
+    typeof run.generationMs !== 'number' ||
+    !Number.isFinite(run.generatedTokens) ||
+    !Number.isFinite(run.generationMs) ||
+    run.generationMs <= 0
+  )) return null;
+  const generatedTokens = stageRuns.reduce((sum, run) => sum + run.generatedTokens!, 0);
+  const generationMs = stageRuns.reduce((sum, run) => sum + run.generationMs!, 0);
+  return Math.round(generatedTokens / (generationMs / 1000) * 100) / 100;
+}
+
+export interface ModelEvaluationCallTrace {
+  kind: 'vision' | 'model' | 'arbitrator';
+  stage?: 'reading' | 'analysis' | 'arbitration';
+  model: string;
+  promptId?: string;
+  promptVersion?: number;
+  requestPrompt?: string;
+  requestMetadata?: { provider?: 'ollama' | 'openai-compatible'; endpoint?: string; stream: boolean; think: boolean; thinkLevel?: string; format?: 'json' | 'json-schema'; imageCount: number; keepAlive: string | number; options: { contextTokens: number; generationTokenLimit: number; temperature?: number; stop?: string[]; repeatPenalty?: number; frequencyPenalty?: number } };
+  requestPayload?: string;
+  raw: string;
+  /** Network/provider failure for this exact call, when the stream did not complete. */
+  error?: string;
+  elapsedMs: number;
+  promptTokens?: number;
+  generatedTokens?: number;
+  totalTokens?: number;
+  promptEvaluationMs?: number;
+  generationMs?: number;
+  loadMs?: number;
+  tokensPerSecond?: number;
+  doneReason?: string;
+  thinkingPresent?: boolean;
+  contextTokens?: number;
+  generationTokenLimit?: number;
+}
+
+export interface ModelEvaluationResultSnapshot {
+  graphEvidence?: import('./scientificDiagramBlindGraph.ts').DiagramGraphEvidence;
+  profileId: string;
+  profileName: string;
+  elapsedMs: number;
+  readingMs: number;
+  analysisMs: number;
+  /** Token counters reported by Ollama for the vision stage; absent in legacy records. */
+  readingTokens?: number | null;
+  /** Token counters reported by Ollama for the analysis stage; absent in legacy records. */
+  analysisTokens?: number | null;
+  /** Weighted generation speed reported by Ollama, tokens per second; absent in legacy records. */
+  readingTokensPerSecond?: number | null;
+  /** Weighted generation speed reported by Ollama, tokens per second; absent in legacy records. */
+  analysisTokensPerSecond?: number | null;
+  tokens: number | null;
+  status: 'success' | 'failed' | 'cancelled';
+  transcription: string;
+  raw: string;
+  score: number | null;
+  proposal: GradingProposal | null;
+  error?: string;
+  /** Per-call local LLM traces, including prompt and raw response (never image bytes). */
+  diagnosticRuns?: ModelEvaluationCallTrace[];
+  /** Provenance persisted with a result so the benchmark remains interpretable. */
+  directVisualDecision?: boolean;
+}
+
+export interface ModelEvaluationRecord {
+  graphFirst?: boolean;
+  /** The legacy graphFirst flag remains true for both generations. */
+  graphVersion?: 'v1' | 'v2';
+  campaignId?: string;
+  id: string;
+  completedAt: string;
+  assignmentId: string;
+  assignmentTitle: string;
+  question: string;
+  rubricSnapshot: Rubric;
+  correctionMode: 'integrated' | 'separate';
+  images: ModelEvaluationImage[];
+  subjectImages: ModelEvaluationImage[];
+  subjectTranscription: string | null;
+  configurations: ModelEvaluationConfiguration[];
+  results: ModelEvaluationResultSnapshot[];
+  /** The shared, teacher-reviewed input used by Analysis-only experiments. */
+  referenceTranscription?: string | null;
+  /** Stage measured by this experiment; absent means a legacy full-pipeline run. */
+  stage?: 'vision' | 'analysis' | 'integrated';
+  /** False when storage quota required archiving results without their original images. */
+  originalImagesArchived?: boolean;
+  /** Retained only when an emergency archive omits original images. */
+  imageSignatures?: string[];
+  subjectImageSignatures?: string[];
+  originalImageCount?: number;
+  /** Browser-only projection for history views; original pages remain in IndexedDB. */
+  imagesDeferred?: boolean;
+}
+
+/** A history record needs the scores, rubrics and transcripts, not the photos.
+ * Preserve image signatures so comparisons remain valid across full/compact runs.
+ * This projection is never written over the original IndexedDB record. */
+export function toModelEvaluationSummary(record: ModelEvaluationRecord): ModelEvaluationRecord {
+  return {
+    ...record,
+    imagesDeferred: record.images.length > 0 || record.subjectImages.length > 0,
+    imageSignatures: record.imageSignatures ?? (record.images.length ? record.images.map(modelEvaluationImageSignature) : undefined),
+    subjectImageSignatures: record.subjectImageSignatures ?? (record.subjectImages.length ? record.subjectImages.map(modelEvaluationImageSignature) : undefined),
+    originalImageCount: record.originalImageCount ?? record.images.length,
+    images: [],
+    subjectImages: [],
+  };
+}
+
+
+/** Legacy experiments without an explicit stage are full-pipeline runs. */
+export function getModelEvaluationStage(record: ModelEvaluationRecord): 'vision' | 'analysis' | 'integrated' {
+  return record.stage ?? 'integrated';
+}
+
+/**
+ * A single saved experiment is comparable when it contains multiple model
+ * configurations. Two experiments can be compared only when they measure
+ * the same stage; mixing Vision, Analysis and full-pipeline metrics is invalid.
+ */
+function sameImages(
+  first: readonly ModelEvaluationImage[], second: readonly ModelEvaluationImage[],
+  firstSignatures?: readonly string[], secondSignatures?: readonly string[],
+): boolean {
+  if (!firstSignatures && !secondSignatures) {
+    return first.length === second.length && first.every((image, index) =>
+      image.mimeType === second[index]!.mimeType && image.base64 === second[index]!.base64
+    );
+  }
+  const firstIds = firstSignatures ?? first.map(modelEvaluationImageSignature);
+  const secondIds = secondSignatures ?? second.map(modelEvaluationImageSignature);
+  return firstIds.length === secondIds.length && firstIds.every((identity, index) => identity === secondIds[index]);
+}
+
+function sameRubric(first: Rubric, second: Rubric): boolean {
+  return rubricEvaluationSignature(first) === rubricEvaluationSignature(second);
+}
+
+function sameAnalysisInput(first: ModelEvaluationRecord, second: ModelEvaluationRecord): boolean {
+  const firstTranscription = first.referenceTranscription ?? first.results.find((result) => result.transcription)?.transcription;
+  const secondTranscription = second.referenceTranscription ?? second.results.find((result) => result.transcription)?.transcription;
+  return Boolean(firstTranscription?.trim()) && firstTranscription === secondTranscription &&
+    first.question === second.question &&
+    first.correctionMode === second.correctionMode &&
+    first.subjectTranscription === second.subjectTranscription &&
+    sameImages(first.subjectImages, second.subjectImages, first.subjectImageSignatures, second.subjectImageSignatures) &&
+    sameRubric(first.rubricSnapshot, second.rubricSnapshot);
+}
+
+/** Compare only experiments that share the same measured stage and the same input. */
+export function canCompareModelEvaluationRecords(records: readonly ModelEvaluationRecord[]): boolean {
+  if (records.length === 1) return records[0]!.results.length > 1;
+  if (records.length !== 2 || records.some((record) => record.results.length === 0)) return false;
+  const first = records[0]!;
+  const second = records[1]!;
+  if (getModelEvaluationStage(first) !== getModelEvaluationStage(second) || first.assignmentId !== second.assignmentId) return false;
+  const stage = getModelEvaluationStage(first);
+  if (stage === 'analysis') return sameAnalysisInput(first, second);
+  // Legacy quota-reduced records have no original images and no identity.
+  // Never assume two empty image arrays mean the same student's copy.
+  if (records.some((record) => record.originalImagesArchived === false && !record.imageSignatures?.length)) return false;
+  if (!sameImages(first.images, second.images, first.imageSignatures, second.imageSignatures)) return false;
+  if (stage === 'vision') return first.question === second.question && sameRubric(first.rubricSnapshot, second.rubricSnapshot);
+  return first.question === second.question &&
+    first.correctionMode === second.correctionMode &&
+    first.subjectTranscription === second.subjectTranscription &&
+    sameImages(first.subjectImages, second.subjectImages, first.subjectImageSignatures, second.subjectImageSignatures) &&
+    sameRubric(first.rubricSnapshot, second.rubricSnapshot);
+}

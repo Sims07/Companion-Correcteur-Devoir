@@ -2,7 +2,7 @@ import { promptTrace } from './prompts/promptRegistry.ts';
 import type { DiagnosticModelResult } from '../../ports/aiProvider.ts';
 import type { ImageInput } from '../../domain/imageInput.ts';
 import { annotateNetworkRequest } from '../../ports/networkRequestMetadata.ts';
-import type { SystemOneEnvelope, SystemOnePayload } from '../../domain/systemOneDecision.ts';
+import type { SystemOneEnvelope, SystemOnePayload } from '../../domain/correction/systemOneDecision.ts';
 
 /**
  * Native local decision-model transport. Unlike /api/chat it neither generates text

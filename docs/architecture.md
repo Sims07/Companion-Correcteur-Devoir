@@ -37,6 +37,15 @@ Le domaine ne dépend d'aucune autre couche. L'application dépend du domaine et
 
 Contient les concepts et règles métier : barème, proposition de notation, critères révisés, archives locales, mémoire de décisions, empreinte du barème et classement des retours pertinents. Le domaine ne doit importer ni React, ni IndexedDB, ni `window`/`document`, ni Ollama, ni les adaptateurs. Les règles métier doivent rester déterministes et testables sans navigateur lorsque c'est possible.
 
+Les deux contextes métier partagent le même déploiement et la même base locale.
+
+| Contexte | Propriétaire des règles |
+| --- | --- |
+| `src/domain/correction/` | Devoirs, barèmes, copies, preuves, propositions, annotations et validation par l’enseignant. Le barème initial d’un dessin scientifique appartient à la correction. |
+| `src/domain/evaluation/` | Références expérimentales, protocoles, campagnes, résultats par méthode, comparaisons et radars. Une campagne peut observer une proposition de correction. |
+
+La correction est le contexte amont. Le laboratoire peut consommer ses règles de notation et comparer les résultats à ses propres références. Le test d’architecture parcourt les dépendances transitives de la correction, y compris les imports de types. Les services techniques utilisés par plusieurs parcours (configuration IA, calcul décimal, observabilité) conservent leur emplacement à la racine du domaine.
+
 ### Ports — `src/ports/`
 
 Définit les contrats requis par le cœur, sans implémentation technique. `aiProvider.ts` décrit les capacités IA (lecture visuelle, analyse, diagnostic) ; `localCorrectionRepository.ts` décrit les opérations de persistance des corrections et de la mémoire. Les contrats ne doivent pas exposer de types IndexedDB.

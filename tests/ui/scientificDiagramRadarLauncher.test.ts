@@ -2,9 +2,9 @@
 import { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { describe, expect, it, vi } from 'vitest';
-import { DIAGRAM_SENSITIVITY_CASES, DIAGRAM_SENSITIVITY_TARGETS } from '../../src/domain/scientificDiagramSensitivity.ts';
-import { buildBlindVisualObservationReport, type BlindVisualObservationRun } from '../../src/domain/scientificDiagramBlindGraph.ts';
-import { summarizeDiagramLabReport } from '../../src/domain/diagramLabHistory.ts';
+import { DIAGRAM_SENSITIVITY_CASES, DIAGRAM_SENSITIVITY_TARGETS } from '../../src/domain/evaluation/scientificDiagramSensitivity.ts';
+import { buildBlindVisualObservationReport, type BlindVisualObservationRun } from '../../src/domain/evaluation/scientificDiagramBlindGraph.ts';
+import { summarizeDiagramLabReport } from '../../src/domain/evaluation/diagramLabHistory.ts';
 import { ScientificDiagramRadar } from '../../src/ui/components/ScientificDiagramRadar.tsx';
 
 const runs = DIAGRAM_SENSITIVITY_CASES.map((item) => ({

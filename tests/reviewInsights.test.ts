@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { getReviewAlertReasons, getReviewFocus, getReviewInsights, hasUnreadableCopySignal } from '../src/domain/reviewInsights.ts';
-import type { ReviewedCriterion } from '../src/domain/grading.ts';
+import { getReviewAlertReasons, getReviewFocus, getReviewInsights, hasUnreadableCopySignal } from '../src/domain/correction/reviewInsights.ts';
+import type { ReviewedCriterion } from '../src/domain/correction/grading.ts';
 
 function criterion(overrides: Partial<ReviewedCriterion> = {}): ReviewedCriterion {
   return {

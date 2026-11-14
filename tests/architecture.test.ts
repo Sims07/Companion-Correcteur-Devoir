@@ -7,18 +7,18 @@ const imports = (text: string) => [...text.matchAll(/from\s+['"]([^'"]+)['"]/g)]
 describe('hexagonal architecture boundaries', () => {
   it('keeps the domain independent from UI, adapters, ports and browser APIs', () => {
     const files = [
-      '../src/domain/grading.ts',
-      '../src/domain/localCorrection.ts',
-      '../src/domain/localMemory.ts',
-      '../src/domain/localMemoryContext.ts',
-      '../src/domain/rubric.ts',
-      '../src/domain/rubricImport.ts',
+      '../src/domain/correction/grading.ts',
+      '../src/domain/correction/localCorrection.ts',
+      '../src/domain/correction/localMemory.ts',
+      '../src/domain/correction/localMemoryContext.ts',
+      '../src/domain/correction/rubric.ts',
+      '../src/domain/correction/rubricImport.ts',
       '../src/domain/observability.ts',
-      '../src/domain/teacherAnnotations.ts',
-      '../src/domain/backgroundCorrection.ts',
+      '../src/domain/correction/teacherAnnotations.ts',
+      '../src/domain/correction/backgroundCorrection.ts',
       '../src/domain/imageInput.ts',
-      '../src/domain/scientificDiagram.ts',
-      '../src/domain/scientificPageClassification.ts',
+      '../src/domain/correction/scientificDiagram.ts',
+      '../src/domain/correction/scientificPageClassification.ts',
     ];
     for (const file of files) {
       const text = source(file);

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import type { ImageInput } from '../../ports/aiProvider.ts';
-import type { TeacherAnnotationInkColor } from '../../domain/teacherAnnotationColor.ts';
+import type { TeacherAnnotationInkColor } from '../../domain/correction/teacherAnnotationColor.ts';
 
 type Props = {
   image: ImageInput;

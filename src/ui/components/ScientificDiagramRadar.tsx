@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { DiagramLabArchiveEntry } from '../../domain/diagramLabHistory.ts';
+import type { DiagramLabArchiveEntry } from '../../domain/evaluation/diagramLabHistory.ts';
 import { buildDiagramLabRadar, diagnoseGraphRadarMeasurement, diagnoseUnmeasuredRadarAxis, compareRadarCommonAxes, rankDiagramLabRadar, observedRadarScore, RADAR_AXES, RADAR_PRESETS, validRadarWeights,
-  type RadarAxisId, type RadarGrouping, type RadarModelConfiguration, type RadarRankedCandidate, type RadarWeights } from '../../domain/diagramLabRadar.ts';
+  type RadarAxisId, type RadarGrouping, type RadarModelConfiguration, type RadarRankedCandidate, type RadarWeights } from '../../domain/evaluation/diagramLabRadar.ts';
 import { DesignSystemSelect } from './DesignSystemSelect.tsx';
-import { resolveModelProfile, planMissingRadarAxis, planRadarModelEvaluation, radarPlanDescription, type RadarMissingTestRequest } from '../../domain/diagramLabRadarLaunch.ts';
+import { resolveModelProfile, planMissingRadarAxis, planRadarModelEvaluation, radarPlanDescription, type RadarMissingTestRequest } from '../../domain/evaluation/diagramLabRadarLaunch.ts';
 import { Button } from '../design-system/index.ts';
 import './ScientificDiagramRadar.css';
 import { RADAR_COMPARISON_COLORS } from './RadarComparisonPalette.ts';

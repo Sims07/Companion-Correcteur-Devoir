@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createBackgroundCorrection, toBackgroundJobSummary } from '../../src/domain/backgroundCorrection.ts';
+import { createBackgroundCorrection, toBackgroundJobSummary } from '../../src/domain/correction/backgroundCorrection.ts';
 
 describe('toBackgroundJobSummary', () => {
   it('projects progress without exposing a failed partial grade, images or rubric payloads', () => {

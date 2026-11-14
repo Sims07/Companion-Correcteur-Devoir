@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { appendLocalMemoryContext, augmentAnalysisPromptWithLocalMemory, shouldAugmentAnalysisPrompt } from '../src/adapters/ai/localMemoryFetchBridge.ts';
-import { LOCAL_MEMORY_CORRECTION_ID_KEY, LOCAL_MEMORY_RUBRIC_FINGERPRINT_KEY, rankLocalMemories, type LocalMemoryQuery } from '../src/domain/localMemory.ts';
+import { LOCAL_MEMORY_CORRECTION_ID_KEY, LOCAL_MEMORY_RUBRIC_FINGERPRINT_KEY, rankLocalMemories, type LocalMemoryQuery } from '../src/domain/correction/localMemory.ts';
 import type { LocalCorrectionRepository } from '../src/ports/localCorrectionRepository.ts';
-import type { LocalMemoryEntry } from '../src/domain/localMemory.ts';
+import type { LocalMemoryEntry } from '../src/domain/correction/localMemory.ts';
 
 const entry: LocalMemoryEntry = {
   id: 'memory-1',

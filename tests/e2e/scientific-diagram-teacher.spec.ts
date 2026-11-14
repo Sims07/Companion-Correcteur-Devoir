@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC } from '../../src/domain/scientificDiagramProtocol.ts';
+import { SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC } from '../../src/domain/correction/scientificDiagramRubric.ts';
 
 const onePixelPng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/ZckAAAAASUVORK5CYII=', 'base64');
 const configuration = {

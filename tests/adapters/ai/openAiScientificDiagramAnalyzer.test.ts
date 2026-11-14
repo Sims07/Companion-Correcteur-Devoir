@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createOpenAiScientificDiagramAnalyzer } from '../../../src/adapters/ai/openAiScientificDiagramAnalyzer.ts';
 import { getNetworkRequestMetadata } from '../../../src/ports/networkRequestMetadata.ts';
-import { mergeScientificDiagramCriteria } from '../../../src/domain/scientificRubricRouting.ts';
+import { mergeScientificDiagramCriteria } from '../../../src/domain/correction/scientificRubricRouting.ts';
 
 const request = {
   endpoint: 'https://ai.example',

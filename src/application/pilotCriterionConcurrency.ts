@@ -1,8 +1,8 @@
-import type { CriterionProposal } from '../domain/grading.ts';
-import { PILOT_RUBRIC, type PilotCase } from '../domain/pilotEvaluationProtocol.ts';
-import type { RubricCriterion } from '../domain/rubric.ts';
+import type { CriterionProposal } from '../domain/correction/grading.ts';
+import { PILOT_RUBRIC, type PilotCase, type PilotConcurrencyLevel, type PilotConcurrencySample, type PilotCriterionTrial } from '../domain/evaluation/pilotEvaluationProtocol.ts';
+import type { RubricCriterion } from '../domain/correction/rubric.ts';
 
-export type PilotConcurrencyLevel = 1 | 2 | 4;
+export type { PilotConcurrencyLevel, PilotConcurrencySample, PilotConcurrencyRun, PilotCriterionTrial } from '../domain/evaluation/pilotEvaluationProtocol.ts';
 export const PILOT_CONCURRENCY_LEVELS = [1, 2, 4] as const;
 
 export interface PilotCriterionMeasurement {
@@ -13,48 +13,6 @@ export interface PilotCriterionMeasurement {
   generatedTokens: number | null;
   totalTokens: number | null;
   loadMs: number | null;
-}
-
-export interface PilotCriterionTrial {
-  criterionId: string;
-  status: 'success' | 'failed' | 'skipped';
-  elapsedMs: number | null;
-  totalTokens: number | null;
-  generatedTokens: number | null;
-  loadMs: number | null;
-  /** Numeric verdicts only; the original transcription, prompts and responses are never exported. */
-  subcriteria: Array<{ id: string; expected: 0 | 1; awarded: number | null }>;
-}
-
-export interface PilotConcurrencySample {
-  concurrency: PilotConcurrencyLevel;
-  durationMs: number;
-  observedMaxInFlight: number;
-  completed: number;
-  failed: number;
-  skipped: number;
-  score: number | null;
-  correct: number;
-  falsePositives: number;
-  falseNegatives: number;
-  unresolved: number;
-  totalTokens: number | null;
-  generatedTokens: number | null;
-  /** Output tokens / end-to-end wall time; not the server's generation-only throughput. */
-  effectiveTokensPerSecond: number | null;
-  /** Sum of server-reported loads, not a host RAM measurement. */
-  totalLoadMs: number | null;
-  criteria: PilotCriterionTrial[];
-}
-
-export interface PilotConcurrencyRun {
-  caseId: PilotCase['id'];
-  profileId: string;
-  profileName: string;
-  analysisModel: string;
-  method: 'generative' | 'decision';
-  completedAt: string;
-  samples: PilotConcurrencySample[];
 }
 
 export interface PilotConcurrencyOptions {

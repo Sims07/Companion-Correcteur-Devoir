@@ -3,9 +3,9 @@ import { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { defaultAiModelConfiguration, type AiModelProfile } from '../../src/domain/aiModelProfiles.ts';
-import type { RadarMissingTestRequest } from '../../src/domain/diagramLabRadarLaunch.ts';
+import type { RadarMissingTestRequest } from '../../src/domain/evaluation/diagramLabRadarLaunch.ts';
 import { ScientificDiagramProtocolPanel } from '../../src/ui/components/ScientificDiagramProtocolPanel.tsx';
-import type { buildScientificDiagramFixtureReport } from '../../src/domain/scientificDiagramFixtures.ts';
+import type { buildScientificDiagramFixtureReport } from '../../src/domain/evaluation/scientificDiagramFixtures.ts';
 
 const profile: AiModelProfile = {
   id: 'saved-profile', name: 'Qwen Vision', mode: 'single', updatedAt: '2026-11-10T10:00:00Z',

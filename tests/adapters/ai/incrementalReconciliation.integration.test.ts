@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createOllamaProvider } from '../../../src/adapters/ai/ollamaProvider.ts';
-import { parseGradingProposal } from '../../../src/domain/grading.ts';
-import { PILOT_RUBRIC } from '../../../src/domain/pilotEvaluationProtocol.ts';
+import { parseGradingProposal } from '../../../src/domain/correction/grading.ts';
+import { PILOT_RUBRIC } from '../../../src/domain/evaluation/pilotEvaluationProtocol.ts';
 
 function stream(payload: unknown): Response {
   return new Response([

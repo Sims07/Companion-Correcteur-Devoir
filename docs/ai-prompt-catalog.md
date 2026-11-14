@@ -32,6 +32,6 @@ Cette extraction conserve volontairement le contenu exact des prompts (même ord
 Les exécutions de correction et d'évaluation conservent, pour chaque appel diagnostiqué, `promptId` et `promptVersion` à partir du registre `src/adapters/ai/prompts/promptRegistry.ts`. L'onglet technique Observabilité affiche ces informations avec le contenu réel de la requête (images masquées). Les anciens historiques sans version restent consultables et ne reçoivent **aucune version inventée**.
 
 - Incrémenter explicitement la révision lors d'un changement de consigne ou de contrat d'un prompt.
-- Les décisions natives System One utilisent les textes de questions définis dans `src/domain/systemOneDecision.ts` : ils sont suivis par l'identité `decision.system-one`. Le calcul des points reste dans le domaine.
+- Les décisions natives System One utilisent les textes de questions définis dans `src/domain/correction/systemOneDecision.ts` : ils sont suivis par l'identité `decision.system-one`. Le calcul des points reste dans le domaine.
 - Le registre ne contient aucune copie ni secret. Les deux fournisseurs (Ollama local et API compatible) conservent leurs routes et paramètres.
 - Les variantes de réparation conservent leur propre identifiant pour comparer leur taux d'utilisation.

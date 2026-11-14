@@ -1,7 +1,7 @@
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import type { ImageInput } from '../../ports/aiProvider.ts';
-import { eraseTeacherInkPixels, sampleTeacherPaperColor, type TeacherAnnotationInkColor } from '../../domain/teacherAnnotationColor.ts';
+import { eraseTeacherInkPixels, sampleTeacherPaperColor, type TeacherAnnotationInkColor } from '../../domain/correction/teacherAnnotationColor.ts';
 
 GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 

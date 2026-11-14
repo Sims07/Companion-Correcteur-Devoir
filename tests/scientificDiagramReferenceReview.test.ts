@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { SCIENTIFIC_DIAGRAM_FIXTURES, SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC, buildScientificDiagramFixtureReport } from '../src/domain/scientificDiagramFixtures';
-import { getRubricSubcriteria } from '../src/domain/rubric';
+import { SCIENTIFIC_DIAGRAM_FIXTURES, SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC, buildScientificDiagramFixtureReport } from '../src/domain/evaluation/scientificDiagramFixtures.ts';
+import { getRubricSubcriteria } from '../src/domain/correction/rubric.ts';
 import { buildDirectDiagramPrompt } from '../src/adapters/ai/prompts/directDiagramPrompt';
 
 describe('reviewed B reference, independent of model predictions', () => {

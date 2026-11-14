@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { detectArrowDirections } from '../src/domain/arrowDirections.ts';
+import { detectArrowDirections } from '../src/domain/correction/arrowDirections.ts';
 
 function raster(dx: number, dy: number, head: boolean, shaft: boolean) {
   const width = 90;

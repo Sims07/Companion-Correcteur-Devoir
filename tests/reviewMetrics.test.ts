@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { confirmReviewCriteriaInGroup, createReviewTraceMetrics, markGroupConfirmedCriterionModified, measureReviewWordLimits, undoGroupConfirmation } from '../src/domain/reviewMetrics.ts';
-import type { ReviewedCriterion } from '../src/domain/grading.ts';
-import type { RubricCriterion } from '../src/domain/rubric.ts';
+import { confirmReviewCriteriaInGroup, createReviewTraceMetrics, markGroupConfirmedCriterionModified, measureReviewWordLimits, undoGroupConfirmation } from '../src/domain/correction/reviewMetrics.ts';
+import type { ReviewedCriterion } from '../src/domain/correction/grading.ts';
+import type { RubricCriterion } from '../src/domain/correction/rubric.ts';
 
 const rubric: RubricCriterion[] = [
   { id: 'deduction', title: 'Raisonnement', description: '', maxPoints: 4 },

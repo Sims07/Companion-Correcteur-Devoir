@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calculateReportedTokensPerSecondForStage, sumReportedTokensForStage } from '../src/domain/modelEvaluation.ts';
+import { calculateReportedTokensPerSecondForStage, sumReportedTokensForStage } from '../src/domain/evaluation/modelEvaluation.ts';
 
 describe('model evaluation token usage by stage', () => {
   it('sums Ollama token counters independently for reading and analysis', () => {

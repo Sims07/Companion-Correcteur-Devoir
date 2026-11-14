@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ZoomableImage } from './ZoomableImage.tsx';
-import type { Rubric } from '../../domain/rubric.ts';
+import type { Rubric } from '../../domain/correction/rubric.ts';
 import type { DiagnosticModelResult, ImageInput } from '../../ports/aiProvider.ts';
 import type { ScientificDiagramAnalysisService } from '../../application/scientificDiagramAnalysisService.ts';
 

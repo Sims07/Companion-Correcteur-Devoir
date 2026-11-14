@@ -1,6 +1,6 @@
-import { detectArrowDirections as detectSmallTipsV1 } from '../../domain/arrowDirectionsSmallTipsV1.ts';
-import { detectArrowDirections as detectLeaderV1 } from '../../domain/arrowDirectionsLeaderV1.ts';
-import { detectArrowDirections, type DetectedArrow } from '../../domain/arrowDirections.ts';
+import { detectArrowDirections as detectSmallTipsV1 } from '../../domain/correction/arrowDirectionsSmallTipsV1.ts';
+import { detectArrowDirections as detectLeaderV1 } from '../../domain/correction/arrowDirectionsLeaderV1.ts';
+import { detectArrowDirections, type DetectedArrow } from '../../domain/correction/arrowDirections.ts';
 import type { ImageInput } from '../../domain/imageInput.ts';
 
 export async function readArrowPixels(url: string, clockwiseDegrees = 0, detector = detectArrowDirections) {

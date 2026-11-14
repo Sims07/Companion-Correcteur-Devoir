@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createDiagramLabArchiveWriter } from '../../src/application/diagramLabArchiveWriter.ts';
-import type { DiagramLabArchiveEntry, DiagramLabReport } from '../../src/domain/diagramLabHistory.ts';
+import type { DiagramLabArchiveEntry, DiagramLabReport } from '../../src/domain/evaluation/diagramLabHistory.ts';
 import type { DiagramLabArchiveRepository } from '../../src/ports/diagramLabArchiveRepository.ts';
 
 function fixture(createdAt: string, ids: string[]): DiagramLabReport {

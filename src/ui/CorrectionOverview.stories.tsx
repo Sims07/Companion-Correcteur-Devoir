@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
-import type { BackgroundJobSummary } from '../domain/backgroundCorrection.ts';
-import type { CopyOverviewFilter } from '../domain/copyOverview.ts';
+import type { BackgroundJobSummary } from '../domain/correction/backgroundCorrection.ts';
+import type { CopyOverviewFilter } from '../domain/correction/copyOverview.ts';
 import { CorrectionOverview } from './CorrectionOverview.tsx';
 
 const createdAt = '2026-11-05T10:00:00.000Z';

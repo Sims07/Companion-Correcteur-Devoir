@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react';
 import { AssignmentCreationPanel, type NewAssignmentDetails } from './components/AssignmentCreationPanel.tsx';
-import type { Rubric } from '../domain/rubric.ts';
-import type { BackgroundJobSummary } from '../domain/backgroundCorrection.ts';
-import { countAssignmentCopies } from '../domain/copyOverview.ts';
-import { getAssignmentOverview } from '../domain/assignmentOverview.ts';
-import { assignmentKindLabel, type AssignmentKind } from '../domain/assignmentKind.ts';
+import type { Rubric } from '../domain/correction/rubric.ts';
+import type { BackgroundJobSummary } from '../domain/correction/backgroundCorrection.ts';
+import { countAssignmentCopies } from '../domain/correction/copyOverview.ts';
+import { getAssignmentOverview } from '../domain/correction/assignmentOverview.ts';
+import { assignmentKindLabel, type AssignmentKind } from '../domain/correction/assignmentKind.ts';
 
 type AssignmentCardProfile = {
   id: string;

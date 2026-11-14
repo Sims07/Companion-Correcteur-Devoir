@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { runModelEvaluation } from '../src/domain/modelEvaluation.ts';
+import { runModelEvaluation } from '../src/domain/evaluation/modelEvaluation.ts';
 
 describe('model evaluation partial results', () => {
   it('retains a partial value attached to a failed execution for observability', async () => {

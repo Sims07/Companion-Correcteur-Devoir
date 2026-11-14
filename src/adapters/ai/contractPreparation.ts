@@ -1,6 +1,6 @@
-import { parseContractSuggestion, type ContractPreparation, type ContractSources } from '../../domain/contractPreparation.ts';
-import { rubricEvaluationSignature, type Rubric } from '../../domain/rubric.ts';
-import { partitionScientificRubric } from '../../domain/scientificRubricRouting.ts';
+import { parseContractSuggestion, type ContractPreparation, type ContractSources } from '../../domain/correction/contractPreparation.ts';
+import { rubricEvaluationSignature, type Rubric } from '../../domain/correction/rubric.ts';
+import { partitionScientificRubric } from '../../domain/correction/scientificRubricRouting.ts';
 import { parseModelJson } from '../../domain/modelJson.ts';
 import type { OllamaSettings } from '../../ports/aiProvider.ts';
 import { annotateNetworkRequest } from '../../ports/networkRequestMetadata.ts';

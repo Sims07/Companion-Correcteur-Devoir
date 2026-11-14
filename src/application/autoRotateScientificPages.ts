@@ -1,6 +1,6 @@
 import type { ImageInput } from '../domain/imageInput.ts';
-import { getConfidentDiagramRotation } from '../domain/scientificPageOrientation.ts';
-import type { ScientificPageClassification } from '../domain/scientificPageClassification.ts';
+import { getConfidentDiagramRotation } from '../domain/correction/scientificPageOrientation.ts';
+import type { ScientificPageClassification } from '../domain/correction/scientificPageClassification.ts';
 
 export interface AutomaticScientificRotationResult {
   images: ImageInput[];

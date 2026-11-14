@@ -4,10 +4,10 @@ import { BiologyRunMonitor } from './BiologyRunMonitor.tsx';
 import { Button } from '../design-system/components/Button.tsx';
 import type { PilotConcurrencyRun } from '../../application/pilotCriterionConcurrency.ts';
 import type { AiModelProfile } from '../../domain/aiModelProfiles.ts';
-import type { PilotCase, PilotRun } from '../../domain/pilotEvaluationProtocol.ts';
-import { PILOT_CASES, comparePilotTranscription, isLocalPilotProfile, pilotSelectionIssue, summarizePilotResult } from '../../domain/pilotEvaluationProtocol.ts';
-import { QUESTION_CONTRACT_CASES, buildQuestionContractReport, type QuestionContractRun } from '../../domain/questionContractPilot.ts';
-import { buildQuestionContractRepeatabilityReport, type QuestionContractRepeatabilityRun, type RepeatabilityCount, type RepeatabilitySuite } from '../../domain/questionContractRepeatability.ts';
+import type { PilotCase, PilotRun } from '../../domain/evaluation/pilotEvaluationProtocol.ts';
+import { PILOT_CASES, comparePilotTranscription, isLocalPilotProfile, pilotSelectionIssue, summarizePilotResult } from '../../domain/evaluation/pilotEvaluationProtocol.ts';
+import { QUESTION_CONTRACT_CASES, buildQuestionContractReport, type QuestionContractRun } from '../../domain/evaluation/questionContractPilot.ts';
+import { buildQuestionContractRepeatabilityReport, type QuestionContractRepeatabilityRun, type RepeatabilityCount, type RepeatabilitySuite } from '../../domain/evaluation/questionContractRepeatability.ts';
 import './PilotEvaluationPanel.css';
 
 export type BiologyScenario = 'contracts' | 'repeatability' | 'copies';

@@ -1,7 +1,7 @@
 import { chooseEvaluationModel } from './helpers/evaluation-models';
 import { expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
-import { SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC } from '../../src/domain/scientificDiagramFixtures';
+import { SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC } from '../../src/domain/evaluation/scientificDiagramFixtures.ts';
 
 test('Qwen direct diagram repairs missing evidence and exports all 19 decisions without OCR', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('companion-correcteur:ollama-profiles:v1', JSON.stringify([{

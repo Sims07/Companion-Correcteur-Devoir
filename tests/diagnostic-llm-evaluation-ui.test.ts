@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const appSource = readFileSync(resolve(process.cwd(), 'src/ui/App.tsx'), 'utf8');
-const domainSource = readFileSync(resolve(process.cwd(), 'src/domain/modelEvaluation.ts'), 'utf8');
+const domainSource = readFileSync(resolve(process.cwd(), 'src/domain/evaluation/modelEvaluation.ts'), 'utf8');
 const styles = readFileSync(resolve(process.cwd(), 'src/ui/correctionFlow.css'), 'utf8');
 const evaluationStyles = readFileSync(resolve(process.cwd(), 'src/ui/styles.css'), 'utf8');
 const evaluationLayout = readFileSync(resolve(process.cwd(), 'src/ui/modelEvaluationWorkspace.css'), 'utf8');

@@ -1,8 +1,8 @@
 import 'fake-indexeddb/auto';
 import { describe, expect, it } from 'vitest';
 import { listDiagramLabEntries, saveDiagramLabEntry } from '../../../src/adapters/storage/diagramLabArchive.ts';
-import { summarizeDiagramLabReport } from '../../../src/domain/diagramLabHistory.ts';
-import { buildBlindVisualObservationReport } from '../../../src/domain/scientificDiagramBlindGraph.ts';
+import { summarizeDiagramLabReport } from '../../../src/domain/evaluation/diagramLabHistory.ts';
+import { buildBlindVisualObservationReport } from '../../../src/domain/evaluation/scientificDiagramBlindGraph.ts';
 
 describe('scientific diagram benchmark journal (IndexedDB)', () => {
   it('updates a partial experiment under one ID and restores it on a later read', async () => {

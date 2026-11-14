@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createOllamaProvider } from '../../../src/adapters/ai/ollamaProvider.ts';
-import { parseGradingProposal } from '../../../src/domain/grading.ts';
-import type { Rubric } from '../../../src/domain/rubric.ts';
+import { parseGradingProposal } from '../../../src/domain/correction/grading.ts';
+import type { Rubric } from '../../../src/domain/correction/rubric.ts';
 
 const rubric: Rubric = { title: 'Biologie', criteria: [{
   id: 'forks', title: 'Fourches de réplication',

@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { appendSuggestedSubcriteria, normalizedSubcriterionTitle, suggestSubcriteriaFromDescription, type SuggestedSubcriterion } from '../../domain/rubricSubcriteriaSuggestion.ts';
-import { getRubricSubcriteria, type RubricCriterion } from '../../domain/rubric.ts';
+import { appendSuggestedSubcriteria, normalizedSubcriterionTitle, suggestSubcriteriaFromDescription, type SuggestedSubcriterion } from '../../domain/correction/rubricSubcriteriaSuggestion.ts';
+import { getRubricSubcriteria, type RubricCriterion } from '../../domain/correction/rubric.ts';
 import { sumGradeScores } from '../../domain/scorePrecision.ts';
 import { Button, StatusNotice, type StatusTone } from '../design-system/index.ts';
 import './SubcriteriaSuggestionPanel.css';

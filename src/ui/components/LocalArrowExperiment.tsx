@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ZoomableImage } from './ZoomableImage.tsx';
-import type { DetectedArrow } from '../../domain/arrowDirections.ts';
-import { DIAGRAM_SENSITIVITY_CASE_IDS, scientificDiagramSensitivityPreviewUrl } from '../../domain/scientificDiagramSensitivity.ts';
+import type { DetectedArrow } from '../../domain/correction/arrowDirections.ts';
+import { DIAGRAM_SENSITIVITY_CASE_IDS, scientificDiagramSensitivityPreviewUrl } from '../../domain/evaluation/scientificDiagramSensitivity.ts';
 import { readArrowPixels } from '../../adapters/image/arrowContext.ts';
 import { Button } from '../design-system/index.ts';
 

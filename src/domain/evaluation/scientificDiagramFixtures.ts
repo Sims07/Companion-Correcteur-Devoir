@@ -1,0 +1,353 @@
+import { diagramTargetKey, type DiagramGold, type DiagramProtocolCount, type DiagramProtocolRun, buildScientificDiagramProtocolReport } from './scientificDiagramProtocol.ts';
+import { SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC } from '../correction/scientificDiagramRubric.ts';
+import { getRubricSubcriteria, validateRubric, type Rubric } from '../correction/rubric.ts';
+import { sumGradeScores } from '../scorePrecision.ts';
+import { auditRelationGraphV2, type RelationExpectationV2 } from './scientificDiagramRelationGraphV2.ts';
+
+/** The same teacher rubric, with the original 2-point comprehension criterion
+ * made explicit for this particular mitosis exercise only. */
+export const SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC: Rubric = {
+  title: 'Mitose végétale — schéma scientifique (10 points)',
+  criteria: [
+    // The embedded exercise tests both visibility and the actual geometric
+    // connection between a written legend and its arrow endpoint. It does
+    // not modify the user's general teacher rubric.
+    ...structuredClone(SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC.criteria).map((criterion) => (
+      criterion.id === 'legends' ? {
+        ...criterion,
+        subcriteria: criterion.subcriteria?.map((sub) => sub.id === 'legends-visible'
+          ? { ...sub, title: 'Légendes : structures visibles et flèches correctes',
+            description: 'Une légende doit nommer une structure dessinée ET son trait de rappel doit réellement pointer cette structure. Des mots exacts reliés à une autre structure ne valident pas cet attendu.' }
+          : sub),
+      } : criterion
+    )),
+    {
+      id: 'understanding', title: 'Compréhension', maxPoints: 2,
+      description: 'Interphase obligatoire, télophase avec phragmoplaste visible, et deux autres étapes distinctes parmi prophase, métaphase, anaphase.',
+      analysisMode: 'scientific-diagram',
+      subcriteria: [
+        { id: 'understanding-interphase', title: 'Interphase représentée', description: 'Au moins une cellule végétale en interphase identifiable, avec noyau non divisé.', maxPoints: 0.5 },
+        { id: 'understanding-telophase', title: 'Télophase avec phragmoplaste visible', description: 'Deux noyaux reformés et une structure de cloisonnement identifiable (phragmoplaste / plaque cellulaire naissante). Une simple étiquette sans dessin ne suffit pas.', maxPoints: 0.5 },
+        { id: 'understanding-other-one', title: 'Première phase supplémentaire de mitose', description: 'Au moins une phase identifiable parmi prophase, métaphase et anaphase, distincte de l’interphase et de la télophase.', maxPoints: 0.5 },
+        { id: 'understanding-other-two', title: 'Deuxième phase supplémentaire distincte', description: 'Au moins deux phases différentes et identifiables parmi prophase, métaphase et anaphase. Ne pas compter deux fois la même phase.', maxPoints: 0.5 },
+      ],
+    },
+  ],
+};
+
+export type ScientificDiagramFixtureId = 'A' | 'B' | 'C' | 'D' | 'E';
+export const SCIENTIFIC_DIAGRAM_BASE_CASE_IDS = ['A', 'B', 'C'] as const;
+export const SCIENTIFIC_DIAGRAM_POINTER_CASE_IDS = ['D', 'E'] as const;
+export const SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET = diagramTargetKey('legends', 'legends-visible');
+export interface ScientificDiagramFixtureCase {
+  id: ScientificDiagramFixtureId;
+  label: string;
+  description: string;
+  referenceScore: number;
+  referencePoints: Record<string, number>;
+  gold: DiagramGold;
+  labelPointerChallenge?: {
+    kind: 'label-pointer-correspondence';
+    expected: 'correct' | 'incorrect';
+    criterionKey: string;
+    descriptions: readonly string[];
+  };
+  layoutObservation?: {
+    criterionKey: string;
+    points: number;
+    maximumPoints: number;
+    reason: string;
+  };
+  referenceReview?: { status: 'provisional-visual-review'; reviewedOn: string; notes: Record<string, string> };
+}
+
+/** Visual review of the actual bundled B image (2026-11-08), independent of
+ * model predictions. Fractional aesthetic judgments remain provisional. */
+const middlePointsBySubcriterion: Record<string, number> = {
+  'drawing-page': 0.33,
+  'drawing-centered': 0.66,
+  'drawing-lines': 0.33,
+  'drawing-clean': 0.50,
+  'drawing-proportions': 0.50,
+  'drawing-neighbors': 0.70,
+  'title-below': 0,
+  'title-centered': 0.17,
+  'title-emphasis': 0,
+  'title-horizontal': 0.33,
+  'title-subject': 0.17,
+  'title-section': 0,
+  'legends-horizontal': 0.66,
+  'legends-aligned': 0.33,
+  'legends-visible': 0.68,
+  'understanding-interphase': 0.50,
+  'understanding-telophase': 0.50,
+  'understanding-other-one': 0.50,
+  'understanding-other-two': 0.50,
+};
+
+/** Re-reviewed against the bundled photographs on 2026-11-12, independently
+ * from model output. A's title names a plant cell and a section, but omits
+ * organ and organism, so the complete-title criterion only earns partial credit.
+ * C's « cellule ? » is incomplete yet visibly horizontal AND underlined.
+ * More subjective drawing and legend criteria remain at zero pending teacher review. */
+const excellentPointsBySubcriterion: Record<string, number> = Object.fromEntries(
+  SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC.criteria.flatMap(criterion =>
+    getRubricSubcriteria(criterion).map(sub => [
+      sub.id, sub.id === 'title-subject' ? 0.17 : sub.maxPoints,
+    ])),
+);
+const poorPointsBySubcriterion: Record<string, number> = Object.fromEntries(
+  SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC.criteria.flatMap(criterion =>
+    getRubricSubcriteria(criterion).map(sub => [
+      sub.id, sub.id === 'title-horizontal' || sub.id === 'title-emphasis' ? sub.maxPoints : 0,
+    ])),
+);
+
+const middleReviewNotes: Record<string, string> = {
+  'drawing-page': 'Quatre cellules et leurs légendes occupent une part importante de la feuille, avec de larges marges : appréciation partielle.',
+  'drawing-centered': 'Les quatre cellules forment une composition globalement centrée ; les légendes sont réparties autour.',
+  'drawing-lines': 'Contours lisibles mais repassés, épaisseur variable et tracés intérieurs irréguliers.',
+  'drawing-clean': 'Ensemble lisible et sans grandes ratures ; hachures et reprises de crayon. La couleur seule ne justifie aucune pénalité.',
+  'drawing-proportions': 'Cellules de tailles cohérentes ; fidélité fine des proportions non vérifiable sans référence anatomique. Attribution provisoire.',
+  'drawing-neighbors': 'Des prolongements de paroi sont visibles aux coins des cellules : départs des cellules voisines indiqués.',
+  'title-below': 'Le titre général est au-dessus des dessins, pas en dessous.',
+  'title-centered': 'Le titre général est légèrement décalé à gauche du centre de la composition : appréciation partielle.',
+  'title-emphasis': 'Titre ni souligné ni encadré ni écrit entièrement en majuscules.',
+  'title-horizontal': 'Le titre est écrit horizontalement.',
+  'title-subject': 'Mitose et cellule végétale sont indiquées ; organe et organisme ne sont pas précisés.',
+  'title-section': 'Aucune indication de coupe. Zéro selon le critère actuel ; applicabilité à confirmer par le professeur.',
+  'legends-horizontal': 'Les mots des légendes sont globalement horizontaux, indépendamment de la pente des traits de rappel.',
+  'legends-aligned': 'Alignement local des légendes de droite, mais pas de colonne régulière sur l’ensemble : appréciation partielle.',
+  'legends-visible': 'Noyaux, chromosomes, traits du fuseau et plaque cellulaire sont dessinés. Vérifier les destinations précises si le professeur exige une précision anatomique supérieure.',
+  'understanding-interphase': 'Cellule avec noyau unique identifiable en haut à gauche.',
+  'understanding-telophase': 'Deux noyaux et une cloison centrale dessinés. Le contrat actuel accepte une plaque cellulaire ; cela ne prouve pas un phragmoplaste détaillé.',
+  'understanding-other-one': 'Prophase reconnaissable en haut à droite par les chromosomes condensés.',
+  'understanding-other-two': 'Métaphase distincte en bas à gauche avec chromosomes alignés et fuseau dessiné.',
+};
+
+function makeCase(id: ScientificDiagramFixtureId, label: string, description: string, calibration: 0 | 10 | Record<string, number>): ScientificDiagramFixtureCase {
+  const gold: DiagramGold = {};
+  const referencePoints: Record<string, number> = {};
+  for (const criterion of SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC.criteria) {
+    for (const sub of getRubricSubcriteria(criterion)) {
+      const key = diagramTargetKey(criterion.id, sub.id);
+      const awarded = calibration === 10 ? sub.maxPoints : calibration === 0 ? 0 : calibration[sub.id];
+      if (awarded === undefined || !Number.isFinite(awarded) || awarded < 0 || awarded > sub.maxPoints) {
+        throw new Error('Référence pilote incomplète ou hors barème pour ' + key);
+      }
+      referencePoints[key] = awarded;
+      gold[key] = awarded === 0 ? 'absent' : awarded === sub.maxPoints ? 'present' : 'partial';
+    }
+  }
+  const referenceScore = sumGradeScores(Object.values(referencePoints));
+  if (typeof calibration === 'number' && referenceScore !== calibration) throw new Error('Référence pilote : total incohérent.');
+  return { id, label, description, referenceScore, referencePoints, gold };
+}
+
+/** Both D and E use horizontal rows of legends, not the single column
+ * required by the teacher rubric. Calibrate that defect identically in the
+ * control and the trap; only the arrow-endpoint criterion should differ. */
+const POINTER_LAYOUT_TARGET = diagramTargetKey('legends', 'legends-aligned');
+const pointerControlPoints = Object.fromEntries(SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC.criteria.flatMap((criterion) =>
+  getRubricSubcriteria(criterion).map((sub) => [
+    sub.id, diagramTargetKey(criterion.id, sub.id) === POINTER_LAYOUT_TARGET ? 0 : sub.maxPoints,
+  ])));
+const wrongPointerPoints = { ...pointerControlPoints, 'legends-visible': 0 };
+const POINTER_LAYOUT_OBSERVATION = {
+  criterionKey: POINTER_LAYOUT_TARGET,
+  points: 0,
+  maximumPoints: 0.66,
+  reason: 'Les légendes sont disposées en lignes sous les cellules, et non alignées en colonne comme l’exige le barème.',
+} as const;
+const POINTER_LABELS = [
+  'En métaphase : « Chromosomes » pointe le fuseau et « Fuseau mitotique » pointe les chromosomes.',
+  'En télophase : « Noyau fils » pointe la plaque cellulaire et « Plaque cellulaire » pointe le noyau fils.',
+] as const;
+
+/** Generated scenarios, not a teacher-certified dataset. */
+export const SCIENTIFIC_DIAGRAM_FIXTURES: readonly ScientificDiagramFixtureCase[] = [
+  { ...makeCase('A', 'A — soigné', 'Quatre étapes bien représentées, titre sans organe ni organisme explicités.', excellentPointsBySubcriterion),
+    referenceReview: { status: 'provisional-visual-review', reviewedOn: '2026-11-12',
+      notes: { 'title-subject': 'Le titre « Mitose dans une cellule végétale (coupe longitudinale) » décrit le type de cellule et la coupe, mais ne précise ni l’organe ni l’organisme exigés par cet attendu complet. Crédit partiel comme pour B.' } } },
+  { ...makeCase('B', 'B — intermédiaire', 'Quatre étapes reconnaissables, composition lisible ; traits irréguliers, titre incomplet et légendes imparfaitement alignées.', middlePointsBySubcriterion),
+    referenceReview: { status: 'provisional-visual-review', reviewedOn: '2026-11-08', notes: middleReviewNotes } },
+  { ...makeCase('C', 'C — insuffisant', 'Une seule cellule confuse, sans déroulé de la mitose ; « cellule ? » est horizontal et souligné.', poorPointsBySubcriterion),
+    referenceReview: { status: 'provisional-visual-review', reviewedOn: '2026-11-12',
+      notes: {
+        'title-horizontal': 'Le texte « cellule ? » est écrit horizontalement : ce critère de forme est acquis malgré un titre scientifiquement incomplet.',
+        'title-emphasis': 'Un trait de soulignement est visible sous « cellule ? ». Le critère accepte un titre souligné indépendamment de son contenu.',
+      } } },
+  { ...makeCase('D', 'D — témoin, flèches justes', 'Mêmes quatre phases, mêmes mots et même barème que E ; flèches correctes, mais légendes non alignées en colonne.', pointerControlPoints),
+    layoutObservation: POINTER_LAYOUT_OBSERVATION,
+    labelPointerChallenge: {
+      kind: 'label-pointer-correspondence', expected: 'correct',
+      criterionKey: SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET,
+      descriptions: ['Les flèches correspondent aux noms écrits, y compris fuseau, chromosomes, noyau fils et plaque cellulaire.'],
+    } },
+  { ...makeCase('E', 'E — piège, flèches inversées', 'Même dessin et mêmes mots que D ; quatre flèches erronées et légendes non alignées en colonne.', wrongPointerPoints),
+    layoutObservation: POINTER_LAYOUT_OBSERVATION,
+    labelPointerChallenge: {
+      kind: 'label-pointer-correspondence', expected: 'incorrect',
+      criterionKey: SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET, descriptions: POINTER_LABELS,
+    } },
+];
+
+export const SCIENTIFIC_DIAGRAM_FIXTURE_CONTEXT =
+  'Travail universitaire de biologie : réaliser un dessin scientifique montrant la mitose d’une cellule végétale, avec interphase, télophase et phragmoplaste visible, puis deux autres étapes distinctes choisies parmi prophase, métaphase, anaphase. Vérifier la qualité graphique, le titre, les légendes (y compris le point d’arrivée de chaque trait de rappel) et la présence des étapes réellement dessinées.';
+
+/** The actual physical destinations are private test references, never input
+ * to the rubric-blind V2 Vision call. D/E share texts but four endpoints swap. */
+export function fixtureRelationExpectationsV2(caseId: ScientificDiagramFixtureId): RelationExpectationV2[] {
+  if (caseId !== 'D' && caseId !== 'E') return [];
+  const altered = caseId === 'E';
+  return [
+    {phase:'interphase',label:'Noyau',expectedKind:'nucleus'},
+    {phase:'prophase',label:'Chromosomes',expectedKind:'chromosomes'},
+    {phase:'metaphase',label:'Chromosomes',expectedKind:altered ? 'spindle' : 'chromosomes'},
+    {phase:'metaphase',label:'Fuseau mitotique',expectedKind:altered ? 'chromosomes' : 'spindle'},
+    {phase:'telophase',label:'Noyau fils',expectedKind:altered ? 'cell-plate' : 'nucleus'},
+    {phase:'telophase',label:'Plaque cellulaire',expectedKind:altered ? 'nucleus' : 'cell-plate'},
+  ];
+}
+
+export type ScientificDiagramFixtureRun = DiagramProtocolRun & { caseId: ScientificDiagramFixtureId };
+
+export function buildScientificDiagramFixtureReport(
+  runs: readonly ScientificDiagramFixtureRun[], plannedRepetitions: DiagramProtocolCount, createdAt: string,
+) {
+  if (!validateRubric(SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC).valid) throw new Error('Le barème pilote est invalide.');
+  const cases = SCIENTIFIC_DIAGRAM_FIXTURES.map((fixture) => {
+    const caseRuns = runs.filter((run) => run.caseId === fixture.id);
+    const benchmark = buildScientificDiagramProtocolReport(
+      caseRuns, SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC, fixture.gold,
+      plannedRepetitions, createdAt, 1, { syntheticFixtureEvidence: true },
+    );
+    const diagnostic = benchmark.experiments.map((experiment) => {
+      const mismatches = experiment.observations.filter((observation) =>
+        observation.choice !== 'uncertain' && fixture.gold[observation.key] !== undefined
+        && observation.choice !== fixture.gold[observation.key]);
+      const unresolved = experiment.observations.filter((observation) => observation.choice === 'uncertain');
+      return {
+        profileId: experiment.profileId, method: experiment.method, repetition: experiment.repetition,
+        graphV2: experiment.graphEvidence?.version === 'graph-first-v2' && experiment.graphEvidence.pages[0]
+          && fixtureRelationExpectationsV2(fixture.id).length
+          ? auditRelationGraphV2(experiment.graphEvidence.pages[0].graph, fixtureRelationExpectationsV2(fixture.id))
+          : null,
+        scoreDelta: experiment.score === null ? null : Math.round((experiment.score - fixture.referenceScore) * 100) / 100,
+        matchedTargets: experiment.observations.filter((observation) =>
+          observation.choice !== 'uncertain' && observation.choice === fixture.gold[observation.key]).length,
+        mismatchedTargets: mismatches.map((observation) => ({
+          key: observation.key, expected: fixture.gold[observation.key]!,
+          received: observation.choice, awardedPoints: observation.awardedPoints,
+          referencePoints: fixture.referencePoints[observation.key]!,
+        })),
+        unresolvedTargets: unresolved.map((observation) => observation.key),
+        // A model answering "present" to every target may score well on D.
+        // This is a warning pattern, not proof of any internal visual strategy.
+        allPresentPattern: experiment.observations.length > 0
+          && experiment.observations.every((observation) => observation.choice === 'present'),
+        missingEvidenceTargets: experiment.observations
+          .filter((observation) => observation.decisionSource === 'scored-proposal'
+            && observation.evidenceState !== 'provided')
+          .map((observation) => observation.key),
+        teacherReviewTargets: experiment.observations
+          .filter((observation) => observation.teacherReviewRequested)
+          .map((observation) => observation.key),
+      };
+    });
+    return {
+      caseId: fixture.id,
+      label: fixture.label,
+      referenceScore: fixture.referenceScore,
+      expectedPoints: structuredClone(fixture.referencePoints),
+      gold: structuredClone(fixture.gold),
+      ...(fixture.labelPointerChallenge ? { labelPointerChallenge: structuredClone(fixture.labelPointerChallenge) } : {}),
+      ...(fixture.layoutObservation ? { layoutObservation: structuredClone(fixture.layoutObservation) } : {}),
+      ...(fixture.referenceReview ? { referenceReview: structuredClone(fixture.referenceReview) } : {}),
+      summaries: benchmark.summaries,
+      experiments: benchmark.experiments,
+      diagnostic,
+    };
+  });
+  // Compare the controlled D/E mutation at the same repetition and model.
+  // Missing/uncertain readings are inconclusive, not false scientific answers.
+  const control = cases.find((item) => item.caseId === 'D')!;
+  const trap = cases.find((item) => item.caseId === 'E')!;
+  const runKey = (run: { profileId: string; model: string; method: string; repetition: number }) =>
+    JSON.stringify([run.profileId, run.model, run.method, run.repetition]);
+  const keys = [...new Set([...control.experiments, ...trap.experiments].map(runKey))];
+  const pairedDiagnostics = keys.map((key) => {
+    const d = control.experiments.find((item) => runKey(item) === key);
+    const e = trap.experiments.find((item) => runKey(item) === key);
+    const target = SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET;
+    const align = diagramTargetKey('legends', 'legends-aligned');
+    const dChoice = d?.observations.find((item) => item.key === target)?.choice ?? 'uncertain';
+    const eChoice = e?.observations.find((item) => item.key === target)?.choice ?? 'uncertain';
+    const bothSucceeded = d?.status === 'success' && e?.status === 'success';
+    const result = !bothSucceeded || dChoice === 'uncertain' || eChoice === 'uncertain'
+      ? 'inconclusive' as const
+      : dChoice === 'present' && eChoice === 'absent' ? 'detected' as const : 'missed' as const;
+    const compared = d?.observations.filter((item) =>
+      item.key !== target && item.choice !== 'uncertain'
+      && e?.observations.find((other) => other.key === item.key)?.choice !== 'uncertain') ?? [];
+    const unexpectedChanges = compared.filter((item) =>
+      item.choice !== e?.observations.find((other) => other.key === item.key)?.choice).map((item) => item.key);
+    const dAlign = d?.observations.find((item) => item.key === align)?.choice ?? 'uncertain';
+    const eAlign = e?.observations.find((item) => item.key === align)?.choice ?? 'uncertain';
+    const [profileId, model, method, repetition] = JSON.parse(key) as [string, string, string, number];
+    const dV2 = control.diagnostic.find((item) => runKey({...item, model: d?.model ?? ''}) === key)?.graphV2 ?? null;
+    const eV2 = trap.diagnostic.find((item) => runKey({...item, model: e?.model ?? ''}) === key)?.graphV2 ?? null;
+    const pairedV2 = dV2 && eV2 ? (() => {
+      const differences = dV2.findings.filter((finding) => {
+        const other = eV2.findings.find((item) => item.phase === finding.phase && item.label === finding.label);
+        return Boolean(other) && finding.observedKind !== null && other!.observedKind !== null
+          && finding.observedKind !== other!.observedKind;
+      });
+      const unresolved = dV2.uncertain + eV2.uncertain;
+      return {
+        status: unresolved > 0 ? 'inconclusive' as const
+          : dV2.correct === 6 && eV2.correct === 6 && differences.length === 4
+            ? 'detected' as const : differences.length === 0 ? 'missed' as const : 'partial' as const,
+        observedChangedTargets: differences.map((item) => item.phase + '::' + item.label),
+        expectedChangedTargets: 4,
+        unresolved,
+        controlMatched: dV2.correct, alteredMatched: eV2.correct,
+        layoutRowsBoth: dV2.observedLayout === 'rows' && eV2.observedLayout === 'rows',
+      };
+    })() : null;
+    return {
+      profileId, model, method, repetition,
+      graphV2: pairedV2,
+      status: result,
+      controlChoice: dChoice, alteredChoice: eChoice,
+      alignmentDetectedBoth: bothSucceeded && dAlign !== 'uncertain' && eAlign !== 'uncertain'
+        ? dAlign === 'absent' && eAlign === 'absent' : null,
+      unchangedTargetsCompared: compared.length,
+      unexpectedChanges,
+      identicalChoices: bothSucceeded && d && e
+        && d.observations.every((item) => item.choice !== 'uncertain'
+          && item.choice === e.observations.find((other) => other.key === item.key)?.choice)
+        ? true : bothSucceeded && d && e && d.observations.every((item) => item.choice !== 'uncertain')
+          && e.observations.every((item) => item.choice !== 'uncertain') ? false : null,
+      proposedScoreDifference: typeof d?.score === 'number' && typeof e?.score === 'number'
+        ? Math.round((d.score - e.score) * 100) / 100 : null,
+      expectedScoreDifference: 0.68,
+    };
+  });
+  return {
+    format: 'companion-scientific-diagram-fixture-report' as const,
+    version: 6,
+    diagnosticSchemaVersion: 1,
+    pairedDiagnostics,
+    protocolId: 'scientific-diagram-generated-a-b-c-plus-label-pointers-v6',
+    createdAt,
+    plannedRepetitions,
+    rubric: structuredClone(SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC),
+    context: SCIENTIFIC_DIAGRAM_FIXTURE_CONTEXT,
+    localOnly: runs.every(({ record }) => record.configurations.every((config) => {
+      try { return ['localhost', '127.0.0.1', '[::1]'].includes(new URL(config.endpoint).hostname); } catch { return false; }
+    })),
+    limitations: 'Cinq dessins synthétiques (A/B/C et paire contrôlée D/E), références PROVISOIRES non validées par un enseignant. A=9,84/10, B=7,36/10, C=0,66/10, D=9,34/10, E=8,66/10. Revue du 12 novembre 2026 : A perd 0,16 point au titre incomplet (cellule végétale et coupe indiquées, mais organe et organisme absents) ; C gagne 0,33 point au titre souligné, en plus de son orientation horizontale déjà reconnue le 11 novembre. Le contenu « cellule ? » reste insuffisant et ne valide pas le sujet du titre. Les autres appréciations de C, notamment la qualité des légendes, restent à arbitrer par un enseignant. Les anciens rapports et archives conservent leurs références d’origine pour traçabilité ; le radar recalcule la justesse A/B/C sur les décisions sauvegardées en utilisant la référence v6 lorsque les 19 critères sont identiques. D et E perdent chacun 0,66 point au critère « Légendes alignées en colonne », car leurs légendes sont en lignes. Les deux images ne diffèrent que par quatre destinations de flèches : seul le critère « Légendes : structures visibles et flèches correctes » (0,68 point) change entre D et E. Ces pénalités suivent le barème du pilote, mais les notes totales restent des références provisoires à confirmer par un enseignant. Les images, clés, endpoints et réponses brutes ne sont jamais exportés.',
+    cases,
+  };
+}

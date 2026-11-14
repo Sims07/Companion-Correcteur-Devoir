@@ -1,5 +1,5 @@
 import type { CorrectionMethod } from '../domain/correctionMethod.ts';
-import type { TeacherAnnotationReviewCandidate, TeacherAnnotationReviewDecision } from '../domain/teacherAnnotations.ts';
+import type { TeacherAnnotationReviewCandidate, TeacherAnnotationReviewDecision } from '../domain/correction/teacherAnnotations.ts';
 import type { ImageInput } from '../domain/imageInput.ts';
 export type { ImageInput } from '../domain/imageInput.ts';
 
@@ -89,7 +89,7 @@ export interface CriterionAnalysisUpdate {
   total: number;
   attempt: number;
   status: 'started' | 'retrying' | 'completed' | 'failed';
-  proposal?: import('../domain/grading.ts').CriterionProposal;
+  proposal?: import('../domain/correction/grading.ts').CriterionProposal;
   error?: string;
 }
 

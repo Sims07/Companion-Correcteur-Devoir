@@ -1,4 +1,4 @@
-import { contractContext, type CorrectionContract } from '../../domain/questionContract.ts';
+import { contractContext, type CorrectionContract } from '../../domain/correction/questionContract.ts';
 export interface IncrementalGradingCriterion {
   correctionContract?: CorrectionContract;
   id: string;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseGradingProposal } from '../../src/domain/grading.ts';
+import { parseGradingProposal } from '../../src/domain/correction/grading.ts';
 
 const rubric = {
   title: 'Biologie',

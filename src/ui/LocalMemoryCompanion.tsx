@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { LocalCorrectionService } from '../application/localCorrectionService.ts';
-import { fingerprintRubric, LOCAL_MEMORY_CORRECTION_ID_KEY, LOCAL_MEMORY_RUBRIC_FINGERPRINT_KEY, LOCAL_MEMORY_RUBRIC_UPDATED_EVENT, LOCAL_MEMORY_UPDATED_EVENT, type LocalMemoryEntry } from '../domain/localMemory.ts';
-import type { LocalCorrection } from '../domain/localCorrection.ts';
-import { buildLocalMemoryContext, createTeacherMemoryEntry } from '../domain/localMemoryContext.ts';
+import { fingerprintRubric, LOCAL_MEMORY_CORRECTION_ID_KEY, LOCAL_MEMORY_RUBRIC_FINGERPRINT_KEY, LOCAL_MEMORY_RUBRIC_UPDATED_EVENT, LOCAL_MEMORY_UPDATED_EVENT, type LocalMemoryEntry } from '../domain/correction/localMemory.ts';
+import type { LocalCorrection } from '../domain/correction/localCorrection.ts';
+import { buildLocalMemoryContext, createTeacherMemoryEntry } from '../domain/correction/localMemoryContext.ts';
 import './localMemory.css';
 import { Button, Dialog, StatusNotice, type StatusTone } from './design-system/index.ts';
 

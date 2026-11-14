@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react';
-import { createBackgroundCorrection } from '../../domain/backgroundCorrection.ts';
+import { createBackgroundCorrection } from '../../domain/correction/backgroundCorrection.ts';
 import { ActiveCopyProcessingWorkspace } from './ActiveCopyProcessingWorkspace.tsx';
 
 const sampleSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="900" viewBox="0 0 640 900">

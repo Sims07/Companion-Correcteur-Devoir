@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { buildBlindVisualObservationReport } from '../../src/domain/scientificDiagramBlindGraph.ts';
+import { buildBlindVisualObservationReport } from '../../src/domain/evaluation/scientificDiagramBlindGraph.ts';
 
 test('an existing exported scientific diagram report is readable tomorrow without rerunning models', async ({ page }) => {
   const report = buildBlindVisualObservationReport([], 1, '2026-11-09T09:00:00.000Z', 'isolated-arrows-outside');

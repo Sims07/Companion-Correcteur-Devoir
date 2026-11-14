@@ -2,7 +2,7 @@ import type { ImageInput } from '../../domain/imageInput.ts';
 import {
   DIAGRAM_RELATIONS_V2_PROMPT, DIAGRAM_RELATIONS_V2_SCHEMA,
   parseObservedRelationGraphV2, type ObservedRelationGraphV2,
-} from '../../domain/scientificDiagramRelationGraphV2.ts';
+} from '../../domain/evaluation/scientificDiagramRelationGraphV2.ts';
 import { blindGraphCompatibleUrl, blindGraphLocalUrl } from './blindDiagramGraphClient.ts';
 import { currentFetch } from './currentFetch.ts';
 import { createOpenAiCompatibleFetch } from './openAiCompatibleTransport.ts';

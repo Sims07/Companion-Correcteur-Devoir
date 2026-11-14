@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import type { LocalBenchmarkSummary } from '../domain/localDecisionBenchmark.ts';
+import type { LocalBenchmarkSummary } from '../domain/evaluation/localDecisionBenchmark.ts';
 import type { StorageDiagnosticsService } from '../application/storageDiagnosticsService.ts';
 import { StorageUsagePanel } from './StorageUsagePanel.tsx';
 import { buildObservabilityModelMetrics, buildObservabilitySummary, extractObservabilityPromptMessages, type ObservabilityTrace } from '../domain/observability.ts';

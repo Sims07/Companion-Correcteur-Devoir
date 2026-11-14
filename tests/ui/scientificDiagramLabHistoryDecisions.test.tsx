@@ -1,8 +1,8 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { ReportDetails } from '../../src/ui/components/ScientificDiagramLabHistory.tsx';
-import { SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC } from '../../src/domain/scientificDiagramFixtures.ts';
-import type { DiagramLabArchiveEntry } from '../../src/domain/diagramLabHistory.ts';
+import { SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC } from '../../src/domain/evaluation/scientificDiagramFixtures.ts';
+import type { DiagramLabArchiveEntry } from '../../src/domain/evaluation/diagramLabHistory.ts';
 
 describe('scientific diagram fixture history', () => {
   it('makes the two errors of image E obvious while leaving the other 17 decisions green', () => {

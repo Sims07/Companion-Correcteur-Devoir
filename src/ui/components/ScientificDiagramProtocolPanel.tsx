@@ -4,12 +4,12 @@ import { BlindGraphRunDetails } from './BlindGraphRunDetails.tsx';
 import { ZoomableImage } from './ZoomableImage.tsx';
 import { useEffect, useRef, useState } from 'react';
 import type { AiModelProfile } from '../../domain/aiModelProfiles.ts';
-import { radarPlanDescription, RADAR_TEST_PROTOCOL_NAMES, type RadarMissingTestRequest, type RadarTestStep } from '../../domain/diagramLabRadarLaunch.ts';
-import { describeRadarBattery } from '../../domain/radarBatteryExecution.ts';
-import { buildBlindVisualObservationReport, blindGraphProfileIssue, blindGraphVisionModel, type BlindGraphPromptVariant } from '../../domain/scientificDiagramBlindGraph.ts';
-import type { Rubric } from '../../domain/rubric.ts';
+import { radarPlanDescription, RADAR_TEST_PROTOCOL_NAMES, type RadarMissingTestRequest, type RadarTestStep } from '../../domain/evaluation/diagramLabRadarLaunch.ts';
+import { describeRadarBattery } from '../../domain/evaluation/radarBatteryExecution.ts';
+import { buildBlindVisualObservationReport, blindGraphProfileIssue, blindGraphVisionModel, type BlindGraphPromptVariant } from '../../domain/evaluation/scientificDiagramBlindGraph.ts';
+import type { Rubric } from '../../domain/correction/rubric.ts';
 import type { ImageInput } from '../../ports/aiProvider.ts';
-import { getRubricSubcriteria, validateRubric } from '../../domain/rubric.ts';
+import { getRubricSubcriteria, validateRubric } from '../../domain/correction/rubric.ts';
 import { Button, TextArea } from '../design-system/index.ts';
 import { DesignSystemSelect } from './DesignSystemSelect.tsx';
 import { FilePicker } from './FilePicker.tsx';
@@ -18,14 +18,11 @@ import intermediateDiagramUrl from '../../assets/pilot/scientific-mitosis-5.webp
 import poorDiagramUrl from '../../assets/pilot/scientific-mitosis-0.webp';
 import correctPointerDiagramUrl from '../../assets/pilot/scientific-mitosis-labels-control.svg';
 import swappedPointerDiagramUrl from '../../assets/pilot/scientific-mitosis-labels-swapped.svg';
-import { SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC, SCIENTIFIC_DIAGRAM_FIXTURES, SCIENTIFIC_DIAGRAM_BASE_CASE_IDS, SCIENTIFIC_DIAGRAM_POINTER_CASE_IDS, type ScientificDiagramFixtureId, type buildScientificDiagramFixtureReport } from '../../domain/scientificDiagramFixtures.ts';
+import { SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC, SCIENTIFIC_DIAGRAM_FIXTURES, SCIENTIFIC_DIAGRAM_BASE_CASE_IDS, SCIENTIFIC_DIAGRAM_POINTER_CASE_IDS, type ScientificDiagramFixtureId, type buildScientificDiagramFixtureReport } from '../../domain/evaluation/scientificDiagramFixtures.ts';
 import { DIAGRAM_SENSITIVITY_CASES, DIAGRAM_SENSITIVITY_CASE_IDS, scientificDiagramSensitivitySvg, scientificDiagramSensitivityPreviewUrl, diagramSensitivityContext,
-  type DiagramSensitivityCaseId, type DiagramSensitivityPromptMode, type buildScientificDiagramSensitivityReport } from '../../domain/scientificDiagramSensitivity.ts';
-import {
-  SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC, diagramMethodIssue, diagramMethodLabels, selectDiagramMethods,
-  diagramTargetKey, parseScientificDiagramProtocolRubric, type DiagramMethodSelection,
-  type DiagramGold, type DiagramProtocolCount, type buildScientificDiagramProtocolReport,
-} from '../../domain/scientificDiagramProtocol.ts';
+  type DiagramSensitivityCaseId, type DiagramSensitivityPromptMode, type buildScientificDiagramSensitivityReport } from '../../domain/evaluation/scientificDiagramSensitivity.ts';
+import { diagramMethodIssue, diagramMethodLabels, selectDiagramMethods, diagramTargetKey, type DiagramMethodSelection, type DiagramGold, type DiagramProtocolCount, type buildScientificDiagramProtocolReport,  } from '../../domain/evaluation/scientificDiagramProtocol.ts';
+import { SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC, parseScientificDiagramProtocolRubric } from '../../domain/correction/scientificDiagramRubric.ts';
 import './PilotEvaluationPanel.css';
 import './ScientificDiagramProtocolPanel.css';
 

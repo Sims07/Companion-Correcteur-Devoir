@@ -1,5 +1,5 @@
 import type { ImageInput } from '../domain/imageInput.ts';
-import type { BackgroundCorrectionJob } from '../domain/backgroundCorrection.ts';
+import type { BackgroundCorrectionJob } from '../domain/correction/backgroundCorrection.ts';
 
 /**
  * Prepare explicit file groups as independent copies.

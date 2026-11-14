@@ -1,6 +1,6 @@
 import './AiModelRoleFields.css';
 import type { CorrectionMethod } from '../../domain/correctionMethod.ts';
-import { isVisualDecisionModel } from '../../domain/systemOneDecision.ts';
+import { isVisualDecisionModel } from '../../domain/correction/systemOneDecision.ts';
 import { DesignSystemSelect } from './DesignSystemSelect.tsx';
 import { StatusNotice } from '../design-system/index.ts';
 

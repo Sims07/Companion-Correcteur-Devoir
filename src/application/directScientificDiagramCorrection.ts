@@ -1,9 +1,9 @@
 import type { AiModelConfiguration } from '../domain/aiModelProfiles.ts';
-import { parseGradingProposal, type GradingProposal } from '../domain/grading.ts';
-import { validateRubric, type Rubric } from '../domain/rubric.ts';
+import { parseGradingProposal, type GradingProposal } from '../domain/correction/grading.ts';
+import { validateRubric, type Rubric } from '../domain/correction/rubric.ts';
 import type { ImageInput } from '../ports/aiProvider.ts';
 import type { CorrectionWorkspaceService } from './correctionWorkspaceService.ts';
-export { isLoopbackDiagramEndpoint, directDiagramAssignmentIssue } from '../domain/directDiagramAssignment.ts';
+export { isLoopbackDiagramEndpoint, directDiagramAssignmentIssue } from '../domain/correction/directDiagramAssignment.ts';
 
 export interface DirectScientificDiagramRequest {
   images: ImageInput[];
