@@ -36,10 +36,11 @@ export function MethodRadarComparison({sorted, axes}: {sorted:TimelinePoint[]; a
       <option value="">Radar complet en priorité</option>{protocols.map(name => <option key={name}>{name}</option>)}</select></label>
     <div className="lab-radar-layout"><div className="lab-method-series">{series.map((p,index) =>
       <div key={index} className={'lab-series series-'+index}>
-        <label>{index ? 'Méthode B' : 'Méthode A'}<select value={p.label} onChange={e => {
+        <label htmlFor={'lab-method-'+index}>{index ? 'Méthode B' : 'Méthode A'}</label>
+        <select id={'lab-method-'+index} value={p.label} onChange={e => {
           if (index) setSecondary(e.target.value);
           else { if (e.target.value === second?.label) setSecondary(first.label); setPrimary(e.target.value); }
-        }}>{(index ? alternatives : preferred).map(row => <option key={row.label}>{row.label}</option>)}</select></label>
+        }}>{(index ? alternatives : preferred).map(row => <option key={row.label}>{row.label}</option>)}</select>
         <strong>{number(p.score)} <small>/ 100</small></strong>
         <span>{isFull(p,axes) ? 'Dernier radar complet' : 'Dernier radar partiel'} · {axes.filter(a => p.axes[a] != null).length}/{axes.length} axes</span>
         <time dateTime={p.date}>{new Date(p.date).toLocaleString('fr-FR',{dateStyle:'medium',timeStyle:'short'})}</time>
