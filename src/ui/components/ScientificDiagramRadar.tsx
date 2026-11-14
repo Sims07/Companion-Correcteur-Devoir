@@ -227,7 +227,9 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
       {activeModel && <div className="diagram-radar-remaining" aria-label="Tests restant à faire pour ce LLM">
         <div><h4>{missingAxes.length ? 'Évaluation du modèle' : 'Toutes les caractéristiques sont mesurées'}</h4>
           <p>{missingAxes.length
-            ? missingAxes.length + ' caractéristique(s) sans note sur huit.'
+            ? missingAxes.length + ' caractéristique(s) ' +
+              (graphDiagnostic && ['retry', 'exhausted', 'unusable'].includes(graphDiagnostic.kind)
+                ? 'sans note' : 'à mesurer') + ' sur huit.'
             : 'Les huit axes sont alimentés par les campagnes de test enregistrées.'}</p></div>
         {missingAxes.length > 0 && <>
           <div className="diagram-radar-evaluate">
