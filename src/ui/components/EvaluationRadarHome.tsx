@@ -117,7 +117,8 @@ export function EvaluationRadarHome({
       const calculated = sciencePoints(group, weights);
       return last.timeline?.map(p => {
         const metadata = calculated.find(c => c.model === p.model);
-        return {...p, protocolLabel: metadata?.protocolLabel, comparisonBasis: metadata?.comparisonBasis};
+        return {...p, protocolLabel: metadata?.protocolLabel, comparisonBasis: metadata?.comparisonBasis,
+          batteryEngines: p.batteryEngines ?? metadata?.batteryEngines};
       }) ?? calculated.map(p => ({ ...p, reconstructed: true }));
     }),
     biology: campaignGroups(history, row => row.campaignId ?? row.id).flatMap(group => {
@@ -165,6 +166,7 @@ export function EvaluationRadarHome({
           <option value="contract">Contrats par question</option><option value="standard">Barème standard</option>
         </select>}
       </label>
+      {scientific && <p className="radar-method-help">La stratégie de la campagne et le moteur exécuté sont deux informations distinctes : le suivi indique le moteur réel de chaque batterie, conservé dans l’historique.</p>}
       <Button disabled={busy || !(scientific ? canLaunchScience(fullPlan) : profile)}
         onClick={() => launchChosen(lab)}>Évaluer avec cette méthode</Button>
     </RadarTimeline>;

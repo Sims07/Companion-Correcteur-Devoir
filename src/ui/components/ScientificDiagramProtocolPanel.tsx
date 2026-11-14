@@ -4,6 +4,7 @@ import { BlindGraphRunDetails } from './BlindGraphRunDetails.tsx';
 import { useEffect, useRef, useState } from 'react';
 import type { AiModelProfile } from '../../domain/aiModelProfiles.ts';
 import { radarPlanDescription, RADAR_TEST_PROTOCOL_NAMES, type RadarMissingTestRequest, type RadarTestStep } from '../../domain/diagramLabRadarLaunch.ts';
+import { describeRadarBattery } from '../../domain/radarBatteryExecution.ts';
 import { buildBlindVisualObservationReport, blindGraphProfileIssue, blindGraphVisionModel, type BlindGraphPromptVariant } from '../../domain/scientificDiagramBlindGraph.ts';
 import type { Rubric } from '../../domain/rubric.ts';
 import type { ImageInput } from '../../ports/aiProvider.ts';
@@ -142,6 +143,7 @@ export interface ScientificDiagramProtocolPanelProps {
   onAutoRequestConsumed?: (id: number) => void;
   onOpenRadar?: () => void;
   onAutoBusyChange?: (busy: boolean) => void;
+  onAutoStepChange?: (request: RadarMissingTestRequest, stepIndex: number) => void;
   onAutoEvaluationFinished?: (request: RadarMissingTestRequest, steps: readonly { protocol: RadarTestStep['protocol']; complete: boolean }[]) => Promise<string>;
   onAutoWasStopped?: () => boolean;
 }
@@ -150,7 +152,7 @@ export function ScientificDiagramProtocolPanel({
   selectedProfiles, busy, progress, onPrepareImages, onRun, onRunFixtures, onStop,
   report, fixtureReport, sensitivityReport, blindGraphReport,
   onClearReport, onClearFixtureReport, onClearSensitivityReport, onClearBlindGraphReport,
-  onRunSensitivity, onRunBlindGraph, autoRequest, onAutoRequestConsumed, onOpenRadar, onAutoBusyChange, onAutoEvaluationFinished, onAutoWasStopped,
+  onRunSensitivity, onRunBlindGraph, autoRequest, onAutoRequestConsumed, onOpenRadar, onAutoBusyChange, onAutoStepChange, onAutoEvaluationFinished, onAutoWasStopped,
 }: ScientificDiagramProtocolPanelProps) {
   const [rubric, setRubric] = useState<Rubric>(() => structuredClone(SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC));
   const [context, setContext] = useState('');
@@ -319,13 +321,17 @@ export function ScientificDiagramProtocolPanel({
       const stepResults: Array<{ protocol: RadarTestStep['protocol']; complete: boolean }> = [];
       try {
       for (const [index, step] of autoRequest.steps.entries()) {
+        const description = describeRadarBattery(autoRequest, index);
+        onAutoStepChange?.(autoRequest, index);
         setActiveProtocol(step.protocol);
         setFixtureCount(step.repetitions);
         setMethodSelection(step.method);
         setSensitivityPromptSelection(step.promptMode);
         setBlindGraphPromptVariant(step.graphVariant);
-        setRadarAutoStatus('Batterie ' + (index + 1) + '/' + autoRequest.steps.length
-          + ' : ' + RADAR_TEST_PROTOCOL_NAMES[step.protocol] + ' pour ' + profile.name + '.');
+        setRadarAutoStatus('Stratégie choisie : ' + description.selectedMethod +
+          ' · Batterie ' + description.batteryIndex + '/' + description.batteryTotal +
+          ' : ' + description.batteryLabel + ' · Moteur utilisé : ' + description.engineLabel +
+          ' · ' + profile.name + '.');
         const ok = step.protocol === 'reference'
           ? await runPreparedFixtures(SCIENTIFIC_DIAGRAM_BASE_CASE_IDS, step)
           : step.protocol === 'arrows'

@@ -155,6 +155,10 @@ test('the dashboard launches scientific batteries on a configured Ollama LAN hos
   await expect(page.getByRole('status', { name: 'Suivi du lancement depuis le radar' })).toBeVisible();
   await expect(page.getByRole('status', { name: 'Dernière expérience lancée' }))
     .toContainText('Schémas scientifiques · qualité graphique A/B/C');
+  const radarContext = page.getByRole('group', { name: 'Méthode et moteur du test radar' });
+  await expect(radarContext).toContainText('Stratégie choisie : Graphe · détecteur des petites pointes (#439)');
+  await expect(radarContext).toContainText('Batterie');
+  await expect(radarContext).toContainText('Moteur utilisé :');
   // The former graph-only localhost check aborted before any Ollama request.
   await expect.poll(() => ollamaRequests.includes('/api/chat'), { timeout: 30_000 }).toBe(true);
   await expect(page.getByRole('status', { name: 'Suivi du lancement depuis le radar' }))
