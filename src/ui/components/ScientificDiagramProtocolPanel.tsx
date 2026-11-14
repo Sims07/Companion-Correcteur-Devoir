@@ -629,8 +629,8 @@ export function ScientificDiagramProtocolPanel({
             signifie que l'un des deux passages manque ou est incertain. Les justifications courtes sont
             issues du modèle sur les seuls dessins synthétiques, et ne constituent pas une vérification indépendante.
           </p>
-          {fixtureReport.pairedDiagnostics.map((pair) => <div key={pair.profileId + pair.method + pair.repetition} className="diagram-protocol-decision-list">
-            <strong>{pair.profileId} · {diagramMethodLabels[pair.method as keyof typeof diagramMethodLabels]} · passage {pair.repetition}</strong>
+          {fixtureReport.pairedDiagnostics.map((pair) => <div key={pair.profileId + pair.model + pair.method + pair.repetition} className="diagram-protocol-decision-list">
+            <strong>{pair.profileId} · {pair.model} · {diagramMethodLabels[pair.method as keyof typeof diagramMethodLabels]} · passage {pair.repetition}</strong>
             <p>Détection D/E : {pair.status === 'detected' ? 'Réussie' : pair.status === 'missed' ? 'Échec de différenciation' : 'Non concluante'}
               {' · '}D : {pair.controlChoice} · E : {pair.alteredChoice}
               {' · '}écart de notes : {pair.proposedScoreDifference === null ? 'non mesuré' : pair.proposedScoreDifference + ' pt'}
