@@ -20,6 +20,18 @@ Ce document définit les règles à respecter pour toute évolution de Companion
 - Privilégier des tests robustes et utiles qui vérifient le comportement observable. Les assertions sur le texte du code source peuvent servir de garde-fous ciblés, mais ne remplacent pas des tests d’exécution lorsqu’un comportement peut être testé directement.
 - Ne pas affaiblir ou supprimer des tests existants uniquement pour faire passer la CI. Toute modification d’un test existant doit rester justifiée par le comportement attendu.
 
+### Où ajouter un test
+
+Tous les tests du projet vivent sous `tests/`.
+
+| Outil | Emplacement | Exemple |
+| --- | --- | --- |
+| Vitest | Sous-dossier correspondant au code testé, suffixe `.test.ts` ou `.test.tsx` | `src/domain/scientificDiagram.ts` → `tests/domain/scientificDiagram.test.ts` |
+| Playwright | `tests/e2e/*.spec.ts` | Parcours de correction enseignant |
+| unittest | `tests/python/test_*.py` | Lanceur HTTPS pour Ollama |
+
+Chaque suite est découverte directement par son outil. Importer les fonctions ou fixtures partagées depuis un module auxiliaire, jamais depuis une autre suite. La CI compare les fichiers de tests versionnés à la collecte de Vitest et de Playwright et vérifie la convention Python. Pour reproduire ce contrôle après avoir indexé les nouveaux fichiers, lancer `python3 scripts/check_test_discovery.py` depuis la racine.
+
 ## 3. Pyramide de tests
 
 Respecter la pyramide de tests : beaucoup de tests unitaires rapides, des tests d’intégration ciblés, puis un nombre plus limité de tests de bout en bout lorsque cela apporte une réelle valeur.

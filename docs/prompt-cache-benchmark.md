@@ -34,5 +34,5 @@ Observer : durée complète, `prompt_eval_duration`, tokens évalués, tokens ca
 Vérification locale du script, sans serveur IA :
 
 ```bash
-python3 -m unittest discover -s scripts -p 'test_benchmark_prompt_cache.py'
+python3 -m unittest discover -s tests/python -p 'test_benchmark_prompt_cache.py'
 ```

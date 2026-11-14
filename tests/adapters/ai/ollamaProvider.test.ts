@@ -1,0 +1,479 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { buildStudentIdentityPrompt, buildTeacherAnnotationPrompt, checkOllamaReady, createOllamaProvider, prewarmOllamaModel, unloadOllamaModel } from '../../../src/adapters/ai/ollamaProvider.ts';
+import type { OllamaSettings } from '../../../src/ports/aiProvider.ts';
+
+const settings: OllamaSettings = {
+  endpoint: 'http://localhost:11434',
+  visionModel: 'qwen3.5:4b',
+  analysisModel: 'qwen3.5:4b',
+};
+
+function response(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+}
+
+function streamResponse(content: string): Response {
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode(JSON.stringify({ message: { content } }) + '\n'));
+      controller.enqueue(new TextEncoder().encode(JSON.stringify({ done: true, done_reason: 'stop' }) + '\n'));
+      controller.close();
+    },
+  });
+  return new Response(stream, { status: 200, headers: { 'Content-Type': 'application/x-ndjson' } });
+}
+
+describe('Ollama readiness without loading models', () => {
+  afterEach(() => vi.useRealTimers());
+  it('checks installed model metadata without issuing a generation request', async () => {
+    const mockFetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith('/api/tags')) return response({ models: [{ name: 'qwen3.5:4b' }] });
+      if (url.endsWith('/api/show')) return response({ modelfile: 'FROM qwen3.5:4b' });
+      throw new Error(`Unexpected generation request: ${url}`);
+    });
+    const fetchImpl = mockFetch as unknown as typeof fetch;
+
+    await expect(checkOllamaReady(settings, fetchImpl)).resolves.toBeUndefined();
+
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    expect(mockFetch.mock.calls.map(([url]) => String(url))).toEqual([
+      'http://localhost:11434/api/tags',
+      'http://localhost:11434/api/show',
+    ]);
+  });
+
+  it('stops /api/show after 15 seconds even when a proxy ignores the abort signal', async () => {
+    vi.useFakeTimers();
+    let showSignal: AbortSignal | undefined;
+    let showStarted!: () => void;
+    const started = new Promise<void>((resolve) => { showStarted = resolve; });
+    const mockFetch = vi.fn((input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      if (String(input).endsWith('/api/tags')) return Promise.resolve(response({ models: [{ name: 'qwen3.5:4b' }] }));
+      showSignal = init?.signal ?? undefined;
+      showStarted();
+      // Simulate a stalled proxy which never resolves, even when its signal is aborted.
+      return new Promise<Response>(() => {});
+    });
+    const check = checkOllamaReady(settings, mockFetch as unknown as typeof fetch);
+    const assertion = expect(check).rejects.toThrow(/\/api\/show.*15 secondes/);
+    await started;
+    await vi.advanceTimersByTimeAsync(15_000);
+    await assertion;
+    expect(showSignal?.aborted).toBe(true);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('cancels a pending /api/show immediately when the teacher stops the test', async () => {
+    vi.useFakeTimers();
+    const controller = new AbortController();
+    let showSignal: AbortSignal | undefined;
+    let showStarted!: () => void;
+    const started = new Promise<void>((resolve) => { showStarted = resolve; });
+    const mockFetch = vi.fn((input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      if (String(input).endsWith('/api/tags')) return Promise.resolve(response({ models: [{ name: 'qwen3.5:4b' }] }));
+      showSignal = init?.signal ?? undefined;
+      showStarted();
+      return new Promise<Response>(() => {});
+    });
+    const check = checkOllamaReady(settings, mockFetch as unknown as typeof fetch, controller.signal);
+    const assertion = expect(check).rejects.toMatchObject({ name: 'AbortError' });
+    await started;
+    controller.abort();
+    await assertion;
+    expect(showSignal?.aborted).toBe(true);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('clears the /api/show timeout after a successful metadata request', async () => {
+    vi.useFakeTimers();
+    const mockFetch = vi.fn(async (input: RequestInfo | URL) =>
+      String(input).endsWith('/api/tags')
+        ? response({ models: [{ name: 'qwen3.5:4b' }] })
+        : response({ modelfile: 'FROM qwen3.5:4b' }),
+    );
+    await expect(checkOllamaReady(settings, mockFetch as unknown as typeof fetch)).resolves.toBeUndefined();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('keeps a genuinely prewarmed model loaded for the first real read, and preserves it for the next copy', async () => {
+    let modelLoaded = false;
+    let modelLoadCount = 0;
+    let generationCount = 0;
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('/api/tags')) return response({ models: [{ name: 'qwen3.5:4b' }] });
+      if (url.endsWith('/api/show')) return response({ modelfile: 'FROM qwen3.5:4b' });
+      if (url.endsWith('/api/chat')) {
+        generationCount += 1;
+        const payload = JSON.parse(String(init?.body)) as { model: string; stream: boolean; keep_alive?: string | number };
+        expect(payload.model).toBe('qwen3.5:4b');
+        const loadedOnThisRequest = !modelLoaded;
+        if (loadedOnThisRequest) {
+          modelLoaded = true;
+          modelLoadCount += 1;
+        }
+        if (!payload.stream) return response({ message: { content: 'OK' } });
+        expect(payload.stream).toBe(true);
+        const stream = new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode(JSON.stringify({ message: { content: 'Transcription de la copie.' } }) + '\n'));
+            controller.enqueue(new TextEncoder().encode(JSON.stringify({ done: true, load_duration: loadedOnThisRequest ? 120_000_000 : 0 }) + '\n'));
+            controller.close();
+            if (payload.keep_alive === 0) modelLoaded = false;
+          },
+        });
+        return new Response(stream, { status: 200, headers: { 'Content-Type': 'application/x-ndjson' } });
+      }
+      throw new Error(`Unexpected endpoint: ${url}`);
+    });
+    const fetch = fetchImpl as unknown as typeof globalThis.fetch;
+
+    await checkOllamaReady(settings, fetch);
+    expect(generationCount).toBe(0);
+    expect(modelLoadCount).toBe(0);
+
+    await prewarmOllamaModel(settings, 'qwen3.5:4b', fetch);
+    expect(generationCount).toBe(1);
+    expect(modelLoadCount).toBe(1);
+    expect(modelLoaded).toBe(true);
+
+    const provider = createOllamaProvider(settings, fetch);
+    const progressEvents: Array<{ type: string; role?: string; pageIndex?: number }> = [];
+    const transcription = await provider.generate({
+      question: 'Transcrire la copie sans répondre aux questions.',
+      rubric: '{}',
+      images: [{ base64: 'aW1hZ2U=', mimeType: 'image/png', fileName: 'page-1.png' }],
+      visionOnly: true,
+    }, undefined, undefined, undefined, undefined, undefined, undefined, (event) => progressEvents.push(event));
+
+    expect(transcription).toContain('Transcription de la copie.');
+    expect(generationCount).toBe(2);
+    expect(modelLoadCount).toBe(1);
+    expect(modelLoaded).toBe(true);
+    expect(progressEvents).toContainEqual({ type: 'first-token', role: 'reading', pageIndex: 1 });
+  });
+
+  it('cancels a cold-start request after five minutes with an actionable Ollama hint', async () => {
+    vi.useFakeTimers();
+    let notifyRequestStarted!: () => void;
+    const requestStarted = new Promise<void>((resolve) => { notifyRequestStarted = resolve; });
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      notifyRequestStarted();
+      return new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true });
+      });
+    }) as unknown as typeof fetch;
+    const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', visionModel: 'qwen3.5:4b' }, fetchImpl);
+    const grading = provider.generate({
+      question: 'Transcrire la copie.',
+      rubric: '{}',
+      images: [{ base64: 'aW1hZ2U=', mimeType: 'image/png', fileName: 'page-1.png' }],
+      visionOnly: true,
+    });
+
+    const timeout = expect(grading).rejects.toThrow('ollama ps');
+    await requestStarted;
+    await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
+    await timeout;
+  });
+
+  it('clears the five-minute cold-start deadline when response headers arrive even if streaming takes longer', async () => {
+    vi.useFakeTimers();
+    let requestSignal: AbortSignal | null | undefined;
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      requestSignal = init?.signal;
+      await new Promise<void>((resolve) => setTimeout(resolve, 2 * 60 * 1000));
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          setTimeout(() => {
+            controller.enqueue(new TextEncoder().encode(JSON.stringify({ message: { content: 'Lecture terminée.' } }) + '\n'));
+            controller.enqueue(new TextEncoder().encode(JSON.stringify({ done: true }) + '\n'));
+            controller.close();
+          }, 6 * 60 * 1000);
+        },
+      });
+      return new Response(body, { status: 200, headers: { 'Content-Type': 'application/x-ndjson' } });
+    }) as unknown as typeof fetch;
+    const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', visionModel: 'qwen3.5:4b' }, fetchImpl);
+    const grading = provider.generate({
+      question: 'Transcrire la copie.',
+      rubric: '{}',
+      images: [{ base64: 'aW1hZ2U=', mimeType: 'image/png', fileName: 'page-1.png' }],
+      visionOnly: true,
+    });
+
+    await vi.advanceTimersByTimeAsync(2 * 60 * 1000);
+    expect(requestSignal?.aborted).toBe(false);
+    await vi.advanceTimersByTimeAsync(6 * 60 * 1000);
+
+    await expect(grading).resolves.toContain('Lecture terminée.');
+    expect(requestSignal?.aborted).toBe(false);
+  });
+
+  it('rechecks model metadata after a first-request HTTP 404 to report a missing Ollama model clearly', async () => {
+    const calls: string[] = [];
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      calls.push(url);
+      if (url.endsWith('/api/chat')) return new Response('not found', { status: 404 });
+      if (url.endsWith('/api/tags')) return response({ models: [] });
+      throw new Error(`Unexpected endpoint: ${url}`);
+    }) as unknown as typeof fetch;
+    const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', visionModel: 'qwen3.5:4b' }, fetchImpl);
+
+    await expect(provider.generate({
+      question: 'Transcrire la copie.',
+      rubric: '{}',
+      images: [{ base64: 'aW1hZ2U=', mimeType: 'image/png', fileName: 'page-1.png' }],
+      visionOnly: true,
+    })).rejects.toThrow('Le modèle « qwen3.5:4b » n’est pas installé dans Ollama. Téléchargez-le avec ollama pull qwen3.5:4b.');
+
+    expect(calls).toEqual([
+      'http://localhost:11434/api/chat',
+      'http://localhost:11434/api/tags',
+    ]);
+  });
+
+  it('reports a clear error when the selected model is not installed', async () => {
+    const mockFetch = vi.fn(async () => response({ models: [{ name: 'llama3:8b' }] }));
+    const fetchImpl = mockFetch as unknown as typeof fetch;
+
+    await expect(checkOllamaReady(settings, fetchImpl)).rejects.toThrow('n’est pas installé');
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('only explicitly unloads on a dedicated unload request', async () => {
+    const mockFetch = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => response({ done: true }));
+    await unloadOllamaModel(settings, 'qwen3.5:4b', mockFetch as unknown as typeof fetch);
+    const body = JSON.parse(String(mockFetch.mock.calls[0][1]?.body));
+    expect(body).toMatchObject({ model: 'qwen3.5:4b', prompt: '', stream: false, keep_alive: 0 });
+  });
+
+  it('keeps the background-prewarmed model resident for five minutes', async () => {
+    const mockFetch = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => response({ message: { content: 'OK' } }));
+    const fetchImpl = mockFetch as unknown as typeof fetch;
+
+    await prewarmOllamaModel(settings, 'qwen3.5:4b', fetchImpl);
+
+    const init = mockFetch.mock.calls[0]?.[1];
+    expect(init).toBeDefined();
+    expect(JSON.parse(String(init?.body)).keep_alive).toBe('5m');
+  });
+});
+
+describe('Ollama incremental grading with teacher-defined subcriteria', () => {
+  const rubric = {
+    title: 'Cellule',
+    criteria: [{
+      id: 'diagram',
+      title: 'Schéma',
+      description: 'Identifier les structures',
+      maxPoints: 3,
+      subcriteria: [
+        { id: 'membrane', title: 'Membrane', description: 'Contour', maxPoints: 2 },
+        { id: 'nucleus', title: 'Noyau', description: 'Position', maxPoints: 1 },
+      ],
+    }],
+  };
+
+  const validCriterion = {
+    criterionId: 'diagram',
+    points: 2,
+    rationale: 'Deux structures identifiées.',
+    evidence: 'Membrane et noyau visibles',
+    confidence: 'high',
+    annotationSuggestion: '',
+    subcriteria: [
+      { subcriterionId: 'membrane', points: 1.5, evidence: 'Contour visible' },
+      { subcriterionId: 'nucleus', points: 0.5, evidence: 'Noyau visible' },
+    ],
+  };
+
+  it('uses the sum of evidenced subcriteria and constrains each subcriterion ID and maximum', async () => {
+    let call = 0;
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      call += 1;
+      const body = JSON.parse(String(init?.body));
+      expect(body.format.required).toContain('subcriteria');
+      expect(body.format.properties.subcriteria.minItems).toBe(2);
+      expect(body.format.properties.subcriteria.maxItems).toBe(2);
+      const alternatives = body.format.properties.subcriteria.items.anyOf;
+      expect(alternatives).toHaveLength(2);
+      expect(alternatives[0].properties.subcriterionId.enum).toEqual(['membrane']);
+      expect(alternatives[0].properties.points.maximum).toBe(2);
+      expect(alternatives[1].properties.subcriterionId.enum).toEqual(['nucleus']);
+      expect(alternatives[1].properties.points.maximum).toBe(1);
+      const invalid = { ...validCriterion, subcriteria: [
+        { subcriterionId: 'membrane', points: 1, evidence: 'Contour visible' },
+        { subcriterionId: 'nucleus', points: 0, evidence: 'Noyau visible' },
+      ] };
+      return streamResponse(JSON.stringify({ ...invalid, points: call === 1 ? 2 : 1 }));
+    }) as unknown as typeof fetch;
+    const provider = createOllamaProvider({
+      ...settings,
+      criterionByCriterion: true,
+      diagnosticStrategy: 'single',
+    }, fetchImpl);
+    const result = await provider.generate({
+      question: 'Évaluer le schéma.',
+      rubric: JSON.stringify(rubric),
+      transcription: 'Membrane et noyau visibles.',
+    });
+    expect(call).toBe(1);
+    expect(JSON.parse(result).criteria[0].points).toBe(1);
+  });
+
+  it('repairs an incremental JSON score with missing evidence instead of accepting an unjustified grade', async () => {
+    let calls = 0;
+    const fetchImpl = vi.fn(async () => {
+      calls += 1;
+      return streamResponse(JSON.stringify(calls === 1 ? { ...validCriterion, evidence: '' } : validCriterion));
+    }) as unknown as typeof fetch;
+    const provider = createOllamaProvider({ ...settings, criterionByCriterion: true }, fetchImpl);
+    const result = await provider.generate({
+      question: 'Évaluer le schéma.',
+      rubric: JSON.stringify(rubric),
+      transcription: 'Membrane et noyau visibles.',
+    });
+    expect(calls).toBe(2);
+    expect(JSON.parse(result).criteria[0].evidence).toBe('Membrane et noyau visibles');
+  });
+
+  it('accepts a negative malus explicitly defined by the professor and applies decimal precision', async () => {
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body));
+      expect(body.format.properties.points).toMatchObject({ minimum: -2, maximum: 0 });
+      return streamResponse(JSON.stringify({
+        criterionId: 'malus', points: -1.234, evidence: 'Pénalité du barème confirmée', rationale: 'Malus prévu.', confidence: 'high',
+      }));
+    }) as unknown as typeof fetch;
+    const provider = createOllamaProvider({ ...settings, criterionByCriterion: true }, fetchImpl);
+    const result = JSON.parse(await provider.generate({
+      question: 'Applique uniquement les points explicitement prévus.',
+      rubric: JSON.stringify({ title: 'Biologie', criteria: [{ id: 'malus', title: 'Malus', description: 'Pénalité explicite', maxPoints: -2 }] }),
+      transcription: 'Réponse contenant l’élément pénalisé.',
+    }));
+    expect(result.criteria[0].points).toBe(-1.23);
+    expect(result.finalScore).toBe(-1.23);
+    expect(fetchImpl).toHaveBeenCalledOnce();
+  });
+
+  it('constrains subcriteria in the complete-grading schema as well as incremental grading', async () => {
+    let requestSchema: Record<string, any> | undefined;
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body));
+      requestSchema = body.format;
+      return streamResponse(JSON.stringify({
+        summary: 'Proposition.',
+        criteria: [validCriterion],
+        questionsForTeacher: [],
+        finalScore: 2,
+      }));
+    }) as unknown as typeof fetch;
+    const provider = createOllamaProvider({
+      ...settings,
+      criterionByCriterion: false,
+      diagnosticStrategy: 'single',
+    }, fetchImpl);
+    await provider.generate({
+      question: 'Évaluer le schéma.',
+      rubric: JSON.stringify(rubric),
+      transcription: 'Membrane et noyau visibles.',
+    });
+    const criterionSchemas = requestSchema?.properties?.criteria?.items?.anyOf;
+    expect(criterionSchemas).toHaveLength(1);
+    expect(criterionSchemas[0].required).toContain('subcriteria');
+    expect(criterionSchemas[0].properties.subcriteria.minItems).toBe(2);
+    expect(criterionSchemas[0].properties.subcriteria.maxItems).toBe(2);
+    expect(criterionSchemas[0].properties.subcriteria.items.anyOf[0].properties.subcriterionId.enum).toEqual(['membrane']);
+    expect(criterionSchemas[0].properties.subcriteria.items.anyOf[0].properties.points.maximum).toBe(2);
+  });
+
+  it('repairs a syntactically valid whole-rubric JSON with incomplete pedagogical evidence', async () => {
+    const invalid = { summary: '', criteria: [{ ...validCriterion, evidence: '' }], questionsForTeacher: [], finalScore: 2 };
+    const valid = { ...invalid, criteria: [validCriterion] };
+    const fetchImpl = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(streamResponse(JSON.stringify(invalid)))
+      .mockResolvedValueOnce(streamResponse(JSON.stringify(valid)));
+    const provider = createOllamaProvider({ ...settings, criterionByCriterion: false, diagnosticStrategy: 'single' }, fetchImpl);
+    const output = await provider.generate({
+      question: 'Évaluer le schéma.',
+      rubric: JSON.stringify(rubric),
+      transcription: 'Membrane et noyau visibles.',
+    });
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(output).criteria[0].evidence).toBe(validCriterion.evidence);
+    expect(JSON.parse(String(fetchImpl.mock.calls[1][1]?.body)).messages[0].content).toContain('Réponse précédente à réparer');
+  });
+
+  it('retries when an incremental response omits a configured subcriterion', async () => {
+    let call = 0;
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL) => {
+      call += 1;
+      const missing = { ...validCriterion, subcriteria: [validCriterion.subcriteria[0]] };
+      return streamResponse(JSON.stringify(call === 1 ? missing : validCriterion));
+    }) as unknown as typeof fetch;
+    const provider = createOllamaProvider({
+      ...settings,
+      criterionByCriterion: true,
+      diagnosticStrategy: 'single',
+    }, fetchImpl);
+    const result = await provider.generate({
+      question: 'Évaluer le schéma.',
+      rubric: JSON.stringify(rubric),
+      transcription: 'Membrane et noyau visibles.',
+    });
+    expect(call).toBe(2);
+    expect(JSON.parse(result).criteria[0].subcriteria).toHaveLength(2);
+  });
+});
+
+describe('JSON prompt output contracts', () => {
+  it('places the identity JSON contract last and uses a neutral example', () => {
+    const prompt = buildStudentIdentityPrompt();
+    expect(prompt.split('\n\n').at(-1)).toContain('FORMAT DE SORTIE');
+    expect(prompt.split('\n\n').at(-1)).toContain('{"firstName":null,"lastName":null,"studentNumber":null,"confidence":"low"}');
+  });
+
+  it('reads the reference subject alone without OCR or grading of the student copy', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(streamResponse('Question 1 : mitose.'));
+    const provider = createOllamaProvider(settings, fetchImpl);
+    const image = { base64: 'c3VqZXQ=', mimeType: 'image/png', fileName: 'sujet.png' };
+    const result = await provider.generate({
+      question: 'Transcrire le sujet',
+      rubric: '{}',
+      images: [image],
+      subjectImages: [image],
+      subjectOnly: true,
+      visionOnly: true,
+    });
+    expect(result).toContain('Question 1 : mitose.');
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it('refuses to score when teacher-annotation detection fails', async () => {
+    let calls = 0;
+    const fetchImpl = vi.fn<typeof fetch>().mockImplementation(async () => {
+      calls += 1;
+      if (calls === 1) return streamResponse('Réponse étudiante manuscrite.');
+      throw new Error('Détecteur indisponible');
+    });
+    const provider = createOllamaProvider(settings, fetchImpl);
+    await expect(provider.generate({
+      question: 'Corrige la réponse.',
+      rubric: JSON.stringify({ title: 'Mitose', criteria: [{ id: 'k', title: 'Biologie', description: '', maxPoints: 2 }] }),
+      images: [{ base64: 'Y29waWU=', mimeType: 'image/png', fileName: 'copie.png' }],
+      detectTeacherAnnotations: true,
+    })).rejects.toThrow(/Détection des annotations non effectuée/);
+    expect(calls).toBe(2);
+  });
+
+  it('places the annotation JSON contract after the initial transcription data', () => {
+    const prompt = buildTeacherAnnotationPrompt('Réponse de l’étudiant.');
+    expect(prompt.indexOf('TRANSCRIPTION INITIALE')).toBeLessThan(prompt.lastIndexOf('FORMAT DE SORTIE'));
+    expect(prompt.split('\n\n').at(-1)).toContain('FORMAT DE SORTIE');
+    expect(prompt.split('\n\n').at(-1)).toContain('{"studentTranscription":"Texte étudiant.","annotations":[]}');
+  });
+});

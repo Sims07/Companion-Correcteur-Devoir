@@ -34,6 +34,7 @@ npm run test:e2e
 
 ## Couverture et tests
 
+- Tous les tests sont regroupés dans `tests/`. La [convention de contribution](docs/CONTRIBUTING_AI_AND_TESTING.md#où-ajouter-un-test) précise où ajouter chaque suite.
 - `npm test` exécute les tests Vitest unitaires et d'intégration.
 - `npm run test:coverage` mesure la couverture du code TypeScript inclus dans la configuration Vitest et produit un rapport dans `coverage-unit/`.
 - `npm run test:coverage:core` produit un rapport ciblé sur le domaine et les cas d'usage dans `coverage-unit-core/`.
