@@ -63,3 +63,43 @@ it('interrompt immédiatement sans appel si signal déjà annulé',async () => {
   },mock)).rejects.toMatchObject({name:'AbortError'});
   expect(mock).not.toHaveBeenCalled();
 });
+
+it('poursuit après deux validations invalides avec une preuve V2 explicitement non concluante',async () => {
+  const invalid = {...valid, labels:[{...valid.labels[0]!,id:'!!!'}]};
+  const mock = vi.fn(async () => ok(JSON.stringify(invalid)));
+  const result = await extractVisualRelationGraphV2({
+    endpoint:'http://localhost:11434',model:'qwen3.5:4b',image,
+  },mock as unknown as typeof fetch);
+  expect(mock).toHaveBeenCalledTimes(2);
+  expect(result).toMatchObject({labels:[],structures:[],leaders:[],layout:'unclear',complete:false});
+  expect(result.validationIssue).toMatch(/Identifiant V2 invalide : labels.id/);
+  expect(JSON.stringify(result)).not.toContain(image.base64);
+});
+
+it('garde les vrais échecs réseau et les annulations comme erreurs, sans repli silencieux',async () => {
+  const unavailable = vi.fn(async () => new Response('unavailable',{status:503}));
+  await expect(extractVisualRelationGraphV2({
+    endpoint:'http://localhost:11434',model:'qwen3.5:4b',image,
+  },unavailable as unknown as typeof fetch)).rejects.toThrow(/indisponible/);
+  expect(unavailable).toHaveBeenCalledTimes(1);
+  const controller = new AbortController();
+  const abortAfterFirst = vi.fn(async () => {
+    controller.abort();
+    return ok('{bad json');
+  });
+  await expect(extractVisualRelationGraphV2({
+    endpoint:'http://localhost:11434',model:'qwen3.5:4b',image,signal:controller.signal,
+  },abortAfterFirst as unknown as typeof fetch)).rejects.toMatchObject({name:'AbortError'});
+  expect(abortAfterFirst).toHaveBeenCalledTimes(1);
+});
+
+it('conserve le dessin original et dégrade une destination douteuse au lieu de la considérer correcte',async () => {
+  const speculative = {...valid, leaders:[{...valid.leaders[0]!,status:'uncertain',targetId:'s1'}]};
+  const mock = vi.fn(async () => ok(JSON.stringify(speculative)));
+  const result = await extractVisualRelationGraphV2({
+    endpoint:'http://localhost:11434',model:'qwen3.5:4b',image,
+  },mock as unknown as typeof fetch);
+  expect(mock).toHaveBeenCalledTimes(1);
+  expect(result.validationIssue).toBeUndefined();
+  expect(result.leaders[0]).toMatchObject({status:'uncertain',targetId:'unknown',tipX:-1,tipY:-1});
+});

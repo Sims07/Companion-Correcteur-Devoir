@@ -40,9 +40,9 @@ export async function extractVisualRelationGraphV2(
         messages:[
           {role:'system',content:DIAGRAM_RELATIONS_V2_PROMPT},
           {role:'user',content:attempt === 1
-            ? 'Décris les traits de rappel et leurs points de contact sur ce dessin original.'
+            ? 'Décris les traits de rappel et leurs points de contact sur ce dessin original. Utilise des identifiants courts (l1, s1), jamais des phrases. Pour uncertain/missing : targetId=unknown et tipX=tipY=-1.'
             : 'Le graphe précédent est invalide : ' + validationMessage
-              + ' Réexamine les pixels. Respecte les identifiants, les coordonnées et les champs JSON exigés.',
+              + ' Réexamine les pixels. Chaque identifiant doit être court et repris à l’identique dans leaders. Si la cible est douteuse, status=uncertain, targetId=unknown, tipX=tipY=-1. Ne devine aucune destination.',
             images:[compatible ? `data:${request.image.mimeType};base64,${request.image.base64}` : request.image.base64]},
         ],
         stream:false,format:compatible ? 'json' : DIAGRAM_RELATIONS_V2_SCHEMA,
@@ -63,7 +63,14 @@ export async function extractVisualRelationGraphV2(
     } catch (error) {
       if (request.signal?.aborted) throw new DOMException('Traitement interrompu.', 'AbortError');
       validationMessage = error instanceof Error ? error.message : 'Graphe invalide.';
-      if (attempt === 2) throw new Error('Observation de relations V2 invalide après deux essais : ' + validationMessage);
+      if (attempt === 2) {
+        // A malformed experimental observation must not discard the entire
+        // grading campaign. Return NO relation evidence, not fabricated links.
+        // The following grading stage still sees the original pixels and must
+        // explicitly request a teacher check of unresolved pointers.
+        return {labels: [], structures: [], leaders: [], layout: 'unclear',
+          complete: false, validationIssue: 'Observation de relations V2 non concluante après deux essais : ' + validationMessage};
+      }
     }
   }
   throw new Error('Observation de relations V2 indisponible.');

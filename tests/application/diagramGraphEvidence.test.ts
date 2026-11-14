@@ -35,6 +35,20 @@ it('passes graph V2 physical endpoint observations into the grader without infer
   expect(context).not.toContain('0.68');
 });
 
+
+it('annonce une V2 invalide au correcteur sans promouvoir des cibles imaginaires', async () => {
+  const source = { labels:[],structures:[],leaders:[],layout:'unclear' as const,
+    complete:false,validationIssue:'Identifiant V2 invalide : labels.id' };
+  const evidence = await extractDiagramGraphEvidenceV2(
+    pages,'qwen3.5:4b',new AbortController().signal,async () => source,
+  );
+  const context = graphGradingContext(evidence);
+  expect(context).toContain('extraction V2 non concluante');
+  expect(context).toContain('revue enseignante');
+  expect(context).toContain('"complete":false');
+  expect(context).not.toContain('"targetId":"s1"');
+});
+
 it('stops before the next image when cancelled during observation', async () => {
   const controller = new AbortController();
   const observe = vi.fn(async () => { controller.abort(); return graph; });
