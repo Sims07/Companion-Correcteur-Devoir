@@ -252,8 +252,8 @@ export function buildScientificDiagramFixtureReport(
   // Missing/uncertain readings are inconclusive, not false scientific answers.
   const control = cases.find((item) => item.caseId === 'D')!;
   const trap = cases.find((item) => item.caseId === 'E')!;
-  const runKey = (run: { profileId: string; method: string; repetition: number }) =>
-    JSON.stringify([run.profileId, run.method, run.repetition]);
+  const runKey = (run: { profileId: string; model: string; method: string; repetition: number }) =>
+    JSON.stringify([run.profileId, run.model, run.method, run.repetition]);
   const keys = [...new Set([...control.experiments, ...trap.experiments].map(runKey))];
   const pairedDiagnostics = keys.map((key) => {
     const d = control.experiments.find((item) => runKey(item) === key);
@@ -273,9 +273,9 @@ export function buildScientificDiagramFixtureReport(
       item.choice !== e?.observations.find((other) => other.key === item.key)?.choice).map((item) => item.key);
     const dAlign = d?.observations.find((item) => item.key === align)?.choice ?? 'uncertain';
     const eAlign = e?.observations.find((item) => item.key === align)?.choice ?? 'uncertain';
-    const [profileId, method, repetition] = JSON.parse(key) as [string, string, number];
+    const [profileId, model, method, repetition] = JSON.parse(key) as [string, string, string, number];
     return {
-      profileId, method, repetition,
+      profileId, model, method, repetition,
       status: result,
       controlChoice: dChoice, alteredChoice: eChoice,
       alignmentDetectedBoth: bothSucceeded && dAlign !== 'uncertain' && eAlign !== 'uncertain'
