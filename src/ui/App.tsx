@@ -8,6 +8,7 @@ import { EvaluationCampaigns, type CampaignFilter } from './components/Evaluatio
 import { EvaluationIssueButton } from './components/EvaluationIssueButton.tsx';
 import { countedUsableBiologyGrades, buildEvaluationIssueReport } from '../domain/evaluationIssueReport.ts';
 import { NotificationCenter } from './components/NotificationCenter.tsx';
+import { AppVersionBadge } from './components/AppVersionBadge.tsx';
 import { pushAppNotification, type AppNotification } from '../domain/appNotifications.ts';
 import { EvaluationJourneyPicker } from './components/EvaluationJourneyPicker.tsx';
 import { resolveEvaluationActivityOutcome, type EvaluationActivityStatus } from '../domain/evaluationActivityStatus.ts';
@@ -3869,6 +3870,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       <header className="topbar">
         <div className="brand-mark" aria-hidden="true">CC</div>
         <div><p className="eyebrow">ASSISTANT PÉDAGOGIQUE</p><h1>Compagnon Correcteur de Devoirs</h1></div>
+        <AppVersionBadge />
         <div className="topbar-actions"><NotificationCenter onNavigate={openNotification} />{interfaceMode === 'teacher' && (activeQueueCopy || isAnalyzing) && <button type="button" className="teacher-processing-copy-link" onClick={() => { setShowAssignmentsHome(false); setShowAiSettings(false); if (activeQueueCopy) void loadNextQueuedCopy(activeQueueCopy.id); else setTeacherStep(proposal ? 'review' : 'copy'); }}><span aria-hidden="true">◌</span> {activeQueueCopy ? (processingCopy ? 'Copie en cours' : 'Préparation de la copie') : 'Copie en cours'} : {activeQueueCopy?.label || studentLabel || images[0]?.fileName || 'Copie sans nom'} <span aria-hidden="true">→</span></button>}<nav className="view-switch" aria-label="Navigation principale">
           <button type="button" className={interfaceMode === 'teacher' ? 'view-switch-button active' : 'view-switch-button'}
             aria-current={interfaceMode === 'teacher' ? 'page' : undefined}
