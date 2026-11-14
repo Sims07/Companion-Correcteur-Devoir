@@ -280,6 +280,14 @@ describe('protocole de schémas scientifiques', () => {
     expect(diagramAnalysisDiagnostics(failed)).toEqual({
       analysisCalls: 2, repairCalls: 1, generationLimitHits: 1,
       generationBudgetTokens: 2048, generatedTokens: 2760,
+      analysisCallTraces: [
+        { role: 'primary', provider: 'ollama', imageCount: 1, elapsedMs: 2500,
+          contextTokens: 8192, outputLimit: 2048, promptTokens: null,
+          generatedTokens: 2048, doneReason: 'length', thinkingObserved: null },
+        { role: 'repair', provider: 'ollama', imageCount: 1, elapsedMs: 2500,
+          contextTokens: 8192, outputLimit: 2048, promptTokens: null,
+          generatedTokens: 712, doneReason: 'stop', thinkingObserved: null },
+      ],
     });
     const generative = {
       ...record(failed),
@@ -303,7 +311,7 @@ describe('protocole de schémas scientifiques', () => {
   it('considère les traces absentes comme données non mesurées, jamais un nombre de tokens inventé', () => {
     expect(diagramAnalysisDiagnostics({ diagnosticRuns: [] })).toEqual({
       analysisCalls: 0, repairCalls: 0, generationLimitHits: 0,
-      generationBudgetTokens: null, generatedTokens: null,
+      generationBudgetTokens: null, generatedTokens: null, analysisCallTraces: [],
     });
   });
 
@@ -363,6 +371,42 @@ describe('protocole de schémas scientifiques', () => {
       accuracyPercent: null, coveragePercent: 0, stableResolvedTargets: null,
     });
     expect(report.summaries[0]?.decisions.every((decision) => !decision.stable)).toBe(true);
+  });
+
+  it('exporte points, statut de preuve et arbitrage sans divulguer un texte de copie dans le protocole ordinaire', () => {
+    const initial = result();
+    const populated: ModelEvaluationResultSnapshot = {
+      ...initial, directVisualDecision: false, diagnosticRuns: [], score: 0.33,
+      proposal: {
+        summary: '', finalScore: 0.33, questionsForTeacher: [],
+        criteria: [{
+          criterionId: 'drawing', points: 0.33, rationale: '', evidence: 'PRIVATE_CRITERION_EVIDENCE',
+          confidence: 'low', questionForTeacher: 'PRIVATE_TEACHER_QUESTION',
+          subcriteria: [{
+            subcriterionId: 'drawing-page', title: 'Occupe toute la page', maxPoints: 0.66,
+            points: 0.33, evidence: 'PRIVATE_STUDENT_EVIDENCE', evidenceStatus: 'needs-review',
+            questionForTeacher: 'PRIVATE_REVIEW_TEXT',
+          }],
+        }],
+      },
+    };
+    const output = buildScientificDiagramProtocolReport(
+      [{ repetition: 1, record: record(populated) }], SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC,
+      {}, 1, '2026-11-14', 1,
+    );
+    expect(output.experiments[0]!.observations[0]).toMatchObject({
+      choice: 'partial', awardedPoints: 0.33, maxPoints: 0.66,
+      evidenceState: 'needs-review', modelConfidence: 'low', teacherReviewRequested: true,
+    });
+    expect(output.experiments[0]!.observations[1]).toMatchObject({
+      choice: 'uncertain', awardedPoints: null, evidenceState: 'unavailable',
+    });
+    expect(JSON.stringify(output)).not.toMatch(/PRIVATE_STUDENT_EVIDENCE|PRIVATE_CRITERION_EVIDENCE|PRIVATE_REVIEW_TEXT|PRIVATE_TEACHER_QUESTION/);
+    const synthetic = diagramObservations(populated, SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC,
+      { syntheticFixtureEvidence: true });
+    // A synthetic experiment still refuses an excerpt that resembles private data.
+    expect(synthetic[0]!.syntheticEvidenceExcerpt).toBeUndefined();
+    expect(synthetic[0]!.evidenceState).toBe('needs-review');
   });
 
   it('distingue un échec avant analyse sans exporter ses éventuels secrets', () => {

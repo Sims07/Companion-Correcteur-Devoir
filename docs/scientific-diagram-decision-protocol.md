@@ -138,3 +138,32 @@ Les anciens exports restent inchangés : ne pas comparer leurs pourcentages d’
 avec les nouveaux sans recalcul explicite sur une même référence. A et C conservent
 leurs cibles provisoires, non réévaluées dans cette revue. Aucun prompt de correction,
 barème, modèle, image ni point prédit n’est modifié par cette calibration.
+
+
+## Diagnostic partageable des exercices synthétiques A/B/C/D/E
+
+L'export JSON conserve les scores, les choix et la configuration des essais. Il comprend maintenant
+`diagnosticSchemaVersion: 1` sans modifier la référence pédagogique v6 :
+
+- `cases[].diagnostic[]` : écart numérique à la note de référence, critères divergents (choix attendu et obtenu,
+  points attendus et proposés), décisions non résolues, demandes d'arbitrage, preuves manquantes et
+  indicateur `allPresentPattern` (tous les critères répondus « présent »). Un indicateur n'est
+  jamais une preuve du comportement interne du modèle.
+- `pairedDiagnostics[]` : rapproche D et E par profil, modèle réel, méthode et répétition ; il indique
+  `detected` seulement si D est reconnu « présent » et E « absent » pour la cible
+  `legends::legends-visible`. Les deux essais manquants/indécis donnent `inconclusive`,
+  jamais un succès ou un échec scientifique inventé. L'écart attendu de notes vaut 0,68 point ;
+  les autres critères doivent conserver leur décision malgré la mutation.
+- `experiments[].diagnostics.analysisCallTraces[]` : phase principale ou réparation, fournisseur (catégorie), nombre d'images, durée, taille de contexte, plafond de sortie, tokens mesurés, raison de fin normalisée et présence d'une trace Think. Ces compteurs sont éventuellement `null` si le serveur ne les fournit pas ; aucun texte de prompt, réponse brute ou erreur réseau n'est conservé.
+- `experiments[].observations[]` : `awardedPoints` (null si aucune proposition chiffrée valide),
+  `maxPoints`, `evidenceState`, `modelConfidence` et `teacherReviewRequested`.
+  Les décisions natives System One ne sont **pas** converties artificiellement en points.
+  `syntheticEvidenceExcerpt` est une justification de modèle plafonnée à 180 caractères,
+  uniquement pour ces cinq images synthétiques embarquées et supprimée si elle ressemble
+  à une donnée de connexion ou une information privée. Ce texte n'est pas une vérité terrain.
+
+Les rapports du protocole générique, qui peuvent utiliser une photographie de copie réelle,
+**ne contiennent jamais** d'extraits de preuves, de questions d'enseignant, de réponses brutes,
+d'images, de prompts, de clés ou d'URL. Les exportations historiques ne sont pas modifiées.
+Ces diagnostics aident à déterminer quelle hypothèse tester ensuite, et ne valident pas la
+capacité réelle d'un modèle sans nouveaux essais et arbitrage enseignant.

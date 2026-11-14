@@ -204,6 +204,97 @@ describe('jeu de dessins scientifiques A/B/C et contrôle de flèches D/E', () =
     expect(control).toContain('Plaque cellulaire');
     expect(trap).not.toContain('piège');
   });
+  function scoredFixtureRecord(caseId: 'D' | 'E', detectTrap: boolean): ModelEvaluationRecord {
+    const base = record();
+    const fixture = SCIENTIFIC_DIAGRAM_FIXTURES.find((item) => item.id === caseId)!;
+    const criteria = SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC.criteria.map((criterion) => {
+      const subcriteria = getRubricSubcriteria(criterion).map((sub) => {
+        const key = diagramTargetKey(criterion.id, sub.id);
+        const points = detectTrap ? fixture.referencePoints[key]! : sub.maxPoints;
+        return {
+          subcriterionId: sub.id, title: sub.title, maxPoints: sub.maxPoints,
+          points, evidence: sub.id === 'legends-visible' ? 'Le trait relie les mots aux structures observées.'
+            : 'Détail visible dans le dessin.',
+        };
+      });
+      return {
+        criterionId: criterion.id,
+        points: subcriteria.reduce((total, item) => total + item.points, 0),
+        rationale: '', evidence: 'Observation synthétique.', confidence: 'high' as const,
+        subcriteria,
+      };
+    });
+    const score = detectTrap ? fixture.referenceScore : 10;
+    return {
+      ...base,
+      configurations: [{ ...base.configurations[0]!, correctionMethod: 'generative' as const,
+        directVisualDecision: false, directGenerativeVision: true }],
+      results: [{
+        ...base.results[0]!, directVisualDecision: false, score, diagnosticRuns: [],
+        proposal: { criteria, finalScore: score, summary: '', questionsForTeacher: [] },
+      }],
+    };
+  }
+
+  it('diagnostique le biais tout-présent et la paire D/E sans prendre une bonne note pour une preuve de vision', () => {
+    const report = buildScientificDiagramFixtureReport([
+      { caseId: 'D', repetition: 1, record: scoredFixtureRecord('D', false) },
+      { caseId: 'E', repetition: 1, record: scoredFixtureRecord('E', false) },
+    ], 1, '2026-11-14');
+    const pair = report.pairedDiagnostics[0]!;
+    expect(report.diagnosticSchemaVersion).toBe(1);
+    expect(pair).toMatchObject({
+      status: 'missed', controlChoice: 'present', alteredChoice: 'present',
+      identicalChoices: true, alignmentDetectedBoth: false,
+      unchangedTargetsCompared: 18, unexpectedChanges: [],
+      proposedScoreDifference: 0, expectedScoreDifference: 0.68,
+    });
+    const d = report.cases.find((item) => item.caseId === 'D')!;
+    const e = report.cases.find((item) => item.caseId === 'E')!;
+    expect(d.diagnostic[0]).toMatchObject({ scoreDelta: 0.66, allPresentPattern: true });
+    expect(e.diagnostic[0]).toMatchObject({ scoreDelta: 1.34, allPresentPattern: true });
+    expect(d.diagnostic[0]!.mismatchedTargets.map((item) => item.key))
+      .toEqual([diagramTargetKey('legends', 'legends-aligned')]);
+    expect(e.diagnostic[0]!.mismatchedTargets.map((item) => item.key))
+      .toEqual([diagramTargetKey('legends', 'legends-aligned'), SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET]);
+    expect(e.experiments[0]!.observations.find((item) => item.key === SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET))
+      .toMatchObject({
+        awardedPoints: 0.68, maxPoints: 0.68, evidenceState: 'provided',
+        modelConfidence: 'high', teacherReviewRequested: false,
+        syntheticEvidenceExcerpt: 'Le trait relie les mots aux structures observées.',
+      });
+    expect(JSON.stringify(report)).not.toMatch(/PRIVATE_BASE64_IMAGE|PRIVATE_API_KEY|PRIVATE_ENDPOINT|PRIVATE_EXAM_PROMPT|PRIVATE_RAW_RESPONSE/);
+  });
+
+  it('reconnaît la mutation seulement si la bonne lecture D et la mauvaise lecture E sont effectivement observées', () => {
+    const report = buildScientificDiagramFixtureReport([
+      { caseId: 'D', repetition: 1, record: scoredFixtureRecord('D', true) },
+      { caseId: 'E', repetition: 1, record: scoredFixtureRecord('E', true) },
+    ], 1, '2026-11-14');
+    expect(report.pairedDiagnostics[0]).toMatchObject({
+      status: 'detected', controlChoice: 'present', alteredChoice: 'absent',
+      alignmentDetectedBoth: true, proposedScoreDifference: 0.68,
+      unexpectedChanges: [], identicalChoices: false,
+    });
+    const incomplete = buildScientificDiagramFixtureReport([
+      { caseId: 'D', repetition: 1, record: scoredFixtureRecord('D', true) },
+    ], 1, '2026-11-14');
+    expect(incomplete.pairedDiagnostics[0]).toMatchObject({
+      status: 'inconclusive', alteredChoice: 'uncertain', proposedScoreDifference: null,
+    });
+    expect(incomplete.pairedDiagnostics[0]!.identicalChoices).toBeNull();
+    const differentModel = scoredFixtureRecord('E', true);
+    differentModel.configurations[0]!.analysisModel = 'different-vision:12b';
+    const mismatch = buildScientificDiagramFixtureReport([
+      { caseId: 'D', repetition: 1, record: scoredFixtureRecord('D', true) },
+      { caseId: 'E', repetition: 1, record: differentModel },
+    ], 1, '2026-11-14');
+    expect(mismatch.pairedDiagnostics).toHaveLength(2);
+    expect(mismatch.pairedDiagnostics.every((pair) => pair.status === 'inconclusive')).toBe(true);
+    expect(mismatch.pairedDiagnostics.map((pair) => pair.model).sort())
+      .toEqual(['d1:3b', 'different-vision:12b']);
+  });
+
   it('n’exporte aucune photographie, clé, endpoint, prompt ou réponse brute', () => {
     const report = JSON.stringify(buildScientificDiagramFixtureReport(
       [{ caseId: 'A', repetition: 1, record: record() }], 3, 'now'));
