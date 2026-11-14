@@ -302,7 +302,8 @@ it('keeps four successive scientific methods as four independently selectable ra
   const open = [...node.querySelectorAll<HTMLButtonElement>('article:first-child button')]
     .find(button => button.textContent === 'Analyse des méthodes')!;
   await act(async () => open.click());
-  const table = node.querySelector('.method-lab table')!;
+  const table = [...node.querySelectorAll<HTMLTableElement>('.method-lab table')]
+    .find(candidate => candidate.caption?.textContent === 'Dernier essai de chaque méthode')!;
   expect(table.querySelectorAll('tbody tr')).toHaveLength(4);
   for (const method of methods) {
     const { scienceMethods } = await import('../../src/domain/radarTimeline.ts');
