@@ -20,6 +20,8 @@ export const diagramLabProtocolLabels: Record<DiagramLabProtocol, string> = {
 };
 
 export interface DiagramLabArchiveEntry {
+  trial?: import('./radarTimeline.ts').RadarTrial;
+  timeline?: import('./radarTimeline.ts').TimelinePoint[];
   revision?: string | null;
   id: string;
   protocol: DiagramLabProtocol;

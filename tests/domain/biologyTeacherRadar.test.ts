@@ -159,3 +159,14 @@ describe('local biology radar history', () => {
     expect(loadBiologyRadarHistory()).toEqual([]);
   });
 });
+
+it('keeps earlier campaigns beyond 1200 observations and separates standard and enriched scores', async () => {
+  const { biologyPoints } = await import('../../src/domain/radarTimeline.ts');
+  const old = observation('A', {id: 'old'});
+  const later = Array.from({length: 1200}, (_, i) => observation('C', {id: String(i)}));
+  expect(mergeBiologyRadarHistory([old], later)).toHaveLength(1201);
+  const rows = [...allCases(), ...baseline().map(o => ({...o, protocol: 'standard' as const}))];
+  const points = biologyPoints(rows);
+  expect(points.find(p => p.biologyMethod === 'standard')?.axes['Cas pièges']).toBeNull();
+  expect(points.find(p => p.biologyMethod === 'contract')?.score).toBe(100);
+});

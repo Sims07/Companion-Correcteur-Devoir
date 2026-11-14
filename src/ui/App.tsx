@@ -1,3 +1,4 @@
+import { biologyPoints, campaignGroups } from '../domain/radarTimeline.ts';
 import { EvaluationRadarHome } from './components/EvaluationRadarHome.tsx';
 import { restoredModelId } from './components/ScientificDiagramRadar.tsx';
 import { EvaluationCampaigns, type CampaignFilter } from './components/EvaluationCampaigns.tsx';
@@ -534,10 +535,23 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setBiologyRadarHistory((existing) => {
       const ids = new Set(existing.map((observation) => observation.id));
       const additions = observations.filter((observation) => !ids.has(observation.id)).map(o => ({ ...o, campaignId: campaignByDate.get(o.recordedAt) }));
-      return additions.length ? mergeBiologyRadarHistory(existing, additions) : existing;
+      if (!additions.length) return existing;
+      const merged = mergeBiologyRadarHistory(existing, additions);
+      for (const group of campaignGroups(additions, row => row.campaignId ?? row.id)) {
+        const first = group[0]!;
+        const rows = merged.filter(row => first.campaignId ? row.campaignId === first.campaignId : row.id === first.id);
+        for (const point of biologyPoints(rows)) {
+          const owner = group.find(row => row.recordedAt === point.date && row.model === point.model &&
+            point.id === [row.campaignId ?? row.id, row.protocol, [row.provider, row.method, row.model].join('::')].join('|'));
+          if (owner) Object.assign(owner, { timeline: point });
+        }
+      }
+      return merged;
     });
   }, [pilotRuns, pilotContractRuns, pilotRepeatabilityRuns, pilotRepeatabilityPlanned, pilotRepeatabilitySuite]);
-  useEffect(() => { saveBiologyRadarHistory(biologyRadarHistory); }, [biologyRadarHistory]);
+  useEffect(() => {
+    if (!saveBiologyRadarHistory(biologyRadarHistory)) setError('Historique biologique non sauvegardé. Exportez les résultats du radar avant de quitter.');
+  }, [biologyRadarHistory]);
   const [pilotImages, setPilotImages] = useState<Record<string, ImageInput[]>>({});
   const [pilotBusy, setPilotBusy] = useState(false);
   const [pilotUploadingCase, setPilotUploadingCase] = useState<string | null>(null);
@@ -559,6 +573,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [diagramHistoryRevision, setDiagramHistoryRevision] = useState(0);
   const [diagramHistoryError, setDiagramHistoryError] = useState('');
   const diagramArchiveWriter = useMemo(() => createDiagramLabArchiveWriter(diagramArchive), [diagramArchive]);
+  const radarTrial = useRef<NonNullable<RadarMissingTestRequest['trial']> | null>(null);
   const activeDiagramReportRef = useRef<'fixture' | 'sensitivity' | 'graph' | 'personal' | null>(null);
   // Intermediate updates remain visible in the local archive, but a completed
   // battery is also saved explicitly before the next automatic battery starts.
@@ -2277,7 +2292,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     }
   }
 
-  async function runPilotQuestionContractBenchmark(profilesOverride?: AiModelProfile[]) {
+  async function runPilotQuestionContractBenchmark(profilesOverride?: AiModelProfile[], onlyVariant?: QuestionContractVariant) {
     if (pilotBusy || busy || pilotUploadingCase) return;
     const profiles = profilesOverride ?? selectPilotProfiles(aiModelProfiles, selectedEvaluationProfileIds);
     const issue = pilotSelectionIssue(profiles, 'analysis');
@@ -2289,14 +2304,15 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     pilotMemoryErrorRef.current = null;
     setPilotContractRuns([]);
     setEvaluationBiologyScenario('contracts');
-    const planned = QUESTION_CONTRACT_CASES.length * 2 * profiles.length;
+    const variants: readonly QuestionContractVariant[] = onlyVariant ? [onlyVariant] : ['standard', 'contract'];
+    const planned = QUESTION_CONTRACT_CASES.length * variants.length * profiles.length;
     let usable = 0;
     setPilotBusy(true);
     setEvaluationStageMode('analysis');
     setEvaluationVisualDirect(false);
     try {
       for (const testCase of QUESTION_CONTRACT_CASES) {
-        for (const variant of ['standard', 'contract'] as const) {
+        for (const variant of variants) {
           if (pilotStopRef.current || evaluationCancelledRef.current) break;
           setPilotCurrentCase(testCase.id);
           setPilotMessage('Contrats par question · copie ' + testCase.id + ' · ' +
@@ -2330,7 +2346,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     }
   }
 
-  async function runPilotRepeatabilityBenchmark(repetitions: RepeatabilityCount, suite: RepeatabilitySuite = 'baseline', profilesOverride?: AiModelProfile[]) {
+  async function runPilotRepeatabilityBenchmark(repetitions: RepeatabilityCount, suite: RepeatabilitySuite = 'baseline', profilesOverride?: AiModelProfile[], variant: QuestionContractVariant = 'contract') {
     if (pilotBusy || busy || pilotUploadingCase || (repetitions !== 3 && repetitions !== 5)) return;
     const profiles = profilesOverride ?? selectPilotProfiles(aiModelProfiles, selectedEvaluationProfileIds);
     const issue = pilotSelectionIssue(profiles, 'analysis');
@@ -2361,10 +2377,10 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           ' · copie ' + step.caseId + ' · ' + profiles.length + ' profil(s) · série ' +
           (index + 1) + '/' + steps.length + '.');
         const record = await startModelEvaluation({
-          pilotCase: testCase, stage: 'analysis', profiles, caseImages: [], contractVariant: 'contract',
+          pilotCase: testCase, stage: 'analysis', profiles, caseImages: [], contractVariant: variant,
         });
         if (record) {
-          setPilotRepeatabilityRuns((current) => [...current, { repetition: step.repetition, caseId: step.caseId, record }]);
+          setPilotRepeatabilityRuns((current) => [...current, { repetition: step.repetition, caseId: step.caseId, variant, record }]);
           usable += countedUsableBiologyGrades(record.results);
           setPilotRepeatabilityProgress({ completed: index + 1, total: steps.length });
         }
@@ -2650,6 +2666,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     request: { cases: Array<{ id: ScientificDiagramFixtureId; images: ImageInput[] }>; repetitions: DiagramProtocolCount; methodSelection: DiagramMethodSelection },
   ) {
     const createdAt = new Date().toISOString();
+    diagramArchiveWriter.register(createdAt, radarTrial.current);
     activeDiagramReportRef.current = 'fixture';
     setDiagramFixtureReport(null);
     const build = (runs: readonly { caseId: DiagramCaseInput['id']; repetition: number; record: ModelEvaluationRecord }[]) =>
@@ -2677,6 +2694,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     },
   ) {
     const createdAt = new Date().toISOString();
+    diagramArchiveWriter.register(createdAt, radarTrial.current);
     activeDiagramReportRef.current = 'sensitivity';
     setDiagramSensitivityReport(null);
     const build = (runs: readonly { caseId: DiagramCaseInput['id']; repetition: number; record: ModelEvaluationRecord; promptMode?: DiagramSensitivityPromptMode }[]) =>
@@ -2719,6 +2737,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     activeDiagramReportRef.current = 'graph';
     setDiagramBlindGraphReport(null);
     const createdAt = new Date().toISOString();
+    diagramArchiveWriter.register(createdAt, radarTrial.current);
     const runs: BlindVisualObservationRun[] = [];
     let tracedRuns = 0;
     const emit = () => {
@@ -2808,7 +2827,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setDiagramLabView('protocols');
   }
 
-  function evaluateBiologyModel(profileId: string, baseline = true, traps = true) {
+  function evaluateBiologyModel(profileId: string, baseline = true, traps = true, variant?: QuestionContractVariant) {
     const profile = aiModelProfiles.find((item) => item.id === profileId);
     if (!profile || busy || pilotBusy) return;
     setSelectedEvaluationProfileIds([profileId]);
@@ -2818,14 +2837,14 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       targetId: baseline ? 'evaluation-biology-contract-launch' : 'evaluation-biology-repeatability-launch',
       profiles: profile.name,
     }, async () => {
-      const comparison = baseline ? await runPilotQuestionContractBenchmark([profile]) : undefined;
+      const comparison = baseline ? await runPilotQuestionContractBenchmark([profile], variant) : undefined;
       if (pilotStopRef.current || evaluationCancelledRef.current) return 0;
       // Run the stress battery even when A/B/C was only partially resolved.
       // This keeps independently measurable axes available in the radar.
-      const stress = traps ? await runPilotRepeatabilityBenchmark(3, 'stress', [profile]) : undefined;
+      const stress = traps ? await runPilotRepeatabilityBenchmark(3, 'stress', [profile], variant) : undefined;
       return {
         usable: (comparison?.usable ?? 0) + (stress?.usable ?? 0),
-        planned: (baseline ? QUESTION_CONTRACT_CASES.length * 2 : 0) +
+        planned: (baseline ? QUESTION_CONTRACT_CASES.length * (variant ? 1 : 2) : 0) +
           (traps ? questionContractRepeatabilitySteps(3, 'stress').length : 0),
       };
     });
@@ -4026,7 +4045,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           onClearBlindGraphReport={() => setDiagramBlindGraphReport(null)}
           autoRequest={radarAutoRequest}
           onAutoRequestConsumed={(id) => setRadarAutoRequest((current) => current?.id === id ? null : current)}
-          onAutoBusyChange={setRadarAutoBusy}
+          onAutoBusyChange={(running) => { radarTrial.current = running ? radarAutoRequest?.trial ?? null : null; setRadarAutoBusy(running); }}
           onAutoWasStopped={() => pilotStopRef.current || evaluationCancelledRef.current}
           onAutoEvaluationFinished={async (request, steps) => {
             const failed = steps.filter((step) => !step.complete)
@@ -4040,7 +4059,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             }
             // Each runner has awaited its archive write; never derive completion
             // from the number of API calls or a notification saying "terminé".
-            const outcome = radarEvaluationOutcome(await diagramArchive.list(), request.modelId);
+            const archived = await diagramArchive.list();
+            const outcome = radarEvaluationOutcome(request.trial ? archived.filter(entry => entry.trial?.id === request.trial!.id) : archived, request.modelId);
             if (outcome.complete) return batteryStatus + 'Radar complet pour ' + request.profileName +
               ' : 8/8 caractéristiques mesurées.';
             return batteryStatus + 'Évaluation partielle pour ' + request.profileName + ' : ' +

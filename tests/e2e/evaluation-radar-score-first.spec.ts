@@ -38,3 +38,30 @@ test('radar opens on LLM selection and score, while archive tools stay with camp
   await expect(radar.getByLabel('Choisir un LLM')).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 });
+
+test('reopens two dated scores for the same model and selects the older method', async ({ page }) => {
+  const key = 'companion:biology-teacher-radar:v1';
+  await page.goto('/');
+  await page.evaluate(key => {
+    const rows = ['contract', 'standard'].flatMap((protocol, i) =>
+      ['A', 'B', 'C', 'D', 'E', 'F', 'G'].map(caseId => ({
+        id: protocol + caseId, campaignId: protocol, profileId: 'q', profile: 'Qwen',
+        model: 'qwen:timeline', method: 'generative', provider: 'ollama', protocol, caseId,
+        recordedAt: '2026-11-' + (12 + i) + 'T12:00:00Z', status: 'success',
+        referenceScore: 5, score: i ? 3 : 5, decisions: [{id:'a',expected:1,awarded:1},{id:'b',expected:0,awarded:i}],
+      })));
+    localStorage.setItem(key, JSON.stringify(rows));
+  }, key);
+  await page.reload();
+  await page.getByRole('button', {name:'Évaluer les modèles'}).click();
+  const home = page.getByRole('region', {name:'Tableau de bord des radars'});
+  await home.getByLabel('Choisir un LLM').selectOption('qwen:timeline');
+  const bio = home.getByRole('article', {name:'Biologie'});
+  await bio.getByText('Évolution des notes et méthodes', {exact:true}).click();
+  await expect(bio.getByRole('img', {name:/Évolution de l’indice/})).toBeVisible();
+  const timeline = bio.getByRole('list', {name:'Chronologie des indices sur 100'});
+  await expect(timeline.getByRole('button')).toHaveCount(2);
+  await timeline.getByRole('button').last().click();
+  await bio.getByRole('button', {name:'Choisir cette méthode pour le prochain essai'}).click();
+  await expect(bio.getByLabel('Méthode du prochain essai')).toHaveValue('standard');
+});

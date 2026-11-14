@@ -14,6 +14,7 @@ export const BIOLOGY_RADAR_AXES: readonly { id: BiologyRadarAxis; label: string;
 ];
 
 export interface BiologyRadarObservation {
+  timeline?: import('./radarTimeline.ts').TimelinePoint;
   campaignId?: string;
   revision?: string | null;
   prompts?: ReturnType<typeof evaluationPromptReferences>;
@@ -76,7 +77,7 @@ export function biologyRadarObservations(
   }, 'question-contract'));
   const fromRepeated = repeatability.experiments.map((experiment) => makeObservation({
     profileId: experiment.profileId, profile: experiment.profile, model: experiment.analysisModel,
-    provider: experiment.provider, method: experiment.method, protocol: 'contract',
+    provider: experiment.provider, method: experiment.method, protocol: experiment.variant,
     caseId: experiment.caseId, recordedAt: experiment.completedAt, status: experiment.status,
     score: experiment.score, referenceScore: experiment.referenceScore,
     prompts: evaluationPromptReferences(experiment.traces), durationMs: experiment.durationMs,
@@ -89,7 +90,7 @@ export function biologyRadarObservations(
 export function mergeBiologyRadarHistory(previous: readonly BiologyRadarObservation[], additions: readonly BiologyRadarObservation[]) {
   const entries = new Map(previous.map((item) => [item.id, item]));
   for (const item of additions) entries.set(item.id, item);
-  return [...entries.values()].sort((a, b) => b.recordedAt.localeCompare(a.recordedAt)).slice(0, 1200);
+  return [...entries.values()].sort((a, b) => b.recordedAt.localeCompare(a.recordedAt));
 }
 
 export function loadBiologyRadarHistory(): BiologyRadarObservation[] {
@@ -106,9 +107,9 @@ export function loadBiologyRadarHistory(): BiologyRadarObservation[] {
   } catch { return []; }
 }
 
-export function saveBiologyRadarHistory(history: readonly BiologyRadarObservation[]): void {
-  try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(history)); }
-  catch { /* Storage might be unavailable or full; the current session still works. */ }
+export function saveBiologyRadarHistory(history: readonly BiologyRadarObservation[]): boolean {
+  try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(history)); return true; }
+  catch { return false; }
 }
 
 export interface BiologyRadarCandidate {

@@ -263,3 +263,25 @@ describe('scientific benchmark 8-axis radar', () => {
   });
 
 });
+
+it('freezes the weighted score and the executable graph method for each independent trial', async () => {
+  const { sciencePoints, trialSteps } = await import('../../src/domain/radarTimeline.ts');
+  const { createDiagramLabArchiveWriter } = await import('../../src/application/diagramLabArchiveWriter.ts');
+  const archive = new Map<string, DiagramLabArchiveEntry>();
+  const writer = createDiagramLabArchiveWriter({ list: async () => [...archive.values()], save: async e => { archive.set(e.id, e); } });
+  const reports = complete(3);
+  for (const row of reports) {
+    writer.register(row.createdAt, {id: 'first', method: 'leaders-v1', weights: RADAR_PRESETS.balanced});
+    await writer.save(row.report, 'finished');
+  }
+  const frozen = [...archive.values()].at(-1)!.timeline![0]!;
+  expect(frozen).toMatchObject({id: 'first', scienceMethod: 'leaders-v1', score: 93.8});
+  expect(trialSteps('leaders-v1').at(-1)?.graphVariant).toBe('pixel-leaders-v1');
+  expect(trialSteps('guided-v1').at(-1)?.graphVariant).toBe('isolated-arrows-outside');
+  const second = sample('graph', '2026-11-13T17:00:00Z');
+  writer.register(second.createdAt, {id: 'second', method: 'guided-v1', weights: RADAR_PRESETS.scientific});
+  await writer.save(second.report, 'finished');
+  expect([...archive.values()].at(-1)?.timeline?.[0]?.axes['Qualité graphique']).toBeNull();
+  expect(frozen.score).toBe(93.8);
+  expect(sciencePoints([second], RADAR_PRESETS.scientific)[0]?.scienceMethod).toBeUndefined();
+});
