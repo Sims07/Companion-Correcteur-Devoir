@@ -10,6 +10,8 @@ export interface ObservedRelationGraphV2 {
   leaders: Array<{ labelId: string; targetId: string; status: 'connected' | 'uncertain' | 'missing'; tipX: number; tipY: number }>;
   layout: 'columns' | 'rows' | 'mixed' | 'unclear';
   complete: boolean;
+  /** Set locally only when extraction fails validation; never evidence of a correct pointer. */
+  validationIssue?: string;
 }
 export interface DiagramGraphEvidenceV2 {
   version: 'graph-first-v2';
@@ -23,8 +25,13 @@ const layouts = ['columns', 'rows', 'mixed', 'unclear'] as const;
 const states = ['connected', 'uncertain', 'missing'] as const;
 const plain = (x: unknown): x is Record<string, unknown> => Boolean(x) && typeof x === 'object' && !Array.isArray(x);
 const id = (x: unknown, path: string): string => {
-  if (typeof x !== 'string' || !/^[a-zA-Z][a-zA-Z0-9_-]{0,30}$/.test(x)) throw new Error('Identifiant V2 invalide : ' + path);
-  return x;
+  // Small vision models sometimes emit 1 or "label 1" instead of "label_1".
+  // Normalize the token consistently in definitions AND references. Never
+  // guess an absent reference or merge two labels: duplicate checks still apply.
+  const value = typeof x === 'number' && Number.isSafeInteger(x) && x >= 0
+    ? String(x) : typeof x === 'string' ? x.trim().replace(/\s+/g, '_') : '';
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,30}$/.test(value)) throw new Error('Identifiant V2 invalide : ' + path);
+  return value;
 };
 const text = (x: unknown, path: string, max: number): string => {
   if (typeof x !== 'string' || !x.trim() || x.length > max) throw new Error('Texte V2 invalide : ' + path);
@@ -75,15 +82,20 @@ export function parseObservedRelationGraphV2(raw: string): ObservedRelationGraph
   const leaders = items(data.leaders, 'leaders', 48).map((value, index) => {
     if (!plain(value)) throw new Error('Trait de rappel V2 invalide : ' + index);
     const labelId = id(value.labelId, 'leaders.labelId');
-    const targetId = value.targetId === 'unknown' ? 'unknown' : id(value.targetId, 'leaders.targetId');
     const status = member(value.status, states, 'leaders.status');
-    const tipX = position(value.tipX, 'leaders.tipX'), tipY = position(value.tipY, 'leaders.tipY');
+    const rawTipX = position(value.tipX, 'leaders.tipX'), rawTipY = position(value.tipY, 'leaders.tipY');
+    if ((rawTipX === -1) !== (rawTipY === -1)) throw new Error('Coordonnées V2 incomplètes.');
+    // A model may name a speculative target while declaring the line uncertain.
+    // Discard that claim and its coordinates instead of crediting a false arrow.
+    const targetId = status === 'connected'
+      ? (value.targetId === 'unknown' ? 'unknown' : id(value.targetId, 'leaders.targetId'))
+      : 'unknown';
+    const tipX = status === 'connected' ? rawTipX : -1;
+    const tipY = status === 'connected' ? rawTipY : -1;
     if (!labelsById.has(labelId) || (targetId !== 'unknown' && !structuresById.has(targetId))) {
       throw new Error('Trait de rappel V2 : identifiant absent du graphe.');
     }
-    if ((tipX === -1) !== (tipY === -1)) throw new Error('Coordonnées V2 incomplètes.');
     if (status === 'connected' && targetId === 'unknown') throw new Error('Cible V2 inconnue déclarée connectée.');
-    if (status !== 'connected' && targetId !== 'unknown') throw new Error('Cible V2 spéculative.');
     return { labelId, targetId, status, tipX, tipY };
   });
   if (new Set(leaders.map((item) => item.labelId)).size !== leaders.length) {
