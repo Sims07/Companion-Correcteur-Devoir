@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { ImageInput } from '../src/domain/imageInput.ts';
-import type { BackgroundCorrectionJob } from '../src/domain/backgroundCorrection.ts';
+import type { BackgroundCorrectionJob } from '../src/domain/correction/backgroundCorrection.ts';
 import { prepareBatchCopies } from '../src/application/prepareBatchCopies.ts';
 
 function image(fileName: string): ImageInput {

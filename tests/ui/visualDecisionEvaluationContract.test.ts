@@ -26,7 +26,7 @@ describe('visual System One is limited to the technical model benchmark', () => 
   });
 
   it('does not anchor the visual System One question factory on any specific school subject', () => {
-    const source = readFileSync(new URL('../../src/domain/systemOneDecision.ts', import.meta.url), 'utf8');
+    const source = readFileSync(new URL('../../src/domain/correction/systemOneDecision.ts', import.meta.url), 'utf8');
     const visualFactory = source.slice(source.indexOf('function visualExpectedQuestion('), source.indexOf('function expectedQuestion('));
     expect(visualFactory).toContain('target.title');
     expect(visualFactory).toContain('target.description');

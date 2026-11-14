@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createBackgroundCorrection, toBackgroundJobOverview } from '../src/domain/backgroundCorrection.ts';
+import { createBackgroundCorrection, toBackgroundJobOverview } from '../src/domain/correction/backgroundCorrection.ts';
 import { createBackgroundCorrectionService } from '../src/application/backgroundCorrectionService.ts';
 import { createScientificDiagramAnalysisService } from '../src/application/scientificDiagramAnalysisService.ts';
-import { SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC } from '../src/domain/scientificDiagramProtocol.ts';
-import type { BackgroundCorrectionJob } from '../src/domain/backgroundCorrection.ts';
+import { SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC } from '../src/domain/correction/scientificDiagramRubric.ts';
+import type { BackgroundCorrectionJob } from '../src/domain/correction/backgroundCorrection.ts';
 import type { BackgroundCorrectionRepository } from '../src/ports/backgroundCorrectionRepository.ts';
 import type { GradingProvider, GradingRequest, OllamaSettings } from '../src/ports/aiProvider.ts';
 import type { ScientificDiagramAnalyzer } from '../src/ports/scientificDiagramAnalysis.ts';

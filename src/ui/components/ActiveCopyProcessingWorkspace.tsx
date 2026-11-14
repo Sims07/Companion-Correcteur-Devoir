@@ -1,4 +1,4 @@
-import type { BackgroundCorrectionJob } from '../../domain/backgroundCorrection.ts';
+import type { BackgroundCorrectionJob } from '../../domain/correction/backgroundCorrection.ts';
 import { ZoomableImage } from './ZoomableImage.tsx';
 import type { ImageInput } from '../../ports/aiProvider.ts';
 import { BackgroundCopyActivity } from './BackgroundCopyActivity.tsx';

@@ -1,4 +1,4 @@
-import type { RadarBatteryExecution } from '../../domain/radarBatteryExecution.ts';
+import type { RadarBatteryExecution } from '../../domain/evaluation/radarBatteryExecution.ts';
 
 export function RadarBatteryContext({ execution }: { execution: RadarBatteryExecution }) {
   return <div className="evaluation-radar-method-context" role="group" aria-label="Méthode et moteur du test radar">

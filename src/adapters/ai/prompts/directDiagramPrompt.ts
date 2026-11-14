@@ -1,4 +1,4 @@
-import { SCIENTIFIC_DIAGRAM_OBSERVATION_RULES } from '../../../domain/scientificDiagramObservation.ts';
+import { SCIENTIFIC_DIAGRAM_OBSERVATION_RULES } from '../../../domain/correction/scientificDiagramObservation.ts';
 import type { GradingRequest } from '../../../ports/aiProvider.ts';
 import type { DirectDiagramPointRepair } from '../directDiagramOutput.ts';
 

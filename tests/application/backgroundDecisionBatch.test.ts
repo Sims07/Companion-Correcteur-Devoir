@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createBackgroundCorrectionService } from '../../src/application/backgroundCorrectionService.ts';
-import { createBackgroundCorrection } from '../../src/domain/backgroundCorrection.ts';
-import type { BackgroundCorrectionJob } from '../../src/domain/backgroundCorrection.ts';
+import { createBackgroundCorrection } from '../../src/domain/correction/backgroundCorrection.ts';
+import type { BackgroundCorrectionJob } from '../../src/domain/correction/backgroundCorrection.ts';
 import type { BackgroundCorrectionRepository } from '../../src/ports/backgroundCorrectionRepository.ts';
 import type { OllamaGateway } from '../../src/ports/correctionWorkspace.ts';
 import type { GradingRequest, OllamaSettings } from '../../src/ports/aiProvider.ts';
-import type { RubricCriterion } from '../../src/domain/rubric.ts';
+import type { RubricCriterion } from '../../src/domain/correction/rubric.ts';
 
 const criteria: RubricCriterion[] = [
   { id: 'c1', title: 'Observation', description: 'Identifier la membrane', maxPoints: 1 },

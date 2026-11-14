@@ -2,7 +2,7 @@
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { BackgroundJobSummary } from '../../src/domain/backgroundCorrection.ts';
+import type { BackgroundJobSummary } from '../../src/domain/correction/backgroundCorrection.ts';
 import { CorrectionOverview } from '../../src/ui/CorrectionOverview.tsx';
 
 const failedJob: BackgroundJobSummary = {

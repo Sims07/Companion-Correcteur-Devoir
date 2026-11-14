@@ -1,4 +1,4 @@
-import { getRubricSubcriteria, type RubricCriterion } from '../../domain/rubric.ts';
+import { getRubricSubcriteria, type RubricCriterion } from '../../domain/correction/rubric.ts';
 
 /** Compact, closed-ended prompt: no score, probability, pedagogical prose or invented partial points. */
 export function buildCriterionDecisionPrompt(input: {

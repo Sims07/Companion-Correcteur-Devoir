@@ -1,8 +1,8 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import type { BackgroundJobSummary } from '../domain/backgroundCorrection.ts';
-import type { LocalCorrection } from '../domain/localCorrection.ts';
+import type { BackgroundJobSummary } from '../domain/correction/backgroundCorrection.ts';
+import type { LocalCorrection } from '../domain/correction/localCorrection.ts';
 import { sumGradeScores } from '../domain/scorePrecision.ts';
-import { countCopyOverviewStatuses, getLatestAvailableCorrection, sortCopyOverviewItems, toCopyOverviewStatus, type CopyOverviewFilter, type CopyOverviewStatus } from '../domain/copyOverview.ts';
+import { countCopyOverviewStatuses, getLatestAvailableCorrection, sortCopyOverviewItems, toCopyOverviewStatus, type CopyOverviewFilter, type CopyOverviewStatus } from '../domain/correction/copyOverview.ts';
 
 type CurrentCopy = {
   label: string;

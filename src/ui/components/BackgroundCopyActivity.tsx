@@ -1,4 +1,4 @@
-import type { BackgroundCorrectionJob } from '../../domain/backgroundCorrection.ts';
+import type { BackgroundCorrectionJob } from '../../domain/correction/backgroundCorrection.ts';
 import './BackgroundCopyActivity.css';
 
 type Props = { job: BackgroundCorrectionJob };

@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { previewReusableCriteria, reuseSelectedCriteria } from '../../domain/teacherWorkflow.ts';
-import { validateRubric, type Rubric, type RubricCriterion } from '../../domain/rubric.ts';
+import { previewReusableCriteria, reuseSelectedCriteria } from '../../domain/correction/teacherWorkflow.ts';
+import { validateRubric, type Rubric, type RubricCriterion } from '../../domain/correction/rubric.ts';
 import { DesignSystemSelect } from './DesignSystemSelect.tsx';
 import { Button } from '../design-system/index.ts';
 

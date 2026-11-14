@@ -3,7 +3,7 @@ import { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { defaultAiModelConfiguration } from '../../src/domain/aiModelProfiles.ts';
-import type { BiologyRadarObservation } from '../../src/domain/biologyTeacherRadar.ts';
+import type { BiologyRadarObservation } from '../../src/domain/evaluation/biologyTeacherRadar.ts';
 import { BiologyTeacherRadar } from '../../src/ui/components/BiologyTeacherRadar.tsx';
 
 const profiles = [{ id: 'qwen', name: 'Qwen', mode: 'single' as const,

@@ -1,6 +1,6 @@
 import { expect, it, vi } from 'vitest';
 import { extractVisualRelationGraphV2 } from '../../../src/adapters/ai/relationGraphV2Client.ts';
-import { DIAGRAM_RELATIONS_V2_SCHEMA } from '../../../src/domain/scientificDiagramRelationGraphV2.ts';
+import { DIAGRAM_RELATIONS_V2_SCHEMA } from '../../../src/domain/evaluation/scientificDiagramRelationGraphV2.ts';
 
 const valid = {
   labels:[{id:'l1',text:'Chromosomes',phase:'metaphase'}],

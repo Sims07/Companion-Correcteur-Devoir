@@ -1,6 +1,6 @@
-import type { ReviewTraceMetrics } from './reviewMetrics.ts';
-import type { ModelEvaluationRecord } from './modelEvaluation.ts';
-import type { BlindVisualObservationRun } from './scientificDiagramBlindGraph.ts';
+import type { ReviewTraceMetrics } from './correction/reviewMetrics.ts';
+import type { ModelEvaluationRecord } from './evaluation/modelEvaluation.ts';
+import type { BlindVisualObservationRun } from './evaluation/scientificDiagramBlindGraph.ts';
 
 export type ObservabilityStage = 'reading' | 'analysis' | 'arbitration' | 'other';
 
@@ -84,7 +84,7 @@ export type ObservabilityTrace = {
 };
 
 /** Convert each saved model/profile result into a local trace without retaining image payloads. */
-export function toModelEvaluationObservabilityTraces(records: import('./modelEvaluation.ts').ModelEvaluationRecord[]): ObservabilityTrace[] {
+export function toModelEvaluationObservabilityTraces(records: import('./evaluation/modelEvaluation.ts').ModelEvaluationRecord[]): ObservabilityTrace[] {
   return records.flatMap((record) => record.results.map((result) => {
     const configuration = record.configurations.find((item) => item.id === result.profileId);
     const stage = record.stage ?? 'integrated';

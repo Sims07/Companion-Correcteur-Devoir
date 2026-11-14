@@ -1,6 +1,6 @@
 import type { LocalCorrectionRepository } from '../../ports/localCorrectionRepository.ts';
-import { fingerprintRubric, LOCAL_MEMORY_CORRECTION_ID_KEY, LOCAL_MEMORY_RUBRIC_FINGERPRINT_KEY, type LocalMemoryEntry, rankLocalMemories } from '../../domain/localMemory.ts';
-import { buildLocalMemoryContext } from '../../domain/localMemoryContext.ts';
+import { fingerprintRubric, LOCAL_MEMORY_CORRECTION_ID_KEY, LOCAL_MEMORY_RUBRIC_FINGERPRINT_KEY, type LocalMemoryEntry, rankLocalMemories } from '../../domain/correction/localMemory.ts';
+import { buildLocalMemoryContext } from '../../domain/correction/localMemoryContext.ts';
 
 function readRubricScope(): { correctionId: string; rubricFingerprint: string } | null {
   if (typeof window === 'undefined') return null;

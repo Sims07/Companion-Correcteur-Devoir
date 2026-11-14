@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { createBackgroundCorrection } from '../../../src/domain/backgroundCorrection.ts';
+import { createBackgroundCorrection } from '../../../src/domain/correction/backgroundCorrection.ts';
 import { BackgroundCopyActivity } from '../../../src/ui/components/BackgroundCopyActivity.tsx';
 
 const job = createBackgroundCorrection({

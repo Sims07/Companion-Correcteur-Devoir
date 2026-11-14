@@ -1,4 +1,4 @@
-import { getRubricSubcriteria, type RubricCriterion } from '../../../domain/rubric.ts';
+import { getRubricSubcriteria, type RubricCriterion } from '../../../domain/correction/rubric.ts';
 import type { GradingRequest } from '../../../ports/aiProvider.ts';
 
 /** Consignes de correction issues du barème du professeur. */

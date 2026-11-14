@@ -1,5 +1,5 @@
-import { VISUAL_RELATION_REASONS, type BlindVisualObservationRun } from '../../domain/scientificDiagramBlindGraph.ts';
-import type { DiagramSensitivityChoice } from '../../domain/scientificDiagramSensitivity.ts';
+import { VISUAL_RELATION_REASONS, type BlindVisualObservationRun } from '../../domain/evaluation/scientificDiagramBlindGraph.ts';
+import type { DiagramSensitivityChoice } from '../../domain/evaluation/scientificDiagramSensitivity.ts';
 
 const names: Record<string, string> = {
   'relations::transcription': 'ADN → ARN',

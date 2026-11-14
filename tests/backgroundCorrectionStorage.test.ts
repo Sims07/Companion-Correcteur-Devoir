@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import { describe, expect, it } from 'vitest';
 import { IndexedDbBackgroundCorrectionRepository } from '../src/adapters/storage/indexedDbMemory.ts';
-import { createBackgroundCorrection } from '../src/domain/backgroundCorrection.ts';
+import { createBackgroundCorrection } from '../src/domain/correction/backgroundCorrection.ts';
 
 describe('IndexedDB background correction storage', () => {
   it('retrieves lightweight queued metadata and only the next pending original, in FIFO order', async () => {

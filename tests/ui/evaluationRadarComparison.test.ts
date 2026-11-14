@@ -3,10 +3,10 @@ import { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { expect, it, vi } from 'vitest';
 import { defaultAiModelConfiguration } from '../../src/domain/aiModelProfiles.ts';
-import type { BiologyRadarObservation } from '../../src/domain/biologyTeacherRadar.ts';
-import { buildBlindVisualObservationReport } from '../../src/domain/scientificDiagramBlindGraph.ts';
-import { summarizeDiagramLabReport } from '../../src/domain/diagramLabHistory.ts';
-import { DIAGRAM_SENSITIVITY_CASES } from '../../src/domain/scientificDiagramSensitivity.ts';
+import type { BiologyRadarObservation } from '../../src/domain/evaluation/biologyTeacherRadar.ts';
+import { buildBlindVisualObservationReport } from '../../src/domain/evaluation/scientificDiagramBlindGraph.ts';
+import { summarizeDiagramLabReport } from '../../src/domain/evaluation/diagramLabHistory.ts';
+import { DIAGRAM_SENSITIVITY_CASES } from '../../src/domain/evaluation/scientificDiagramSensitivity.ts';
 import { EvaluationRadarHome } from '../../src/ui/components/EvaluationRadarHome.tsx';
 
 const models = ['alpha:4b', 'beta:4b', 'gamma:4b'];
@@ -128,7 +128,7 @@ it('selects a dated score and runs its saved method again for the same model', a
   const root = createRoot(node);
   const runScience = vi.fn();
   const previous = { ...entries[0]!, trial: { id: 'old', method: 'leaders-v1' as const,
-    weights: (await import('../../src/domain/diagramLabRadar.ts')).RADAR_PRESETS.balanced } };
+    weights: (await import('../../src/domain/evaluation/diagramLabRadar.ts')).RADAR_PRESETS.balanced } };
   await act(async () => root.render(createElement(EvaluationRadarHome, {
     entries: [previous], history: [], profiles, model: models[0]!, choose: vi.fn(), busy: false,
     manage: vi.fn(), details: vi.fn(), campaigns: vi.fn(), runScience, runBiology: vi.fn(),
@@ -146,9 +146,9 @@ it('selects a dated score and runs its saved method again for the same model', a
 });
 
 it('exports the selected scientific model with its frozen score, weights and relevant case evidence', async () => {
-  const { buildRadarTimelineExport } = await import('../../src/domain/radarTimelineExport.ts');
-  const { sciencePoints } = await import('../../src/domain/radarTimeline.ts');
-  const { RADAR_PRESETS } = await import('../../src/domain/diagramLabRadar.ts');
+  const { buildRadarTimelineExport } = await import('../../src/domain/evaluation/radarTimelineExport.ts');
+  const { sciencePoints } = await import('../../src/domain/evaluation/radarTimeline.ts');
+  const { RADAR_PRESETS } = await import('../../src/domain/evaluation/diagramLabRadar.ts');
   const first = entries[0]!;
   const group = [{...first, trial: {id: 'trial', method: 'pixel-v1' as const, weights: RADAR_PRESETS.balanced}}];
   const points = sciencePoints(group, RADAR_PRESETS.scientific);
@@ -237,7 +237,7 @@ it('starts every remaining scientific method sequentially as separate four-batte
   expect(requests).toHaveLength(5);
   expect(new Set(requests.map(request => request.trial.id)).size).toBe(5);
   expect(requests.map(request => request.trial.method)).toEqual(
-    Object.keys((await import('../../src/domain/radarTimeline.ts')).scienceMethods));
+    Object.keys((await import('../../src/domain/evaluation/radarTimeline.ts')).scienceMethods));
   for (const request of requests) {
     expect(request.steps.map(step => step.protocol)).toEqual(['reference','arrows','semantic','graph']);
     expect(request.profileId).toBe('alpha:4b');
@@ -285,7 +285,7 @@ it('prevents starting a batch while another evaluation is in progress', async ()
 });
 
 it('keeps four successive scientific methods as four independently selectable radars', async () => {
-  const { RADAR_PRESETS } = await import('../../src/domain/diagramLabRadar.ts');
+  const { RADAR_PRESETS } = await import('../../src/domain/evaluation/diagramLabRadar.ts');
   const methods = ['leaders-v1', 'pixel-v1', 'direct-v1', 'guided-v1'] as const;
   const completed = methods.map((method, index) => ({
     ...entries[0]!,
@@ -311,7 +311,7 @@ it('keeps four successive scientific methods as four independently selectable ra
   await act(async () => gallery[3]!.click());
   expect(gallery[3]!.getAttribute('aria-pressed')).toBe('true');
   for (const method of methods) {
-    const { scienceMethods } = await import('../../src/domain/radarTimeline.ts');
+    const { scienceMethods } = await import('../../src/domain/evaluation/radarTimeline.ts');
     expect(table.textContent).toContain(scienceMethods[method].label);
   }
   await act(async () => root.unmount());

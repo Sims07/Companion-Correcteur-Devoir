@@ -1,5 +1,5 @@
-import { sciencePoints, type RadarTrial } from '../domain/radarTimeline.ts';
-import { summarizeDiagramLabReport, type DiagramLabArchiveEntry, type DiagramLabReport } from '../domain/diagramLabHistory.ts';
+import { sciencePoints, type RadarTrial } from '../domain/evaluation/radarTimeline.ts';
+import { summarizeDiagramLabReport, type DiagramLabArchiveEntry, type DiagramLabReport } from '../domain/evaluation/diagramLabHistory.ts';
 import type { DiagramLabArchiveRepository } from '../ports/diagramLabArchiveRepository.ts';
 
 /** Serialize partial and final reports. A late React effect must never replace

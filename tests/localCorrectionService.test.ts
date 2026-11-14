@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { createLocalCorrectionService } from '../src/application/localCorrectionService.ts';
 import type { LocalCorrectionRepository } from '../src/ports/localCorrectionRepository.ts';
-import type { LocalCorrection } from '../src/domain/localCorrection.ts';
-import type { LocalMemoryEntry, LocalMemoryQuery } from '../src/domain/localMemory.ts';
+import type { LocalCorrection } from '../src/domain/correction/localCorrection.ts';
+import type { LocalMemoryEntry, LocalMemoryQuery } from '../src/domain/correction/localMemory.ts';
 
 function repository(): LocalCorrectionRepository {
   const corrections: LocalCorrection[] = [];

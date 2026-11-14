@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { summarizeCriterionProgress } from '../src/domain/criterionProgress.ts';
+import { summarizeCriterionProgress } from '../src/domain/correction/criterionProgress.ts';
 
 describe('summarizeCriterionProgress', () => {
   const criteria = [

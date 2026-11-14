@@ -1,15 +1,15 @@
 import { Button } from '../design-system/index.ts';
-import { countedUsableBiologyGrades, buildEvaluationIssueReport } from '../../domain/evaluationIssueReport.ts';
-import { biologyCampaignIssues, customCampaignIssues, diagramCampaignIssues } from '../../domain/evaluationCampaignIssues.ts';
+import { countedUsableBiologyGrades, buildEvaluationIssueReport } from '../../domain/evaluation/evaluationIssueReport.ts';
+import { biologyCampaignIssues, customCampaignIssues, diagramCampaignIssues } from '../../domain/evaluation/evaluationCampaignIssues.ts';
 import { EvaluationIssueButton } from './EvaluationIssueButton.tsx';
 import { useMemo, useState } from 'react';
 import './EvaluationCampaigns.css';
-import type { BiologyRadarObservation } from '../../domain/biologyTeacherRadar.ts';
-import type { DiagramLabArchiveEntry } from '../../domain/diagramLabHistory.ts';
-import { diagramCampaignModels } from '../../domain/diagramLabRadar.ts';
-import type { ModelEvaluationRecord } from '../../domain/modelEvaluation.ts';
-import { PILOT_PROTOCOL_ID } from '../../domain/pilotEvaluationProtocol.ts';
-import { QUESTION_CONTRACT_PROTOCOL_ID } from '../../domain/questionContractPilot.ts';
+import type { BiologyRadarObservation } from '../../domain/evaluation/biologyTeacherRadar.ts';
+import type { DiagramLabArchiveEntry } from '../../domain/evaluation/diagramLabHistory.ts';
+import { diagramCampaignModels } from '../../domain/evaluation/diagramLabRadar.ts';
+import type { ModelEvaluationRecord } from '../../domain/evaluation/modelEvaluation.ts';
+import { PILOT_PROTOCOL_ID } from '../../domain/evaluation/pilotEvaluationProtocol.ts';
+import { QUESTION_CONTRACT_PROTOCOL_ID } from '../../domain/evaluation/questionContractPilot.ts';
 import { domainLabels } from './EvaluationRadarHome.tsx';
 
 type Domain = keyof typeof domainLabels;

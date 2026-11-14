@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { cropObservedArrow, auditBlindGraphImage, blindGraphLocalUrl, blindGraphCompatibleUrl, extractBlindVisualGraph } from '../../../src/adapters/ai/blindDiagramGraphClient.ts';
-import { BLIND_VISUAL_OBSERVATION_PROMPT, BLIND_VISUAL_OBSERVATION_SCHEMA } from '../../../src/domain/scientificDiagramBlindGraph.ts';
+import { BLIND_VISUAL_OBSERVATION_PROMPT, BLIND_VISUAL_OBSERVATION_SCHEMA } from '../../../src/domain/evaluation/scientificDiagramBlindGraph.ts';
 
 describe('client graphe visuel indépendant', () => {
   it('audits the actual encoded raster bytes without exporting pixels', () => {

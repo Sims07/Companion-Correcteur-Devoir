@@ -4,8 +4,8 @@ import { createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react';
 import { RadarBatteryContext } from '../../src/ui/components/RadarBatteryContext.tsx';
-import { describeRadarBattery } from '../../src/domain/radarBatteryExecution.ts';
-import { trialSteps } from '../../src/domain/radarTimeline.ts';
+import { describeRadarBattery } from '../../src/domain/evaluation/radarBatteryExecution.ts';
+import { trialSteps } from '../../src/domain/evaluation/radarTimeline.ts';
 
 describe('radar active method display', () => {
   it('shows selected #439 strategy separately from the direct image inference being run', async () => {

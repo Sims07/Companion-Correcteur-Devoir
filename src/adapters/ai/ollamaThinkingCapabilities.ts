@@ -1,4 +1,4 @@
-import { isLoopbackPilotEndpoint } from '../../domain/pilotEvaluationProtocol.ts';
+import { isLoopbackPilotEndpoint } from '../../domain/evaluation/pilotEvaluationProtocol.ts';
 import { annotateNetworkRequest } from '../../ports/networkRequestMetadata.ts';
 import { currentFetch } from './currentFetch.ts';
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { createRubricExport } from '../../domain/rubricExport.ts';
-import type { Rubric } from '../../domain/rubric.ts';
+import { createRubricExport } from '../../domain/correction/rubricExport.ts';
+import type { Rubric } from '../../domain/correction/rubric.ts';
 import { StatusNotice, type StatusTone } from '../design-system/index.ts';
 import './RubricExportPanel.css';
 interface RubricExportPanelProps { rubric: Rubric }

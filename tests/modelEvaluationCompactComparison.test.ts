@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { canCompareModelEvaluationRecords, toModelEvaluationSummary, type ModelEvaluationRecord } from '../src/domain/modelEvaluation.ts';
-import { modelEvaluationImageSignature } from '../src/domain/modelEvaluationImageIdentity.ts';
+import { canCompareModelEvaluationRecords, toModelEvaluationSummary, type ModelEvaluationRecord } from '../src/domain/evaluation/modelEvaluation.ts';
+import { modelEvaluationImageSignature } from '../src/domain/evaluation/modelEvaluationImageIdentity.ts';
 
 const record = (id: string, image = 'copy-A'): ModelEvaluationRecord => ({
   id, completedAt: '2026-11-05T18:00:00Z', assignmentId:'biology',

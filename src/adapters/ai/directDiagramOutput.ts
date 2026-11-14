@@ -1,6 +1,6 @@
 import { parseModelJson } from '../../domain/modelJson.ts';
-import { parseGradingProposal } from '../../domain/grading.ts';
-import { getRubricSubcriteria, type RubricCriterion } from '../../domain/rubric.ts';
+import { parseGradingProposal } from '../../domain/correction/grading.ts';
+import { getRubricSubcriteria, type RubricCriterion } from '../../domain/correction/rubric.ts';
 import { sumGradeScores } from '../../domain/scorePrecision.ts';
 
 const object = (properties: Record<string, unknown>) => ({

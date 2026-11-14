@@ -1,16 +1,16 @@
-import { parseGradingProposal } from '../domain/grading.ts';
-import { directDiagramAssignmentIssue } from '../domain/directDiagramAssignment.ts';
+import { parseGradingProposal } from '../domain/correction/grading.ts';
+import { directDiagramAssignmentIssue } from '../domain/correction/directDiagramAssignment.ts';
 import { sumGradeScores } from '../domain/scorePrecision.ts';
 
-import { toBackgroundJobOverview, toBackgroundJobSummary, type BackgroundCorrectionJob, type BackgroundJobSummary } from '../domain/backgroundCorrection.ts';
-import type { Rubric } from '../domain/rubric.ts';
+import { toBackgroundJobOverview, toBackgroundJobSummary, type BackgroundCorrectionJob, type BackgroundJobSummary } from '../domain/correction/backgroundCorrection.ts';
+import type { Rubric } from '../domain/correction/rubric.ts';
 import type { BackgroundCorrectionRepository } from '../ports/backgroundCorrectionRepository.ts';
 import type { GradingProgressEvent, OllamaSettings } from '../ports/aiProvider.ts';
 import type { OllamaGateway } from '../ports/correctionWorkspace.ts';
-import { resolveIdentifiedCopyLabel, type StudentIdentity } from '../domain/studentIdentity.ts';
-import { partitionScientificRubric, mergeScientificDiagramCriteria } from '../domain/scientificRubricRouting.ts';
-import { mergeDecisionScientificDiagramCriteria } from '../domain/scientificDiagramDecisions.ts';
-import { routeScientificPages } from '../domain/scientificPageClassification.ts';
+import { resolveIdentifiedCopyLabel, type StudentIdentity } from '../domain/correction/studentIdentity.ts';
+import { partitionScientificRubric, mergeScientificDiagramCriteria } from '../domain/correction/scientificRubricRouting.ts';
+import { mergeDecisionScientificDiagramCriteria } from '../domain/correction/scientificDiagramDecisions.ts';
+import { routeScientificPages } from '../domain/correction/scientificPageClassification.ts';
 import type { ScientificDiagramAnalyzer } from '../ports/scientificDiagramAnalysis.ts';
 
 // Abort requests that stop producing any response, without limiting slow but active

@@ -1,4 +1,4 @@
-import type { TimelinePoint } from '../../domain/radarTimeline.ts';
+import type { TimelinePoint } from '../../domain/evaluation/radarTimeline.ts';
 
 const format = (value: number | null) => value === null ? '—' :
   value.toLocaleString('fr-FR', { maximumFractionDigits: 1 });

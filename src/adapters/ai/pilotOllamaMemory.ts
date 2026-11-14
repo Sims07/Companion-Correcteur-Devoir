@@ -1,6 +1,6 @@
 import { currentFetch } from './currentFetch.ts';
-import type { ModelEvaluationConfiguration } from '../../domain/modelEvaluation.ts';
-import { isNativeDecisionModel } from '../../domain/systemOneDecision.ts';
+import type { ModelEvaluationConfiguration } from '../../domain/evaluation/modelEvaluation.ts';
+import { isNativeDecisionModel } from '../../domain/correction/systemOneDecision.ts';
 import { annotateNetworkRequest } from '../../ports/networkRequestMetadata.ts';
 
 /** Only the guided local protocol is authorized to unload models automatically.

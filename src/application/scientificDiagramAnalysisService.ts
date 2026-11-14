@@ -1,6 +1,6 @@
-import type { ScientificDiagramAnalysis } from '../domain/scientificDiagram.ts';
+import type { ScientificDiagramAnalysis } from '../domain/correction/scientificDiagram.ts';
 import type { ScientificDiagramAnalyzer, ScientificDiagramAnalysisRequest, ScientificPageClassificationRequest } from '../ports/scientificDiagramAnalysis.ts';
-import type { ScientificPageClassification } from '../domain/scientificPageClassification.ts';
+import type { ScientificPageClassification } from '../domain/correction/scientificPageClassification.ts';
 
 export interface ScientificDiagramAnalysisService {
   classifyPages(request: ScientificPageClassificationRequest): Promise<ScientificPageClassification[]>;

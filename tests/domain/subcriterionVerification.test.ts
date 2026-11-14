@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { parseGradingProposal, toReviewedCriteria } from '../../src/domain/grading.ts';
-import { PILOT_CASES, PILOT_RUBRIC, summarizePilotResult } from '../../src/domain/pilotEvaluationProtocol.ts';
-import { prepareSystemOneRubric, scoreSystemOneRubric } from '../../src/domain/systemOneDecision.ts';
-import { resolveManualCriterionOverride, resolveReviewedSubcriterion } from '../../src/domain/subcriterionReview.ts';
-import { validateReviewedCorrection } from '../../src/domain/reviewFinalization.ts';
+import { parseGradingProposal, toReviewedCriteria } from '../../src/domain/correction/grading.ts';
+import { PILOT_CASES, PILOT_RUBRIC, summarizePilotResult } from '../../src/domain/evaluation/pilotEvaluationProtocol.ts';
+import { prepareSystemOneRubric, scoreSystemOneRubric } from '../../src/domain/correction/systemOneDecision.ts';
+import { resolveManualCriterionOverride, resolveReviewedSubcriterion } from '../../src/domain/correction/subcriterionReview.ts';
+import { validateReviewedCorrection } from '../../src/domain/correction/reviewFinalization.ts';
 
 const choice = (selected: string) => ({
   type: 'choice' as const, choice: selected,

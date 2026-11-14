@@ -1,4 +1,4 @@
-import type { ModelEvaluationRecord } from '../domain/modelEvaluation.ts';
+import type { ModelEvaluationRecord } from '../domain/evaluation/modelEvaluation.ts';
 
 export interface ModelEvaluationRepository {
   save(record: ModelEvaluationRecord): Promise<void>;

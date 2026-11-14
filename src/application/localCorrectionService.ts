@@ -1,5 +1,5 @@
-import type { LocalCorrection } from '../domain/localCorrection.ts';
-import type { LocalMemoryEntry, LocalMemoryQuery } from '../domain/localMemory.ts';
+import type { LocalCorrection } from '../domain/correction/localCorrection.ts';
+import type { LocalMemoryEntry, LocalMemoryQuery } from '../domain/correction/localMemory.ts';
 import type { LocalCorrectionRepository } from '../ports/localCorrectionRepository.ts';
 
 export interface LocalCorrectionService {

@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import type { BiologyRadarObservation } from '../../../src/domain/biologyTeacherRadar.ts';
-import type { DiagramLabArchiveEntry } from '../../../src/domain/diagramLabHistory.ts';
+import type { BiologyRadarObservation } from '../../../src/domain/evaluation/biologyTeacherRadar.ts';
+import type { DiagramLabArchiveEntry } from '../../../src/domain/evaluation/diagramLabHistory.ts';
 import { EvaluationCampaigns } from '../../../src/ui/components/EvaluationCampaigns.tsx';
 
 const observation = (caseId: string, score: number | null): BiologyRadarObservation => ({

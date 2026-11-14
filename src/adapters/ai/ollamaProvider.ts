@@ -1,5 +1,5 @@
 import { arrowContext } from '../image/arrowContext.ts';
-import { questionGroups, scopedCriterionInput } from '../../domain/questionContract.ts';
+import { questionGroups, scopedCriterionInput } from '../../domain/correction/questionContract.ts';
 import { promptTrace, type PromptId } from './prompts/promptRegistry.ts';
 import { MODEL_READINESS_PROBE_PROMPT } from './prompts/modelProbePrompt.ts';
 import { buildArbitrationPrompt, buildArbitrationRepairPrompt, buildIncrementalGradingRepairPrompt, buildGradingRepairPrompt } from './prompts/repairPrompts.ts';
@@ -9,23 +9,23 @@ import { buildDirectDiagramPrompt, buildDirectDiagramPointRepairPrompt, buildDir
 import { directDiagramSchema, parseDirectDiagramOutput, findInvalidDiagramPoints, directDiagramPointRepairSchema, directDiagramPointsRepairSchema, applyDirectDiagramPointRepair, applyDirectDiagramPointsRepair, diagramInvalidPointMarkers } from './directDiagramOutput.ts';
 import { buildTranscriptionPrompt, buildStudentIdentityPrompt, buildTeacherAnnotationPrompt } from './prompts/visionPrompts.ts';
 import { requireCorrectionMethodAvailable } from '../../domain/correctionMethod.ts';
-import { isVisualDecisionModel, prepareSystemOneRubric, scoreSystemOneRubric } from '../../domain/systemOneDecision.ts';
+import { isVisualDecisionModel, prepareSystemOneRubric, scoreSystemOneRubric } from '../../domain/correction/systemOneDecision.ts';
 import { requestSystemOneDecision } from './systemOneTransport.ts';
 import type { CriterionAnalysisUpdate, DiagnosticModelResult, GradingProgressEvent, GradingProvider, GradingRequest, OllamaModel, OllamaSettings } from '../../ports/aiProvider.ts';
-import { parseGradingProposal } from '../../domain/grading.ts';
-import { reconcileIncrementalScore } from '../../domain/incrementalGradingReconciliation.ts';
+import { parseGradingProposal } from '../../domain/correction/grading.ts';
+import { reconcileIncrementalScore } from '../../domain/correction/incrementalGradingReconciliation.ts';
 import { normalizeGradeScore, sumGradeScores } from '../../domain/scorePrecision.ts';
-import { getRubricSubcriteria, type RubricCriterion } from '../../domain/rubric.ts';
-import { parseStudentIdentityResponse } from '../../domain/studentIdentity.ts';
+import { getRubricSubcriteria, type RubricCriterion } from '../../domain/correction/rubric.ts';
+import { parseStudentIdentityResponse } from '../../domain/correction/studentIdentity.ts';
 import { buildIncrementalCriterionPrompt } from './gradingPrompts.ts';
-import { resolveCloseDiagnosticCriteria } from '../../domain/diagnosticResolution.ts';
-import { parseArbitrationDecisions } from '../../domain/arbitrationDecision.ts';
+import { resolveCloseDiagnosticCriteria } from '../../domain/correction/diagnosticResolution.ts';
+import { parseArbitrationDecisions } from '../../domain/correction/arbitrationDecision.ts';
 import { parseModelJson } from '../../domain/modelJson.ts';
 import { createOpenAiCompatibleFetch } from './openAiCompatibleTransport.ts';
 import { currentFetch } from './currentFetch.ts';
 import { cropStudentIdentityHeader } from './studentIdentityImage.ts';
 import { annotateNetworkRequest } from '../../ports/networkRequestMetadata.ts';
-import { formatTeacherAnnotations, isDeletionOnlyTranscription, parseTeacherAnnotationDetection, removeConfirmedTeacherAnnotation, type TeacherAnnotationReviewCandidate, type TeacherAnnotationReviewDecision } from '../../domain/teacherAnnotations.ts';
+import { formatTeacherAnnotations, isDeletionOnlyTranscription, parseTeacherAnnotationDetection, removeConfirmedTeacherAnnotation, type TeacherAnnotationReviewCandidate, type TeacherAnnotationReviewDecision } from '../../domain/correction/teacherAnnotations.ts';
 import { buildRubricStructuringPrompt, formatRubricTranscriptionChunk, RUBRIC_STRUCTURING_CHUNK_OUTPUT_TOKENS, RUBRIC_STRUCTURING_MAX_OUTPUT_TOKENS, splitRubricTranscriptions } from './rubricStructuring.ts';
 import { recoverRubricResponse } from './rubricResponseRecovery.ts';
 
@@ -1028,7 +1028,7 @@ export function createOllamaProvider(
         const parsedRubric = JSON.parse(request.rubric) as { criteria?: RubricCriterion[] };
         const criteria = parsedRubric.criteria ?? [];
         if (!criteria.length) throw new Error('Le mode décisionnel requiert un barème structuré avec au moins un critère.');
-        const proposals: import('../../domain/grading.ts').CriterionProposal[] = [];
+        const proposals: import('../../domain/correction/grading.ts').CriterionProposal[] = [];
         // System One accepts multiple closed questions in one request. Reuse the
         // student's transcription ONCE, including on larger 20-point rubrics.
         for (const [index, criterion] of criteria.entries()) {
@@ -1347,7 +1347,7 @@ export function createOllamaProvider(
 }
 
 
-import { validateRubric, type Rubric } from '../../domain/rubric.ts';
+import { validateRubric, type Rubric } from '../../domain/correction/rubric.ts';
 import type { ImageInput } from '../../ports/aiProvider.ts';
 import type { ImportedRubric, RubricImportProgress } from '../../ports/correctionWorkspace.ts';
 

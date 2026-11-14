@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { isVisualDecisionModel, prepareSystemOneRubric, scoreSystemOneRubric } from '../../src/domain/systemOneDecision.ts';
-import type { RubricCriterion } from '../../src/domain/rubric.ts';
+import { isVisualDecisionModel, prepareSystemOneRubric, scoreSystemOneRubric } from '../../src/domain/correction/systemOneDecision.ts';
+import type { RubricCriterion } from '../../src/domain/correction/rubric.ts';
 
 const criterion: RubricCriterion = {
   id: 'forks', title: 'Fourches bidirectionnelles',

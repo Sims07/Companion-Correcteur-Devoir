@@ -3,7 +3,7 @@ import type { AiModelProfile } from '../../domain/aiModelProfiles.ts';
 import {
   BIOLOGY_RADAR_AXES, buildBiologyRadar, type BiologyCorrectionProtocol,
   type BiologyRadarCandidate, type BiologyRadarObservation,
-} from '../../domain/biologyTeacherRadar.ts';
+} from '../../domain/evaluation/biologyTeacherRadar.ts';
 import './BiologyTeacherRadar.css';
 
 const PROTOCOL_NAMES: Record<BiologyCorrectionProtocol, string> = {

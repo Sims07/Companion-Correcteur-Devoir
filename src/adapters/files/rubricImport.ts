@@ -1,6 +1,6 @@
-import { parseCorrectionContract } from '../../domain/questionContract.ts';
+import { parseCorrectionContract } from '../../domain/correction/questionContract.ts';
 import { readSheet } from 'read-excel-file/browser';
-import { validateRubric, type Rubric, type RubricCriterion } from '../../domain/rubric.ts';
+import { validateRubric, type Rubric, type RubricCriterion } from '../../domain/correction/rubric.ts';
 import type { ImportedRubric } from '../../ports/correctionWorkspace.ts';
 
 const MAX_FILE_BYTES = 15 * 1024 * 1024;

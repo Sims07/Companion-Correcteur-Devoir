@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import type { ModelEvaluationRecord } from '../../src/domain/modelEvaluation.ts';
-import type { GradingProposal } from '../../src/domain/grading.ts';
-import { questionContractRubric, QUESTION_CONTRACT_QUESTION, QUESTION_CONTRACT_STRESS_CASES } from '../../src/domain/questionContractPilot.ts';
-import { buildQuestionContractRepeatabilityReport } from '../../src/domain/questionContractRepeatability.ts';
+import type { ModelEvaluationRecord } from '../../src/domain/evaluation/modelEvaluation.ts';
+import type { GradingProposal } from '../../src/domain/correction/grading.ts';
+import { questionContractRubric, QUESTION_CONTRACT_QUESTION, QUESTION_CONTRACT_STRESS_CASES } from '../../src/domain/evaluation/questionContractPilot.ts';
+import { buildQuestionContractRepeatabilityReport } from '../../src/domain/evaluation/questionContractRepeatability.ts';
 
 const rubric = questionContractRubric('contract');
 const exam = QUESTION_CONTRACT_STRESS_CASES.find(({ id }) => id === 'G')!;

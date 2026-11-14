@@ -1,9 +1,9 @@
-import type { ContractPreparation, ContractSources } from '../domain/contractPreparation.ts';
+import type { ContractPreparation, ContractSources } from '../domain/correction/contractPreparation.ts';
 import type { ImageInput, GradingProvider, OllamaModel, OllamaSettings } from './aiProvider.ts';
-import type { Rubric } from '../domain/rubric.ts';
-import type { ObservedVisualGraph, BlindGraphDiagnostic, BlindGraphPromptVariant } from '../domain/scientificDiagramBlindGraph.ts';
-import type { ObservedRelationGraphV2 } from '../domain/scientificDiagramRelationGraphV2.ts';
-import type { TeacherAnnotationInkColor } from '../domain/teacherAnnotationColor.ts';
+import type { Rubric } from '../domain/correction/rubric.ts';
+import type { ObservedVisualGraph, BlindGraphDiagnostic, BlindGraphPromptVariant } from '../domain/evaluation/scientificDiagramBlindGraph.ts';
+import type { ObservedRelationGraphV2 } from '../domain/evaluation/scientificDiagramRelationGraphV2.ts';
+import type { TeacherAnnotationInkColor } from '../domain/correction/teacherAnnotationColor.ts';
 
 export type RubricImportProgress = {
   stage: 'preparing' | 'sending' | 'vision-reading' | 'structuring' | 'response' | 'parsing' | 'page-complete' | 'complete' | 'cancelled' | 'error';

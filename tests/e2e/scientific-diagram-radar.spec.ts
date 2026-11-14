@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
-import { DIAGRAM_SENSITIVITY_CASES } from '../../src/domain/scientificDiagramSensitivity.ts';
-import { SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET } from '../../src/domain/scientificDiagramFixtures.ts';
+import { DIAGRAM_SENSITIVITY_CASES } from '../../src/domain/evaluation/scientificDiagramSensitivity.ts';
+import { SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET } from '../../src/domain/evaluation/scientificDiagramFixtures.ts';
 
 test('benchmark radar ranks complete scientific candidates and reveals the original evidence after reload', async ({ page }) => {
   const now = '2026-11-10T19:00:00Z';

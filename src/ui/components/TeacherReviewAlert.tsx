@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { summarizeTeacherReason } from '../../domain/teacherReviewSummary.ts';
+import { summarizeTeacherReason } from '../../domain/correction/teacherReviewSummary.ts';
 import './TeacherReviewAlert.css';
 
 interface Props {

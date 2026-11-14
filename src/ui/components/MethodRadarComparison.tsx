@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { radarCriterionLeaders } from '../../domain/radarCriterionLeaders.ts';
-import { RADAR_AXES } from '../../domain/diagramLabRadar.ts';
-import type { TimelinePoint } from '../../domain/radarTimeline.ts';
+import { radarCriterionLeaders } from '../../domain/evaluation/radarCriterionLeaders.ts';
+import { RADAR_AXES } from '../../domain/evaluation/diagramLabRadar.ts';
+import type { TimelinePoint } from '../../domain/evaluation/radarTimeline.ts';
 
 const shortLabels = new Map<string,string>([
   ...RADAR_AXES.map(a => [a.label, a.short] as [string,string]),

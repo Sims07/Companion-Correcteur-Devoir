@@ -1,8 +1,8 @@
 import { expect, it, vi } from 'vitest';
 import { extractDiagramGraphEvidence, extractDiagramGraphEvidenceV2, graphGradingContext } from '../../src/application/diagramGraphEvidence.ts';
-import { trialSteps } from '../../src/domain/radarTimeline.ts';
-import { resolveModelProfile } from '../../src/domain/diagramLabRadarLaunch.ts';
-import { buildDiagramLabRadar, rankDiagramLabRadar, RADAR_PRESETS } from '../../src/domain/diagramLabRadar.ts';
+import { trialSteps } from '../../src/domain/evaluation/radarTimeline.ts';
+import { resolveModelProfile } from '../../src/domain/evaluation/diagramLabRadarLaunch.ts';
+import { buildDiagramLabRadar, rankDiagramLabRadar, RADAR_PRESETS } from '../../src/domain/evaluation/diagramLabRadar.ts';
 
 const pages = ['a', 'b'].map(base64 => ({base64, mimeType:'image/png'}));
 const graph = {labels:['A', 'B'], arrows:[{first:'A', second:'B', tip:'unclear' as const}], containment:[], arrowsComplete:false};

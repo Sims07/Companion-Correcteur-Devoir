@@ -1,6 +1,6 @@
-import type { ModelEvaluationRecord } from '../domain/modelEvaluation.ts';
+import type { ModelEvaluationRecord } from '../domain/evaluation/modelEvaluation.ts';
 import type { ModelEvaluationRepository } from '../ports/modelEvaluationRepository.ts';
-import { modelEvaluationImageSignature } from '../domain/modelEvaluationImageIdentity.ts';
+import { modelEvaluationImageSignature } from '../domain/evaluation/modelEvaluationImageIdentity.ts';
 
 export interface ModelEvaluationSaveOutcome {
   record: ModelEvaluationRecord;

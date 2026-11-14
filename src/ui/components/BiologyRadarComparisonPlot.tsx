@@ -1,4 +1,4 @@
-import { BIOLOGY_RADAR_AXES, type BiologyRadarCandidate } from '../../domain/biologyTeacherRadar.ts';
+import { BIOLOGY_RADAR_AXES, type BiologyRadarCandidate } from '../../domain/evaluation/biologyTeacherRadar.ts';
 import { RADAR_COMPARISON_COLORS } from './RadarComparisonPalette.ts';
 
 /** Draw multiple results from the same biological protocol without filling missing axes with zeroes. */

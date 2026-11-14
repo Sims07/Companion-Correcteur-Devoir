@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { backgroundCorrectionStatusLabel, createBackgroundCorrection, findBackgroundCorrectionToOpen, nextBackgroundCorrection, toBackgroundJobOverview, toBackgroundJobSummary } from '../src/domain/backgroundCorrection.ts';
-import { getBackgroundCorrectionResult } from '../src/domain/backgroundCorrectionResult.ts';
+import { backgroundCorrectionStatusLabel, createBackgroundCorrection, findBackgroundCorrectionToOpen, nextBackgroundCorrection, toBackgroundJobOverview, toBackgroundJobSummary } from '../src/domain/correction/backgroundCorrection.ts';
+import { getBackgroundCorrectionResult } from '../src/domain/correction/backgroundCorrectionResult.ts';
 
 const base = {
   id: 'copy-1',

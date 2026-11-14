@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { unloadPilotOllamaModels } from '../../../src/adapters/ai/pilotOllamaMemory.ts';
-import type { ModelEvaluationConfiguration } from '../../../src/domain/modelEvaluation.ts';
+import type { ModelEvaluationConfiguration } from '../../../src/domain/evaluation/modelEvaluation.ts';
 import { getNetworkRequestMetadata } from '../../../src/ports/networkRequestMetadata.ts';
 
 const config = (overrides: Partial<ModelEvaluationConfiguration> = {}): ModelEvaluationConfiguration => ({

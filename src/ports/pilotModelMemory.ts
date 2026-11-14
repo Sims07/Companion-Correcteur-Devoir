@@ -1,4 +1,4 @@
-import type { ModelEvaluationConfiguration } from '../domain/modelEvaluation.ts';
+import type { ModelEvaluationConfiguration } from '../domain/evaluation/modelEvaluation.ts';
 
 /** A dedicated opt-in lifecycle port for the guided CPU-only pilot.
  * The UI never calls the Ollama transport directly. */

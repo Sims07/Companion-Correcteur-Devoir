@@ -1,26 +1,26 @@
-import { buildRadarTimelineExport } from '../../domain/radarTimelineExport.ts';
-import { remainingScienceMethods, remainingBiologyMethods, type BiologyMethod } from '../../domain/radarRemainingMethods.ts';
-import { biologyPoints, campaignGroups, scienceMethods, sciencePoints, trialSteps, type ScienceMethod, type TimelinePoint } from '../../domain/radarTimeline.ts';
+import { buildRadarTimelineExport } from '../../domain/evaluation/radarTimelineExport.ts';
+import { remainingScienceMethods, remainingBiologyMethods, type BiologyMethod } from '../../domain/evaluation/radarRemainingMethods.ts';
+import { biologyPoints, campaignGroups, scienceMethods, sciencePoints, trialSteps, type ScienceMethod, type TimelinePoint } from '../../domain/evaluation/radarTimeline.ts';
 import { RadarTimeline } from './RadarTimeline.tsx';
-import { buildRadarAnalysisExport, isRadarBenchmark } from '../../domain/radarAnalysisExport.ts';
+import { buildRadarAnalysisExport, isRadarBenchmark } from '../../domain/evaluation/radarAnalysisExport.ts';
 import { downloadJson } from '../downloadJson.ts';
 import { Button } from '../design-system/index.ts';
 import { useMemo, useState } from 'react';
 import type { AiModelProfile } from '../../domain/aiModelProfiles.ts';
-import { isNativeDecisionModel } from '../../domain/systemOneDecision.ts';
-import type { DiagramLabArchiveEntry } from '../../domain/diagramLabHistory.ts';
+import { isNativeDecisionModel } from '../../domain/correction/systemOneDecision.ts';
+import type { DiagramLabArchiveEntry } from '../../domain/evaluation/diagramLabHistory.ts';
 import {
   buildDiagramLabRadar,
   diagnoseGraphRadarMeasurement,
   observedRadarScore,
   rankDiagramLabRadar,
-} from '../../domain/diagramLabRadar.ts';
+} from '../../domain/evaluation/diagramLabRadar.ts';
 import {
   planRadarModelEvaluation,
   resolveModelProfile,
   type RadarMissingTestRequest,
-} from '../../domain/diagramLabRadarLaunch.ts';
-import { buildBiologyRadar, type BiologyRadarCandidate, type BiologyRadarObservation } from '../../domain/biologyTeacherRadar.ts';
+} from '../../domain/evaluation/diagramLabRadarLaunch.ts';
+import { buildBiologyRadar, type BiologyRadarCandidate, type BiologyRadarObservation } from '../../domain/evaluation/biologyTeacherRadar.ts';
 import { BiologyRadarPlot } from './BiologyTeacherRadar.tsx';
 import { BiologyRadarComparisonPlot } from './BiologyRadarComparisonPlot.tsx';
 import { RADAR_COMPARISON_COLORS } from './RadarComparisonPalette.ts';

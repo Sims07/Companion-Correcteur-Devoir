@@ -1,5 +1,5 @@
-import { criterionSource, type ContractSources } from '../../../domain/contractPreparation.ts';
-import type { RubricCriterion } from '../../../domain/rubric.ts';
+import { criterionSource, type ContractSources } from '../../../domain/correction/contractPreparation.ts';
+import type { RubricCriterion } from '../../../domain/correction/rubric.ts';
 
 export function buildContractPreparationPrompt(criterion: RubricCriterion, sources: ContractSources): string {
   return [

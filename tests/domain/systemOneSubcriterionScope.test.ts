@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { PILOT_CASES, PILOT_RUBRIC } from '../../src/domain/pilotEvaluationProtocol.ts';
-import { prepareSystemOneRubric, scoreSystemOneRubric } from '../../src/domain/systemOneDecision.ts';
-import type { RubricCriterion } from '../../src/domain/rubric.ts';
+import { PILOT_CASES, PILOT_RUBRIC } from '../../src/domain/evaluation/pilotEvaluationProtocol.ts';
+import { prepareSystemOneRubric, scoreSystemOneRubric } from '../../src/domain/correction/systemOneDecision.ts';
+import type { RubricCriterion } from '../../src/domain/correction/rubric.ts';
 
 const verdict = (choice: string) => ({
   type: 'choice' as const, choice, confidence: 0.99,

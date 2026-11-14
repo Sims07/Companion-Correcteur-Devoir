@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import type { TimelinePoint } from '../../domain/radarTimeline.ts';
+import type { TimelinePoint } from '../../domain/evaluation/radarTimeline.ts';
 import { MethodRadarComparison } from './MethodRadarComparison.tsx';
 import { MethodRadarGallery } from './MethodRadarGallery.tsx';
 import { Button } from '../design-system/index.ts';

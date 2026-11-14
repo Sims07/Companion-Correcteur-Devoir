@@ -1,6 +1,6 @@
 import type { ImageInput } from '../domain/imageInput.ts';
-import type { ObservedVisualGraph, DiagramGraphEvidence } from '../domain/scientificDiagramBlindGraph.ts';
-import type { ObservedRelationGraphV2, DiagramGraphEvidenceV2 } from '../domain/scientificDiagramRelationGraphV2.ts';
+import type { ObservedVisualGraph, DiagramGraphEvidence } from '../domain/evaluation/scientificDiagramBlindGraph.ts';
+import type { ObservedRelationGraphV2, DiagramGraphEvidenceV2 } from '../domain/evaluation/scientificDiagramRelationGraphV2.ts';
 
 export async function extractDiagramGraphEvidence(images: readonly ImageInput[], model: string,
   signal: AbortSignal, observe: (image: ImageInput) => Promise<ObservedVisualGraph>): Promise<DiagramGraphEvidence> {

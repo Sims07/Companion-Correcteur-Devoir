@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { deleteLocalMemoryForCorrection, findRelevantLocalMemory, listLocalMemory, saveLocalMemory } from '../src/adapters/storage/indexedDbMemory.ts';
-import { fingerprintRubric, rankLocalMemories, type LocalMemoryEntry } from '../src/domain/localMemory.ts';
+import { fingerprintRubric, rankLocalMemories, type LocalMemoryEntry } from '../src/domain/correction/localMemory.ts';
 
 function memory(overrides: Partial<LocalMemoryEntry> = {}): LocalMemoryEntry {
   return {

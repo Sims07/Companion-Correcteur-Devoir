@@ -26,7 +26,7 @@ Tous les tests du projet vivent sous `tests/`.
 
 | Outil | Emplacement | Exemple |
 | --- | --- | --- |
-| Vitest | Sous-dossier correspondant au code testé, suffixe `.test.ts` ou `.test.tsx` | `src/domain/scientificDiagram.ts` → `tests/domain/scientificDiagram.test.ts` |
+| Vitest | Sous-dossier correspondant au code testé, suffixe `.test.ts` ou `.test.tsx` | `src/domain/correction/scientificDiagram.ts` → `tests/domain/correction/scientificDiagram.test.ts` |
 | Playwright | `tests/e2e/*.spec.ts` | Parcours de correction enseignant |
 | unittest | `tests/python/test_*.py` | Lanceur HTTPS pour Ollama |
 

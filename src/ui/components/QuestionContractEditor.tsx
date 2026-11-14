@@ -1,5 +1,5 @@
-import type { RubricCriterion } from '../../domain/rubric.ts';
-import { questionAnswer, type CorrectionContract } from '../../domain/questionContract.ts';
+import type { RubricCriterion } from '../../domain/correction/rubric.ts';
+import { questionAnswer, type CorrectionContract } from '../../domain/correction/questionContract.ts';
 import { DesignSystemSelect } from './DesignSystemSelect.tsx';
 
 const empty: CorrectionContract = { expectedRelation: '', acceptedAlternatives: '', contradictions: '' };

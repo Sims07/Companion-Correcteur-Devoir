@@ -2,8 +2,8 @@ import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 import { ContractPreparationPanel } from './ContractPreparationPanel.tsx';
 import type { CorrectionWorkspaceService } from '../../application/correctionWorkspaceService.ts';
-import { rubricEvaluationSignature, type Rubric } from '../../domain/rubric.ts';
-import type { ContractSuggestion } from '../../domain/contractPreparation.ts';
+import { rubricEvaluationSignature, type Rubric } from '../../domain/correction/rubric.ts';
+import type { ContractSuggestion } from '../../domain/correction/contractPreparation.ts';
 const rubric: Rubric = { title: 'Devoir', criteria: [{ id: 'c1', title: 'Mécanisme', description: 'Expliquer une relation causale', maxPoints: 2 }] };
 const service = { prepareFiles: async () => { throw new Error('Collez du texte ou réutilisez le document de démonstration.'); }, createProvider: () => { throw new Error('Lecture désactivée dans la démonstration.'); }, prepareQuestionContracts: async (rubric: Rubric) => {
   const missing = { value: '', source: 'missing' as const, quote: '' };
