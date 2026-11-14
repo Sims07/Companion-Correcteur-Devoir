@@ -24,6 +24,7 @@ describe('launch missing radar tests', () => {
       promptMode: 'standard', graphVariant: 'baseline', zoom: false,
     }]);
     expect(planMissingRadarAxis(candidate(), 'arrows', 'profile')?.steps[0]?.protocol).toBe('arrows');
+    expect(planMissingRadarAxis(candidate(), 'precision', 'profile')?.steps[0]?.protocol).toBe('arrows');
     expect(planMissingRadarAxis(candidate(), 'biology', 'profile')?.steps[0]?.protocol).toBe('semantic');
     expect(planMissingRadarAxis(candidate(), 'relations', 'profile')?.steps[0]).toMatchObject({ protocol: 'graph', graphVariant: 'pixel-arrows' });
     expect(radarPlanDescription(ref.steps)).toBe('Qualité graphique A/B/C · 1 passage');
@@ -71,15 +72,15 @@ describe('launch missing radar tests', () => {
   });
 
   it('reuses existing evidence, reruns incomplete robustness inputs, and does not rerun complete models', () => {
-    const partiallyMeasured = candidate({ graphics: 90, arrows: 100, biology: 80, coverage: 85, speed: 50 });
+    const partiallyMeasured = candidate({ graphics: 90, arrows: 100, precision: 93, biology: 80, coverage: 85, speed: 50 });
     expect(planRadarModelEvaluation(partiallyMeasured)?.steps.map((step) => [step.protocol, step.repetitions]))
       .toEqual([['reference', 3], ['graph', 1]]);
     const complete = candidate(Object.fromEntries(RADAR_AXES.map((axis) => [axis.id, 0])) as Record<RadarAxisId, number>);
     expect(planRadarModelEvaluation(complete)).toBeNull();
   });
 
-  it('reproduces qwen3.5:4b at 6/8: graphics and stability run together on A/B/C three times', () => {
-    const qwen = candidate({ arrows: 50, biology: 72, relations: 80,
+  it('reproduces qwen3.5:4b at 7/9: graphics and stability run together on A/B/C three times', () => {
+    const qwen = candidate({ arrows: 50, precision: 92, biology: 72, relations: 80,
       robustness: 75, coverage: 98, speed: 62 });
     const plan = planRadarModelEvaluation(qwen);
     expect(plan?.steps.map((step) => [step.protocol, step.repetitions]))

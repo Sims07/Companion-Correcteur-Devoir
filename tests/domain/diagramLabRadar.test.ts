@@ -38,18 +38,19 @@ function sample(protocol: Exclude<DiagramLabProtocol, 'personal'>, createdAt: st
 const complete = (reps = 1) => (['reference', 'arrows', 'semantic', 'graph'] as const)
   .map((protocol, index) => sample(protocol, '2026-11-10T' + (12 + index) + ':00:00Z', reps));
 
-describe('scientific benchmark 8-axis radar', () => {
-  it('builds all eight axes from four complete one-click batteries, but requires repetitions for stability', () => {
+describe('scientific benchmark 9-axis radar', () => {
+  it('builds all nine axes from four complete one-click batteries, but requires repetitions for stability', () => {
     const candidate = buildDiagramLabRadar(complete())[0]!;
     expect(candidate.axes.graphics.value).toBe(100);
     expect(candidate.axes.arrows.value).toBe(100);
+    expect(candidate.axes.precision.value).toBe(100);
     expect(candidate.axes.biology.value).toBe(100);
     expect(candidate.axes.relations.value).toBe(100);
     expect(candidate.axes.robustness.value).toBe(100);
     expect(candidate.axes.coverage.value).toBe(100);
     expect(candidate.axes.speed.value).toBe(50);
     expect(candidate.axes.stability.value).toBeNull();
-    expect(candidate.measured).toBe(7);
+    expect(candidate.measured).toBe(8);
     expect(candidate.complete).toBe(false);
     expect(rankDiagramLabRadar([candidate], RADAR_PRESETS.scientific)[0]?.weightedScore).toBeNull();
   });
@@ -57,7 +58,7 @@ describe('scientific benchmark 8-axis radar', () => {
     const candidate = buildDiagramLabRadar(complete(3))[0]!;
     expect(candidate.axes.stability.value).toBe(100);
     expect(candidate.complete).toBe(true);
-    expect(rankDiagramLabRadar([candidate], RADAR_PRESETS.balanced)[0]?.weightedScore).toBe(93.8);
+    expect(rankDiagramLabRadar([candidate], RADAR_PRESETS.balanced)[0]?.weightedScore).toBe(94.4);
     expect(candidate.axes.biology.evidence[0]?.protocol).toBe('semantic');
   });
   it('regrades legacy A/B/C decisions against the current 19-target reference without rewriting archives', () => {
@@ -79,10 +80,40 @@ describe('scientific benchmark 8-axis radar', () => {
     const before = JSON.stringify(legacy);
     const radar = buildDiagramLabRadar([legacy])[0]!;
     expect(radar.axes.graphics.value).toBe(100);
+    expect(radar.axes.precision.value).toBe(100);
     expect(radar.axes.graphics.evidence[0]).toMatchObject({ observed: 57, total: 57 });
     expect(JSON.stringify(legacy)).toBe(before);
     expect(cases[0]!.gold['title::title-subject']).toBe('present');
     expect(cases[2]!.gold['title::title-emphasis']).toBe('absent');
+  });
+
+  it('shows 35/38 reading decisions (92.1%) separately from 1/2 arrow decisions (50%) in an archived D/E test', () => {
+    const entry = structuredClone(sample('arrows', '2026-11-14T12:23:00Z'));
+    const cases = (entry.report as unknown as { cases: Array<{
+      caseId: string; gold: Record<string, string>;
+      experiments: Array<{ observations: Array<{ key: string; choice: string }> }>;
+    }> }).cases;
+    for (const item of cases) {
+      const fixture = SCIENTIFIC_DIAGRAM_FIXTURES.find((value) => value.id === item.caseId)!;
+      item.gold = { ...fixture.gold };
+      const incorrect = item.caseId === 'D' ? ['drawing::drawing-page']
+        : ['drawing::drawing-page', SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET];
+      item.experiments[0]!.observations = Object.entries(item.gold).map(([key, choice]) => ({
+        key, choice: incorrect.includes(key) ? choice === 'present' ? 'absent' : 'present' : choice,
+      }));
+    }
+    const model = buildDiagramLabRadar([entry], 'model')[0]!;
+    expect(model.axes.precision.value).toBe(92.1);
+    expect(model.axes.precision.evidence).toEqual([expect.objectContaining({
+      protocol: 'arrows', observed: 35, total: 38,
+    })]);
+    expect(model.axes.arrows.value).toBe(50);
+    expect(model.axes.coverage.value).toBe(100);
+    expect(model.axes.graphics.value).toBeNull();
+    const combined = buildDiagramLabRadar([entry, sample('reference', '2026-11-14T12:00:00Z')], 'model')[0]!;
+    expect(combined.axes.precision.value).toBe(92.7); // (35 + 3) / (38 + 3)
+    expect(combined.axes.precision.evidence.map((source) => [source.protocol, source.observed, source.total]))
+      .toEqual([['reference', 3, 3], ['arrows', 35, 38]]);
   });
 
   it('does not mistake unfinished graphs, unobserved mutations or failed results for a zero', () => {
@@ -121,32 +152,32 @@ describe('scientific benchmark 8-axis radar', () => {
       sample('reference', '2026-11-11T13:00:00Z', 1),
       sample('arrows', '2026-11-11T13:01:00Z', 3)];
     const result = radarEvaluationOutcome(measured, 'qwen:4b');
-    expect(result).toMatchObject({ measured: 8, complete: true, missing: [] });
+    expect(result).toMatchObject({ measured: 9, complete: true, missing: [] });
   });
 
   it('checks real archived measurements after a complete auto-run, not simply API success', () => {
     expect(radarEvaluationOutcome([], 'qwen:4b')).toMatchObject({ measured: 0, complete: false });
     const incomplete = radarEvaluationOutcome(complete(), 'qwen:4b');
-    expect(incomplete).toMatchObject({ measured: 7, complete: false });
+    expect(incomplete).toMatchObject({ measured: 8, complete: false });
     expect(incomplete.missing.map((axis) => axis.id)).toEqual(['stability']);
     const full = radarEvaluationOutcome(complete(3), 'qwen:4b');
-    expect(full).toMatchObject({ measured: 8, complete: true, missing: [] });
+    expect(full).toMatchObject({ measured: 9, complete: true, missing: [] });
     const unrelated = radarEvaluationOutcome(complete(3), 'other:4b');
     expect(unrelated).toMatchObject({ measured: 0, complete: false });
   });
 
-  it('closes a 6/8 radar with only the archived A/B/C three-pass series', () => {
+  it('closes a 7/9 radar with only the archived A/B/C three-pass series', () => {
     const existing = [
       sample('arrows', '2026-11-11T13:00:00Z'),
       sample('semantic', '2026-11-11T13:01:00Z'),
       sample('graph', '2026-11-11T13:02:00Z'),
     ];
     expect(radarEvaluationOutcome(existing, 'qwen:4b')).toMatchObject({
-      measured: 6, complete: false,
+      measured: 7, complete: false,
     });
     expect(radarEvaluationOutcome([
       sample('reference', '2026-11-11T13:03:00Z', 3), ...existing,
-    ], 'qwen:4b')).toMatchObject({ measured: 8, complete: true, missing: [] });
+    ], 'qwen:4b')).toMatchObject({ measured: 9, complete: true, missing: [] });
   });
 
   it('explains whether A/B/C was never archived or produced no usable rubric decisions', () => {
@@ -184,7 +215,7 @@ describe('scientific benchmark 8-axis radar', () => {
     const graph = candidates.filter((candidate) => candidate.methods.some((method) => method.startsWith('blind-graph')));
     expect(methods).toHaveLength(1);
     const full = buildDiagramLabRadar(complete(3))[0]!;
-    expect(compareRadarCommonAxes([full, { ...full, id: 'another' }], RADAR_PRESETS.scientific).commonAxes).toHaveLength(8);
+    expect(compareRadarCommonAxes([full, { ...full, id: 'another' }], RADAR_PRESETS.scientific).commonAxes).toHaveLength(9);
     expect(compareRadarCommonAxes([methods[0]!, graph[0]!], RADAR_PRESETS.scientific).rows.every((row) => row.score === null)).toBe(true);
     expect(compareRadarCommonAxes([full], RADAR_PRESETS.scientific).rows[0]?.score).toBeNull();
   });
@@ -192,15 +223,15 @@ describe('scientific benchmark 8-axis radar', () => {
   it('keeps explicit profile/method groupings distinct, and validates weight configuration', () => {
     expect(buildDiagramLabRadar(complete(), 'method')).toHaveLength(2);
     expect(validRadarWeights({ ...RADAR_PRESETS.balanced, speed: -1 })).toBe(false);
-    expect(validRadarWeights({ ...RADAR_PRESETS.balanced, graphics: 0, arrows: 0, biology: 0, relations: 0, robustness: 0, stability: 0, coverage: 0, speed: 0 })).toBe(false);
+    expect(validRadarWeights({ ...RADAR_PRESETS.balanced, graphics: 0, arrows: 0, precision: 0, biology: 0, relations: 0, robustness: 0, stability: 0, coverage: 0, speed: 0 })).toBe(false);
     expect(validRadarWeights(RADAR_PRESETS.scientific)).toBe(true);
   });
   it('groups scientific evidence by the actual LLM, not a saved profile label', () => {
     const entries = complete(3);
     const model = buildDiagramLabRadar(entries, 'model');
     expect(model).toHaveLength(1);
-    expect(model[0]).toMatchObject({ id: 'qwen:4b', name: 'qwen:4b', measured: 8, complete: true });
-    expect(rankDiagramLabRadar(model, RADAR_PRESETS.balanced)[0]?.weightedScore).toBe(93.8);
+    expect(model[0]).toMatchObject({ id: 'qwen:4b', name: 'qwen:4b', measured: 9, complete: true });
+    expect(rankDiagramLabRadar(model, RADAR_PRESETS.balanced)[0]?.weightedScore).toBe(94.4);
   });
 
   it('accepts two profiles using the same LLM in one campaign without marking the series incomplete', () => {
@@ -275,14 +306,14 @@ it('freezes the weighted score and the executable graph method for each independ
     await writer.save(row.report, 'finished');
   }
   const frozen = [...archive.values()].at(-1)!.timeline![0]!;
-  expect(frozen).toMatchObject({id: 'first', scienceMethod: 'leaders-v1', score: 93.8});
+  expect(frozen).toMatchObject({id: 'first', scienceMethod: 'leaders-v1', score: 94.4});
   expect(trialSteps('leaders-v1').at(-1)?.graphVariant).toBe('pixel-leaders-v1');
   expect(trialSteps('guided-v1').at(-1)?.graphVariant).toBe('isolated-arrows-outside');
   const second = sample('graph', '2026-11-13T17:00:00Z');
   writer.register(second.createdAt, {id: 'second', method: 'guided-v1', weights: RADAR_PRESETS.scientific});
   await writer.save(second.report, 'finished');
   expect([...archive.values()].at(-1)?.timeline?.[0]?.axes['Qualité graphique']).toBeNull();
-  expect(frozen.score).toBe(93.8);
+  expect(frozen.score).toBe(94.4);
   expect(sciencePoints([second], RADAR_PRESETS.scientific)[0]?.scienceMethod).toBeUndefined();
 });
 

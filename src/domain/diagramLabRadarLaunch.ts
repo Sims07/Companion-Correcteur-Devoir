@@ -62,6 +62,7 @@ export function planMissingRadarAxis(
   switch (axis) {
     case 'graphics': protocols = ['reference']; break;
     case 'arrows': protocols = ['arrows']; break;
+    case 'precision': protocols = ['arrows']; break; // D/E provides accuracy on all 38 expected decisions.
     case 'biology': protocols = ['semantic']; break;
     case 'relations': protocols = ['graph']; break;
     case 'robustness': {

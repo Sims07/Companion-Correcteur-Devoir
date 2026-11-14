@@ -16,7 +16,7 @@ describe('radar active method display', () => {
         ...step, method: step.protocol === 'graph' ? step.method : 'direct-image-generative' as const,
       })),
       trial: { id: 'trial-439', method: 'pixel-v1' as const,
-        weights: { graphics: 1, arrows: 1, biology: 1, relations: 1,
+        weights: { graphics: 1, arrows: 1, precision: 1, biology: 1, relations: 1,
           robustness: 1, stability: 1, coverage: 1, speed: 1 } },
     };
     await act(async () => root.render(createElement(RadarBatteryContext, {

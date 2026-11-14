@@ -251,7 +251,7 @@ test('evaluating a new model launches the four required batteries from one actio
   await expect(page.getByRole('group', { name: 'Modèles sélectionnés pour les tests' })).toContainText('Nouveau modèle');
 });
 
-test('qwen-like 6/8 radar targets A/B/C x3 to fill graphics and stability in one battery', async ({ page }) => {
+test('qwen-like 7/9 radar targets A/B/C x3 to fill graphics and stability in one battery', async ({ page }) => {
   const model = 'vision:4b';
   const profile = {
     id: 'radar-prof', name: 'Vision à compléter', mode: 'single', updatedAt: '2026-11-11T14:40:00Z',
@@ -287,10 +287,11 @@ test('qwen-like 6/8 radar targets A/B/C x3 to fill graphics and stability in one
     summarizeDiagramLabReport(semantic as unknown as Parameters<typeof summarizeDiagramLabReport>[0], 'finished'),
   ];
   const candidate = buildDiagramLabRadar(entries, 'model').find((item) => item.id === model);
-  expect(candidate?.measured).toBe(6);
+  expect(candidate?.measured).toBe(7);
   expect(candidate?.axes.graphics.value).toBeNull();
   expect(candidate?.axes.stability.value).toBeNull();
   expect(candidate?.axes.arrows.value).toBe(50);
+  expect(candidate?.axes.precision.value).toBe(50);
 
   await page.goto('/');
   await page.evaluate(async ({ entries: saved, profile: savedProfile }) => {
@@ -315,7 +316,7 @@ test('qwen-like 6/8 radar targets A/B/C x3 to fill graphics and stability in one
   await page.getByRole('article', { name: 'Schémas scientifiques' }).getByRole('button', { name: 'Détail du radar' }).click();
   const radar = page.getByRole('region', { name: 'Radar des candidats scientifiques' });
   await radar.getByLabel('Choisir un LLM').selectOption(model);
-  await expect(radar.getByText(/2 caractéristique\(s\) à mesurer sur huit/)).toBeVisible();
+  await expect(radar.getByText(/2 caractéristique\(s\) à mesurer sur neuf/)).toBeVisible();
   await expect(radar.getByText(/1 batterie de test à enchaîner automatiquement · Qualité graphique A\/B\/C · 3 passages/)).toBeVisible();
   await radar.getByRole('button', { name: 'Compléter les axes manquants' }).click();
   await expect(nav.getByRole('button', { name: 'Tests' })).toHaveAttribute('aria-current', 'page');

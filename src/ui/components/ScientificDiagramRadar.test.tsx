@@ -6,7 +6,7 @@ import type { DiagramLabArchiveEntry, DiagramLabProtocol } from '../../domain/di
 import { DIAGRAM_SENSITIVITY_CASES } from '../../domain/scientificDiagramSensitivity.ts';
 import { SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET } from '../../domain/scientificDiagramFixtures.ts';
 import { buildDiagramLabRadar, observedRadarScore, RADAR_PRESETS, rankDiagramLabRadar } from '../../domain/diagramLabRadar.ts';
-import { ScientificDiagramRadar } from './ScientificDiagramRadar.tsx';
+import { ScientificDiagramRadar, restoredWeights } from './ScientificDiagramRadar.tsx';
 
 function sample(protocol: Exclude<DiagramLabProtocol, 'personal'>, repetitions: number): DiagramLabArchiveEntry {
   const fixture = protocol === 'reference' || protocol === 'arrows';
@@ -68,6 +68,16 @@ describe('ScientificDiagramRadar score-first summary', () => {
     return primary!;
   }
 
+  it('migrates saved eight-axis weights while preserving previous user settings', () => {
+    const legacy = Object.fromEntries(Object.entries(RADAR_PRESETS.balanced)
+      .filter(([key]) => key !== 'precision'));
+    window.localStorage.setItem('companion:scientific-lab-radar-weights:v1', JSON.stringify(legacy));
+    expect(restoredWeights()).toEqual(RADAR_PRESETS.balanced);
+    const custom = { ...legacy, graphics: 4, speed: 3 };
+    window.localStorage.setItem('companion:scientific-lab-radar-weights:v1', JSON.stringify(custom));
+    expect(restoredWeights()).toEqual({ ...custom, precision: RADAR_PRESETS.scientific.precision });
+  });
+
   it('shows the partial index prominently instead of a missing global grade', async () => {
     const entries = reports(1);
     const candidate = buildDiagramLabRadar(entries, 'model')[0]!;
@@ -80,11 +90,11 @@ describe('ScientificDiagramRadar score-first summary', () => {
       expected!.toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' / 100',
     );
     expect(primary.textContent).toContain('provisoire, non comparable');
-    expect(host!.querySelector('.diagram-radar-score-coverage')?.textContent).toContain('7 / 8');
+    expect(host!.querySelector('.diagram-radar-score-coverage')?.textContent).toContain('8 / 9');
     expect(host!.querySelector('.diagram-radar-model-pickers')).not.toBeNull();
   });
 
-  it('switches to the full weighted score after all eight axes have been measured', async () => {
+  it('switches to the full weighted score after all nine axes have been measured', async () => {
     const entries = reports(3);
     const candidate = rankDiagramLabRadar(buildDiagramLabRadar(entries, 'model'), RADAR_PRESETS.scientific)[0]!;
     expect(candidate.complete).toBe(true);
@@ -94,6 +104,6 @@ describe('ScientificDiagramRadar score-first summary', () => {
       candidate.weightedScore!.toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' / 100',
     );
     expect(primary.textContent).not.toContain('Indice partiel');
-    expect(host!.querySelector('.diagram-radar-score-coverage')?.textContent).toContain('8 / 8');
+    expect(host!.querySelector('.diagram-radar-score-coverage')?.textContent).toContain('9 / 9');
   });
 });

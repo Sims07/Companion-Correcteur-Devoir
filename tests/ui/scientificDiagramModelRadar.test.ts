@@ -43,7 +43,7 @@ describe('LLM-first scientific radar', () => {
     });
     const summary = node.querySelector('[aria-label="Bilan du LLM sélectionné"]')!;
     expect(summary.textContent).toContain('gemma:9b');
-    expect(summary.textContent).toContain('0 / 8');
+    expect(summary.textContent).toContain('0 / 9');
     expect(summary.textContent).toContain('Aucune mesure disponible');
     expect(summary.textContent).not.toContain('qwen:4b ·');
     const item = [...node.querySelectorAll('.diagram-radar-remaining-item')]

@@ -5,6 +5,7 @@ import { diagramLabProtocolLabels, type DiagramLabArchiveEntry, type DiagramLabP
 export const RADAR_AXES = [
   { id: 'graphics', label: 'Qualité graphique', short: 'Graphisme', detail: 'Accord des décisions visuelles avec les références A/B/C.' },
   { id: 'arrows', label: 'Sens des flèches', short: 'Flèches', detail: 'Correspondances exactes sur la paire témoin D et piège E.' },
+  { id: 'precision', label: 'Précision de lecture', short: 'Précision', detail: 'Décisions visuelles exactes sur les campagnes complètes A/B/C et D/E. Chaque attendu compte une fois par passage : ce score mesure la justesse, pas seulement les réponses renseignées.' },
   { id: 'biology', label: 'Cohérence biologique', short: 'Biologie', detail: 'Mutations S1/S2/S3 détectées après observation correcte du témoin S0.' },
   { id: 'relations', label: 'Lecture des relations', short: 'Relations', detail: 'Extraction indépendante : mutations reconnues et relations correctes préservées.' },
   { id: 'robustness', label: 'Robustesse aux pièges', short: 'Robustesse', detail: 'Absence de faux rejets sur les relations valides et de faux positifs sur les témoins.' },
@@ -26,9 +27,9 @@ export interface RadarModelConfiguration {
 }
 
 export const RADAR_PRESETS = {
-  scientific: { graphics: 1, arrows: 3, biology: 3, relations: 3, robustness: 3, stability: 2, coverage: 1, speed: 1 },
-  balanced: { graphics: 1, arrows: 1, biology: 1, relations: 1, robustness: 1, stability: 1, coverage: 1, speed: 1 },
-  throughput: { graphics: 1, arrows: 2, biology: 2, relations: 2, robustness: 2, stability: 1, coverage: 2, speed: 3 },
+  scientific: { graphics: 1, arrows: 3, precision: 2, biology: 3, relations: 3, robustness: 3, stability: 2, coverage: 1, speed: 1 },
+  balanced: { graphics: 1, arrows: 1, precision: 1, biology: 1, relations: 1, robustness: 1, stability: 1, coverage: 1, speed: 1 },
+  throughput: { graphics: 1, arrows: 2, precision: 1, biology: 2, relations: 2, robustness: 2, stability: 1, coverage: 2, speed: 3 },
 } as const satisfies Record<string, RadarWeights>;
 
 export interface RadarEvidence {
@@ -288,6 +289,21 @@ function makeCandidateAxes(batteries: Map<DiagramLabProtocol, Battery>, stabilit
   const gr = graph ? sensitivityFractions(graph.readings) : null;
   const graphics = fromFraction(reference, 'Accord avec A/B/C', reference ? goldAccuracy(reference) : null, 'A/B/C non exécutés ou sans décision exploitable.');
   const arrowScore = fromFraction(arrows, 'Correspondance sur D/E', arrows ? goldAccuracy(arrows, SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET) : null, 'Paire D/E non complète ou sans décision sur les flèches.');
+  // Aggregate labelled decisions, not per-drawing or per-campaign percentages.
+  // A complete D/E campaign alone can populate this axis from old archives;
+  // A/B/C contributes its 19 targets per drawing when a complete series exists.
+  const precisionBatteries = [reference, arrows].filter((battery): battery is Battery => battery !== null)
+    .map((battery) => ({ battery, fraction: goldAccuracy(battery) }))
+    .filter((item): item is { battery: Battery; fraction: Fraction } => item.fraction !== null);
+  const precisionCorrect = precisionBatteries.reduce((sum, item) => sum + item.fraction.n, 0);
+  const precisionTotal = precisionBatteries.reduce((sum, item) => sum + item.fraction.d, 0);
+  const precision: RadarAxisScore = precisionTotal
+    ? { value: percent(precisionCorrect, precisionTotal),
+        reason: 'Décisions exactes / attendus visuels sur A/B/C et D/E, pondérés par le nombre de critères examinés.',
+        evidence: precisionBatteries.map(({ battery, fraction }) => evidence(battery,
+          battery.entry.protocol === 'reference' ? 'Précision de lecture A/B/C' : 'Précision de lecture D/E',
+          fraction.n, fraction.d)) }
+    : empty('Aucune décision exploitable sur une batterie complète A/B/C ou D/E.');
   const biology = fromFraction(semantic, 'Détection des mutations S1/S2/S3', sem?.mutation ?? null, 'S0–S5 incomplets ou aucune paire témoin/erreur observable.');
   const graphValue = gr && gr.mutation.d > 0 && gr.correct.d > 0
     ? limited((100 * gr.mutation.n / gr.mutation.d + 100 * gr.correct.n / gr.correct.d) / 2)
@@ -358,7 +374,7 @@ function makeCandidateAxes(batteries: Map<DiagramLabProtocol, Battery>, stabilit
         reason: '100 ÷ (1 + durée moyenne par dessin / 60 s). Les variantes à appels supplémentaires portent leur coût.',
         evidence: valid.map((b) => evidence(b, 'Durée incluse (ms rapportés)', b.readings.reduce((n, r) => n + r.durationMs, 0), b.readings.length)) }
     : empty('Durée non renseignée sur les batteries complètes.');
-  return { graphics, arrows: arrowScore, biology, relations, robustness, stability, coverage, speed };
+  return { graphics, arrows: arrowScore, precision, biology, relations, robustness, stability, coverage, speed };
 }
 
 export function buildDiagramLabRadar(
@@ -526,6 +542,7 @@ export function diagnoseUnmeasuredRadarAxis(
           : axis === 'relations' ? 'graph' : null;
   const relevant = [...entries].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     .filter((entry) => entry.protocol !== 'personal' && (protocol === null || entry.protocol === protocol)
+      && (axis !== 'precision' || entry.protocol === 'reference' || entry.protocol === 'arrows')
       && (axis !== 'stability' || entry.plannedRepetitions >= 3))
     .map((entry) => ({
       entry, rows: flatten(entry).filter((row) => typeof row.model === 'string' && row.model.trim() === modelId),
@@ -534,6 +551,7 @@ export function diagnoseUnmeasuredRadarAxis(
   if (!relevant) {
     return axis === 'stability'
       ? 'Aucune série de trois passages enregistrée pour ce LLM.'
+      : axis === 'precision' ? 'Aucune campagne complète A/B/C ou D/E exploitable pour ce LLM.'
       : protocol !== null
         ? 'Aucune campagne ' + diagramLabProtocolLabels[protocol] + ' enregistrée pour ce LLM.'
         : 'Aucune preuve suffisante pour cet axe dans les campagnes enregistrées.';
@@ -594,7 +612,7 @@ export function rankDiagramLabRadar(candidates: readonly RadarCandidate[], weigh
 
 /** Method-only ranking: compare exactly the same measured axes across all
  * participating algorithms, never fill unavailable axes with zero. It is not
- * an eight-axis global leaderboard. */
+ * a nine-axis global leaderboard. */
 export function compareRadarCommonAxes(candidates: readonly RadarCandidate[], weights: RadarWeights) {
   const commonAxes = RADAR_AXES.filter((axis) => candidates.length >= 2 &&
     candidates.every((candidate) => candidate.axes[axis.id].value !== null));

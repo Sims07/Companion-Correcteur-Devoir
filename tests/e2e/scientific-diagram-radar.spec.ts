@@ -80,9 +80,9 @@ test('benchmark radar ranks complete scientific candidates and reveals the origi
   const overview = journal.getByRole('region', { name: 'Bilan des batteries scientifiques' });
   await expect(overview.locator('.diagram-lab-readiness-stat').nth(0)).toContainText('4');
   await expect(overview.locator('.diagram-lab-readiness-stat').nth(1)).toContainText('2');
-  await expect(overview.locator('.diagram-lab-readiness-stat').nth(2)).toContainText('8/8');
-  await expect(overview.getByText(/candidats avec huit axes/)).toBeVisible();
-  await overview.getByRole('button', { name: 'Voir le radar à huit axes' }).click();
+  await expect(overview.locator('.diagram-lab-readiness-stat').nth(2)).toContainText('9/9');
+  await expect(overview.getByText(/candidats avec neuf axes/)).toBeVisible();
+  await overview.getByRole('button', { name: 'Voir le radar à neuf axes' }).click();
   await expect(page.getByRole('navigation', { name: 'Espaces de l’évaluation' })
     .getByRole('button', { name: 'Radars' })).toHaveAttribute('aria-current', 'page');
   const radar = journal.getByRole('region', { name: 'Radar des candidats scientifiques' });
@@ -90,13 +90,16 @@ test('benchmark radar ranks complete scientific candidates and reveals the origi
   await expect(radar.getByRole('region', { name: 'Classement des candidats' }).getByText('2 candidat(s) classable(s)')).toBeVisible();
   await expect(radar.getByLabel('Choisir un LLM')).toHaveValue('vision-good:4b');
   await expect(radar.getByRole('region', { name: 'Bilan du LLM sélectionné' })).toContainText('Note globale');
-  await expect(radar.locator('.diagram-radar-score-coverage')).toContainText('8 / 8');
+  await expect(radar.locator('.diagram-radar-score-coverage')).toContainText('9 / 9');
   await radar.getByLabel('Choisir un LLM').selectOption('vision-fast:4b');
   await expect(radar.getByRole('region', { name: 'Bilan du LLM sélectionné' })).toContainText('vision-fast:4b');
   await radar.getByLabel('Choisir un LLM').selectOption('vision-good:4b');
   await radar.getByLabel('Priorité du classement').selectOption('balanced');
   await radar.getByText('Pondérations et méthode de calcul').click();
   await expect(radar.getByRole('slider', { name: 'Poids : Sens des flèches' })).toHaveValue('1');
+  await radar.getByRole('group', { name: 'Axe à examiner' }).getByRole('button', { name: 'Précision de lecture' }).click();
+  await expect(radar.getByText('Précision de lecture A/B/C')).toBeVisible();
+  await expect(radar.getByText('Précision de lecture D/E')).toBeVisible();
   await radar.getByRole('group', { name: 'Axe à examiner' }).getByRole('button', { name: 'Sens des flèches' }).click();
   await expect(radar.getByText('Correspondance sur D/E').first()).toBeVisible();
   await radar.getByRole('button', { name: 'Consulter la campagne' }).first().click();
