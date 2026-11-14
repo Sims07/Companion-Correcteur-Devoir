@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import { resolveBasePath } from './scripts/pagesBase.ts';
@@ -7,11 +8,26 @@ declare const process: {
   env: Record<string, string | undefined>;
 };
 
+const appVersion = (JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as { version: string }).version;
+const appRevision = process.env.GITHUB_SHA ||
+  spawnSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).stdout?.trim() || null;
+
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), {
+    name: 'app-version-manifest',
+    apply: 'build',
+    generateBundle() {
+      // Serve this uncached metadata separately from the offline PWA shell.
+      this.emitFile({
+        type: 'asset',
+        fileName: 'version.json',
+        source: JSON.stringify({ version: appVersion, revision: appRevision }),
+      });
+    },
+  }],
   define: {
-    'import.meta.env.VITE_EVALUATION_REVISION': JSON.stringify(process.env.GITHUB_SHA ||
-      spawnSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).stdout?.trim() || null),
+    'import.meta.env.VITE_EVALUATION_REVISION': JSON.stringify(appRevision),
+    'import.meta.env.VITE_APP_VERSION': JSON.stringify(appVersion),
   },
   // GitHub Pages publishes this project under /Companion-Correcteur-Devoir/.
   // Keep the root path for local development and use the repository path in CI.

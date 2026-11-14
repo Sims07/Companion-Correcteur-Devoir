@@ -164,6 +164,17 @@ export function clearNetworkHistory(): void {
   publish(false);
 }
 
+/** Static build metadata is fetched to check updates, not to run an AI request. */
+export function isAppVersionManifestRequest(url: string, origin: string, basePath: string): boolean {
+  try {
+    const requested = new URL(url, origin);
+    const manifest = new URL(`${basePath}version.json`, origin);
+    return requested.origin === manifest.origin && requested.pathname === manifest.pathname;
+  } catch {
+    return false;
+  }
+}
+
 /** Installs a browser-wide fetch observer. Full response bodies remain in memory for this session. */
 export function installNetworkInspector(): () => void {
   initialize();
@@ -171,6 +182,10 @@ export function installNetworkInspector(): () => void {
   const observedFetch: typeof window.fetch = async (input, init) => {
     const request = input instanceof Request ? input : null;
     const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+    // Build metadata belongs to the app shell, not the AI/network diagnostic history.
+    if (isAppVersionManifestRequest(url, window.location.origin, import.meta.env.BASE_URL)) {
+      return originalFetch(input, init);
+    }
     const method = (init?.method ?? request?.method ?? 'GET').toUpperCase();
     const headers = new Headers(init?.headers ?? request?.headers);
     const id = crypto.randomUUID();
