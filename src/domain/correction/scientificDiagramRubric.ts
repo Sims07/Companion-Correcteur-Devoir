@@ -43,9 +43,9 @@ export const SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC: Rubric = {
 };
 
 /** Imports the application's JSON rubric format, with no model-generated changes.
- * All dimensions must be explicit and independently measurable in this lab.
+ * All dimensions must be explicit and independently measurable for this rubric.
  * Legacy "Compréhension" prose without measurable subcriteria is omitted. */
-export function parseScientificDiagramProtocolRubric(value: unknown): Rubric {
+export function parseScientificDiagramRubric(value: unknown): Rubric {
   const document = asObject(value, 'Le JSON doit contenir un objet barème.');
   const source = document.rubric === undefined ? document : asObject(document.rubric, 'Barème invalide.');
   if (!Array.isArray(source.criteria)) throw new Error('Le barème doit contenir une liste de critères.');

@@ -1,9 +1,8 @@
 import type { CorrectionMethod } from '../correctionMethod.ts';
-import { rubricEvaluationSignature, type Rubric } from '../correction/rubric.ts';
+import { rubricEvaluationSignature, type Rubric, isNativeDecisionModel } from '../correction/contract.ts';
 import type { DiagnosticCriterionScore } from './diagnosticScore.ts';
 import type { ReferenceCriterionScore } from './diagnosticReference.ts';
 import { compareWithDiagnosticReference, validateDiagnosticReference } from './diagnosticReference.ts';
-import { isNativeDecisionModel } from '../correction/systemOneDecision.ts';
 
 /** Small, numeric-only projection of local correction history; never copies or image bytes. */
 export interface LocalBenchmarkTrace {

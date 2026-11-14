@@ -1,5 +1,4 @@
-import type { GradingProposal } from '../correction/grading.ts';
-import type { Rubric } from '../correction/rubric.ts';
+import { type GradingProposal, type Rubric } from '../correction/contract.ts';
 import { sumGradeScores } from '../scorePrecision.ts';
 
 export interface CriterionDisagreement {

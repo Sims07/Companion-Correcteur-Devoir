@@ -21,8 +21,17 @@ import swappedPointerDiagramUrl from '../../assets/pilot/scientific-mitosis-labe
 import { SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC, SCIENTIFIC_DIAGRAM_FIXTURES, SCIENTIFIC_DIAGRAM_BASE_CASE_IDS, SCIENTIFIC_DIAGRAM_POINTER_CASE_IDS, type ScientificDiagramFixtureId, type buildScientificDiagramFixtureReport } from '../../domain/evaluation/scientificDiagramFixtures.ts';
 import { DIAGRAM_SENSITIVITY_CASES, DIAGRAM_SENSITIVITY_CASE_IDS, scientificDiagramSensitivitySvg, scientificDiagramSensitivityPreviewUrl, diagramSensitivityContext,
   type DiagramSensitivityCaseId, type DiagramSensitivityPromptMode, type buildScientificDiagramSensitivityReport } from '../../domain/evaluation/scientificDiagramSensitivity.ts';
-import { diagramMethodIssue, diagramMethodLabels, selectDiagramMethods, diagramTargetKey, type DiagramMethodSelection, type DiagramGold, type DiagramProtocolCount, type buildScientificDiagramProtocolReport,  } from '../../domain/evaluation/scientificDiagramProtocol.ts';
-import { SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC, parseScientificDiagramProtocolRubric } from '../../domain/correction/scientificDiagramRubric.ts';
+import {
+  diagramMethodIssue,
+  diagramMethodLabels,
+  selectDiagramMethods,
+  diagramTargetKey,
+  type DiagramMethodSelection,
+  type DiagramGold,
+  type DiagramProtocolCount,
+  type buildScientificDiagramProtocolReport,
+} from '../../domain/evaluation/scientificDiagramProtocol.ts';
+import { SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC, parseScientificDiagramRubric } from '../../domain/correction/scientificDiagramRubric.ts';
 import './PilotEvaluationPanel.css';
 import './ScientificDiagramProtocolPanel.css';
 
@@ -397,7 +406,7 @@ export function ScientificDiagramProtocolPanel({
   async function importRubric(files: FileList | null) {
     if (!files?.length || busy || uploading) return;
     try {
-      const imported = parseScientificDiagramProtocolRubric(JSON.parse(await files[0]!.text()) as unknown);
+      const imported = parseScientificDiagramRubric(JSON.parse(await files[0]!.text()) as unknown);
       setRubric(imported);
       setGold({});
       onClearReport();

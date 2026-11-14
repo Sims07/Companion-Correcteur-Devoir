@@ -1,6 +1,6 @@
 import { defaultAiModelConfiguration, type AiModelProfile } from '../aiModelProfiles.ts';
 import type { ModelEvaluationRecord, ModelEvaluationResultSnapshot } from './modelEvaluation.ts';
-import type { Rubric } from '../correction/rubric.ts';
+import { type Rubric } from '../correction/contract.ts';
 
 
 export const PILOT_PROTOCOL_ID = 'biologie-photosynthese-respiration-v1';

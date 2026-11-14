@@ -1,5 +1,5 @@
 import type { AiModelProfile } from '../aiModelProfiles.ts';
-import { isNativeDecisionModel } from '../correction/systemOneDecision.ts';
+import { isNativeDecisionModel } from '../correction/contract.ts';
 import {
   DIAGRAM_SENSITIVITY_CASES, DIAGRAM_SENSITIVITY_TARGETS,
   summarizeDiagramSensitivity, type DiagramSensitivityCaseId,

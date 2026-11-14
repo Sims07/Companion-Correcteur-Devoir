@@ -1,7 +1,8 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { deleteModelEvaluation, getModelEvaluation, listDiagnosticHistory, listModelEvaluationSummaries, listModelEvaluations, saveDiagnosticHistory, saveModelEvaluation } from '../src/adapters/storage/indexedDbMemory.ts';
-import type { ModelEvaluationRecord } from '../src/domain/evaluation/modelEvaluation.ts';
+import { readEvaluationGradingResult } from '../src/domain/evaluation/evaluationGradingResult.ts';
+import { canCompareModelEvaluationRecords, getModelEvaluationStage, type ModelEvaluationRecord } from '../src/domain/evaluation/modelEvaluation.ts';
 
 const record: ModelEvaluationRecord = {
   id: 'evaluation-1',
@@ -40,6 +41,21 @@ describe('local model evaluation archive', () => {
       configurations: [{ visionModel: 'gemma3:4b', analysisModel: 'qwen3.5:4b' }],
       results: [{ score: 3, readingMs: 12000, analysisMs: 30000, tokens: 1234, proposal: { criteria: [{ evidence: 'prophase et métaphase' }] } }],
     });
+  });
+
+  it('replays a legacy integrated experiment against its archived rubric with the same score and evidence', async () => {
+    const old = { ...record, results: [{ ...record.results[0], raw: JSON.stringify(record.results[0].proposal) }] };
+    await saveModelEvaluation(old);
+    const saved = await getModelEvaluation(old.id);
+    if (!saved) throw new Error('Archive manquante');
+    expect(saved.stage).toBeUndefined();
+    const previous = saved.results[0];
+    const stage = getModelEvaluationStage(saved);
+    const observed = readEvaluationGradingResult(stage, previous.raw, saved.rubricSnapshot);
+    expect(observed).toMatchObject({ score: 3, proposal: { criteria: [{ evidence: 'prophase et métaphase' }] } });
+    const replay = { ...saved, id: 'replay', stage, results: [{ ...previous, ...observed }] };
+    expect(canCompareModelEvaluationRecords([saved, replay])).toBe(true);
+    expect(await getModelEvaluation(old.id)).toEqual(old);
   });
 
   it('loads scores and image signatures for history without copying photos into RAM', async () => {
