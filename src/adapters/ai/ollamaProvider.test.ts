@@ -43,6 +43,60 @@ describe('Ollama readiness without loading models', () => {
     ]);
   });
 
+  it('stops /api/show after 15 seconds even when a proxy ignores the abort signal', async () => {
+    vi.useFakeTimers();
+    let showSignal: AbortSignal | undefined;
+    let showStarted!: () => void;
+    const started = new Promise<void>((resolve) => { showStarted = resolve; });
+    const mockFetch = vi.fn((input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      if (String(input).endsWith('/api/tags')) return Promise.resolve(response({ models: [{ name: 'qwen3.5:4b' }] }));
+      showSignal = init?.signal ?? undefined;
+      showStarted();
+      // Simulate a stalled proxy which never resolves, even when its signal is aborted.
+      return new Promise<Response>(() => {});
+    });
+    const check = checkOllamaReady(settings, mockFetch as unknown as typeof fetch);
+    const assertion = expect(check).rejects.toThrow(/\/api\/show.*15 secondes/);
+    await started;
+    await vi.advanceTimersByTimeAsync(15_000);
+    await assertion;
+    expect(showSignal?.aborted).toBe(true);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('cancels a pending /api/show immediately when the teacher stops the test', async () => {
+    vi.useFakeTimers();
+    const controller = new AbortController();
+    let showSignal: AbortSignal | undefined;
+    let showStarted!: () => void;
+    const started = new Promise<void>((resolve) => { showStarted = resolve; });
+    const mockFetch = vi.fn((input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      if (String(input).endsWith('/api/tags')) return Promise.resolve(response({ models: [{ name: 'qwen3.5:4b' }] }));
+      showSignal = init?.signal ?? undefined;
+      showStarted();
+      return new Promise<Response>(() => {});
+    });
+    const check = checkOllamaReady(settings, mockFetch as unknown as typeof fetch, controller.signal);
+    const assertion = expect(check).rejects.toMatchObject({ name: 'AbortError' });
+    await started;
+    controller.abort();
+    await assertion;
+    expect(showSignal?.aborted).toBe(true);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('clears the /api/show timeout after a successful metadata request', async () => {
+    vi.useFakeTimers();
+    const mockFetch = vi.fn(async (input: RequestInfo | URL) =>
+      String(input).endsWith('/api/tags')
+        ? response({ models: [{ name: 'qwen3.5:4b' }] })
+        : response({ modelfile: 'FROM qwen3.5:4b' }),
+    );
+    await expect(checkOllamaReady(settings, mockFetch as unknown as typeof fetch)).resolves.toBeUndefined();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   it('keeps a genuinely prewarmed model loaded for the first real read, and preserves it for the next copy', async () => {
     let modelLoaded = false;
     let modelLoadCount = 0;
