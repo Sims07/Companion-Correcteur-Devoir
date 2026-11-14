@@ -203,8 +203,37 @@ export function buildScientificDiagramFixtureReport(
     const caseRuns = runs.filter((run) => run.caseId === fixture.id);
     const benchmark = buildScientificDiagramProtocolReport(
       caseRuns, SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC, fixture.gold,
-      plannedRepetitions, createdAt, 1,
+      plannedRepetitions, createdAt, 1, { syntheticFixtureEvidence: true },
     );
+    const diagnostic = benchmark.experiments.map((experiment) => {
+      const mismatches = experiment.observations.filter((observation) =>
+        observation.choice !== 'uncertain' && fixture.gold[observation.key] !== undefined
+        && observation.choice !== fixture.gold[observation.key]);
+      const unresolved = experiment.observations.filter((observation) => observation.choice === 'uncertain');
+      return {
+        profileId: experiment.profileId, method: experiment.method, repetition: experiment.repetition,
+        scoreDelta: experiment.score === null ? null : Math.round((experiment.score - fixture.referenceScore) * 100) / 100,
+        matchedTargets: experiment.observations.filter((observation) =>
+          observation.choice !== 'uncertain' && observation.choice === fixture.gold[observation.key]).length,
+        mismatchedTargets: mismatches.map((observation) => ({
+          key: observation.key, expected: fixture.gold[observation.key]!,
+          received: observation.choice, awardedPoints: observation.awardedPoints,
+          referencePoints: fixture.referencePoints[observation.key]!,
+        })),
+        unresolvedTargets: unresolved.map((observation) => observation.key),
+        // A model answering "present" to every target may score well on D.
+        // This is a warning pattern, not proof of any internal visual strategy.
+        allPresentPattern: experiment.observations.length > 0
+          && experiment.observations.every((observation) => observation.choice === 'present'),
+        missingEvidenceTargets: experiment.observations
+          .filter((observation) => observation.decisionSource === 'scored-proposal'
+            && observation.evidenceState !== 'provided')
+          .map((observation) => observation.key),
+        teacherReviewTargets: experiment.observations
+          .filter((observation) => observation.teacherReviewRequested)
+          .map((observation) => observation.key),
+      };
+    });
     return {
       caseId: fixture.id,
       label: fixture.label,
@@ -216,11 +245,58 @@ export function buildScientificDiagramFixtureReport(
       ...(fixture.referenceReview ? { referenceReview: structuredClone(fixture.referenceReview) } : {}),
       summaries: benchmark.summaries,
       experiments: benchmark.experiments,
+      diagnostic,
+    };
+  });
+  // Compare the controlled D/E mutation at the same repetition and model.
+  // Missing/uncertain readings are inconclusive, not false scientific answers.
+  const control = cases.find((item) => item.caseId === 'D')!;
+  const trap = cases.find((item) => item.caseId === 'E')!;
+  const runKey = (run: { profileId: string; method: string; repetition: number }) =>
+    JSON.stringify([run.profileId, run.method, run.repetition]);
+  const keys = [...new Set([...control.experiments, ...trap.experiments].map(runKey))];
+  const pairedDiagnostics = keys.map((key) => {
+    const d = control.experiments.find((item) => runKey(item) === key);
+    const e = trap.experiments.find((item) => runKey(item) === key);
+    const target = SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET;
+    const align = diagramTargetKey('legends', 'legends-aligned');
+    const dChoice = d?.observations.find((item) => item.key === target)?.choice ?? 'uncertain';
+    const eChoice = e?.observations.find((item) => item.key === target)?.choice ?? 'uncertain';
+    const bothSucceeded = d?.status === 'success' && e?.status === 'success';
+    const result = !bothSucceeded || dChoice === 'uncertain' || eChoice === 'uncertain'
+      ? 'inconclusive' as const
+      : dChoice === 'present' && eChoice === 'absent' ? 'detected' as const : 'missed' as const;
+    const compared = d?.observations.filter((item) =>
+      item.key !== target && item.choice !== 'uncertain'
+      && e?.observations.find((other) => other.key === item.key)?.choice !== 'uncertain') ?? [];
+    const unexpectedChanges = compared.filter((item) =>
+      item.choice !== e?.observations.find((other) => other.key === item.key)?.choice).map((item) => item.key);
+    const dAlign = d?.observations.find((item) => item.key === align)?.choice ?? 'uncertain';
+    const eAlign = e?.observations.find((item) => item.key === align)?.choice ?? 'uncertain';
+    const [profileId, method, repetition] = JSON.parse(key) as [string, string, number];
+    return {
+      profileId, method, repetition,
+      status: result,
+      controlChoice: dChoice, alteredChoice: eChoice,
+      alignmentDetectedBoth: bothSucceeded && dAlign !== 'uncertain' && eAlign !== 'uncertain'
+        ? dAlign === 'absent' && eAlign === 'absent' : null,
+      unchangedTargetsCompared: compared.length,
+      unexpectedChanges,
+      identicalChoices: bothSucceeded && d && e
+        && d.observations.every((item) => item.choice !== 'uncertain'
+          && item.choice === e.observations.find((other) => other.key === item.key)?.choice)
+        ? true : bothSucceeded && d && e && d.observations.every((item) => item.choice !== 'uncertain')
+          && e.observations.every((item) => item.choice !== 'uncertain') ? false : null,
+      proposedScoreDifference: typeof d?.score === 'number' && typeof e?.score === 'number'
+        ? Math.round((d.score - e.score) * 100) / 100 : null,
+      expectedScoreDifference: 0.68,
     };
   });
   return {
     format: 'companion-scientific-diagram-fixture-report' as const,
     version: 6,
+    diagnosticSchemaVersion: 1,
+    pairedDiagnostics,
     protocolId: 'scientific-diagram-generated-a-b-c-plus-label-pointers-v6',
     createdAt,
     plannedRepetitions,
