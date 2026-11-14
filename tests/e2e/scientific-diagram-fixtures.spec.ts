@@ -13,7 +13,7 @@ test('scientific fixtures can be enlarged, rotated, zoomed and closed without ch
   const viewer = page.getByRole('dialog', { name: /Visualiseur : Schéma de mitose végétale — E/ });
   await expect(viewer).toBeVisible();
   await expect(viewer.locator('img')).toHaveAttribute('src', /scientific-mitosis-labels-swapped/);
-  await viewer.getByRole('button', { name: 'Zoomer' }).click();
+  await viewer.getByRole('button', { name: 'Zoomer', exact: true }).click();
   await viewer.getByRole('button', { name: 'Tourner à droite de 90 degrés' }).click();
   await expect(viewer.locator('img')).toHaveCSS('transform', 'matrix(0, 1.25, -1.25, 0, 0, 0)');
   await page.keyboard.press('Escape');
