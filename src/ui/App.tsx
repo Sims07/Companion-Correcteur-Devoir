@@ -1,5 +1,5 @@
 import { extractDiagramGraphEvidence, extractDiagramGraphEvidenceV2, graphGradingContext } from '../application/diagramGraphEvidence.ts';
-import { biologyPoints, campaignGroups } from '../domain/radarTimeline.ts';
+import { biologyPoints, campaignGroups, scienceMethods } from '../domain/radarTimeline.ts';
 import { EvaluationRadarHome, type RadarDomain } from './components/EvaluationRadarHome.tsx';
 import type { BiologyMethod } from '../domain/radarRemainingMethods.ts';
 import { RadarBatteryContext } from './components/RadarBatteryContext.tsx';
@@ -2898,7 +2898,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setMethodBatchReturnLab(null);
     scienceMethodQueue.current = { remaining, total: requests.length, failures: 0 };
     setMethodBatchProgress({domain: 'diagrams', current: 1, total: requests.length,
-      label: first!.trial ? first!.trial.method : first!.profileName});
+      label: first!.trial ? scienceMethods[first!.trial.method].label : first!.profileName});
     runRadarPlan(first!);
   }
 
@@ -4185,9 +4185,10 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
                     const execution = describeRadarBattery(next, 0);
                     radarBatteryRef.current = execution;
                     setRadarBattery(execution);
+                    setSelectedEvaluationProfileIds([next.profileId]);
                     setRadarAutoRequest({...next, id: ++radarAutoSequence.current});
                     setMethodBatchProgress({domain: 'diagrams', current: queue.total - queue.remaining.length,
-                      total: queue.total, label: next.trial?.method ?? next.profileName});
+                      total: queue.total, label: next.trial ? scienceMethods[next.trial.method].label : next.profileName});
                   } else {
                     scienceMethodQueue.current = null;
                     setMethodBatchProgress(null);
