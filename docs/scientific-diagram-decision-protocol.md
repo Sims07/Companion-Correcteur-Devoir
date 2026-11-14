@@ -154,6 +154,7 @@ L'export JSON conserve les scores, les choix et la configuration des essais. Il 
   `legends::legends-visible`. Les deux essais manquants/indécis donnent `inconclusive`,
   jamais un succès ou un échec scientifique inventé. L'écart attendu de notes vaut 0,68 point ;
   les autres critères doivent conserver leur décision malgré la mutation.
+- `experiments[].diagnostics.analysisCallTraces[]` : phase principale ou réparation, fournisseur (catégorie), nombre d'images, durée, taille de contexte, plafond de sortie, tokens mesurés, raison de fin normalisée et présence d'une trace Think. Ces compteurs sont éventuellement `null` si le serveur ne les fournit pas ; aucun texte de prompt, réponse brute ou erreur réseau n'est conservé.
 - `experiments[].observations[]` : `awardedPoints` (null si aucune proposition chiffrée valide),
   `maxPoints`, `evidenceState`, `modelConfidence` et `teacherReviewRequested`.
   Les décisions natives System One ne sont **pas** converties artificiellement en points.
