@@ -312,6 +312,12 @@ export function ScientificDiagramProtocolPanel({
     if (issue) {
       setDiagnosticCopyMessage('');
       setRadarAutoStatus('Lancement impossible pour ' + profile.name + '. Cause : ' + issue);
+      // Release the queue even when a saved profile cannot execute a strategy.
+      // Otherwise a batch of methods can hang forever before its first API call.
+      void Promise.resolve(onAutoEvaluationFinished?.(autoRequest,
+        autoRequest.steps.map(step => ({protocol: step.protocol, complete: false}))))
+        .catch(() => undefined)
+        .finally(() => onAutoBusyChange?.(false));
       return;
     }
     setDiagnosticCopyMessage('');
