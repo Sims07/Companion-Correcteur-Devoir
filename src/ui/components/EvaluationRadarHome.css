@@ -296,3 +296,22 @@
   gap: 0.75rem;
   align-items: center;
 }
+
+/* A complete method batch is a set of independent radars, not a single merged score. */
+.lab-radar-gallery { margin:1.25rem 0; border-top:1px solid var(--ds-color-border); padding-top:1rem; }
+.lab-radar-gallery h3 { margin-bottom:.25rem; }
+.lab-radar-gallery > p { margin:.25rem 0 1rem; color:var(--ds-color-text-muted); }
+.lab-radar-gallery-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,205px),1fr)); gap:.8rem; }
+.method-lab .lab-radar-gallery-card {
+  display:flex; flex-direction:column; align-items:stretch; text-align:left; min-width:0;
+  padding:1rem; border-radius:12px; border:1px solid var(--ds-color-border);
+  background:var(--ds-color-surface-subtle); color:var(--ds-color-text); cursor:pointer;
+}
+.method-lab .lab-radar-gallery-card[aria-pressed="true"] { outline:2px solid #216878; outline-offset:2px; }
+.lab-radar-gallery-card strong { font-size:.95rem; line-height:1.3; min-height:2.6em; overflow-wrap:anywhere; }
+.lab-radar-gallery-card span,.lab-radar-gallery-card small { font-size:.85rem; color:var(--ds-color-text-muted); }
+.method-lab .lab-radar-gallery-card svg { width:100%; height:auto; max-height:205px; margin:.2rem 0; }
+.lab-radar-gallery .lab-gallery-ring { fill:none; stroke:var(--ds-color-border-strong); stroke-width:1; }
+.lab-radar-gallery .lab-gallery-data { fill:rgba(33,104,120,.13); stroke:#216878; stroke-width:2.8; }
+.lab-radar-gallery .lab-gallery-dot { fill:#216878; }
+.radar-method-launch-actions { display:flex; flex-wrap:wrap; gap:.6rem; align-items:center; }
