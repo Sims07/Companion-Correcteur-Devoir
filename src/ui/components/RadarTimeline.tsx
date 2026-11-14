@@ -1,3 +1,4 @@
+import { Button } from '../design-system/index.ts';
 import { useState, type ReactNode } from 'react';
 import type { TimelinePoint } from '../../domain/radarTimeline.ts';
 
@@ -5,7 +6,7 @@ const format = (n: number | null) => n == null ? '—' : n.toLocaleString('fr-FR
 const date = (s: string) => new Date(s).toLocaleString('fr-FR', {dateStyle: 'short', timeStyle: 'short'});
 const caption = (p: TimelinePoint) => date(p.date) + ' · ' + p.label + ' · ' + format(p.score) + '/100';
 
-export function RadarTimeline({ points, children, selectMethod }: { points: TimelinePoint[]; children: ReactNode; selectMethod: (point: TimelinePoint) => void }) {
+export function RadarTimeline({ points, children, selectMethod, onExport }: { points: TimelinePoint[]; onExport: () => void; children: ReactNode; selectMethod: (point: TimelinePoint) => void }) {
   const [selected, setSelected] = useState('');
   const [reference, setReference] = useState('');
   const sorted = [...points].sort((a,b) => b.date.localeCompare(a.date));
@@ -21,6 +22,7 @@ export function RadarTimeline({ points, children, selectMethod }: { points: Time
   const options = (items: TimelinePoint[]) => items.map(p => <option key={p.id} value={p.id}>{caption(p)}</option>);
   return <details className="radar-timeline">
     <summary>Évolution des notes et méthodes</summary>
+    <Button variant="secondary" disabled={!points.length} onClick={onExport}>Exporter l’historique des méthodes</Button>
     {children}
     {!current ? <p>Aucun essai enregistré pour ce modèle.</p> : <>
       {chronological.length > 1 && <svg viewBox="0 0 300 100" role="img" aria-label="Évolution de l’indice global dans le temps, sur 100">

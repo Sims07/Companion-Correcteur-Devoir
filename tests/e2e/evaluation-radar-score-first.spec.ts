@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import { openCustomTests } from './helpers/evaluation-models.ts';
 import { expect, test } from '@playwright/test';
 
@@ -61,6 +62,14 @@ test('reopens two dated scores for the same model and selects the older method',
   await expect(bio.getByRole('img', {name:/Évolution de l’indice/})).toBeVisible();
   const timeline = bio.getByRole('list', {name:'Chronologie des indices sur 100'});
   await expect(timeline.getByRole('button')).toHaveCount(2);
+  const downloading = page.waitForEvent('download');
+  await bio.getByRole('button', {name:'Exporter l’historique des méthodes'}).click();
+  const download = await downloading;
+  expect(download.suggestedFilename()).toMatch(/^companion-methodes-biology-qwen-timeline-/);
+  const report = JSON.parse(await readFile((await download.path())!, 'utf8'));
+  expect(report.model).toBe('qwen:timeline');
+  expect(report.trials.map((p: {biologyMethod: string}) => p.biologyMethod)).toEqual(['contract', 'standard']);
+  expect(report.observations).toHaveLength(14);
   await timeline.getByRole('button').last().click();
   await bio.getByRole('button', {name:'Choisir cette méthode pour le prochain essai'}).click();
   await expect(bio.getByLabel('Méthode du prochain essai')).toHaveValue('standard');

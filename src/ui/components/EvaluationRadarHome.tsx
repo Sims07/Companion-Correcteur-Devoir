@@ -1,3 +1,4 @@
+import { buildRadarTimelineExport } from '../../domain/radarTimelineExport.ts';
 import { biologyPoints, campaignGroups, scienceMethods, sciencePoints, trialSteps, type ScienceMethod } from '../../domain/radarTimeline.ts';
 import { RadarTimeline } from './RadarTimeline.tsx';
 import { buildRadarAnalysisExport, isRadarBenchmark } from '../../domain/radarAnalysisExport.ts';
@@ -308,7 +309,12 @@ export function EvaluationRadarHome({
                 )}
                 <Button variant="secondary" onClick={() => details(domain, selected)}>Détail du radar</Button>
               </div>
-              <RadarTimeline key={selected} selectMethod={point => {
+              <RadarTimeline key={selected} onExport={() => {
+                const date = new Date().toISOString();
+                const report = buildRadarTimelineExport(domain, selected, timeline[domain], entries, history, weights, date);
+                const filenameModel = selected.replace(/[^a-zA-Z0-9._-]+/g, '-');
+                downloadJson(report, 'companion-methodes-' + domain + '-' + filenameModel + '-' + date.replace(/:/g, '-') + '.json');
+              }} selectMethod={point => {
                 if (point.scienceMethod) setMethod(point.scienceMethod);
                 if (point.biologyMethod) setBioMethod(point.biologyMethod);
               }} points={timeline[domain].filter(p => p.model === selected)}>
