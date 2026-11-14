@@ -33,6 +33,7 @@ export interface TimelinePoint {
   instructions?: string[];
   protocolLabel?: string;
   comparisonBasis?: string;
+  batteryEngines?: Array<{ protocol: string; engine: string }>;
   reconstructed?: boolean;
 }
 
@@ -42,6 +43,25 @@ export function trialSteps(method: ScienceMethod): RadarTestStep[] {
     protocol, repetitions: protocol === 'reference' ? 3 : 1, method: method === 'graph-first-v1' && protocol !== 'graph' ? 'graph-first-v1' : 'compare',
     promptMode, graphVariant, zoom: false,
   }));
+}
+
+/** Report-level provenance: never infer a scoring engine from the selected
+ * graph strategy. Use actual recorded method IDs and graph variants instead. */
+export function recordedRadarBatteryEngines(group: readonly DiagramLabArchiveEntry[], model: string) {
+  return group.flatMap((entry) => {
+    const report = entry.report;
+    const runs = report.format === 'companion-scientific-diagram-protocol'
+      ? report.experiments
+      : report.cases.flatMap((testCase) => testCase.experiments);
+    if (!runs.some((run) => run.model === model)) return [];
+    if (report.format === 'companion-scientific-diagram-blind-graph-report') {
+      return [{ protocol: entry.title, engine: 'Extraction de graphe · ' + report.promptVariant }];
+    }
+    const engines = [...new Set(runs.flatMap((run) =>
+      run.model === model && 'method' in run && typeof run.method === 'string'
+        ? [diagramMethodLabels[run.method as DiagramMethod] ?? run.method] : []))];
+    return engines.length ? [{ protocol: entry.title, engine: engines.join(' / ') }] : [];
+  });
 }
 
 export function sciencePoints(group: DiagramLabArchiveEntry[], weights: RadarWeights): TimelinePoint[] {
@@ -66,6 +86,7 @@ export function sciencePoints(group: DiagramLabArchiveEntry[], weights: RadarWei
     instructions: trial ? [diagramSensitivityContext(scienceMethods[trial.method].promptMode),
       blindVisualObservationPrompt(scienceMethods[trial.method].graphVariant)] : undefined,
     revision: latest.revision, prompts: [...candidate.methods, ...prompts],
+    batteryEngines: recordedRadarBatteryEngines(group, candidate.id),
     score: observedRadarScore(candidate, trial?.weights ?? weights),
     axes: Object.fromEntries(RADAR_AXES.map(axis => [axis.label, candidate.axes[axis.id].value])),
   }));
