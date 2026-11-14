@@ -374,7 +374,10 @@ export function buildScientificDiagramProtocolReport(
         ? (record.configurations.find((entry) => entry.id === result.profileId)?.thinking
           ? 'direct-image-generative-thinking' as const : 'direct-image-generative' as const)
         : 'vision-then-analysis' as const,
-    ...(result.graphEvidence ? { graphEvidence: result.graphEvidence } : {}),
+    // The V2 graph may contain literal text copied from an arbitrary student's
+    // uploaded drawing. Export it only for the bundled synthetic fixtures.
+    ...(result.graphEvidence && (result.graphEvidence.version !== 'graph-first-v2' || observationOptions.syntheticFixtureEvidence)
+      ? { graphEvidence: result.graphEvidence } : {}),
     thinkingRequested: record.configurations.find((entry) => entry.id === result.profileId)?.thinking ?? null,
     thinkingSetting: (() => {
       const configuration = record.configurations.find((entry) => entry.id === result.profileId);
