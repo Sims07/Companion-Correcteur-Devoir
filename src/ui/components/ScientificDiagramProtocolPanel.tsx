@@ -623,6 +623,49 @@ export function ScientificDiagramProtocolPanel({
           </table>
         </div>
         <details className="pilot-evaluation-reference">
+          <summary>Diagnostic des erreurs et différenciation D/E (également dans le JSON)</summary>
+          <p className="pilot-evaluation-hint">
+            D/E ne diffèrent que par les destinations de quatre traits de rappel. Un résultat « non concluant »
+            signifie que l'un des deux passages manque ou est incertain. Les justifications courtes sont
+            issues du modèle sur les seuls dessins synthétiques, et ne constituent pas une vérification indépendante.
+          </p>
+          {fixtureReport.pairedDiagnostics.map((pair) => <div key={pair.profileId + pair.method + pair.repetition} className="diagram-protocol-decision-list">
+            <strong>{pair.profileId} · {diagramMethodLabels[pair.method as keyof typeof diagramMethodLabels]} · passage {pair.repetition}</strong>
+            <p>Détection D/E : {pair.status === 'detected' ? 'Réussie' : pair.status === 'missed' ? 'Échec de différenciation' : 'Non concluante'}
+              {' · '}D : {pair.controlChoice} · E : {pair.alteredChoice}
+              {' · '}écart de notes : {pair.proposedScoreDifference === null ? 'non mesuré' : pair.proposedScoreDifference + ' pt'}
+              {' (attendu : 0,68 pt)'}
+              {' · '}légendes en colonne : {pair.alignmentDetectedBoth === null ? 'non mesuré'
+                : pair.alignmentDetectedBoth ? 'erreur détectée dans D et E' : 'erreur non détectée dans les deux'}
+              {' · '}autres critères modifiés : {pair.unexpectedChanges.length ? pair.unexpectedChanges.join(', ') : 'aucun observé'}
+              {pair.identicalChoices === true ? ' · Même réponse sur tous les critères : attention au biais tout-présent.' : ''}
+            </p>
+          </div>)}
+          {!fixtureReport.pairedDiagnostics.length && <p>Aucun couple D/E encore disponible.</p>}
+          {fixtureReport.cases.filter((item) => item.diagnostic.length > 0).map((caseResult) =>
+            <div key={caseResult.caseId} className="diagram-protocol-decision-list">
+              <strong>{caseResult.label}</strong>
+              {caseResult.diagnostic.map((diagnostic) => <div key={diagnostic.profileId + diagnostic.method + diagnostic.repetition}>
+                <p>{diagnostic.profileId} · passage {diagnostic.repetition}
+                  {' · '}écart à la référence : {diagnostic.scoreDelta === null ? 'non mesuré' : diagnostic.scoreDelta + ' pt'}
+                  {' · '}écarts de critères : {diagnostic.mismatchedTargets.length}
+                  {' · '}non résolus : {diagnostic.unresolvedTargets.length}
+                  {diagnostic.allPresentPattern ? ' · Toutes les réponses sont « présent »' : ''}
+                </p>
+                {diagnostic.mismatchedTargets.map((mismatch) => {
+                  const observation = caseResult.experiments.find((experiment) =>
+                    experiment.profileId === diagnostic.profileId && experiment.method === diagnostic.method
+                    && experiment.repetition === diagnostic.repetition)?.observations.find((item) => item.key === mismatch.key);
+                  return <div key={mismatch.key}>
+                    <code>{mismatch.key}</code> · attendu : {mismatch.expected} ({mismatch.referencePoints} pt)
+                    {' · '}obtenu : {mismatch.received} ({mismatch.awardedPoints ?? 'non noté'} pt)
+                    {observation?.syntheticEvidenceExcerpt ? ' · Justification du modèle : ' + observation.syntheticEvidenceExcerpt : ''}
+                  </div>;
+                })}
+              </div>)}
+            </div>)}
+        </details>
+        <details className="pilot-evaluation-reference">
           <summary>Voir les décisions attendues et obtenues sur chaque dessin</summary>
           {fixtureReport.cases.filter((item) => item.summaries.length).map((caseResult) => <div key={caseResult.caseId}>
             <strong>{caseResult.label} — référence {caseResult.referenceScore}/10</strong>
