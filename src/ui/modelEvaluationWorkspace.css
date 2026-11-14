@@ -1120,3 +1120,23 @@
 
 .evaluation-workbench-controls .evaluation-journey-picker .evaluation-journey-options { width: 100%; }
 .evaluation-workbench-controls .evaluation-journey-options button { flex: 1; align-items: center; }
+
+/* Radar campaigns distinguish the strategy chosen for the experiment from the
+   actual engine running the current battery. Keep all three facts readable. */
+.evaluation-radar-method-context {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 5px 18px;
+  margin: 8px 0;
+  font-size: .9rem;
+  line-height: 1.5;
+  color: var(--ds-color-text);
+}
+.evaluation-radar-method-context span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.evaluation-radar-method-context strong {
+  font-weight: 700;
+}
