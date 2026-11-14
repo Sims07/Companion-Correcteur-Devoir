@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ZoomableImage } from './ZoomableImage.tsx';
 import type { Rubric } from '../../domain/rubric.ts';
 import type { DiagnosticModelResult, ImageInput } from '../../ports/aiProvider.ts';
 import type { ScientificDiagramAnalysisService } from '../../application/scientificDiagramAnalysisService.ts';
@@ -84,7 +85,7 @@ export function ScientificDiagramAnalysisPanel({
             <article className="scientific-diagram-result" key={diagram.id}>
               <div className="panel-heading"><div><strong>{diagram.diagramType || 'Schéma'} · page {diagram.pageNumber}</strong><p>{diagram.summary}</p></div></div>
               {images[diagram.pageNumber - 1] && <figure className="scientific-diagram-evidence">
-                <img src={`data:${images[diagram.pageNumber - 1].mimeType};base64,${images[diagram.pageNumber - 1].base64}`} alt={`Page ${diagram.pageNumber} contenant le schéma détecté`} style={{ display: 'block', width: '100%', maxWidth: '560px', height: 'auto' }} />
+                <ZoomableImage src={`data:${images[diagram.pageNumber - 1].mimeType};base64,${images[diagram.pageNumber - 1].base64}`} alt={`Page ${diagram.pageNumber} contenant le schéma détecté`} />
                 <figcaption>Schéma scientifique sur la page originale. Vérifiez les preuves avant de retenir la note.</figcaption>
               </figure>}
               {(diagram.criteria ?? []).map((criterion) => (

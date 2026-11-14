@@ -1,4 +1,5 @@
 import type { BackgroundCorrectionJob } from '../../domain/backgroundCorrection.ts';
+import { ZoomableImage } from './ZoomableImage.tsx';
 import type { ImageInput } from '../../ports/aiProvider.ts';
 import { BackgroundCopyActivity } from './BackgroundCopyActivity.tsx';
 
@@ -79,7 +80,7 @@ export function ActiveCopyProcessingWorkspace({ job, pages, studentLabel, onStop
                 <figure className="atelier-processing-page" key={image.fileName + '-' + index}>
                   <div className="atelier-processing-page-stage">
                     {fullPage?.base64 ? (
-                      <img src={`data:${fullPage.mimeType};base64,${fullPage.base64}`} alt={`Page ${index + 1} de la copie en cours de correction`} loading={index === 0 ? 'eager' : 'lazy'} />
+                      <ZoomableImage src={`data:${fullPage.mimeType};base64,${fullPage.base64}`} alt={`Page ${index + 1} de la copie en cours de correction`} loading={index === 0 ? 'eager' : 'lazy'} />
                     ) : <p role="status">Chargement de la page {index + 1}…</p>}
                   </div>
                   <figcaption><span>PAGE {index + 1}</span><span>{image.fileName || `Page ${index + 1}`}</span></figcaption>

@@ -45,7 +45,7 @@
   background: var(--ds-color-surface-subtle);
   overflow: hidden;
 }
-.diagram-fixture-card img {
+.diagram-fixture-card > .zoomable-image-trigger > img {
   width: 100%;
   height: 260px;
   display: block;
@@ -73,7 +73,7 @@
 .diagram-fixture-run-controls .pilot-evaluation-actions { align-items: center; }
 @media (max-width: 850px) {
   .diagram-fixture-grid { grid-template-columns: 1fr; }
-  .diagram-fixture-card img { height: 320px; }
+  .diagram-fixture-card > .zoomable-image-trigger > img { height: 320px; }
 }
 
 /* Reports are kept at application level and stay reachable in all AI tool views. */
@@ -106,7 +106,7 @@
 .diagram-sensitivity-section > summary { cursor: pointer; padding: var(--ds-space-2) 0; font-size: .9rem; }
 .diagram-sensitivity-section > p { margin: var(--ds-space-3) 0; }
 .diagram-sensitivity-section > .pilot-evaluation-actions { margin-top: var(--ds-space-3); flex-wrap: wrap; }
-.diagram-sensitivity-grid .diagram-fixture-card img { height: 155px; }
+.diagram-sensitivity-grid .diagram-fixture-card > .zoomable-image-trigger > img { height: 155px; }
 .diagram-sensitivity-grid .diagram-fixture-card-body { gap: var(--ds-space-1); }
 .diagram-sensitivity-grid .diagram-fixture-card-body p { margin: 0; }
 
@@ -162,8 +162,8 @@
 .diagram-lab-legacy .diagram-protocol-inputs { margin-top: var(--ds-space-3); }
 .diagram-sensitivity-section { display: grid; }
 .diagram-sensitivity-section > h4 { font-size: 1.03rem; }
-.diagram-fixture-card img { height: 140px; }
-.diagram-sensitivity-grid .diagram-fixture-card img { height: 110px; }
+.diagram-fixture-card > .zoomable-image-trigger > img { height: 140px; }
+.diagram-sensitivity-grid .diagram-fixture-card > .zoomable-image-trigger > img { height: 110px; }
 .diagram-fixture-grid { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
 .diagram-protocol-fixtures > .pilot-evaluation-report { margin-top: var(--ds-space-3); }
 @media (max-width: 920px) { .diagram-lab-catalog { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -243,3 +243,9 @@
     max-width: 100%;
   }
 }
+
+.diagram-fixture-card > .zoomable-image-trigger { width: 100%; }
+.diagram-fixture-card > .zoomable-image-trigger > img { width: 100%; }
+.diagram-personal-previews { display: flex; gap: var(--ds-space-2); flex-wrap: wrap; max-width: 100%; }
+.diagram-personal-previews .zoomable-image-trigger { width: min(180px, 100%); }
+.diagram-personal-previews .zoomable-image-trigger > img { width: 100%; height: 140px; object-fit: contain; background: #fff; }

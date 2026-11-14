@@ -39,7 +39,7 @@
 @media(max-width: 540px) { .diagram-lab-kpis { grid-template-columns: repeat(2,minmax(0,1fr)); } .diagram-lab-history-heading { flex-direction: column; padding: var(--ds-space-3); } }
 
 .diagram-lab-case-image { display: flex; flex-wrap: wrap; align-items: start; gap: var(--ds-space-4); }
-.diagram-lab-case-image img { width: min(220px, 100%); height: 126px; object-fit: contain; border: 1px solid var(--ds-color-border); border-radius: var(--ds-radius-sm); background: #fff; }
+.diagram-lab-case-image > .zoomable-image-trigger > img { width: min(220px, 100%); height: 126px; object-fit: contain; border: 1px solid var(--ds-color-border); border-radius: var(--ds-radius-sm); background: #fff; }
 .diagram-lab-case-image h4 { flex: 1; min-width: 180px; }
 
 .diagram-lab-history-heading-actions { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); }
@@ -96,3 +96,19 @@
 
 .diagram-lab-history-back { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ds-space-3); }
 .diagram-lab-history-back span { color: var(--ds-color-text-muted); font-size: .83rem; }
+
+/* Explicit comparison against the reference: agreement on "absent" is correct. */
+.diagram-lab-decision-overview { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--ds-space-2); }
+.diagram-lab-decision-overview p { margin: 0; font-size: .85rem; }
+.diagram-lab-decision-overview button { padding: .35rem .7rem; border: 1px solid var(--ds-color-border); border-radius: var(--ds-radius-sm); background: var(--ds-color-surface); color: var(--ds-color-text); cursor: pointer; }
+.diagram-lab-decision-table .diagram-lab-decision-row--correct { background: color-mix(in srgb, #15803d 5%, transparent); }
+.diagram-lab-decision-table .diagram-lab-decision-row--incorrect { background: color-mix(in srgb, #dc2626 9%, transparent); }
+.diagram-lab-decision-table .diagram-lab-decision-row--mixed { background: color-mix(in srgb, #b45309 10%, transparent); }
+.diagram-lab-decision-status { display: inline-flex; align-items: center; gap: .3rem; white-space: nowrap; font-weight: 700; }
+.diagram-lab-decision-status--correct { color: var(--ds-color-success, #15803d); }
+.diagram-lab-decision-status--incorrect { color: var(--ds-color-danger, #b91c1c); }
+.diagram-lab-decision-status--mixed { color: var(--ds-color-warning, #b45309); }
+.diagram-lab-decision-status--unmeasured { color: var(--ds-color-text-muted); }
+.diagram-lab-decision-status span { font-size: 1.15rem; }
+.diagram-lab-decision-key { display: block; margin-top: .2rem; font-size: .72rem; font-weight: 400; color: var(--ds-color-text-muted); overflow-wrap: anywhere; }
+.diagram-lab-decision-note { display: block; max-width: 66ch; margin-top: .3rem; font-size: .78rem; font-weight: 400; line-height: 1.5; }

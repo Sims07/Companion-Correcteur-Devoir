@@ -1,6 +1,26 @@
 import { expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 
+test('scientific fixtures can be enlarged, rotated, zoomed and closed without changing the benchmark', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Tests', exact: true }).click();
+  await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: /Schémas scientifiques/ }).click();
+  const panel = page.getByRole('region', { name: 'Protocole schémas scientifiques' });
+  await panel.getByRole('tab', { name: /Sens des flèches/ }).click();
+  const images = panel.getByRole('region', { name: 'Schémas de référence intégrés' });
+  await images.getByRole('button', { name: /Agrandir : Schéma de mitose végétale — E/ }).click();
+  const viewer = page.getByRole('dialog', { name: /Visualiseur : Schéma de mitose végétale — E/ });
+  await expect(viewer).toBeVisible();
+  await expect(viewer.locator('img')).toHaveAttribute('src', /scientific-mitosis-labels-swapped/);
+  await viewer.getByRole('button', { name: 'Zoomer', exact: true }).click();
+  await viewer.getByRole('button', { name: 'Tourner à droite de 90 degrés' }).click();
+  await expect(viewer.locator('img')).toHaveCSS('transform', 'matrix(0, 1.25, -1.25, 0, 0, 0)');
+  await page.keyboard.press('Escape');
+  await expect(viewer).not.toBeVisible();
+  await expect(images.getByText('8.66/10 attendu')).toBeVisible();
+});
+
 test('three bundled mitosis diagrams are visible and one click evaluates A/B/C without supplying expected scores to the model', async ({ page }) => {
   const configuration = {
     endpoint: 'http://localhost:11434', apiCompatible: false, apiKey: '',
