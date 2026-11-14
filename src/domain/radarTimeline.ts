@@ -50,15 +50,22 @@ export function trialSteps(method: ScienceMethod): RadarTestStep[] {
 export function recordedRadarBatteryEngines(group: readonly DiagramLabArchiveEntry[], model: string) {
   return group.flatMap((entry) => {
     const report = entry.report;
-    const runs = report.format === 'companion-scientific-diagram-protocol'
-      ? report.experiments
-      : report.cases.flatMap((testCase) => testCase.experiments);
+    // Different report formats have different experiment shapes. Project only
+    // the shared engine metadata instead of flattening incompatible unions.
+    const runs: Array<{ model: string; method?: string }> =
+      report.format === 'companion-scientific-diagram-protocol'
+        ? report.experiments.map(({ model: id, method }) => ({ model: id, method }))
+        : report.format === 'companion-scientific-diagram-fixture-report'
+          ? report.cases.flatMap((testCase) => testCase.experiments.map(({ model: id, method }) => ({ model: id, method })))
+          : report.format === 'companion-scientific-diagram-sensitivity-report'
+            ? report.cases.flatMap((testCase) => testCase.experiments.map(({ model: id, method }) => ({ model: id, method })))
+            : report.cases.flatMap((testCase) => testCase.experiments.map(({ model: id }) => ({ model: id })));
     if (!runs.some((run) => run.model === model)) return [];
     if (report.format === 'companion-scientific-diagram-blind-graph-report') {
       return [{ protocol: entry.title, engine: 'Extraction de graphe · ' + report.promptVariant }];
     }
     const engines = [...new Set(runs.flatMap((run) =>
-      run.model === model && 'method' in run && typeof run.method === 'string'
+      run.model === model && run.method
         ? [diagramMethodLabels[run.method as DiagramMethod] ?? run.method] : []))];
     return engines.length ? [{ protocol: entry.title, engine: engines.join(' / ') }] : [];
   });
