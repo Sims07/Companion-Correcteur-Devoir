@@ -475,6 +475,7 @@ export function ScientificDiagramProtocolPanel({
           onClearFixtureReport();
         }}>
         <option value="compare">Comparer toutes les méthodes compatibles (recommandé)</option>
+        <option value="graph-first-v1">{diagramMethodLabels['graph-first-v1']}</option>
         <option value="vision-then-analysis">Vision puis analyse — 2 étapes</option>
         <option value="direct-image-generative">Image → modèle génératif — sans OCR, Think OFF</option>
         <option value="direct-image-generative-thinking">Image → modèle génératif — Think ON (Ollama compatible)</option>
@@ -564,7 +565,10 @@ export function ScientificDiagramProtocolPanel({
                 <td>{summary.profileName}</td>
                 <td>{diagramMethodLabels[summary.method]}</td>
                 <td>{caseResult.referenceScore}/10</td>
-                <td>{experiments.map((experiment) => experiment.score === null ? 'Non noté' : experiment.score + '/10').join(' · ')}</td>
+                <td>{experiments.flatMap((experiment) => experiment.graphEvidence ? [<details key={experiment.repetition}>
+                  <summary>Graphe du passage {experiment.repetition}</summary>
+                  <pre>{JSON.stringify(experiment.graphEvidence.pages, null, 2)}</pre>
+                </details>] : [])}{experiments.map((experiment) => experiment.score === null ? 'Non noté' : experiment.score + '/10').join(' · ')}</td>
                 <td>
                   {experiments.map((experiment) => {
                     if (experiment.status !== 'success') {

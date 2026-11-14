@@ -413,3 +413,46 @@ test(scenario.model + ' compares Think OFF/ON on E with runtime Ollama capabilit
   expect(JSON.stringify(report)).not.toMatch(/PRIVATE_REASONING_NOT_EXPORTED|iVBORw0KGgo|api\/chat|127\.0\.0\.1/);
 });
 }
+
+test('graph-first grades with the original image and the blind observation', async ({page}) => {
+  const { defaultAiModelConfiguration } = await import('../../src/domain/aiModelProfiles.ts');
+  const { chooseEvaluationModel } = await import('./helpers/evaluation-models.ts');
+  await page.addInitScript(cfg => localStorage.setItem('companion-correcteur:ollama-profiles:v1', JSON.stringify([{
+    id:'graph-test', name:'Vision graphe', mode:'single', updatedAt:'2026-11-14T09:00:00Z',
+    configuration:{...cfg, analysisModel:'qwen:4b', visionModel:'qwen:4b', correctionMethod:'generative'},
+  }])), defaultAiModelConfiguration);
+  const graph = {labels:['repère de test'], arrows:[], containment:[], arrowsComplete:false};
+  const calls: {text:string; image?:string; extraction:boolean}[] = [];
+  await page.route('http://localhost:11434/**', async route => {
+    const req = route.request();
+    const path = new URL(req.url()).pathname;
+    const headers = {'access-control-allow-origin':'*','access-control-allow-headers':'*','access-control-allow-methods':'*'};
+    if (req.method() === 'OPTIONS') return route.fulfill({status:204,headers});
+    if (path === '/api/chat') {
+      const body = req.postDataJSON();
+      const extraction = !!body.format?.properties?.arrows;
+      calls.push({extraction, text:JSON.stringify(body.messages.map((m:{content:string}) => m.content)),
+        image:body.messages.find((m:{images?:string[]}) => m.images?.length)?.images[0]});
+      if (!extraction) return route.fulfill({status:503, headers,body:'Mock grading stopped'});
+      return route.fulfill({headers,json:{message:{content:JSON.stringify(graph)},done:true}});
+    }
+    return route.fulfill({headers,json:path === '/api/tags' ? {models:[{name:'qwen:4b',model:'qwen:4b'}]} : {models:[],model_info:{}}});
+  });
+  await page.goto('/');
+  await page.getByRole('button',{name:'Évaluer les modèles'}).click();
+  await page.getByRole('navigation',{name:'Espaces de l’évaluation'}).getByRole('button',{name:'Tests',exact:true}).click();
+  await page.getByRole('group',{name:'Parcours de test'}).getByRole('button',{name:/Schémas scientifiques/}).click();
+  const panel = page.getByRole('region',{name:'Protocole schémas scientifiques'});
+  await chooseEvaluationModel(page);
+  await panel.getByLabel('Méthode de correction scientifique à tester').selectOption('graph-first-v1');
+  await panel.getByRole('button',{name:'Tester ce schéma'}).first().click();
+  await expect.poll(() => calls.some(c => !c.extraction)).toBe(true);
+  expect(calls[0].extraction).toBe(true);
+  expect(calls[0].text).not.toContain('9.84');
+  const grade = calls.find(c => !c.extraction)!;
+  expect(grade.text).toContain('repère de test');
+  expect(grade.image).toBeTruthy();
+  expect(grade.image).toBe(calls[0].image);
+  await panel.getByText('Graphe du passage 1').first().click();
+  await expect(panel.locator('pre').filter({hasText:'repère de test'}).first()).toBeVisible();
+});

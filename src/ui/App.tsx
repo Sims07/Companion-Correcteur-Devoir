@@ -1,3 +1,4 @@
+import { extractDiagramGraphEvidence, graphGradingContext } from '../application/diagramGraphEvidence.ts';
 import { biologyPoints, campaignGroups } from '../domain/radarTimeline.ts';
 import { EvaluationRadarHome } from './components/EvaluationRadarHome.tsx';
 import { restoredModelId } from './components/ScientificDiagramRadar.tsx';
@@ -86,7 +87,7 @@ import { directDiagramAssignmentIssue } from '../application/directScientificDia
 import { SCIENTIFIC_DIAGRAM_PROTOCOL_ID, buildScientificDiagramProtocolReport, diagramMethodIssue, diagramMethodLabels, selectDiagramMethods, usesDirectDiagramVision, type DiagramMethod, type DiagramMethodSelection, type DiagramProtocolCount } from '../domain/scientificDiagramProtocol.ts';
 import { SCIENTIFIC_DIAGRAM_FIXTURE_CONTEXT, SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC, buildScientificDiagramFixtureReport, type ScientificDiagramFixtureId, type ScientificDiagramFixtureRun } from '../domain/scientificDiagramFixtures.ts';
 import { DIAGRAM_SENSITIVITY_CASE_IDS, DIAGRAM_SENSITIVITY_CONTEXT, DIAGRAM_SENSITIVITY_RUBRIC, buildScientificDiagramSensitivityReport, type DiagramSensitivityCaseId, type DiagramSensitivityRun, type DiagramSensitivityPromptMode } from '../domain/scientificDiagramSensitivity.ts';
-import { buildBlindVisualObservationReport, compareBlindVisualGraph, explainBlindVisualGraph, blindGraphProfileIssue, blindGraphVisionModel, type BlindGraphDiagnostic,
+import { buildBlindVisualObservationReport, compareBlindVisualGraph, explainBlindVisualGraph, blindGraphProfileIssue, blindGraphVisionModel, type DiagramGraphEvidence, type BlindGraphDiagnostic,
   type BlindVisualObservationRun, type BlindGraphPromptVariant } from '../domain/scientificDiagramBlindGraph.ts';
 import { ALL_QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_PROTOCOL_ID, QUESTION_CONTRACT_QUESTION, QUESTION_CONTRACT_TITLE, buildQuestionContractReport, questionContractRubric, type QuestionContractRun, type QuestionContractVariant, type QuestionContractCase } from '../domain/questionContractPilot.ts';
 import { buildQuestionContractRepeatabilityReport, questionContractRepeatabilitySteps, type QuestionContractRepeatabilityRun, type RepeatabilityCount, type RepeatabilitySuite } from '../domain/questionContractRepeatability.ts';
@@ -1881,22 +1882,26 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             && isVisualDecisionModel(profile.configuration.analysisModel))
     );
     const directGenerativeProfiles = (_profile: AiModelProfile) => runStage === 'integrated'
-      && (diagramMethod === 'direct-image-generative' || diagramMethod === 'direct-image-generative-thinking');
+      && (diagramMethod === 'graph-first-v1' || diagramMethod === 'direct-image-generative' || diagramMethod === 'direct-image-generative-thinking');
     // Only the diagram lab can override a saved visual-decision profile to test
     // its two-step System One text baseline. The teacher route is unchanged.
     const effectiveMethod = (profile: AiModelProfile) =>
       diagramMethod === 'vision-then-analysis' && profile.configuration.correctionMethod === 'visual-decision'
         ? 'decision' as const : profile.configuration.correctionMethod;
     const totalEvaluationSteps = selectedProfiles.reduce((sum, profile) =>
-      sum + (directProfiles(profile) || directGenerativeProfiles(profile) ? 1 : measuredStages.length), 0);
+      sum + (diagramMethod !== 'graph-first-v1' && (directProfiles(profile) || directGenerativeProfiles(profile)) ? 1 : measuredStages.length), 0);
     setEvaluationProgress({ completed: 0, total: selectedProfiles.length, currentConfiguration: null, status: 'running', completedSteps: 0, totalSteps: totalEvaluationSteps, currentStage: null });
     setEvaluationStage('preparing');
     setError('');
     setBusy(true);
     setIsAnalyzing(true);
+    const graphEvidence = new Map<string, DiagramGraphEvidence>();
     const outputs = await runModelEvaluation({
       stages: [...measuredStages],
-      stagesForConfiguration: (configuration) => configuration.directVisualDecision || configuration.directGenerativeVision ? ['analysis'] : [...measuredStages],
+      stagesForConfiguration: (configuration) => {
+        if (diagramMethod === 'graph-first-v1') return ['reading', 'analysis'];
+        return configuration.directVisualDecision || configuration.directGenerativeVision ? ['analysis'] : [...measuredStages];
+      },
       configurations: selectedProfiles.map((profile) => ({
         id: profile.id,
         name: profile.name,
@@ -1980,8 +1985,24 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         });
         setStreamedOutput('');
         try {
+          let gradingQuestion = runQuestion;
+          if (diagramMethod === 'graph-first-v1') {
+            const observe = service.extractBlindDiagramGraph;
+            if (!observe) throw new Error('Extraction de graphe indisponible.');
+            onStage('reading');
+            setEvaluationStage('reading');
+            const evidence = await extractDiagramGraphEvidence(runImages, configuration.analysisModel, abortController.signal,
+              image => awaitOrAbort(() => observe(configuration.endpoint, configuration.analysisModel, image, abortController.signal,
+                undefined, {apiCompatible: !!configuration.apiCompatible, apiKey: configuration.apiKey ?? '', promptVariant: 'isolated-arrows-outside'}),
+              abortController.signal));
+            graphEvidence.set(configuration.id, evidence);
+            gradingQuestion += graphGradingContext(evidence);
+            readingMs = Math.max(0, Date.now() - startedAt);
+            analysisStartedAt = Date.now();
+            onStage('analysis');
+          }
           raw = await awaitOrAbort(() => provider.generate({
-            question: buildAssignmentContext({ title: runTitle, description: runDescription, educationLevel: runLevel, question: runQuestion }),
+            question: buildAssignmentContext({ title: runTitle, description: runDescription, educationLevel: runLevel, question: gradingQuestion }),
             rubric: rubricAsJson(runRubric),
             ...(runStage === 'analysis' ? { transcription: runTranscription ?? '' } : {}),
             ...(runStage === 'vision' ? { visionOnly: true } : {}),
@@ -1999,7 +2020,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           }, (result) => { if (!abortController.signal.aborted) measuredRuns.push(result); }, undefined, undefined, undefined, abortController.signal), abortController.signal);
         } catch (cause) {
           const failedAt = Date.now();
-          if (runStage === 'vision' && analysisStartedAt === null) readingMs = Math.max(0, failedAt - startedAt);
+          if ((runStage === 'vision' || diagramMethod === 'graph-first-v1') && analysisStartedAt === null) readingMs = Math.max(0, failedAt - startedAt);
           const analysisMs = analysisStartedAt === null ? 0 : Math.max(0, failedAt - analysisStartedAt);
           const readingTokens = sumReportedTokensForStage(measuredRuns, 'reading');
           const analysisTokens = sumReportedTokensForStage(measuredRuns, 'analysis');
@@ -2052,6 +2073,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       if (firstReadableResult?.value?.transcription) setTranscription(firstReadableResult.value.transcription);
     }
     const results = outputs.map((output) => ({
+      ...(graphEvidence.has(output.configuration.id) ? {graphEvidence: graphEvidence.get(output.configuration.id)} : {}),
       profileId: output.configuration.id,
       profileName: output.configuration.name,
       elapsedMs: output.elapsedMs,
@@ -2075,6 +2097,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     // Render results immediately; IndexedDB writes must never block navigation.
     if (results.length > 0 && !options) setEvaluationWorkspaceStep('results');
     const savedRecord: ModelEvaluationRecord = {
+      ...(diagramMethod === 'graph-first-v1' ? {graphFirst: true} : {}),
       id: 'evaluation-' + Date.now() + (options ? '-' + options.pilotCase.id + '-' + runStage + (options.contractVariant ? '-' + options.contractVariant : '') : ''),
       completedAt: new Date().toISOString(),
       assignmentId: runAssignmentId,

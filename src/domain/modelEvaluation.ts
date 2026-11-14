@@ -184,6 +184,7 @@ export interface ModelEvaluationCallTrace {
 }
 
 export interface ModelEvaluationResultSnapshot {
+  graphEvidence?: import('./scientificDiagramBlindGraph.ts').DiagramGraphEvidence;
   profileId: string;
   profileName: string;
   elapsedMs: number;
@@ -211,6 +212,7 @@ export interface ModelEvaluationResultSnapshot {
 }
 
 export interface ModelEvaluationRecord {
+  graphFirst?: boolean;
   campaignId?: string;
   id: string;
   completedAt: string;

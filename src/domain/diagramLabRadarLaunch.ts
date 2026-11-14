@@ -25,7 +25,7 @@ export interface RadarMissingTestRequest {
 }
 
 const ALL_METHODS: DiagramMethodSelection[] = [
-  'vision-then-analysis', 'direct-image-generative',
+  'graph-first-v1', 'vision-then-analysis', 'direct-image-generative',
   'direct-image-generative-thinking', 'direct-image-systemone',
 ];
 
@@ -202,6 +202,7 @@ export function resolveModelProfile(profiles: readonly RadarModelConfiguration[]
   const canGrade = (profile: RadarModelConfiguration) => {
     const cfg = profile.configuration;
     if (!needsGrading) return true;
+    if (plan.steps.some(step => step.method === 'graph-first-v1')) return cfg.correctionMethod === 'generative' && cfg.analysisModel.trim() === candidate.id;
     if (cfg.analysisModel.trim() !== candidate.id) return false;
     if (cfg.correctionMethod === 'visual-decision') {
       return !cfg.apiCompatible && isVisualDecisionModel(cfg.analysisModel);
@@ -238,7 +239,7 @@ export function resolveModelProfile(profiles: readonly RadarModelConfiguration[]
   return {
     ...plan, profileId: matching.id, profileName: matching.name, modelId: candidate.id,
     steps: steps.map((step) => ({
-      ...step, method: step.protocol === 'graph' ? step.method : method,
+      ...step, method: step.protocol === 'graph' || step.method === 'graph-first-v1' ? step.method : method,
     })),
   };
 }
