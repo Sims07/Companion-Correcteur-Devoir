@@ -409,6 +409,36 @@ describe('protocole de schémas scientifiques', () => {
     expect(synthetic[0]!.evidenceState).toBe('needs-review');
   });
 
+  it('sélectionne V2 indépendamment de V1 et protège les transcriptions des copies libres', () => {
+    const gen = profile('gemma4:12b', 'generative');
+    expect(selectDiagramMethods(gen,'graph-first-v2')).toEqual(['graph-first-v2']);
+    expect(diagramMethodIssue(gen,'graph-first-v2')).toBeNull();
+    expect(diagramMethodIssue(profile('d1:3b'),'graph-first-v2')).toContain('génératif');
+    const sensitive = {
+      version:'graph-first-v2' as const, model:'gemma4:12b',
+      pages:[{page:1,graph:{
+        labels:[{id:'l1',text:'PRIVATE_STUDENT_NAME',phase:'metaphase' as const}],
+        structures:[{id:'s1',kind:'spindle' as const,phase:'metaphase' as const,visualCue:'Tracé visible'}],
+        leaders:[{labelId:'l1',targetId:'s1',status:'connected' as const,tipX:200,tipY:300}],
+        layout:'rows' as const,complete:true,
+      }}],
+    };
+    const r=record({...result(),graphEvidence:sensitive});
+    r.graphFirst=true;r.graphVersion='v2';
+    const privateReport = buildScientificDiagramProtocolReport(
+      [{repetition:1,record:r}],SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC,
+      {},1,'now',1,
+    );
+    expect(privateReport.experiments[0]!.method).toBe('graph-first-v2');
+    expect(privateReport.experiments[0]!.graphEvidence).toBeUndefined();
+    expect(JSON.stringify(privateReport)).not.toContain('PRIVATE_STUDENT_NAME');
+    const fixtureReport = buildScientificDiagramProtocolReport(
+      [{repetition:1,record:r}],SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC,
+      {},1,'now',1,{syntheticFixtureEvidence:true},
+    );
+    expect(fixtureReport.experiments[0]!.graphEvidence?.version).toBe('graph-first-v2');
+  });
+
   it('distingue un échec avant analyse sans exporter ses éventuels secrets', () => {
     const failed: ModelEvaluationResultSnapshot = {
       ...result('failed'), error: 'https://PRIVATE_ENDPOINT?apiKey=PRIVATE_API_KEY',
