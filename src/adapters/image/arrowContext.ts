@@ -1,7 +1,8 @@
+import { detectArrowDirections as detectLeaderV1 } from '../../domain/arrowDirectionsLeaderV1.ts';
 import { detectArrowDirections, type DetectedArrow } from '../../domain/arrowDirections.ts';
 import type { ImageInput } from '../../domain/imageInput.ts';
 
-export async function readArrowPixels(url: string, clockwiseDegrees = 0) {
+export async function readArrowPixels(url: string, clockwiseDegrees = 0, detector = detectArrowDirections) {
   const image = new Image();
   image.src = url;
   await image.decode();
@@ -21,7 +22,7 @@ export async function readArrowPixels(url: string, clockwiseDegrees = 0) {
   context.rotate(clockwiseDegrees * Math.PI / 180);
   context.drawImage(image, -width / 2, -height / 2, width, height);
   context.restore();
-  const arrows = detectArrowDirections(context.getImageData(0, 0, canvas.width, canvas.height))
+  const arrows = detector(context.getImageData(0, 0, canvas.width, canvas.height))
     .sort((a, b) => a.x - b.x || a.y - b.y);
   return { canvas, context, arrows };
 }
@@ -32,14 +33,14 @@ export function describeArrowTips(arrows: DetectedArrow[], width: number, height
 }
 
 /** Optional visual evidence, always derived from the same bytes sent to Vision. */
-export async function arrowContext(images: readonly ImageInput[], pageNumbers?: number[], signal?: AbortSignal): Promise<string> {
+export async function arrowContext(images: readonly ImageInput[], pageNumbers?: number[], signal?: AbortSignal, version?: 'leaders-v1'): Promise<string> {
   if (typeof Image === 'undefined' || typeof document === 'undefined') return '';
   const hints: string[] = [];
   for (const [index, image] of images.entries()) {
     signal?.throwIfAborted();
     if (!/^image\/(jpeg|png|webp)$/.test(image.mimeType)) continue;
     try {
-      const { canvas, arrows } = await readArrowPixels('data:' + image.mimeType + ';base64,' + image.base64);
+      const { canvas, arrows } = await readArrowPixels('data:' + image.mimeType + ';base64,' + image.base64, 0, version === 'leaders-v1' ? detectLeaderV1 : detectArrowDirections);
       hints.push(...describeArrowTips(arrows, canvas.width, canvas.height, pageNumbers?.[index] ?? index + 1));
     } catch {
       // An unavailable optional detector must not prevent ordinary visual reading.

@@ -7,7 +7,7 @@ import {
 } from './scientificDiagramSensitivity.ts';
 
 export const DIAGRAM_BLIND_OBSERVATION_PROTOCOL = 'scientific-diagram-blind-graph-v1';
-export const BLIND_GRAPH_PROMPT_VARIANTS = ['baseline', 'pixel-arrows', 'isolated-arrows-outside', 'recheck-arrows', 'recheck-contours'] as const;
+export const BLIND_GRAPH_PROMPT_VARIANTS = ['baseline', 'pixel-arrows', 'pixel-leaders-v1', 'isolated-arrows-outside', 'recheck-arrows', 'recheck-contours'] as const;
 export type BlindGraphPromptVariant = typeof BLIND_GRAPH_PROMPT_VARIANTS[number];
 
 export type ObservedArrowTip = 'first' | 'second' | 'none' | 'unclear';

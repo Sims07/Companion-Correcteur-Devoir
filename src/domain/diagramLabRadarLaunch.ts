@@ -14,6 +14,7 @@ export interface RadarTestStep {
   zoom: boolean;
 }
 export interface RadarMissingTestRequest {
+  trial?: import('./radarTimeline.ts').RadarTrial;
   id: number;
   axis: RadarAxisId;
   profileId: string;

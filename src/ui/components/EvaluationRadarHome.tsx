@@ -1,3 +1,5 @@
+import { biologyPoints, campaignGroups, scienceMethods, sciencePoints, trialSteps, type ScienceMethod } from '../../domain/radarTimeline.ts';
+import { RadarTimeline } from './RadarTimeline.tsx';
 import { buildRadarAnalysisExport, isRadarBenchmark } from '../../domain/radarAnalysisExport.ts';
 import { downloadJson } from '../downloadJson.ts';
 import { Button } from '../design-system/index.ts';
@@ -47,7 +49,7 @@ export function EvaluationRadarHome({
   details: (domain: RadarDomain, model: string) => void;
   campaigns: (domain: RadarDomain, model: string, ids: string[]) => void;
   runScience: (request: Omit<RadarMissingTestRequest, 'id'>) => void;
-  runBiology: (profile: string, baseline: boolean, traps: boolean) => void;
+  runBiology: (profile: string, baseline: boolean, traps: boolean, variant?: 'standard' | 'contract') => void;
 }) {
   const [weights] = useState(restoredWeights);
   const science = useMemo(
@@ -101,6 +103,22 @@ export function EvaluationRadarHome({
     profile.configuration.correctionMethod === 'decision' &&
     !profile.configuration.apiCompatible &&
     isNativeDecisionModel(profile.configuration.visionModel));
+  const [method, setMethod] = useState<ScienceMethod>('pixel-v1');
+  const [bioMethod, setBioMethod] = useState<'standard' | 'contract'>('contract');
+  const fullPlan = sci && resolveModelProfile(profiles, 'model', sci, {
+    profileId: sci.profileId, profileName: sci.name, axis: 'graphics', steps: trialSteps(method),
+  });
+  const timeline = useMemo(() => ({
+    diagrams: campaignGroups(entries.filter(isRadarBenchmark), e => e.trial?.id ?? e.id).flatMap(group => {
+      const last = [...group].sort((a,b) => b.createdAt.localeCompare(a.createdAt))[0]!;
+      return last.timeline ?? sciencePoints(group, weights).map(p => ({ ...p, reconstructed: true }));
+    }),
+    biology: campaignGroups(history, row => row.campaignId ?? row.id).flatMap(group => {
+      const saved = group.flatMap(row => row.timeline ? [row.timeline] : []);
+      return biologyPoints(group).map(point => saved.find(p => p.id === point.id && p.date === point.date) ??
+        { ...point, reconstructed: true });
+    }),
+  }), [entries, history, weights]);
   const score = (value: number | null | undefined) =>
     value == null ? '—' : value.toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' / 100';
   return (
@@ -261,7 +279,9 @@ export function EvaluationRadarHome({
                       busy || !(scientific ? plan && profiles.some((p) => p.id === plan.profileId) : profile)
                     }
                     onClick={() => {
-                      if (scientific && plan) runScience(plan);
+                      if (scientific && plan) runScience({ ...plan, trial: {
+                        id: crypto.randomUUID(), method: 'pixel-v1', weights,
+                      } });
                       else if (!scientific && profile)
                         runBiology(
                           profile.id,
@@ -288,6 +308,23 @@ export function EvaluationRadarHome({
                 )}
                 <Button variant="secondary" onClick={() => details(domain, selected)}>Détail du radar</Button>
               </div>
+              <RadarTimeline key={selected} selectMethod={point => {
+                if (point.scienceMethod) setMethod(point.scienceMethod);
+                if (point.biologyMethod) setBioMethod(point.biologyMethod);
+              }} points={timeline[domain].filter(p => p.model === selected)}>
+                <label>Méthode du prochain essai
+                  {scientific ? <select value={method} onChange={e => setMethod(e.target.value as ScienceMethod)}>
+                    {Object.entries(scienceMethods).map(([id, item]) => <option key={id} value={id}>{item.label}</option>)}
+                  </select> : <select value={bioMethod} onChange={e => setBioMethod(e.target.value as typeof bioMethod)}>
+                    <option value="contract">Contrats par question</option><option value="standard">Barème standard</option>
+                  </select>}
+                </label>
+                <Button disabled={busy || !(scientific ? fullPlan && profiles.some(p => p.id === fullPlan.profileId) : profile)}
+                  onClick={() => {
+                    if (scientific && fullPlan) runScience({ ...fullPlan, trial: { id: crypto.randomUUID(), method, weights } });
+                    else if (!scientific && profile) runBiology(profile.id, true, true, bioMethod);
+                  }}>Évaluer avec cette méthode</Button>
+              </RadarTimeline>
             </article>
           );
         })}

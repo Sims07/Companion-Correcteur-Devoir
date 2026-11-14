@@ -199,3 +199,13 @@
   .radar-home-legend { grid-template-columns: minmax(0, 1fr); }
   .radar-home-compare-controls label { flex: 1 1 190px; }
 }
+
+.radar-timeline { grid-column: 1 / -1; min-width: 0; padding: .75rem; }
+.radar-timeline summary { cursor: pointer; font-weight: 650; }
+.radar-timeline label { display: grid; gap: .25rem; margin: .65rem 0; }
+.radar-timeline select { max-width: 100%; min-width: 0; }
+.radar-timeline ol { display: flex; gap: .5rem; overflow-x: auto; list-style: none; padding: .25rem; }
+.radar-timeline li button { display: grid; text-align: left; gap: .25rem; min-width: 10rem; padding: .5rem; }
+.radar-timeline button[aria-pressed=true] { outline: 2px solid currentColor; }
+.radar-timeline table { width: 100%; text-align: left; font-size: .875rem; }
+.radar-timeline p { overflow-wrap: anywhere; }

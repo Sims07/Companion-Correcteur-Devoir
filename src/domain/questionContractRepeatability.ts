@@ -10,6 +10,7 @@ export function repeatabilitySuiteCases(suite: RepeatabilitySuite) {
 }
 
 export interface QuestionContractRepeatabilityRun {
+  variant?: 'contract' | 'standard';
   repetition: number;
   caseId: QuestionContractCase['id'];
   record: ModelEvaluationRecord;
@@ -30,8 +31,8 @@ export function buildQuestionContractRepeatabilityReport(
   runs: readonly QuestionContractRepeatabilityRun[], createdAt: string, plannedRepetitions: RepeatabilityCount,
   suite: RepeatabilitySuite = 'baseline',
 ) {
-  const experiments = runs.flatMap(({ repetition, caseId, record }) =>
-    buildQuestionContractReport([{ caseId, variant: 'contract', record }], createdAt).experiments
+  const experiments = runs.flatMap(({ repetition, caseId, variant = 'contract', record }) =>
+    buildQuestionContractReport([{ caseId, variant, record }], createdAt).experiments
       .map((experiment) => ({
         ...experiment,
         repetition,
@@ -106,11 +107,11 @@ export function buildQuestionContractRepeatabilityReport(
     protocolId: QUESTION_CONTRACT_PROTOCOL_ID,
     createdAt,
     localOnly: runs.every(({ record }) => record.configurations.every((configuration) => isLoopbackPilotEndpoint(configuration.endpoint))),
-    variant: 'contract' as const,
+    variant: runs[0]?.variant ?? 'contract',
     suite,
     plannedRepetitions,
     plannedEvaluationsPerProfile: plannedRepetitions * repeatabilitySuiteCases(suite).length,
-    limitations: 'Réponses synthétiques prétranscrites avec contrats enrichis déjà renseignés ; aucune photo ni génération automatique de contrat. Les notes nulles et décisions à vérifier ne sont pas des zéros. La répétabilité sur ces cas ne démontre pas la fiabilité pédagogique sur de vraies copies.',
+    limitations: 'Réponses synthétiques prétranscrites avec le barème sélectionné ; aucune photo ni génération automatique de contrat. Les notes nulles et décisions à vérifier ne sont pas des zéros. La répétabilité sur ces cas ne démontre pas la fiabilité pédagogique sur de vraies copies.',
     cases,
     experiments,
   };

@@ -705,6 +705,7 @@ export function ScientificDiagramProtocolPanel({
         <DesignSystemSelect id="diagram-blind-prompt-variant"
           value={blindGraphPromptVariant} disabled={busy || blindGraphLoading}
           onChange={(event) => setBlindGraphPromptVariant(event.currentTarget.value as BlindGraphPromptVariant)}>
+          <option value="pixel-leaders-v1">Détection des longs traits · version #438</option>
           <option value="pixel-arrows">Lecture avec les pointes détectées dans l’image</option>
           <option value="baseline">Référence actuelle — lecture standard</option>
           <option value="isolated-arrows-outside">Ancienne expérimentation — consigne renforcée (sans gain observé)</option>
@@ -747,6 +748,7 @@ export function ScientificDiagramProtocolPanel({
         <p>Consigne utilisée : <strong>{({
           baseline: 'Référence actuelle',
           'isolated-arrows-outside': 'Ancienne consigne renforcée',
+          'pixel-leaders-v1': 'Détection des longs traits · version #438',
           'pixel-arrows': 'Lecture avec les pointes détectées dans l’image',
           'recheck-arrows': 'Nouvel essai A — seconde lecture des flèches',
           'recheck-contours': 'Nouvel essai B — seconde lecture des contours',

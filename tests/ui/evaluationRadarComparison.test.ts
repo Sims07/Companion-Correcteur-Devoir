@@ -122,3 +122,23 @@ it('keeps the same color for an LLM even when the primary has no result in one d
   await act(async () => root.unmount());
   node.remove();
 });
+
+it('selects a dated score and runs its saved method again for the same model', async () => {
+  const node = document.createElement('div');
+  const root = createRoot(node);
+  const runScience = vi.fn();
+  const previous = { ...entries[0]!, trial: { id: 'old', method: 'leaders-v1' as const,
+    weights: (await import('../../src/domain/diagramLabRadar.ts')).RADAR_PRESETS.balanced } };
+  await act(async () => root.render(createElement(EvaluationRadarHome, {
+    entries: [previous], history: [], profiles, model: models[0]!, choose: vi.fn(), busy: false,
+    manage: vi.fn(), details: vi.fn(), campaigns: vi.fn(), runScience, runBiology: vi.fn(),
+  })));
+  const buttons = [...node.querySelectorAll<HTMLButtonElement>('article:first-child details button')];
+  await act(async () => buttons.find(b => b.textContent?.startsWith('Choisir cette méthode'))!.click());
+  await act(async () => buttons.find(b => b.textContent === 'Évaluer avec cette méthode')!.click());
+  const request = runScience.mock.calls[0]![0];
+  expect(request.trial.method).toBe('leaders-v1');
+  expect(request.trial.id).not.toBe('old');
+  expect(request.steps.at(-1).graphVariant).toBe('pixel-leaders-v1');
+  await act(async () => root.unmount());
+});
