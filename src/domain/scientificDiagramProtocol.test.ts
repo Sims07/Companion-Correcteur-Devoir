@@ -280,6 +280,14 @@ describe('protocole de schémas scientifiques', () => {
     expect(diagramAnalysisDiagnostics(failed)).toEqual({
       analysisCalls: 2, repairCalls: 1, generationLimitHits: 1,
       generationBudgetTokens: 2048, generatedTokens: 2760,
+      analysisCallTraces: [
+        { role: 'primary', provider: 'ollama', imageCount: 1, elapsedMs: 2500,
+          contextTokens: 8192, outputLimit: 2048, promptTokens: null,
+          generatedTokens: 2048, doneReason: 'length', thinkingObserved: null },
+        { role: 'repair', provider: 'ollama', imageCount: 1, elapsedMs: 2500,
+          contextTokens: 8192, outputLimit: 2048, promptTokens: null,
+          generatedTokens: 712, doneReason: 'stop', thinkingObserved: null },
+      ],
     });
     const generative = {
       ...record(failed),
@@ -303,7 +311,7 @@ describe('protocole de schémas scientifiques', () => {
   it('considère les traces absentes comme données non mesurées, jamais un nombre de tokens inventé', () => {
     expect(diagramAnalysisDiagnostics({ diagnosticRuns: [] })).toEqual({
       analysisCalls: 0, repairCalls: 0, generationLimitHits: 0,
-      generationBudgetTokens: null, generatedTokens: null,
+      generationBudgetTokens: null, generatedTokens: null, analysisCallTraces: [],
     });
   });
 
