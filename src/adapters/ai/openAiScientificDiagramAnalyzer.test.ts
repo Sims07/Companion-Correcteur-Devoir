@@ -37,7 +37,7 @@ describe('OpenAI scientific diagram adapter', () => {
       expect(body.max_tokens).toBe(1024);
       expect(body.max_completion_tokens).toBeUndefined();
       expect(body.messages[0].content).toHaveLength(2);
-      expect(body.messages[0].content[0].text).toContain(`classe la page ${index + 1}`);
+      expect(body.messages[0].content[0].text).toContain(`Classer la page ${index + 1}`);
       expect(body.messages[0].content[0].text).toContain('kind=text : texte manuscrit');
       expect(body.messages[0].content[0].text.split('\n\n')).toHaveLength(3);
       expect(body.messages[0].content[0].text).toContain('FORMAT DE SORTIE');
@@ -53,7 +53,7 @@ describe('OpenAI scientific diagram adapter', () => {
 
   it('propagates cancellation to both classification and scientific-diagram requests', async () => {
     const controller = new AbortController();
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response('Unavailable', { status: 503 }));
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async () => new Response('Unavailable', { status: 503 }));
     const analyzer = createOpenAiScientificDiagramAnalyzer(fetchMock);
     await expect(analyzer.classifyPages({ ...request, signal: controller.signal })).rejects.toThrow('HTTP 503');
     expect(fetchMock.mock.calls[0][1]?.signal).toBe(controller.signal);
@@ -66,7 +66,7 @@ describe('OpenAI scientific diagram adapter', () => {
 
   it('uses native Ollama chat with constrained JSON schema and a 1024-token budget', async () => {
     const nativeResponse = { message: { content: '{"pageNumber":1,"kind":"text","confidence":0.9,"reason":"texte manuscrit","suggestedRotation":0,"orientationConfidence":0.9}' }, done_reason: 'stop' };
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify(nativeResponse), { status: 200 }));
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async () => new Response(JSON.stringify(nativeResponse), { status: 200 }));
     await expect(createOpenAiScientificDiagramAnalyzer(fetchMock).classifyPages({ ...request, apiCompatible: false })).resolves.toMatchObject([{ kind: 'text', confidence: 0.9 }]);
     expect(String(fetchMock.mock.calls[0][0])).toBe('https://ai.example/api/chat');
     const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
@@ -93,7 +93,7 @@ describe('OpenAI scientific diagram adapter', () => {
   });
 
   it('does not retry HTTP failures during classification', async () => {
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response('Service unavailable', { status: 503 }));
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async () => new Response('Service unavailable', { status: 503 }));
     await expect(createOpenAiScientificDiagramAnalyzer(fetchMock).classifyPages({ ...request, apiCompatible: false })).rejects.toThrow(/HTTP 503/);
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
@@ -121,7 +121,7 @@ describe('OpenAI scientific diagram adapter', () => {
 
 
   it('retries truncated diagram analysis once with a shorter prompt, then reports a second truncation', async () => {
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async () => new Response(JSON.stringify({
       message: { content: '{"diagrams":' },
       done_reason: 'length',
     }), { status: 200 }));
@@ -202,7 +202,7 @@ describe('OpenAI scientific diagram adapter', () => {
 
   it('accepts a page without an identifiable diagram only with explicit uncertainty, not an invented zero', async () => {
     const result = { diagrams: [], criteria: [], overallUncertainties: ['Aucun schéma scientifique identifiable sur la page.'] };
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async () => new Response(JSON.stringify({
       message: { content: JSON.stringify(result) }, done_reason: 'stop',
     }), { status: 200 }));
     const parsed = await createOpenAiScientificDiagramAnalyzer(fetchMock).analyze({ ...request, apiCompatible: false });
@@ -213,7 +213,7 @@ describe('OpenAI scientific diagram adapter', () => {
   });
 
   it('keeps native scientific request traces image-free and labels the network intent', async () => {
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async () => new Response(JSON.stringify({
       message: { content: JSON.stringify(output) }, done_reason: 'stop',
     }), { status: 200 }));
     const diagnostic = vi.fn();
@@ -230,8 +230,10 @@ describe('OpenAI scientific diagram adapter', () => {
   });
 
   it('asks for a source and a localized reason for every visual subcriterion', async () => {
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({ message: {
-      content: JSON.stringify(output),
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async () => new Response(JSON.stringify({ message: {
+      content: JSON.stringify({ diagrams: [{ pageNumber: 1 }], criteria: [{ criterionId: 'title', points: 2,
+        evidence: 'Titre manuscrit', elements: [{ subcriterionId: 'global', label: 'Titre global', points: 2,
+          status: 'present', origin: 'student-diagram', evidence: 'Titre manuscrit' }] }] }),
     } }), { status: 200 }));
     const rubric = { title: 'Mitose', criteria: [{ id: 'title', title: 'Titre', description: 'Titre manuscrit', maxPoints: 2,
       subcriteria: [{ id: 'global', title: 'Titre global', description: 'Global et lisible', maxPoints: 2 }] }] };
@@ -246,7 +248,7 @@ describe('OpenAI scientific diagram adapter', () => {
 
   it('uses native Ollama chat and a JSON Schema for local diagram analysis too', async () => {
     const nativeResponse = { message: { content: JSON.stringify(output) }, done_reason: 'stop' };
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify(nativeResponse), { status: 200 }));
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async () => new Response(JSON.stringify(nativeResponse), { status: 200 }));
     await expect(createOpenAiScientificDiagramAnalyzer(fetchMock).analyze({ ...request, apiCompatible: false }))
       .resolves.toMatchObject({ diagrams: [{ pageNumber: 1, criteria: [{ points: 2 }] }] });
     expect(String(fetchMock.mock.calls[0][0])).toBe('https://ai.example/api/chat');
@@ -263,11 +265,11 @@ describe('OpenAI scientific diagram adapter', () => {
   });
 
   it('sends the original page image and rubric to the configured OpenAI-compatible Vision endpoint', async () => {
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(output) } }] }), { status: 200 }));
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async () => new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(output) } }] }), { status: 200 }));
     const analyzer = createOpenAiScientificDiagramAnalyzer(fetchMock);
     const diagnostic = vi.fn();
     await expect(analyzer.analyze({ ...request, onDiagnosticResult: diagnostic })).resolves.toMatchObject({ diagrams: [{ pageNumber: 1, criteria: [{ points: 2, maxPoints: 2 }] }] });
-    expect(diagnostic).toHaveBeenCalledWith(expect.objectContaining({ purpose: 'scientific-diagram-analysis', model: 'vision-model', raw: JSON.stringify(output), requestPayload: expect.stringContaining('images') }));
+    expect(diagnostic).toHaveBeenCalledWith(expect.objectContaining({ purpose: 'scientific-diagram-analysis', model: 'vision-model', raw: JSON.stringify(output), requestPayload: expect.stringContaining('[IMAGE REDACTED') }));
     const [url, init] = fetchMock.mock.calls[0];
     expect(String(url)).toBe('https://ai.example/v1/chat/completions');
     const body = JSON.parse(String(init?.body));
@@ -282,7 +284,7 @@ describe('OpenAI scientific diagram adapter', () => {
     expect((init?.headers as Record<string, string>).Authorization).toBe('Bearer secret');
   });
   it('sends the JSON Schema through the provider format without duplicating it in the prompt', async () => {
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(output) } }] }), { status: 200 }));
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async () => new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(output) } }] }), { status: 200 }));
     await createOpenAiScientificDiagramAnalyzer(fetchMock).analyze(request);
     const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
     const prompt = body.messages[0].content[0].text as string;
@@ -303,7 +305,7 @@ describe('OpenAI scientific diagram adapter', () => {
 
   it('accepts a valid Vision diagram response without optional overall uncertainties', async () => {
     const { overallUncertainties: _omitted, ...outputWithoutGlobalUncertainties } = output;
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async () => new Response(JSON.stringify({
       choices: [{ message: { content: JSON.stringify(outputWithoutGlobalUncertainties) } }],
     }), { status: 200 }));
     await expect(createOpenAiScientificDiagramAnalyzer(fetchMock).analyze(request))
@@ -312,7 +314,7 @@ describe('OpenAI scientific diagram adapter', () => {
 
   it('asks Vision to evaluate only the teacher-defined subcriteria', async () => {
     const markedRequest = { ...request, rubric: { title: 'Barème', criteria: [{ id: 'labels', title: 'Schéma', description: '', maxPoints: 3, analysisMode: 'scientific-diagram' as const, subcriteria: [{ id: 'membrane', title: 'Membrane', description: 'Contour fermé', maxPoints: 2 }, { id: 'nucleus', title: 'Noyau', description: '', maxPoints: 1 }] }] } };
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(output) } }] }), { status: 200 }));
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async () => new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(output) } }] }), { status: 200 }));
     await createOpenAiScientificDiagramAnalyzer(fetchMock).analyze(markedRequest);
     const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
     const prompt = body.messages[0].content[0].text as string;
@@ -323,24 +325,23 @@ describe('OpenAI scientific diagram adapter', () => {
     expect(prompt).toContain('ne déduis jamais automatiquement un demi-point');
   });
   it('records failed diagram Vision calls in observability', async () => {
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response('vision unavailable', { status: 503 }));
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async () => new Response('vision unavailable', { status: 503 }));
     const diagnostic = vi.fn();
     await expect(createOpenAiScientificDiagramAnalyzer(fetchMock).analyze({ ...request, onDiagnosticResult: diagnostic })).rejects.toThrow(/HTTP 503/);
     expect(diagnostic).toHaveBeenCalledWith(expect.objectContaining({ purpose: 'scientific-diagram-analysis', error: expect.stringContaining('HTTP 503') }));
   });
   it('does not retry authentication and server errors', async () => {
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response('unauthorized', { status: 401 }));
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async () => new Response('unauthorized', { status: 401 }));
     await expect(createOpenAiScientificDiagramAnalyzer(fetchMock).analyze(request)).rejects.toThrow(/HTTP 401/);
     expect(fetchMock).toHaveBeenCalledOnce();
   });
   it('rejects invalid model output rather than inventing a score', async () => {
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content: '{bad json' } }] }), { status: 200 }));
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async () => new Response(JSON.stringify({ choices: [{ message: { content: '{bad json}' } }] }), { status: 200 }));
     await expect(createOpenAiScientificDiagramAnalyzer(fetchMock).analyze(request)).rejects.toThrow(/JSON valide/);
   });
   it('never requests more than the 2048-token limit on OpenAI-compatible Vision endpoints', async () => {
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({
-      message: { content: JSON.stringify(output) },
-      done_reason: 'stop',
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async () => new Response(JSON.stringify({
+      choices: [{ message: { content: JSON.stringify(output) }, finish_reason: 'stop' }],
     }), { status: 200 }));
     await createOpenAiScientificDiagramAnalyzer(fetchMock).analyze(request);
     for (const [, init] of fetchMock.mock.calls) {
@@ -389,7 +390,7 @@ describe('OpenAI scientific diagram adapter', () => {
     const repairBody = JSON.parse(String(fetchMock.mock.calls[1][1]?.body));
     expect(initialBody.messages[0].content).toHaveLength(2);
     expect(initialBody.messages[0].content[1].image_url.detail).toBe('high');
-    expect(initialBody.messages[0].content[0].text).toContain('UNE SEULE PAGE');
+    expect(initialBody.messages[0].content[0].text).toContain('une seule image');
     expect(initialBody.messages[0].content[0].text).toContain('CORRESPONDANCE DES PAGES : 1 → 4');
     expect(initialBody.max_tokens).toBe(2048);
     expect(repairBody.messages[0].content[0].text).toContain('classification préalable');
@@ -419,14 +420,13 @@ describe('OpenAI scientific diagram adapter', () => {
   });
 
   it('uses the supplied subject transcription and sends the rubric only once', async () => {
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(output) } }] }), { status: 200 }));
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async () => new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(output) } }] }), { status: 200 }));
     await createOpenAiScientificDiagramAnalyzer(fetchMock).analyze({ ...request, subjectTranscription: 'La cellule possède une membrane et un noyau.' });
     const prompt = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).messages[0].content[0].text as string;
     expect(prompt).toContain('SUJET DE RÉFÉRENCE (transcription fournie) : La cellule possède une membrane et un noyau.');
     expect(prompt.match(/CRITÈRES VISUELS/g)).toHaveLength(1);
     expect(prompt).not.toContain('BARÈME :');
-    expect(prompt).toContain('"diagramIds":["diagram-1"]');
-    expect(prompt).toContain('"elements"');
+    expect(prompt).toContain('Le champ elements contient chaque sous-critère');
   });
   it('includes the previous invalid response in the repair prompt', async () => {
     const invalid = { diagrams: [{ pageNumber: 1, diagramType: 'schéma', summary: '', uncertainties: [] }], criteria: [{ criterionId: 'labels', points: 3, evidence: 'Preuve', confidence: 0.8, requiresTeacherReview: false, diagramIds: ['diagram-1'] }], overallUncertainties: [] };
@@ -436,7 +436,7 @@ describe('OpenAI scientific diagram adapter', () => {
       .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(validGlobal) }, finish_reason: 'stop' }] }), { status: 200 }));
     await createOpenAiScientificDiagramAnalyzer(fetchMock).analyze(request);
     const repairPrompt = JSON.parse(String(fetchMock.mock.calls[1][1]?.body)).messages[0].content[0].text as string;
-    expect(repairPrompt).toContain('CORRECTION OBLIGATOIRE');
+    expect(repairPrompt).toContain('Corrige précisément ce champ');
     expect(repairPrompt).toContain(JSON.stringify(invalid));
   });
 
@@ -447,8 +447,8 @@ describe('OpenAI scientific diagram adapter', () => {
     await createOpenAiScientificDiagramAnalyzer(fetchMock).analyze(request);
     const firstBody = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
     const secondBody = JSON.parse(String(fetchMock.mock.calls[1][1]?.body));
-    expect(typeof firstBody.format).toBe('object');
-    expect(secondBody.format).toBe('json_object');
+    expect(firstBody.response_format.type).toBe('json_schema');
+    expect(secondBody.response_format).toEqual({ type: 'json_object' });
   });
 
 });

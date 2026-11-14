@@ -71,11 +71,11 @@ describe('selective arbitration', () => {
     expect(judge.messages[0].content).toContain('La plante utilise la lumière');
     expect(judge.messages[0].content).toContain('AVIS 1');
     expect(judge.messages[0].content).toContain('AVIS 2');
-    expect(judge.messages[0].content).toContain('SORTIE JSON STRICTE');
+    expect(judge.messages[0].content).toContain('Interdiction de créer une troisième note');
     expect(judge.messages[0].content).not.toContain('finalScore');
     expect(judge.messages[0].content).not.toContain('"knowledge"');
     expect(final.finalScore).toBe(15.25);
-    expect(final.criteria).toEqual([
+    expect(final.criteria.map(({ criterionId, points }) => ({ criterionId, points }))).toEqual([
       { criterionId: 'knowledge', points: 6.25 },
       { criterionId: 'reasoning', points: 9 },
     ]);

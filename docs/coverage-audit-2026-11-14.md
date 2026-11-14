@@ -46,30 +46,19 @@ Commandes : \`npm test\`, \`npm run test:coverage\`, \`npm run test:coverage:cor
 
 Le premier essai de découverte complète (CI [43637964360](https://github.com/Sims07/Companion-Correcteur-Devoir/actions/runs/43637964360)) a exécuté **1 670 tests**, dont **1 617 réussis** et **53 échecs** dans **25 suites**. Auparavant ces suites n'étaient pas exécutées par Vitest. Les échecs couvrent des contrats manifestement modifiés (libellé du bouton d'arrêt, prompts, réseau) et d'autres à analyser comme risques métier (classification scientifique, notation, parcours professeur). Ce constat ne démontre ni que les tests sont tous périmés ni que le code de production est correct.
 
-Pour empêcher de présenter ces échecs historiques comme des régressions introduites par le seuil de couverture, les 25 chemins sont temporairement listés **explicitement** dans `test.exclude`. Ils sont tracés un par un dans [l'issue #462](https://github.com/Sims07/Companion-Correcteur-Devoir/issues/462) et doivent être réparés/réintégrés par lots. Les autres suites co-localisées et les nouveaux cas métier s'exécutent et comptent dans la couverture. Ce n'est **pas** une couverture de tests hérités complète.
+La PR #461 a placé temporairement les 25 fichiers dans `test.exclude`, masquant aussi les 200 tests qui réussissaient déjà dans ces fichiers. L’audit de [l’issue #462](https://github.com/Sims07/Companion-Correcteur-Devoir/issues/462) a reproduit les 53 échecs et réintégré les 253 tests dans la commande Vitest normale. Le seuil de 80 % continue à s’appliquer. Les adaptateurs IA sont testés avec des réponses simulées.
 
-- `src/application/backgroundDecisionBatch.test.ts`
-- `src/domain/aiModelProfiles.test.ts`
-- `src/domain/arbitrationDecision.test.ts`
-- `src/domain/backgroundCorrectionReviewNavigation.test.ts`
-- `src/domain/gradingJudgeShape.test.ts`
-- `src/domain/modelEvaluation.test.ts`
-- `src/domain/rubricSubcriteriaSuggestion.test.ts`
-- `src/domain/scientificDiagram.test.ts`
-- `src/domain/scientificDiagramFixtures.test.ts`
-- `src/domain/scientificPageClassification.test.ts`
-- `src/domain/scientificRubricRouting.test.ts`
-- `src/domain/systemOneCoverage.test.ts`
-- `src/domain/systemOneReviewTriage.test.ts`
-- `src/domain/teacherAnnotations.test.ts`
-- `src/domain/teacherJourney.test.ts`
-- `tests/ui/TeacherWorkspaceNavigation.test.tsx`
-- `src/adapters/ai/ollamaDiagnostic.test.ts`
-- `src/adapters/ai/ollamaProvider.test.ts`
-- `src/adapters/ai/ollamaRubricImportProgress.test.ts`
-- `src/adapters/ai/ollamaSelectiveArbitration.test.ts`
-- `src/adapters/ai/openAiCompatibleTransport.test.ts`
-- `src/adapters/ai/openAiScientificDiagramAnalyzer.test.ts`
-- `src/adapters/ai/relationGraphV2Client.test.ts`
-- `src/adapters/ai/rubricStructuring.test.ts`
-- `src/ui/components/BiologyRunMonitor.test.tsx`
+| Suites | Décision vérifiée |
+| --- | --- |
+| rubricSubcriteriaSuggestion, scientificDiagram | Garder les intitulés courts avec points explicites (O2, A, B). Une confiance visuelle invalide entraîne une relecture. |
+| arbitrationDecision, teacherAnnotations | Accepter les alias français dans un objet JSON entouré de prose. Le juge doit choisir un avis existant pour chaque critère litigieux. Les annotations invalides restent comptées. |
+| backgroundCorrectionReviewNavigation, teacherJourney | Tester une archive rattachée à un autre devoir et un maximum non fini. Un malus négatif est autorisé. |
+| gradingJudgeShape, systemOneCoverage, systemOneReviewTriage | Fournir une preuve pour une note ; une question d’alignement couvre la copie entière. Sans preuve localisée, les points proposés restent à confirmer. |
+| scientificPageClassification, scientificRubricRouting | Tester le signal d’incertitude et les numéros de pages structurés. Un schéma prédit avec confiance insuffisante reste ambigu. |
+| scientificDiagramFixtures | Une précision non mesurée vaut null. Le changement de cible D/E peut être détecté dans le graphe même si le détail de notation du trait manque. |
+| backgroundDecisionBatch, aiModelProfiles, modelEvaluation | Le mode décisionnel regroupe les critères, le mode génératif testé les sépare. Respecter la pénalité par défaut et l’arrêt immédiat d’une campagne. |
+| ollamaDiagnostic, ollamaProvider, ollamaSelectiveArbitration | Comparer de vraies propositions structurées. Ne pas dupliquer la transcription de copie dans la sortie brute de son événement Vision. Conserver la somme justifiée des sous-critères. Vérifier les désaccords transmis au juge. |
+| ollamaRubricImportProgress, rubricStructuring | Vérifier le titre récupéré, la description à préciser et la conservation du texte et de l’ordre des pages lors du regroupement. Une réponse HTTP simulée est consommable une seule fois. |
+| openAiCompatibleTransport, openAiScientificDiagramAnalyzer | Une seule fin logique par flux ; conserver la qualité d’image dans l’aperçu expurgé. Le repli après rejet du schéma demande effectivement un objet JSON. Vérifier la charge envoyée dans le dialecte du fournisseur. |
+| relationGraphV2Client | Une racine HTTPS explicitement configurée peut désigner un serveur Ollama. Une adresse avec chemin, une image vide ou un modèle manquant doivent être rejetés avant tout appel. |
+| TeacherWorkspaceNavigation, BiologyRunMonitor | Vérifier le bouton de réglage de l’IA selon son état et le libellé d’arrêt immédiat. |

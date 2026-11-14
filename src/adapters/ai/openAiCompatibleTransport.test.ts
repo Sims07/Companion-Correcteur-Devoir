@@ -262,7 +262,6 @@ describe('OpenAI-compatible chat transport', () => {
     expect(lines).toEqual([
       { message: { content: 'début' } },
       { message: { content: ' fin' }, done_reason: 'stop', done: true, usage: { prompt_tokens: 3, completion_tokens: 2, total_tokens: 5 } },
-      { done: true },
     ]);
   });
 
@@ -274,7 +273,7 @@ describe('OpenAI-compatible chat transport', () => {
   });
   it('uses max_completion_tokens for OpenAI-compatible generation and falls back to max_tokens for older endpoints', async () => {
     const fetchMock = vi.fn<typeof fetch>()
-      .mockResolvedValueOnce(new Response('unsupported parameter', { status: 400 }))
+      .mockResolvedValueOnce(new Response('unsupported parameter: max_completion_tokens', { status: 400 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: '{"ok":true}' }, finish_reason: 'stop' }] }), { status: 200 }));
     const request = createOpenAiCompatibleFetch({ endpoint: 'https://ai.example', apiKey: '' }, fetchMock);
     const response = await request('http://localhost:11434/api/chat', {

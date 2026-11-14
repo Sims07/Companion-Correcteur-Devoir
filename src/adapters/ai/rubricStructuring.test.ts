@@ -16,7 +16,7 @@ describe('rubric structuring chunks', () => {
     const pages = chunks.flatMap((chunk) => chunk.pages ?? [{ page: chunk.page, text: chunk.text }]);
     expect(pages.filter((page) => page.page === 1).map((page) => page.text).join('')).toBe(firstPage);
     expect(pages.filter((page) => page.page === 2).map((page) => page.text).join('')).toBe(secondPage);
-    expect(chunks.at(-1)?.page).toBe(2);
+    expect(pages.at(-1)?.page).toBe(2);
   });
 
   it('groups short consecutive pages to minimize sequential model calls', () => {

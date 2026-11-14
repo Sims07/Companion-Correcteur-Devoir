@@ -552,7 +552,7 @@ export function createOllamaProvider(
           if (!metrics) return;
           const error = cause instanceof Error ? cause.message : String(cause);
           lastDiagnosticMetrics = metrics;
-          onDiagnosticResult?.({ ...metrics, raw: partialContent, error });
+          onDiagnosticResult?.({ ...metrics, raw: metrics.promptId === 'vision.copy-transcription' ? '' : partialContent, error });
           diagnosticResultEmitted = true;
         };
         try {
@@ -674,7 +674,7 @@ export function createOllamaProvider(
             };
             lastDiagnosticMetrics = metrics;
             if (!tracking.deferResult) {
-              onDiagnosticResult?.({ ...metrics, raw: result.content, ...(!result.content.trim() ? { error: 'Ollama a retourné une réponse vide.' } : {}) });
+              onDiagnosticResult?.({ ...metrics, raw: metrics.promptId === 'vision.copy-transcription' ? '' : result.content, ...(!result.content.trim() ? { error: 'Ollama a retourné une réponse vide.' } : {}) });
               diagnosticResultEmitted = true;
             }
           }

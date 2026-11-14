@@ -51,14 +51,14 @@ describe('rubric import progress', () => {
     const requestBodies: Array<{ options?: { temperature?: number; num_predict?: number; stop?: string[]; repeat_penalty?: number }; messages?: Array<{ content?: string }> }> = [];
     const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
       requestBodies.push(JSON.parse(String(init?.body)) as typeof requestBodies[number]);
-      return requestBodies.length === 1 ? visionResponse('Exercice 1 — Membrane cellulaire.\\n\\n\\n\\n', 'length') : response();
+      return requestBodies.length === 1 ? visionResponse('Exercice 1 — Membrane cellulaire.\n\n\n\n', 'length') : response();
     }) as unknown as typeof fetch;
     await importRubricImageWithOllama(
       image('bareme.png'),
       { endpoint: 'http://localhost:11434', visionModel: 'qwen3-vl:4b', analysisModel: 'qwen3.5:4b', transcriptionTokenLimit: 4096, transcriptionRepeatPenalty: 1.1 },
       fetchMock,
     );
-    expect(requestBodies[0].options).toMatchObject({ temperature: 0, num_predict: 2048, stop: ['\\n\\n\\n\\n'], repeat_penalty: 1.1 });
+    expect(requestBodies[0].options).toMatchObject({ temperature: 0, num_predict: 2048, stop: ['\n\n\n\n'], repeat_penalty: 1.1 });
     expect(requestBodies[1].messages?.[0].content).toContain('LECTURE DOUTEUSE');
     expect(requestBodies[1].messages?.[0].content).toContain('Exercice 1 — Membrane cellulaire.');
     expect(requestBodies[1].messages?.[0].content).not.toMatch(/\\n{3,}/);
@@ -89,7 +89,7 @@ describe('rubric import progress', () => {
     expect(failedAnalysis?.diagnosticRun?.elapsedMs).toEqual(expect.any(Number));
   });
 
-  it('keeps the exact model response visible when rubric validation fails', async () => {
+  it('keeps the original response visible when a missing title is recovered from the description', async () => {
     const progress: RubricImportProgress[] = [];
     const rawResponse = JSON.stringify({
       title: 'Barème de biologie',
@@ -104,7 +104,7 @@ describe('rubric import progress', () => {
       { endpoint: 'http://localhost:11434', visionModel: 'qwen3-vl:4b', analysisModel: 'qwen3.5:4b' },
       fetchMock,
       (event) => progress.push(event),
-    )).rejects.toThrow('Le critère 1 doit avoir un titre');
+    )).resolves.toMatchObject({ rubric: { criteria: [{ title: 'Description présente', maxPoints: 2 }] }, warnings: expect.any(Array) });
 
     expect(progress.find((event) => event.stage === 'parsing' && event.rawResponseStage === 'analysis')?.rawResponse).toBe(rawResponse);
   });
@@ -121,7 +121,7 @@ describe('rubric import progress', () => {
       { endpoint: 'http://localhost:11434', visionModel: 'qwen3-vl:4b', analysisModel: 'qwen3.5:4b' },
       fetchMock,
       (event) => progress.push(event),
-    )).rejects.toThrow('La sortie du modèle d’analyse n’est pas un JSON valide');
+    )).rejects.toThrow('Aucun critère exploitable');
 
     expect(progress.find((event) => event.stage === 'parsing' && event.rawResponseStage === 'analysis')?.rawResponse).toBe(rawResponse);
   });
@@ -156,7 +156,7 @@ describe('rubric import progress', () => {
     expect(prompt).toContain('Membrane cellulaire');
   });
 
-  it('rejects a criterion whose description is empty', async () => {
+  it('marks an empty description for the teacher to complete', async () => {
     const rawResponse = JSON.stringify({
       title: 'Barème de biologie',
       criteria: [{ title: 'Membrane cellulaire', description: '   ', maxPoints: 2 }],
@@ -169,7 +169,7 @@ describe('rubric import progress', () => {
       image('bareme.png'),
       { endpoint: 'http://localhost:11434', visionModel: 'qwen3-vl:4b', analysisModel: 'qwen3.5:4b' },
       fetchMock,
-    )).rejects.toThrow('Le critère 1 doit avoir un titre, une description textuelle et un maximum de points positif ou nul');
+    )).resolves.toMatchObject({ rubric: { criteria: [{ title: 'Membrane cellulaire', description: 'À préciser par l’enseignant.', maxPoints: 2 }] } });
   });
 
   it('requires a configured analysis model and does not send images without one', async () => {
@@ -271,7 +271,7 @@ describe('rubric import progress', () => {
     const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
       const body = JSON.parse(String(init?.body)) as { stream?: boolean };
       if (body.stream) return visionResponse(pages[visionIndex++]);
-      return analysisResponse;
+      return analysisResponse.clone();
     }) as unknown as typeof fetch;
 
     const result = await importRubricImageWithOllama(

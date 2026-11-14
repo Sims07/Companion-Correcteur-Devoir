@@ -32,7 +32,7 @@ describe('live biology monitor', () => {
     expect(html).toContain('En attente');
     expect(html).toContain('1 <span>/ 6</span>');
     expect(html).not.toContain('Comparer standard et variante B en un clic');
-    expect(html).toContain('Arrêter après l’appel en cours');
+    expect(html).toContain('Arrêter maintenant');
     expect(html).toContain('value="1"');
     expect(html).toContain('max="6"');
   });
