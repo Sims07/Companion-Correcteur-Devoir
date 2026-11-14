@@ -211,3 +211,75 @@ it('offers only biology methods without five measured axes and disables batching
   expect(launch.disabled).toBe(true);
   await act(async () => root.unmount());
 });
+
+it('starts every remaining scientific method sequentially as separate four-battery radar trials in a single click', async () => {
+  const node = document.createElement('div');
+  const root = createRoot(node);
+  const runScienceBatch = vi.fn();
+  await act(async () => root.render(createElement(EvaluationRadarHome, {
+    entries, history, profiles, model: models[0]!, choose: vi.fn(), busy: false,
+    manage: vi.fn(), details: vi.fn(), campaigns: vi.fn(), runScience: vi.fn(),
+    runBiology: vi.fn(), runScienceBatch,
+  })));
+  const section = node.querySelector('article[aria-label="Schémas scientifiques"]')!;
+  const open = [...section.querySelectorAll('button')].find(button => button.textContent === 'Analyse des méthodes')!;
+  await act(async () => (open as HTMLButtonElement).click());
+  const button = [...node.querySelectorAll<HTMLButtonElement>('.method-lab button')]
+    .find(button => button.textContent === 'Évaluer toutes les méthodes restantes (5)')!;
+  expect(button).toBeTruthy();
+  expect(button.disabled).toBe(false);
+  await act(async () => button.click());
+  expect(runScienceBatch).toHaveBeenCalledTimes(1);
+  const requests = runScienceBatch.mock.calls[0]![0] as Array<{
+    trial: {id: string; method: string}; steps: Array<{protocol: string}>;
+    profileId: string; modelId?: string;
+  }>;
+  expect(requests).toHaveLength(5);
+  expect(new Set(requests.map(request => request.trial.id)).size).toBe(5);
+  expect(requests.map(request => request.trial.method)).toEqual(
+    Object.keys((await import('../../src/domain/radarTimeline.ts')).scienceMethods));
+  for (const request of requests) {
+    expect(request.steps.map(step => step.protocol)).toEqual(['reference','arrows','semantic','graph']);
+    expect(request.profileId).toBe('alpha:4b');
+    expect(request.modelId).toBe('alpha:4b');
+  }
+  await act(async () => root.unmount());
+});
+
+it('only queues unmeasured biology methods for the selected profile', async () => {
+  const node = document.createElement('div');
+  const root = createRoot(node);
+  const runBiologyBatch = vi.fn();
+  await act(async () => root.render(createElement(EvaluationRadarHome, {
+    entries, history, profiles, model: models[0]!, choose: vi.fn(), busy: false,
+    manage: vi.fn(), details: vi.fn(), campaigns: vi.fn(), runScience: vi.fn(),
+    runBiology: vi.fn(), runBiologyBatch,
+  })));
+  const section = node.querySelector('article[aria-label="Biologie"]')!;
+  const open = [...section.querySelectorAll('button')].find(button => button.textContent === 'Analyse des méthodes')!;
+  await act(async () => (open as HTMLButtonElement).click());
+  const launch = [...node.querySelectorAll<HTMLButtonElement>('.method-lab button')]
+    .find(button => button.textContent === 'Évaluer toutes les méthodes restantes (1)')!;
+  expect(launch).toBeTruthy();
+  await act(async () => launch.click());
+  expect(runBiologyBatch).toHaveBeenCalledWith('alpha:4b', ['standard']);
+  await act(async () => root.unmount());
+});
+
+it('prevents starting a batch while another evaluation is in progress', async () => {
+  const node = document.createElement('div');
+  const root = createRoot(node);
+  const runScienceBatch = vi.fn();
+  await act(async () => root.render(createElement(EvaluationRadarHome, {
+    entries, history, profiles, model: models[0]!, choose: vi.fn(), busy: true,
+    manage: vi.fn(), details: vi.fn(), campaigns: vi.fn(), runScience: vi.fn(),
+    runBiology: vi.fn(), runScienceBatch,
+  })));
+  const open = [...node.querySelectorAll<HTMLButtonElement>('article:first-child button')]
+    .find(button => button.textContent === 'Analyse des méthodes')!;
+  await act(async () => open.click());
+  const launch = [...node.querySelectorAll<HTMLButtonElement>('.method-lab button')]
+    .find(button => button.textContent?.startsWith('Évaluer toutes les méthodes restantes'))!;
+  expect(launch.disabled).toBe(true);
+  await act(async () => root.unmount());
+});
