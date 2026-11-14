@@ -283,3 +283,30 @@ it('prevents starting a batch while another evaluation is in progress', async ()
   expect(launch.disabled).toBe(true);
   await act(async () => root.unmount());
 });
+
+it('keeps four successive scientific methods as four independently selectable radars', async () => {
+  const { RADAR_PRESETS } = await import('../../src/domain/diagramLabRadar.ts');
+  const methods = ['leaders-v1', 'pixel-v1', 'direct-v1', 'guided-v1'] as const;
+  const completed = methods.map((method, index) => ({
+    ...entries[0]!,
+    id: 'saved-method-' + index,
+    createdAt: '2026-11-14T12:0' + index + ':00Z',
+    trial: { id: 'campaign-method-' + index, method, weights: RADAR_PRESETS.balanced },
+  }));
+  const node = document.createElement('div');
+  const root = createRoot(node);
+  await act(async () => root.render(createElement(EvaluationRadarHome, {
+    entries: completed, history: [], profiles, model: models[0]!, choose: vi.fn(), busy: false,
+    manage: vi.fn(), details: vi.fn(), campaigns: vi.fn(), runScience: vi.fn(), runBiology: vi.fn(),
+  })));
+  const open = [...node.querySelectorAll<HTMLButtonElement>('article:first-child button')]
+    .find(button => button.textContent === 'Analyse des méthodes')!;
+  await act(async () => open.click());
+  const table = node.querySelector('table[aria-label="Dernier essai de chaque méthode"], table:has(caption)')!;
+  expect(table.querySelectorAll('tbody tr')).toHaveLength(4);
+  for (const method of methods) {
+    const { scienceMethods } = await import('../../src/domain/radarTimeline.ts');
+    expect(table.textContent).toContain(scienceMethods[method].label);
+  }
+  await act(async () => root.unmount());
+});
