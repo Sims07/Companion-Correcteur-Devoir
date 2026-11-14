@@ -299,8 +299,8 @@ export function buildScientificDiagramFixtureReport(
     const pairedV2 = dV2 && eV2 ? (() => {
       const differences = dV2.findings.filter((finding) => {
         const other = eV2.findings.find((item) => item.phase === finding.phase && item.label === finding.label);
-        return finding.observedKind !== null && other?.observedKind !== null
-          && finding.observedKind !== other.observedKind;
+        return Boolean(other) && finding.observedKind !== null && other!.observedKind !== null
+          && finding.observedKind !== other!.observedKind;
       });
       const unresolved = dV2.uncertain + eV2.uncertain;
       return {
