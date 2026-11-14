@@ -516,6 +516,10 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   } | null>(null);
   const [methodBatchReturnLab, setMethodBatchReturnLab] = useState<RadarDomain | null>(null);
   const [evaluationWorkspaceStep, setEvaluationWorkspaceStep] = useState<'configuration' | 'execution' | 'results' | 'history' | 'dashboard' | 'campaigns'>('dashboard');
+  // Reopen the comparison once after a batch, not on every future dashboard visit.
+  useEffect(() => {
+    if (evaluationWorkspaceStep === 'dashboard' && methodBatchReturnLab) setMethodBatchReturnLab(null);
+  }, [evaluationWorkspaceStep, methodBatchReturnLab]);
   const radarOpen = evaluationWorkspaceStep === 'configuration' && (evaluationJourney === 'biology' ? biologyRadarOpen : evaluationJourney === 'diagrams' && diagramLabView === 'radar');
 
   const dashboardOpen = radarOpen || evaluationWorkspaceStep === 'dashboard';
