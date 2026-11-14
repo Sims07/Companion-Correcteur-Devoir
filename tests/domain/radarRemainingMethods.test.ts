@@ -5,11 +5,15 @@ import type { BiologyRadarObservation } from '../../src/domain/biologyTeacherRad
 import { remainingBiologyMethods, remainingScienceMethods } from '../../src/domain/radarRemainingMethods.ts';
 import { scienceMethods, type ScienceMethod } from '../../src/domain/radarTimeline.ts';
 
-const caseCounts: Record<string, number> = { reference: 3, arrows: 2, semantic: 6, graph: 6 };
+const testCases: Record<string, readonly string[]> = {
+  reference: ['A', 'B', 'C'], arrows: ['D', 'E'],
+  semantic: ['S0', 'S1', 'S2', 'S3', 'S4', 'S5'], graph: ['S0', 'S1', 'S2', 'S3', 'S4', 'S5'],
+};
 
 function entry(method: ScienceMethod, trialId: string, protocol: DiagramLabProtocol,
   { model = 'qwen:4b', missing = 0, repetitions = 1, state = 'finished' as const } = {}): DiagramLabArchiveEntry {
-  const count = caseCounts[protocol]! * repetitions - missing;
+  const caseIds = testCases[protocol]!;
+  const count = caseIds.length * repetitions - missing;
   return {
     id: trialId + ':' + protocol, protocol, createdAt: '2026-11-14T10:00:00Z',
     savedAt: '2026-11-14T10:00:00Z', state, title: protocol,
@@ -18,8 +22,9 @@ function entry(method: ScienceMethod, trialId: string, protocol: DiagramLabProto
     trial: { id: trialId, method, weights: RADAR_PRESETS.balanced },
     report: {
       format: 'companion-scientific-diagram-fixture-report',
-      cases: Array.from({length: count}, (_, index) => ({
-        caseId: String(index), experiments: [{ model, status: 'success' }],
+      cases: caseIds.map((caseId, index) => ({
+        caseId, experiments: Array.from({length: Math.max(0, repetitions - (index === caseIds.length - 1 ? missing : 0))},
+          () => ({model, status: 'success'})),
       })),
     } as unknown as DiagramLabArchiveEntry['report'],
   };
@@ -66,6 +71,17 @@ describe('remaining radar methods', () => {
     expect(remainingScienceMethods(
       full.map(item => item.protocol === 'graph' ? {...item, state:'running' as const} : item),
       'qwen:4b')).toContain('pixel-v1');
+  });
+
+  it('does not treat repeated successes of one drawing as completion of other drawings', () => {
+    const full = allProtocols.map(protocol => entry('pixel-v1', 'complete', protocol));
+    const broken = {...full[0]!, report: {
+      ...full[0]!.report, cases: [
+        {caseId:'A',experiments:[{model:'qwen:4b',status:'success'},{model:'qwen:4b',status:'success'},{model:'qwen:4b',status:'success'}]},
+        {caseId:'B',experiments:[]}, {caseId:'C',experiments:[]},
+      ],
+    } as unknown as DiagramLabArchiveEntry['report']};
+    expect(remainingScienceMethods([broken, ...full.slice(1)], 'qwen:4b')).toContain('pixel-v1');
   });
 
   it('skips a biology method only after the active profile has five measured axes', () => {
