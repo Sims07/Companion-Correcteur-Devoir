@@ -13,7 +13,7 @@ const model = 'qwen3.5:4b';
  * yet S0 cannot confirm two directions and S3 cannot confirm the nucleus. */
 function completedIndeterminateGraph(date: string, zoom = false) {
   const runs = DIAGRAM_SENSITIVITY_CASES.map((item) => {
-    const observations = { ...item.gold };
+    const observations: Record<string, 'present' | 'absent' | 'partial' | 'uncertain'> = { ...item.gold };
     if (item.id === 'S0') {
       observations[DIAGRAM_SENSITIVITY_TARGETS.transcription] = 'uncertain';
       observations[DIAGRAM_SENSITIVITY_TARGETS.translation] = 'uncertain';
