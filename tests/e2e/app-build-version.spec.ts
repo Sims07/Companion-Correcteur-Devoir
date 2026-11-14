@@ -16,6 +16,9 @@ test('shows the app version in the header and offers reload for another publishe
   await version.click();
   await expect(page.getByRole('status').getByText('Nouvelle version disponible.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Recharger la dernière version' })).toBeVisible();
+  // Local/PR builds do not point to a release that has not been published.
+  await expect(page.getByRole('link', { name: 'Voir la release GitHub' })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Voir le build sur GitHub' })).toBeVisible();
 
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(version).toBeVisible();

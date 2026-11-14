@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { compareAppVersions, shortAppRevision, type AppBuildVersion, type AppVersionStatus } from '../../domain/appBuildVersion.ts';
+import { appReleaseUrl, compareAppVersions, shortAppRevision, type AppBuildVersion, type AppVersionStatus } from '../../domain/appBuildVersion.ts';
 import './AppVersionBadge.css';
 
 const installedBuild: AppBuildVersion = {
@@ -34,6 +34,7 @@ export function AppVersionBadge() {
   }, []);
 
   const revision = shortAppRevision(installedBuild.revision);
+  const releaseUrl = appReleaseUrl(import.meta.env.VITE_APP_RELEASE_TAG);
   const verifiedRevision = installedBuild.revision && /^[0-9a-f]{7,40}$/i.test(installedBuild.revision)
     ? installedBuild.revision : null;
 
@@ -54,8 +55,9 @@ export function AppVersionBadge() {
           : status === 'current' ? 'Cette installation utilise la dernière version publiée.'
           : status === 'outdated' ? 'Nouvelle version disponible.'
           : 'Impossible de confirmer la dernière version (hors ligne ou build local).'}</p>
+        {releaseUrl && <a href={releaseUrl} target="_blank" rel="noreferrer">Voir la release GitHub</a>}
         {verifiedRevision && <a href={`https://github.com/Sims07/Companion-Correcteur-Devoir/commit/${verifiedRevision}`}
-          target="_blank" rel="noreferrer">Voir le build sur GitHub</a>}
+          target="_blank" rel="noreferrer">{releaseUrl ? 'Voir le commit (lien permanent)' : 'Voir le build sur GitHub'}</a>}
         {status === 'outdated' && <button type="button" className="app-version-reload"
           onClick={() => window.location.reload()}>Recharger la dernière version</button>}
       </section>}
