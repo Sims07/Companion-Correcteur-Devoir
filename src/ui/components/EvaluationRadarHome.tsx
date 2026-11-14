@@ -331,7 +331,7 @@ export function EvaluationRadarHome({
                   </p>
                 )}
               <div className="radar-home-actions">
-                {(scientific ? (explicitMethod.diagrams || (count < total && Boolean(plan))) : true) && (
+                {(scientific ? (explicitMethod.diagrams || (count < total && (Boolean(plan) || misconfiguredDecisionVision))) : true) && (
                   <Button
                     disabled={
                       busy || !(scientific ? canLaunchScience(chosenSciencePlan) : profile)
