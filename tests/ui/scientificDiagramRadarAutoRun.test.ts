@@ -15,7 +15,7 @@ const profile: AiModelProfile = {
 const plan: RadarMissingTestRequest = {
   id: 42, profileId: profile.id, profileName: profile.name, axis: 'graphics',
   trial: { id: 'trial-439', method: 'pixel-v1', weights: {
-    graphics: 1, arrows: 1, biology: 1, relations: 1,
+    graphics: 1, arrows: 1, precision: 1, biology: 1, relations: 1,
     robustness: 1, stability: 1, coverage: 1, speed: 1,
   } },
   steps: [{ protocol: 'reference', repetitions: 1, method: 'direct-image-generative',
@@ -116,7 +116,7 @@ describe('scientific automatic protocol runner invoked from radar', () => {
     const onAutoEvaluationFinished = vi.fn(async (completed: RadarMissingTestRequest) => {
       events.push('verification');
       expect(completed.modelId).toBe('vision:4b');
-      return 'Batteries exécutées · radar encore incomplet : 6/8 caractéristiques mesurées.';
+      return 'Batteries exécutées · radar encore incomplet : 7/9 caractéristiques mesurées.';
     });
     await act(async () => root.render(createElement(ScientificDiagramProtocolPanel, {
       selectedProfiles: [profile], busy: false, progress: '',
@@ -134,7 +134,7 @@ describe('scientific automatic protocol runner invoked from radar', () => {
     expect(onRunFixtures.mock.calls[0]![0].cases.map((item) => item.id)).toEqual(['A', 'B', 'C']);
     expect(onRunFixtures.mock.calls[1]![0].cases.map((item) => item.id)).toEqual(['D', 'E']);
     expect(events).toEqual(['A', 'D', 'verification']);
-    expect(container.textContent).toContain('radar encore incomplet : 6/8');
+    expect(container.textContent).toContain('radar encore incomplet : 7/9');
     await act(async () => root.unmount());
   });
 
@@ -182,7 +182,7 @@ describe('scientific automatic protocol runner invoked from radar', () => {
         { protocol: 'reference', complete: false },
         { protocol: 'arrows', complete: true },
       ]);
-      return 'Batteries incomplètes : A/B/C · radar encore incomplet : 6/8.';
+      return 'Batteries incomplètes : A/B/C · radar encore incomplet : 7/9.';
     });
     await act(async () => root.render(createElement(ScientificDiagramProtocolPanel, {
       selectedProfiles: [profile], busy: false, progress: '',
@@ -197,7 +197,7 @@ describe('scientific automatic protocol runner invoked from radar', () => {
     })));
     await vi.waitFor(() => expect(finished).toHaveBeenCalledOnce());
     expect(events).toEqual(['A', 'D', 'verified']);
-    expect(container.textContent).toContain('radar encore incomplet : 6/8');
+    expect(container.textContent).toContain('radar encore incomplet : 7/9');
     await act(async () => root.unmount());
   });
 

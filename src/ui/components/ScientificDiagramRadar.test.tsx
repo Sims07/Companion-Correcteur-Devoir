@@ -80,11 +80,11 @@ describe('ScientificDiagramRadar score-first summary', () => {
       expected!.toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' / 100',
     );
     expect(primary.textContent).toContain('provisoire, non comparable');
-    expect(host!.querySelector('.diagram-radar-score-coverage')?.textContent).toContain('7 / 8');
+    expect(host!.querySelector('.diagram-radar-score-coverage')?.textContent).toContain('8 / 9');
     expect(host!.querySelector('.diagram-radar-model-pickers')).not.toBeNull();
   });
 
-  it('switches to the full weighted score after all eight axes have been measured', async () => {
+  it('switches to the full weighted score after all nine axes have been measured', async () => {
     const entries = reports(3);
     const candidate = rankDiagramLabRadar(buildDiagramLabRadar(entries, 'model'), RADAR_PRESETS.scientific)[0]!;
     expect(candidate.complete).toBe(true);
@@ -94,6 +94,6 @@ describe('ScientificDiagramRadar score-first summary', () => {
       candidate.weightedScore!.toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' / 100',
     );
     expect(primary.textContent).not.toContain('Indice partiel');
-    expect(host!.querySelector('.diagram-radar-score-coverage')?.textContent).toContain('8 / 8');
+    expect(host!.querySelector('.diagram-radar-score-coverage')?.textContent).toContain('9 / 9');
   });
 });

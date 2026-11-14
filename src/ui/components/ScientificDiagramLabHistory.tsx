@@ -203,7 +203,7 @@ export function ScientificDiagramLabHistory({ initialReportId, revision, archive
     {view === 'campaigns' && onBack && <div className="diagram-lab-history-back"><Button variant="secondary" onClick={onBack}>← Retour aux campagnes</Button><span>Historique des évaluations / Schémas scientifiques</span></div>}
     {view === 'campaigns' && <div className="diagram-lab-history-heading">
       <div><p className="eyebrow">CAMPAGNES DE TEST · SCHÉMAS SCIENTIFIQUES</p><h2>Campagnes de test</h2>
-        <p>Comparez les performances sur huit caractéristiques ou examinez les preuves de chaque campagne.</p></div>
+        <p>Comparez les performances sur neuf caractéristiques ou examinez les preuves de chaque campagne.</p></div>
       <div className="diagram-lab-history-heading-actions">
         <input ref={fileInput} type="file" accept=".json,application/json" hidden
           aria-label="Choisir un ancien rapport JSON"
@@ -226,11 +226,11 @@ export function ScientificDiagramLabHistory({ initialReportId, revision, archive
       <div className="diagram-lab-readiness-stat"><strong>{readiness.bestMeasuredAxes}/{readiness.totalAxes}</strong><span>Axes du profil le mieux couvert</span></div>
       <div className="diagram-lab-readiness-action">
         <p role="status">{readiness.fullyMeasured >= 2
-          ? readiness.fullyMeasured + ' candidats avec huit axes : comparaison globale possible.'
+          ? readiness.fullyMeasured + ' candidats avec neuf axes : comparaison globale possible.'
           : readiness.fullyMeasured === 1
             ? 'Un candidat complet. Évaluez un second candidat pour les comparer.'
             : 'Aucun candidat complet : les axes non testés restent non mesurés.'}</p>
-        <Button variant="secondary" onClick={() => onViewChange('radar')}>Voir le radar à huit axes</Button>
+        <Button variant="secondary" onClick={() => onViewChange('radar')}>Voir le radar à neuf axes</Button>
       </div>
     </section>}
 
