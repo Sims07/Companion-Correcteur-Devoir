@@ -1,6 +1,7 @@
 import { LocalArrowExperiment } from './LocalArrowExperiment.tsx';
 import { downloadJson as downloadScientificDiagramJson } from '../downloadJson.ts';
 import { BlindGraphRunDetails } from './BlindGraphRunDetails.tsx';
+import { ZoomableImage } from './ZoomableImage.tsx';
 import { useEffect, useRef, useState } from 'react';
 import type { AiModelProfile } from '../../domain/aiModelProfiles.ts';
 import { radarPlanDescription, RADAR_TEST_PROTOCOL_NAMES, type RadarMissingTestRequest, type RadarTestStep } from '../../domain/diagramLabRadarLaunch.ts';
@@ -533,7 +534,7 @@ export function ScientificDiagramProtocolPanel({
         {SCIENTIFIC_DIAGRAM_FIXTURES.filter((fixture) => activeProtocol === 'reference'
           ? fixture.id === 'A' || fixture.id === 'B' || fixture.id === 'C'
           : fixture.id === 'D' || fixture.id === 'E').map((fixture) => <article key={fixture.id} className="diagram-fixture-card">
-          <img src={fixtureImageUrls[fixture.id]} alt={'Schéma de mitose végétale — ' + fixture.label} loading="lazy" />
+          <ZoomableImage src={fixtureImageUrls[fixture.id]} alt={'Schéma de mitose végétale — ' + fixture.label} />
           <div className="diagram-fixture-card-body">
             <div className="diagram-fixture-card-title">
               <strong>{fixture.label}</strong>
@@ -743,7 +744,7 @@ export function ScientificDiagramProtocolPanel({
         {(busy || sensitivityLoading) && <Button variant="secondary" disabled={!busy} onClick={stopProtocol}>Arrêter maintenant</Button>}
         <div className="diagram-fixture-grid diagram-sensitivity-grid">
         {DIAGRAM_SENSITIVITY_CASES.map((testCase) => <article className="diagram-fixture-card" key={testCase.id}>
-          <img src={scientificDiagramSensitivityPreviewUrl(testCase.id)} alt={'Relations biologiques — ' + testCase.label} loading="lazy" />
+          <ZoomableImage src={scientificDiagramSensitivityPreviewUrl(testCase.id)} alt={'Relations biologiques — ' + testCase.label} />
           <div className="diagram-fixture-card-body">
             <div className="diagram-fixture-card-title"><strong>{testCase.id} — {testCase.label}</strong><span>{testCase.referenceScore === null ? 'À arbitrer' : testCase.referenceScore + '/3'}</span></div>
             <p>{testCase.description}</p>
@@ -872,6 +873,11 @@ export function ScientificDiagramProtocolPanel({
         <h4>1. Schéma et barème</h4>
         <FilePicker id="diagram-protocol-photos" title="Schéma à analyser" description="Photo(s) ou PDF du même schéma ; pages conservées ensemble dans un seul essai" accept="image/png,image/jpeg,image/webp,application/pdf,.pdf" multiple disabled={busy || uploading} onFilesSelected={(files) => { void importImages(files); }} />
         <p className="pilot-evaluation-hint">{uploading ? 'Préparation…' : images.length ? images.length + ' page(s) prêtes' : 'Aucune image fournie.'}</p>
+        {images.length > 0 && <div className="diagram-personal-previews" aria-label="Pages importées">
+          {images.map((image, index) => <ZoomableImage key={index}
+            src={'data:' + image.mimeType + ';base64,' + image.base64}
+            alt={'Page ' + (index + 1) + (image.fileName ? ' — ' + image.fileName : '')} />)}
+        </div>}
         <FilePicker id="diagram-protocol-rubric" title="Barème du professeur (JSON)" description="Par défaut : 15 attendus visuels, 8 points. Importez un barème propre au sujet pour évaluer aussi la compréhension." accept=".json,application/json" disabled={busy || uploading} onFilesSelected={(files) => { void importRubric(files); }} />
         <p className="pilot-evaluation-hint">Barème actif : <strong>{rubric.title}</strong> — {validation.maximumPoints} points, {targets.length} attendu{targets.length > 1 ? 's' : ''}. Les 2 points « Compréhension » de l’exemple sont exclus par défaut : ils nécessitent des structures attendues propres au schéma.</p>
         <label htmlFor="diagram-protocol-context">Contexte biologique du dessin (facultatif pour les seuls critères de présentation)</label>
