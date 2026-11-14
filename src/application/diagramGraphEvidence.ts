@@ -27,7 +27,13 @@ export async function extractDiagramGraphEvidenceV2(images: readonly ImageInput[
 }
 
 export function graphGradingContext(evidence: DiagramGraphEvidence) {
-  if (evidence.version === 'graph-first-v2') return '\nObservation V2 indépendante du barème : textes et objets dessinés sont distingués. ' +
+  if (evidence.version === 'graph-first-v2') return '\n' +
+    (evidence.pages.some(({graph}) => graph.validationIssue)
+      ? 'ATTENTION : extraction V2 non concluante sur au moins une page. Aucune liaison du graphe manquant n\'est prouvée. ' +
+        'Examine directement les pixels. Pour les critères de destinations des flèches, ' +
+        'signale explicitement l\'incertitude et demande une revue enseignante plutôt que valider par défaut. '
+      : '') +
+    'Observation V2 indépendante du barème : textes et objets dessinés sont distingués. ' +
     'Pour les légendes, vérifie sur les pixels que chaque trait atteint VRAIMENT sa cible : un objet de la bonne phase ne suffit pas. ' +
     'Ne valide pas une légende si le trait touche une autre structure ; si status est uncertain/missing, demande une vérification plutôt que supposer un point entier. ' +
     'layout=rows ne correspond pas à un alignement en colonne. Les identifications sont des observations provisoires, jamais une vérité terrain.\n' +
