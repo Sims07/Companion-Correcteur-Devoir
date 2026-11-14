@@ -1,4 +1,5 @@
 import { buildRadarTimelineExport } from '../../domain/radarTimelineExport.ts';
+import { remainingScienceMethods, remainingBiologyMethods, type BiologyMethod } from '../../domain/radarRemainingMethods.ts';
 import { biologyPoints, campaignGroups, scienceMethods, sciencePoints, trialSteps, type ScienceMethod, type TimelinePoint } from '../../domain/radarTimeline.ts';
 import { RadarTimeline } from './RadarTimeline.tsx';
 import { buildRadarAnalysisExport, isRadarBenchmark } from '../../domain/radarAnalysisExport.ts';
@@ -40,6 +41,9 @@ export function EvaluationRadarHome({
   campaigns,
   runScience,
   runBiology,
+  runScienceBatch,
+  runBiologyBatch,
+  initialLab = null,
 }: {
   entries: DiagramLabArchiveEntry[];
   history: BiologyRadarObservation[];
@@ -52,6 +56,9 @@ export function EvaluationRadarHome({
   campaigns: (domain: RadarDomain, model: string, ids: string[]) => void;
   runScience: (request: Omit<RadarMissingTestRequest, 'id'>) => void;
   runBiology: (profile: string, baseline: boolean, traps: boolean, variant?: 'standard' | 'contract') => void;
+  runScienceBatch?: (requests: Array<Omit<RadarMissingTestRequest, 'id'>>) => void;
+  runBiologyBatch?: (profileId: string, methods: BiologyMethod[]) => void;
+  initialLab?: RadarDomain | null;
 }) {
   const [weights] = useState(restoredWeights);
   const science = useMemo(
@@ -73,7 +80,7 @@ export function EvaluationRadarHome({
     (science.find((candidate) => candidate.id === name)?.measured ?? 0) / 8 +
     Math.max(0, ...biology.filter((candidate) => candidate.name === name)
       .map((candidate) => candidate.measured / 5));
-  const [lab, setLab] = useState<RadarDomain | null>(null);
+  const [lab, setLab] = useState<RadarDomain | null>(initialLab);
   const [explicitMethod, setExplicitMethod] = useState({diagrams:false, biology:false});
   const [expanded, setExpanded] = useState<RadarDomain>('diagrams');
   const [variantId, setVariantId] = useState('');
@@ -111,6 +118,18 @@ export function EvaluationRadarHome({
     isNativeDecisionModel(profile.configuration.visionModel));
   const [method, setMethod] = useState<ScienceMethod>('pixel-v1');
   const [bioMethod, setBioMethod] = useState<'standard' | 'contract'>('contract');
+  const missingScience = remainingScienceMethods(entries, selected);
+  const scienceBatchPlans = missingScience.flatMap(nextMethod => {
+    if (!sci) return [];
+    const request = resolveModelProfile(profiles, 'model', sci, {
+      profileId: sci.profileId, profileName: sci.name, modelId: selected,
+      axis: 'graphics', steps: trialSteps(nextMethod),
+    });
+    return request && profiles.some(profile => profile.id === request.profileId)
+      ? [{ method: nextMethod, request }] : [];
+  });
+  const missingBiology = profile ? remainingBiologyMethods(history, selected, profile.id) : [];
+
   const fullPlan = sci && resolveModelProfile(profiles, 'model', sci, {
     profileId: sci.profileId, profileName: sci.name, axis: 'graphics', steps: trialSteps(method),
   });
@@ -170,8 +189,21 @@ export function EvaluationRadarHome({
         </select>}
       </label>
       {scientific && <p className="radar-method-help">La stratégie de la campagne et le moteur exécuté sont deux informations distinctes : le suivi indique le moteur réel de chaque batterie, conservé dans l’historique.</p>}
-      <Button disabled={busy || !(scientific ? canLaunchScience(fullPlan) : profile)}
-        onClick={() => launchChosen(lab)}>Évaluer avec cette méthode</Button>
+      <div className="radar-method-launch-actions">
+        <Button disabled={busy || !(scientific ? canLaunchScience(fullPlan) : profile)}
+          onClick={() => launchChosen(lab)}>Évaluer avec cette méthode</Button>
+        <Button variant="secondary" disabled={busy || (scientific ? !runScienceBatch || !scienceBatchPlans.length : !runBiologyBatch || !missingBiology.length)}
+          onClick={() => {
+            if (scientific) runScienceBatch?.(scienceBatchPlans.map(({ method: nextMethod, request }) => ({
+              ...request, trial: { id: crypto.randomUUID(), method: nextMethod, weights },
+            })));
+            else if (profile) runBiologyBatch?.(profile.id, missingBiology);
+          }}>Évaluer toutes les méthodes restantes ({scientific ? scienceBatchPlans.length : missingBiology.length})</Button>
+      </div>
+      {scientific && missingScience.length > scienceBatchPlans.length &&
+        <p role="note">{missingScience.length - scienceBatchPlans.length} méthode(s) non compatibles avec la configuration du modèle : vérifiez les profils IA.</p>}
+      {(scientific ? !missingScience.length : profile && !missingBiology.length) &&
+        <p role="status">Toutes les méthodes de ce modèle ont déjà été évaluées.</p>}
     </RadarTimeline>;
   }
   return (

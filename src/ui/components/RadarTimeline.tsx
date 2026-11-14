@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { TimelinePoint } from '../../domain/radarTimeline.ts';
 import { MethodRadarComparison } from './MethodRadarComparison.tsx';
+import { MethodRadarGallery } from './MethodRadarGallery.tsx';
 import { Button } from '../design-system/index.ts';
 
 const format = (n: number | null | undefined) => n == null ? '—' : n.toLocaleString('fr-FR', {maximumFractionDigits:1});
@@ -90,6 +91,10 @@ export function RadarTimeline({points, model, domainLabel, children, onBack, onE
 
     {!points.length ? <p>Aucun essai enregistré pour ce modèle.</p> : <>
       <MethodRadarComparison sorted={sorted} axes={axes}/>
+      <MethodRadarGallery points={sorted} selectedId={current?.id ?? ''} onSelect={point => {
+        setFilter(point.label);
+        setSelected(point.id);
+      }}/>
       <section><h3>Évolution des notes</h3>
         <div className="lab-controls"><label>Méthode affichée<select value={filter} onChange={e => setFilter(e.target.value)}>
           <option value="">Toutes les méthodes</option>{methods.map(m => <option key={m}>{m}</option>)}</select></label>

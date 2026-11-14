@@ -162,3 +162,157 @@ it('exports the selected scientific model with its frozen score, weights and rel
   expect(report.campaigns![0]!.cases).toHaveLength(6);
   expect(JSON.stringify(report)).not.toContain(models[1]);
 });
+
+it('launches every remaining scientific strategy as independent, sequentially executable trials', async () => {
+  const node = document.createElement('div');
+  const root = createRoot(node);
+  const runScienceBatch = vi.fn();
+  await act(async () => root.render(createElement(EvaluationRadarHome, {
+    entries: [entries[0]!], history: [], profiles, model: models[0]!, choose: vi.fn(), busy: false,
+    manage: vi.fn(), details: vi.fn(), campaigns: vi.fn(), runScience: vi.fn(), runBiology: vi.fn(),
+    runScienceBatch,
+  })));
+  const open = [...node.querySelectorAll<HTMLButtonElement>('article:first-child button')]
+    .find(button => button.textContent === 'Analyse des méthodes')!;
+  await act(async () => open.click());
+  const launch = [...node.querySelectorAll<HTMLButtonElement>('.method-lab button')]
+    .find(button => button.textContent?.startsWith('Évaluer toutes les méthodes restantes'))!;
+  expect(launch.textContent).toContain('(5)');
+  await act(async () => launch.click());
+  expect(runScienceBatch).toHaveBeenCalledOnce();
+  const requests = runScienceBatch.mock.calls[0]![0];
+  expect(requests.map((request: {trial: {method: string}}) => request.trial.method))
+    .toEqual(['graph-first-v1', 'leaders-v1', 'pixel-v1', 'direct-v1', 'guided-v1']);
+  expect(new Set(requests.map((request: {trial: {id: string}}) => request.trial.id)).size).toBe(5);
+  expect(requests.every((request: {modelId: string; steps: unknown[]}) =>
+    request.modelId === models[0] && request.steps.length === 4)).toBe(true);
+  await act(async () => root.unmount());
+});
+
+it('offers only biology methods without five measured axes and disables batching while running', async () => {
+  const node = document.createElement('div');
+  const root = createRoot(node);
+  const runBiologyBatch = vi.fn();
+  const render = async (busy: boolean) => act(async () => root.render(createElement(EvaluationRadarHome, {
+    entries: [entries[0]!], history, profiles, model: models[0]!, choose: vi.fn(), busy,
+    manage: vi.fn(), details: vi.fn(), campaigns: vi.fn(), runScience: vi.fn(), runBiology: vi.fn(),
+    runBiologyBatch,
+  })));
+  await render(false);
+  const open = [...node.querySelectorAll<HTMLButtonElement>('article[aria-label="Biologie"] button')]
+    .find(button => button.textContent === 'Analyse des méthodes')!;
+  await act(async () => open.click());
+  const launch = [...node.querySelectorAll<HTMLButtonElement>('.method-lab button')]
+    .find(button => button.textContent?.startsWith('Évaluer toutes les méthodes restantes'))!;
+  expect(launch.textContent).toContain('(1)');
+  await act(async () => launch.click());
+  expect(runBiologyBatch).toHaveBeenCalledWith('alpha:4b', ['standard']);
+  await render(true);
+  expect(launch.disabled).toBe(true);
+  await act(async () => root.unmount());
+});
+
+it('starts every remaining scientific method sequentially as separate four-battery radar trials in a single click', async () => {
+  const node = document.createElement('div');
+  const root = createRoot(node);
+  const runScienceBatch = vi.fn();
+  await act(async () => root.render(createElement(EvaluationRadarHome, {
+    entries, history, profiles, model: models[0]!, choose: vi.fn(), busy: false,
+    manage: vi.fn(), details: vi.fn(), campaigns: vi.fn(), runScience: vi.fn(),
+    runBiology: vi.fn(), runScienceBatch,
+  })));
+  const section = node.querySelector('article[aria-label="Schémas scientifiques"]')!;
+  const open = [...section.querySelectorAll('button')].find(button => button.textContent === 'Analyse des méthodes')!;
+  await act(async () => (open as HTMLButtonElement).click());
+  const button = [...node.querySelectorAll<HTMLButtonElement>('.method-lab button')]
+    .find(button => button.textContent === 'Évaluer toutes les méthodes restantes (5)')!;
+  expect(button).toBeTruthy();
+  expect(button.disabled).toBe(false);
+  await act(async () => button.click());
+  expect(runScienceBatch).toHaveBeenCalledTimes(1);
+  const requests = runScienceBatch.mock.calls[0]![0] as Array<{
+    trial: {id: string; method: string}; steps: Array<{protocol: string}>;
+    profileId: string; modelId?: string;
+  }>;
+  expect(requests).toHaveLength(5);
+  expect(new Set(requests.map(request => request.trial.id)).size).toBe(5);
+  expect(requests.map(request => request.trial.method)).toEqual(
+    Object.keys((await import('../../src/domain/radarTimeline.ts')).scienceMethods));
+  for (const request of requests) {
+    expect(request.steps.map(step => step.protocol)).toEqual(['reference','arrows','semantic','graph']);
+    expect(request.profileId).toBe('alpha:4b');
+    expect(request.modelId).toBe('alpha:4b');
+  }
+  await act(async () => root.unmount());
+});
+
+it('only queues unmeasured biology methods for the selected profile', async () => {
+  const node = document.createElement('div');
+  const root = createRoot(node);
+  const runBiologyBatch = vi.fn();
+  await act(async () => root.render(createElement(EvaluationRadarHome, {
+    entries, history, profiles, model: models[0]!, choose: vi.fn(), busy: false,
+    manage: vi.fn(), details: vi.fn(), campaigns: vi.fn(), runScience: vi.fn(),
+    runBiology: vi.fn(), runBiologyBatch,
+  })));
+  const section = node.querySelector('article[aria-label="Biologie"]')!;
+  const open = [...section.querySelectorAll('button')].find(button => button.textContent === 'Analyse des méthodes')!;
+  await act(async () => (open as HTMLButtonElement).click());
+  const launch = [...node.querySelectorAll<HTMLButtonElement>('.method-lab button')]
+    .find(button => button.textContent === 'Évaluer toutes les méthodes restantes (1)')!;
+  expect(launch).toBeTruthy();
+  await act(async () => launch.click());
+  expect(runBiologyBatch).toHaveBeenCalledWith('alpha:4b', ['standard']);
+  await act(async () => root.unmount());
+});
+
+it('prevents starting a batch while another evaluation is in progress', async () => {
+  const node = document.createElement('div');
+  const root = createRoot(node);
+  const runScienceBatch = vi.fn();
+  await act(async () => root.render(createElement(EvaluationRadarHome, {
+    entries, history, profiles, model: models[0]!, choose: vi.fn(), busy: true,
+    manage: vi.fn(), details: vi.fn(), campaigns: vi.fn(), runScience: vi.fn(),
+    runBiology: vi.fn(), runScienceBatch,
+  })));
+  const open = [...node.querySelectorAll<HTMLButtonElement>('article:first-child button')]
+    .find(button => button.textContent === 'Analyse des méthodes')!;
+  await act(async () => open.click());
+  const launch = [...node.querySelectorAll<HTMLButtonElement>('.method-lab button')]
+    .find(button => button.textContent?.startsWith('Évaluer toutes les méthodes restantes'))!;
+  expect(launch.disabled).toBe(true);
+  await act(async () => root.unmount());
+});
+
+it('keeps four successive scientific methods as four independently selectable radars', async () => {
+  const { RADAR_PRESETS } = await import('../../src/domain/diagramLabRadar.ts');
+  const methods = ['leaders-v1', 'pixel-v1', 'direct-v1', 'guided-v1'] as const;
+  const completed = methods.map((method, index) => ({
+    ...entries[0]!,
+    id: 'saved-method-' + index,
+    createdAt: '2026-11-14T12:0' + index + ':00Z',
+    trial: { id: 'campaign-method-' + index, method, weights: RADAR_PRESETS.balanced },
+  }));
+  const node = document.createElement('div');
+  const root = createRoot(node);
+  await act(async () => root.render(createElement(EvaluationRadarHome, {
+    entries: completed, history: [], profiles, model: models[0]!, choose: vi.fn(), busy: false,
+    manage: vi.fn(), details: vi.fn(), campaigns: vi.fn(), runScience: vi.fn(), runBiology: vi.fn(),
+  })));
+  const open = [...node.querySelectorAll<HTMLButtonElement>('article:first-child button')]
+    .find(button => button.textContent === 'Analyse des méthodes')!;
+  await act(async () => open.click());
+  const table = [...node.querySelectorAll<HTMLTableElement>('.method-lab table')]
+    .find(candidate => candidate.caption?.textContent === 'Dernier essai de chaque méthode')!;
+  expect(table.querySelectorAll('tbody tr')).toHaveLength(4);
+  const gallery = node.querySelectorAll<HTMLButtonElement>('.lab-radar-gallery-card');
+  expect(gallery).toHaveLength(4);
+  expect(node.querySelectorAll('.lab-radar-gallery-card svg[role="img"]')).toHaveLength(4);
+  await act(async () => gallery[3]!.click());
+  expect(gallery[3]!.getAttribute('aria-pressed')).toBe('true');
+  for (const method of methods) {
+    const { scienceMethods } = await import('../../src/domain/radarTimeline.ts');
+    expect(table.textContent).toContain(scienceMethods[method].label);
+  }
+  await act(async () => root.unmount());
+});

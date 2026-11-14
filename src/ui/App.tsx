@@ -1,6 +1,7 @@
 import { extractDiagramGraphEvidence, extractDiagramGraphEvidenceV2, graphGradingContext } from '../application/diagramGraphEvidence.ts';
-import { biologyPoints, campaignGroups } from '../domain/radarTimeline.ts';
-import { EvaluationRadarHome } from './components/EvaluationRadarHome.tsx';
+import { biologyPoints, campaignGroups, scienceMethods } from '../domain/radarTimeline.ts';
+import { EvaluationRadarHome, type RadarDomain } from './components/EvaluationRadarHome.tsx';
+import type { BiologyMethod } from '../domain/radarRemainingMethods.ts';
 import { RadarBatteryContext } from './components/RadarBatteryContext.tsx';
 import { describeRadarBattery, type RadarBatteryExecution } from '../domain/radarBatteryExecution.ts';
 import { restoredModelId } from './components/ScientificDiagramRadar.tsx';
@@ -507,7 +508,18 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [radarAutoBusy, setRadarAutoBusy] = useState(false);
   const [radarBattery, setRadarBattery] = useState<RadarBatteryExecution | null>(null);
   const radarBatteryRef = useRef<RadarBatteryExecution | null>(null);
+  const scienceMethodQueue = useRef<{ remaining: Array<Omit<RadarMissingTestRequest, 'id'>>; total: number; failures: number } | null>(null);
+  const biologyMethodBatchRunning = useRef(false);
+  const methodBatchStopped = useRef(false);
+  const [methodBatchProgress, setMethodBatchProgress] = useState<{
+    domain: RadarDomain; current: number; total: number; label: string;
+  } | null>(null);
+  const [methodBatchReturnLab, setMethodBatchReturnLab] = useState<RadarDomain | null>(null);
   const [evaluationWorkspaceStep, setEvaluationWorkspaceStep] = useState<'configuration' | 'execution' | 'results' | 'history' | 'dashboard' | 'campaigns'>('dashboard');
+  // Reopen the comparison once after a batch, not on every future dashboard visit.
+  useEffect(() => {
+    if (evaluationWorkspaceStep === 'dashboard' && methodBatchReturnLab) setMethodBatchReturnLab(null);
+  }, [evaluationWorkspaceStep, methodBatchReturnLab]);
   const radarOpen = evaluationWorkspaceStep === 'configuration' && (evaluationJourney === 'biology' ? biologyRadarOpen : evaluationJourney === 'diagrams' && diagramLabView === 'radar');
 
   const dashboardOpen = radarOpen || evaluationWorkspaceStep === 'dashboard';
@@ -2861,6 +2873,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   }
 
   function stopPilotProtocol() {
+    methodBatchStopped.current = true;
+    scienceMethodQueue.current = null;
+    setMethodBatchProgress(null);
     blindGraphAbortRef.current?.abort();
     pilotStopRef.current = true;
     cancelModelEvaluation();
@@ -2877,6 +2892,57 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setEvaluationJourney('diagrams');
     setEvaluationWorkspaceStep('configuration');
     setDiagramLabView('protocols');
+  }
+
+  function runRemainingScientificMethods(requests: Array<Omit<RadarMissingTestRequest, 'id'>>) {
+    if (!requests.length || busy || pilotBusy || radarAutoBusy || scienceMethodQueue.current || biologyMethodBatchRunning.current) return;
+    if (requests.some(request => !aiModelProfiles.some(profile => profile.id === request.profileId))) return;
+    const [first, ...remaining] = requests;
+    methodBatchStopped.current = false;
+    setMethodBatchReturnLab(null);
+    scienceMethodQueue.current = { remaining, total: requests.length, failures: 0 };
+    setMethodBatchProgress({domain: 'diagrams', current: 1, total: requests.length,
+      label: first!.trial ? scienceMethods[first!.trial.method].label : first!.profileName});
+    runRadarPlan(first!);
+  }
+
+  function runRemainingBiologyMethods(profileId: string, methods: BiologyMethod[]) {
+    const profile = aiModelProfiles.find(item => item.id === profileId);
+    if (!profile || !methods.length || busy || pilotBusy || radarAutoBusy || scienceMethodQueue.current || biologyMethodBatchRunning.current) return;
+    biologyMethodBatchRunning.current = true;
+    methodBatchStopped.current = false;
+    setMethodBatchReturnLab(null);
+    void (async () => {
+      let failures = 0;
+      for (const [index, method] of methods.entries()) {
+        if (methodBatchStopped.current) break;
+        setMethodBatchProgress({domain: 'biology', current: index + 1, total: methods.length,
+          label: method === 'contract' ? 'Contrats par question' : 'Barème standard'});
+        try {
+          await followEvaluation({
+            title: 'Biologie · évaluation de la méthode ' + method,
+            journey: 'biology', scenario: 'contracts',
+            targetId: 'evaluation-biology-contract-launch', profiles: profile.name,
+          }, async () => {
+            const comparison = await runPilotQuestionContractBenchmark([profile], method);
+            if (pilotStopRef.current || evaluationCancelledRef.current) return 0;
+            const stress = await runPilotRepeatabilityBenchmark(3, 'stress', [profile], method);
+            return { usable: (comparison?.usable ?? 0) + (stress?.usable ?? 0),
+              planned: QUESTION_CONTRACT_CASES.length + questionContractRepeatabilitySteps(3, 'stress').length };
+          });
+          if (pilotStopRef.current || evaluationCancelledRef.current) break;
+        } catch { failures++; }
+      }
+      biologyMethodBatchRunning.current = false;
+      setMethodBatchProgress(null);
+      if (!methodBatchStopped.current && !pilotStopRef.current && !evaluationCancelledRef.current) {
+        setMethodBatchReturnLab('biology');
+        setEvaluationWorkspaceStep('dashboard');
+        if (failures) pushAppNotification({title: 'Méthodes biologiques incomplètes',
+          message: failures + ' méthode(s) ont rencontré une erreur. Consultez les campagnes.',
+          kind: 'warning', target: 'evaluation', journey: 'biology'});
+      }
+    })();
   }
 
   function evaluateBiologyModel(profileId: string, baseline = true, traps = true, variant?: QuestionContractVariant) {
@@ -4081,7 +4147,13 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           <Button variant="secondary" className="evaluation-model-brief-manage" onClick={() => setManagingEvaluationProfiles(true)}>Gérer les configurations</Button>
         </div>
         </div>}
-        <div id="evaluation-diagram-workspace" hidden={evaluationJourney !== 'diagrams'}><ScientificDiagramProtocolPanel
+        <div id="evaluation-diagram-workspace" hidden={evaluationJourney !== 'diagrams'}>
+        {methodBatchProgress?.domain === 'diagrams' && <div className="diagram-radar-return-note" role="status">
+          <strong>Méthodes restantes : {methodBatchProgress.current}/{methodBatchProgress.total}</strong>
+          <span> · {methodBatchProgress.label} · exécution séquentielle, résultats conservés après chaque batterie.</span>
+          <Button variant="secondary" onClick={stopPilotProtocol}>Arrêter toutes les méthodes</Button>
+        </div>}
+        <ScientificDiagramProtocolPanel
           selectedProfiles={selectedEvaluationProfiles} busy={busy || pilotBusy}
           progress={diagramProtocolProgress}
           onPrepareImages={(files) => service.prepareFiles(files)}
@@ -4103,7 +4175,36 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           onAutoBusyChange={(running) => {
             radarTrial.current = running ? radarAutoRequest?.trial ?? null : null;
             setRadarAutoBusy(running);
-            if (!running) { radarBatteryRef.current = null; setRadarBattery(null); }
+            if (!running) {
+              radarBatteryRef.current = null;
+              setRadarBattery(null);
+              const queue = scienceMethodQueue.current;
+              if (queue) {
+                if (methodBatchStopped.current || pilotStopRef.current || evaluationCancelledRef.current) {
+                  scienceMethodQueue.current = null;
+                  setMethodBatchProgress(null);
+                } else {
+                  const next = queue.remaining.shift();
+                  if (next) {
+                    const execution = describeRadarBattery(next, 0);
+                    radarBatteryRef.current = execution;
+                    setRadarBattery(execution);
+                    setSelectedEvaluationProfileIds([next.profileId]);
+                    setRadarAutoRequest({...next, id: ++radarAutoSequence.current});
+                    setMethodBatchProgress({domain: 'diagrams', current: queue.total - queue.remaining.length,
+                      total: queue.total, label: next.trial ? scienceMethods[next.trial.method].label : next.profileName});
+                  } else {
+                    scienceMethodQueue.current = null;
+                    setMethodBatchProgress(null);
+                    setMethodBatchReturnLab('diagrams');
+                    setEvaluationWorkspaceStep('dashboard');
+                    if (queue.failures) pushAppNotification({title: 'Méthodes scientifiques partielles',
+                      message: queue.failures + ' campagne(s) ont des batteries incomplètes. Consultez les résultats.',
+                      kind: 'warning', target: 'evaluation', journey: 'diagrams'});
+                  }
+                }
+              }
+            }
           }}
           onAutoStepChange={(request, index) => {
             const execution = describeRadarBattery(request, index);
@@ -4116,6 +4217,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           onAutoEvaluationFinished={async (request, steps) => {
             const failed = steps.filter((step) => !step.complete)
               .map((step) => RADAR_TEST_PROTOCOL_NAMES[step.protocol]);
+            if (scienceMethodQueue.current && failed.length) scienceMethodQueue.current.failures++;
             const batteryStatus = failed.length
               ? 'Batteries incomplètes : ' + failed.join(', ') + '. '
               : '';
@@ -4137,7 +4239,13 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           onOpenRadar={() => openCandidateRadar('diagrams')}
         />
         </div>
-        <div id="evaluation-biology-workspace" hidden={evaluationJourney !== 'biology'}><PilotEvaluationPanel
+        <div id="evaluation-biology-workspace" hidden={evaluationJourney !== 'biology'}>
+        {methodBatchProgress?.domain === 'biology' && <div className="diagram-radar-return-note" role="status">
+          <strong>Méthodes restantes : {methodBatchProgress.current}/{methodBatchProgress.total}</strong>
+          <span> · {methodBatchProgress.label} · résultats conservés après chaque méthode.</span>
+          <Button variant="secondary" onClick={stopPilotProtocol}>Arrêter toutes les méthodes</Button>
+        </div>}
+        <PilotEvaluationPanel
           selectedScenario={evaluationBiologyScenario} onSelectScenario={setEvaluationBiologyScenario}
           enabled={pilotEnabled} busy={pilotBusy} uploadingCase={pilotUploadingCase} currentCase={pilotCurrentCase}
           automaticRun={evaluationActivity?.status === 'running' && evaluationActivity.title === 'Biologie · évaluation complète du modèle'}
@@ -4845,7 +4953,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           model={dashboardModel} choose={selectDashboardModel} busy={busy || pilotBusy || radarAutoBusy}
           manage={() => setManagingEvaluationProfiles(true)} details={(domain, model) => { selectDashboardModel(model); openCandidateRadar(domain); }}
           campaigns={(domain, model, ids) => showCampaigns({ domain, model, ids })}
-          runScience={runRadarPlan} runBiology={evaluateBiologyModel} />}
+          runScience={runRadarPlan} runBiology={evaluateBiologyModel}
+          runScienceBatch={runRemainingScientificMethods} runBiologyBatch={runRemainingBiologyMethods}
+          initialLab={methodBatchReturnLab} />}
       {interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'campaigns' &&
         <EvaluationCampaigns key={JSON.stringify(campaignFilter)} filter={campaignFilter}
           diagrams={dashboardEntries} biology={biologyRadarHistory} records={savedModelEvaluations}
