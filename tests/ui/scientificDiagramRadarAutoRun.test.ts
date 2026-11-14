@@ -14,6 +14,10 @@ const profile: AiModelProfile = {
 };
 const plan: RadarMissingTestRequest = {
   id: 42, profileId: profile.id, profileName: profile.name, axis: 'graphics',
+  trial: { id: 'trial-439', method: 'pixel-v1', weights: {
+    graphics: 1, arrows: 1, biology: 1, relations: 1,
+    robustness: 1, stability: 1, coverage: 1, speed: 1,
+  } },
   steps: [{ protocol: 'reference', repetitions: 1, method: 'direct-image-generative',
     promptMode: 'standard', graphVariant: 'baseline', zoom: false }],
 };
@@ -41,13 +45,14 @@ describe('scientific automatic protocol runner invoked from radar', () => {
     })));
     const consumed = vi.fn();
     const busyChange = vi.fn();
+    const onAutoStepChange = vi.fn();
     const props = {
       selectedProfiles: [profile], busy: false, progress: '', onPrepareImages,
       onRun: vi.fn(), onRunFixtures, onRunSensitivity: vi.fn(), onRunBlindGraph: vi.fn(),
       onStop: vi.fn(), report: null, fixtureReport: null, sensitivityReport: null, blindGraphReport: null,
       onClearReport: vi.fn(), onClearFixtureReport: vi.fn(), onClearSensitivityReport: vi.fn(),
       onClearBlindGraphReport: vi.fn(), autoRequest: plan,
-      onAutoRequestConsumed: consumed, onAutoBusyChange: busyChange,
+      onAutoRequestConsumed: consumed, onAutoBusyChange: busyChange, onAutoStepChange,
     };
     await act(async () => root.render(createElement(ScientificDiagramProtocolPanel, props)));
     await vi.waitFor(() => expect(onRunFixtures).toHaveBeenCalledTimes(1));
@@ -57,8 +62,11 @@ describe('scientific automatic protocol runner invoked from radar', () => {
     expect(consumed).toHaveBeenCalledOnce();
     expect(consumed).toHaveBeenCalledWith(42);
     expect(busyChange).toHaveBeenCalledWith(true);
-    expect(container.querySelector('[aria-label="Suivi du lancement depuis le radar"]')?.textContent)
-      .toContain('Batterie 1/1');
+    expect(onAutoStepChange).toHaveBeenCalledWith(plan, 0);
+    const status = container.querySelector('[aria-label="Suivi du lancement depuis le radar"]')?.textContent;
+    expect(status).toContain('Batterie 1/1');
+    expect(status).toContain('Stratégie choisie : Graphe · détecteur des petites pointes (#439)');
+    expect(status).toContain('Moteur utilisé : Image → génératif direct');
     await act(async () => { releaseFixture(); });
     await vi.waitFor(() => expect(busyChange).toHaveBeenLastCalledWith(false));
     expect(container.textContent).toContain('Batteries terminées');
