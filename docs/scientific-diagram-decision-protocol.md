@@ -167,3 +167,24 @@ Les rapports du protocole générique, qui peuvent utiliser une photographie de 
 d'images, de prompts, de clés ou d'URL. Les exportations historiques ne sont pas modifiées.
 Ces diagnostics aident à déterminer quelle hypothèse tester ensuite, et ne valident pas la
 capacité réelle d'un modèle sans nouveaux essais et arbitrage enseignant.
+
+
+## Graphe de relations V2 — laboratoire (14 novembre 2026)
+
+La méthode **« Image → relations légendes/structures → correction · v2 »** est sélectionnable à côté de V1 ; sur le test D/E, un bouton **« Tester D/E avec graphe V2 »** force une répétition. V1 et les corrections normales des copies restent inchangées.
+
+La lecture V2 se fait sans barème ni réponse attendue sur l'image originale. Le graphe JSON sépare les éléments suivants :
+
+- `labels` : identifiant propre à chaque occurrence textuelle et zone de mitose. Deux mots « Chromosomes » ne deviennent pas un seul nœud ;
+- `structures` : identifiants des structures *dessinées*, type visuel normalisé, phase et courte description de la forme observée. Une étiquette ne suffit pas à créer une structure ;
+- `leaders` : relation **légende → trait de rappel → structure réellement touchée**, point de contact en coordonnées 0..1000 ; `unknown` / `uncertain` si le contact n'est pas identifiable. **L'absence de pointe de flèche ne rend pas automatiquement un trait incorrect** ;
+- `layout` : `rows`, `columns`, `mixed` ou `unclear`, indépendamment de la forme des traits ;
+- `complete` : couverture *déclarée* par Vision, jamais une certification de justesse.
+
+Un parseur rejette références de nœuds inexistants, identifiants dupliqués, coordonnées invalides, cibles spéculatives et dépassements de taille. Une génération non conforme est réessayée au maximum une fois. Le protocole garde l'arrêt par AbortSignal, les endpoints explicitement configurés et l'exécution séquentielle.
+
+**Mesure D/E indépendante de la note :** après l'extraction, et uniquement pour les cas synthétiques embarqués, un auditeur compare les six destinations physiques déclarées aux attentes du cas. Quatre destinations doivent changer entre D et E ; les deux autres restent identiques. Le rapport montre les contacts corrects, faux ou indécis ainsi que les changements mesurés. Cette vérification *ne réécrit jamais silencieusement la note proposée* : on peut ainsi distinguer « graphe correct, notation mauvaise » de « graphe déjà incorrect ».
+
+Le rapport V2 détaillé et les légendes transcrites ne sont exportés que depuis les fixtures synthétiques, pas dans le rapport du protocole de copie personnalisée ; aucune photographie, clé, URL, prompt ou sortie brute n'est incluse dans le JSON partageable. Les observations restent des déclarations du modèle : elles ne prouvent pas la reconnaissance des pixels. Les références D/E restent provisoires en attente de validation pédagogique.
+
+**Essai conseillé :** sélectionner le même profil Vision que précédemment, lancer **Tester D/E avec graphe V2**, exporter le JSON et comparer `pairedDiagnostics[].graphV2` avec les notes finales et avec les résultats V1. Si le graphe ne distingue pas D/E, prioriser ensuite un recadrage de traits avec vérification à partir des points de contact proposés, plutôt que modifier aveuglément le prompt de notation.

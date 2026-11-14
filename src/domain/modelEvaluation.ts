@@ -213,6 +213,8 @@ export interface ModelEvaluationResultSnapshot {
 
 export interface ModelEvaluationRecord {
   graphFirst?: boolean;
+  /** The legacy graphFirst flag remains true for both generations. */
+  graphVersion?: 'v1' | 'v2';
   campaignId?: string;
   id: string;
   completedAt: string;

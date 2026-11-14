@@ -54,11 +54,12 @@ export type DiagramTeacherDecision = 'present' | 'absent' | 'partial';
 export type DiagramGold = Record<string, DiagramTeacherDecision>;
 export type DiagramProtocolRun = { repetition: number; record: ModelEvaluationRecord };
 export type DiagramProtocolCount = 1 | 3 | 5;
-export type DiagramMethod = 'graph-first-v1' | 'vision-then-analysis' | 'direct-image-generative' | 'direct-image-generative-thinking' | 'direct-image-systemone';
+export type DiagramMethod = 'graph-first-v1' | 'graph-first-v2' | 'vision-then-analysis' | 'direct-image-generative' | 'direct-image-generative-thinking' | 'direct-image-systemone';
 export type DiagramMethodSelection = DiagramMethod | 'compare' | 'compare-thinking';
 
 export const diagramMethodLabels: Record<DiagramMethod, string> = {
   'graph-first-v1': 'Image → graphe → correction · v1',
+  'graph-first-v2': 'Image → relations légendes/structures → correction · v2',
   'vision-then-analysis': 'Vision puis analyse',
   'direct-image-generative': 'Image → génératif direct',
   'direct-image-generative-thinking': 'Image → génératif direct (Think ON)',
@@ -94,7 +95,7 @@ export function supportsDiagramThinking(profile: AiModelProfile): boolean {
 
 export function selectDiagramMethods(profile: AiModelProfile, selection: DiagramMethodSelection): DiagramMethod[] {
   const methods = availableDiagramMethods(profile);
-  if (selection === 'graph-first-v1') return methods.includes('direct-image-generative') ? [selection] : [];
+  if (selection === 'graph-first-v1' || selection === 'graph-first-v2') return methods.includes('direct-image-generative') ? [selection] : [];
   if (selection === 'compare') return methods;
   if (selection === 'compare-thinking') return methods.includes('direct-image-generative') && supportsDiagramThinking(profile)
     ? ['direct-image-generative', 'direct-image-generative-thinking'] : [];
@@ -106,7 +107,7 @@ export function selectDiagramMethods(profile: AiModelProfile, selection: Diagram
 export function diagramMethodIssue(profile: AiModelProfile, selection: DiagramMethodSelection): string | null {
   if (!isSupportedPilotProfile(profile)) return 'Adresse de serveur invalide : ' + profile.name;
   if (!profile.configuration.analysisModel.trim()) return 'Modèle d’analyse manquant : ' + profile.name;
-  if (selection === 'graph-first-v1' && profile.configuration.correctionMethod !== 'generative') return 'La lecture du graphe et sa correction nécessitent un modèle génératif avec vision.';
+  if ((selection === 'graph-first-v1' || selection === 'graph-first-v2') && profile.configuration.correctionMethod !== 'generative') return 'La lecture du graphe et sa correction nécessitent un modèle génératif avec vision.';
   if (selection === 'vision-then-analysis' && !profile.configuration.apiCompatible
     && isNativeDecisionModel(profile.configuration.visionModel)) {
     return 'Modèle décisionnel utilisé en Vision : « ' + profile.configuration.visionModel
@@ -368,12 +369,15 @@ export function buildScientificDiagramProtocolReport(
   const experiments = runs.flatMap(({ repetition, record }) => record.results.map((result) => ({
     repetition, profileId: result.profileId, profileName: result.profileName,
     model: record.configurations.find((entry) => entry.id === result.profileId)?.analysisModel ?? '',
-    method: record.graphFirst ? 'graph-first-v1' as const : result.directVisualDecision ? 'direct-image-systemone' as const
+    method: record.graphFirst ? (record.graphVersion === 'v2' ? 'graph-first-v2' as const : 'graph-first-v1' as const) : result.directVisualDecision ? 'direct-image-systemone' as const
       : record.configurations.find((entry) => entry.id === result.profileId)?.directGenerativeVision
         ? (record.configurations.find((entry) => entry.id === result.profileId)?.thinking
           ? 'direct-image-generative-thinking' as const : 'direct-image-generative' as const)
         : 'vision-then-analysis' as const,
-    ...(result.graphEvidence ? { graphEvidence: result.graphEvidence } : {}),
+    // The V2 graph may contain literal text copied from an arbitrary student's
+    // uploaded drawing. Export it only for the bundled synthetic fixtures.
+    ...(result.graphEvidence && (result.graphEvidence.version !== 'graph-first-v2' || observationOptions.syntheticFixtureEvidence)
+      ? { graphEvidence: result.graphEvidence } : {}),
     thinkingRequested: record.configurations.find((entry) => entry.id === result.profileId)?.thinking ?? null,
     thinkingSetting: (() => {
       const configuration = record.configurations.find((entry) => entry.id === result.profileId);

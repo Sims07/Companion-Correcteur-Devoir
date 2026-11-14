@@ -24,11 +24,11 @@ export interface ObservedVisualGraph {
   arrowsComplete: boolean;
 }
 
-export interface DiagramGraphEvidence {
+export type DiagramGraphEvidence = {
   version: 'graph-first-v1';
   model: string;
   pages: { page: number; graph: ObservedVisualGraph }[];
-}
+} | import('./scientificDiagramRelationGraphV2.ts').DiagramGraphEvidenceV2;
 
 function plain(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);

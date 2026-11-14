@@ -295,6 +295,68 @@ describe('jeu de dessins scientifiques A/B/C et contrôle de flèches D/E', () =
       .toEqual(['d1:3b', 'different-vision:12b']);
   });
 
+  it('exporte séparément les relations physiques D/E de V2 et les notes du modèle', () => {
+    const graph = (swapped:boolean) => {
+      const labels = [
+        ['l1','Noyau','interphase'],['l2','Chromosomes','prophase'],
+        ['l3','Chromosomes','metaphase'],['l4','Fuseau mitotique','metaphase'],
+        ['l5','Noyau fils','telophase'],['l6','Plaque cellulaire','telophase'],
+      ] as const;
+      const kinds = ['nucleus','chromosomes','chromosomes','spindle','nucleus','cell-plate'] as const;
+      const targets = swapped ? [0,1,3,2,5,4] : [0,1,2,3,4,5];
+      const structures = labels.map(([id,,phase],i) => ({
+        id:'s'+id.slice(1),kind:kinds[i]!,phase,visualCue:'Structure effectivement dessinée',
+      }));
+      return {
+        labels:labels.map(([id,text,phase])=>({id,text,phase})),
+        structures,
+        leaders:labels.map(([id],i)=>({
+          labelId:id,targetId:'s'+String(targets[i]!+1),status:'connected' as const,
+          tipX:200+i*40,tipY:240+i*40,
+        })),
+        layout:'rows' as const,complete:true,
+      };
+    };
+    const make = (swapped:boolean) => {
+      const base=record();
+      return {...base,graphFirst:true,graphVersion:'v2' as const,
+        results:[{...base.results[0]!,graphEvidence:{
+          version:'graph-first-v2' as const,model:'d1:3b',
+          pages:[{page:1,graph:graph(swapped)}],
+        }}]};
+    };
+    const report=buildScientificDiagramFixtureReport([
+      {caseId:'D',repetition:1,record:make(false)},
+      {caseId:'E',repetition:1,record:make(true)},
+    ],1,'2026-11-14');
+    expect(report.cases[3]!.experiments[0]!.method).toBe('graph-first-v2');
+    expect(report.cases[4]!.experiments[0]!.graphEvidence?.version).toBe('graph-first-v2');
+    expect(report.cases[3]!.diagnostic[0]!.graphV2).toMatchObject({
+      correct:6,wrong:0,uncertain:0,observedLayout:'rows',
+    });
+    expect(report.cases[4]!.diagnostic[0]!.graphV2).toMatchObject({
+      correct:6,wrong:0,uncertain:0,observedLayout:'rows',
+    });
+    expect(report.pairedDiagnostics[0]!.graphV2).toMatchObject({
+      status:'detected',expectedChangedTargets:4,unresolved:0,
+      controlMatched:6,alteredMatched:6,layoutRowsBoth:true,
+    });
+    expect(report.pairedDiagnostics[0]!.graphV2?.observedChangedTargets).toHaveLength(4);
+    // V2 can detect the swap despite a separate grader still scoring 10/10:
+    // never silently rewrite a grade from a model-asserted graph.
+    expect(report.pairedDiagnostics[0]!.status).toBe('missed');
+    expect(report.cases[4]!.experiments[0]!.score).toBe(10);
+
+    const failure=buildScientificDiagramFixtureReport([
+      {caseId:'D',repetition:1,record:make(false)},
+      {caseId:'E',repetition:1,record:make(false)},
+    ],1,'2026-11-14');
+    expect(failure.pairedDiagnostics[0]!.graphV2).toMatchObject({
+      status:'missed',controlMatched:6,alteredMatched:2,
+    });
+    expect(failure.pairedDiagnostics[0]!.graphV2?.observedChangedTargets).toHaveLength(0);
+  });
+
   it('n’exporte aucune photographie, clé, endpoint, prompt ou réponse brute', () => {
     const report = JSON.stringify(buildScientificDiagramFixtureReport(
       [{ caseId: 'A', repetition: 1, record: record() }], 3, 'now'));
