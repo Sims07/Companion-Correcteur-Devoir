@@ -374,14 +374,24 @@ function makeCandidateAxes(batteries: Map<DiagramLabProtocol, Battery>, stabilit
     ? { value: percent(covered, possible), reason: 'Part des décisions déterminées dans les batteries complètes.',
         evidence: coverageEvidence }
     : empty('Aucune batterie complète avec attendus mesurables.');
+  const timed = (ms: number | null | undefined): ms is number =>
+    typeof ms === 'number' && Number.isFinite(ms) && ms >= 0;
   const durations = valid.flatMap((battery) => battery.readings
-    .map((run) => run.providerDurationMs).filter((ms): ms is number => typeof ms === 'number' && Number.isFinite(ms) && ms >= 0));
+    .map((run) => run.providerDurationMs).filter(timed));
+  const totalReadings = valid.reduce((sum, battery) => sum + battery.readings.length, 0);
+  const missingProtocols = valid.filter((battery) =>
+    battery.readings.some((run) => !timed(run.providerDurationMs)))
+    .map((battery) => diagramLabProtocolLabels[battery.entry.protocol]);
   const avgMs = durations.length ? durations.reduce((sum, ms) => sum + ms, 0) / durations.length : null;
-  const speed: RadarAxisScore = avgMs !== null && valid.every((battery) => battery.readings.every((run) => run.providerDurationMs !== null && run.providerDurationMs !== undefined))
+  // Keep an honest 8/9 until every selected passage has an Ollama-native time.
+  // Never silently substitute browser wall time, which includes sleeping laptops.
+  const speed: RadarAxisScore = avgMs !== null && durations.length === totalReadings
     ? { value: limited(100 / (1 + avgMs / 60_000)),
-        reason: '100 ÷ (1 + durée moyenne par dessin / 60 s). Les variantes à appels supplémentaires portent leur coût.',
-        evidence: valid.map((b) => evidence(b, 'Temps Ollama natif (ms)', b.readings.reduce((n, r) => n + (r.providerDurationMs ?? 0), 0), b.readings.length)) }
-    : empty('Temps Ollama natif non mesuré pour toutes les batteries complètes ; durée navigateur exclue.');
+        reason: '100 ÷ (1 + durée native moyenne par dessin / 60 s). Toutes les relectures Ollama sont incluses.',
+        evidence: valid.map((b) => evidence(b, 'Temps Ollama natif (ms)', b.readings.reduce((n, r) => n + r.providerDurationMs!, 0), b.readings.length)) }
+    : empty('Temps Ollama natifs : ' + durations.length + '/' + totalReadings +
+        ' passages mesurés. Manquants : ' + (missingProtocols.join(' ; ') || 'aucune batterie complète') +
+        '. Les archives sans total_duration ne permettent pas de reconstituer la vitesse ; une relance ciblée après mise à jour est nécessaire. Durée navigateur exclue.');
   return { graphics, arrows: arrowScore, precision, biology, relations, robustness, stability, coverage, speed };
 }
 
