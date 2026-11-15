@@ -382,13 +382,13 @@ it('audits all ten scientific methods and schedules only compatible pending tria
   expect(audit.textContent).toContain('Non testé');
   expect(audit.textContent).toContain('/9');
   const launch = [...node.querySelectorAll<HTMLButtonElement>('button')].find(button =>
-    button.textContent?.includes('Évaluer toutes les méthodes restantes (5)'))!;
+    button.textContent?.includes('Évaluer toutes les méthodes restantes (9)'))!;
   expect(launch.disabled).toBe(false);
   await act(async () => launch.click());
   const requests = runScienceBatch.mock.calls[0]![0] as Array<{
     trial: {id:string; method:string}; steps: Array<{protocol:string}>;
   }>;
-  expect(requests).toHaveLength(5);
+  expect(requests).toHaveLength(9);
   expect(new Set(requests.map(item => item.trial.method)).size).toBe(9);
   expect(requests.every(item => item.steps.length === 4)).toBe(true);
   const targeted = audit.querySelector<HTMLButtonElement>('tbody tr button')!;
