@@ -63,7 +63,7 @@ test('one-click D/E V2 traces four swapped targets without giving the grader the
     .getByRole('button',{name:/Schémas scientifiques/}).click();
   const panel=page.getByRole('region',{name:'Protocole schémas scientifiques'});
   await chooseEvaluationModel(page);
-  await panel.getByRole('tab',{name:/Sens des flèches/}).click();
+  await panel.getByRole('tab',{name:/Traits de rappel/}).click();
   await panel.getByRole('button',{name:'Tester D/E avec graphe V2'}).click();
   await expect.poll(()=>calls.filter(c=>c.extraction).length,{timeout:30000}).toBe(2);
   expect(calls[0]?.extraction).toBe(true);
