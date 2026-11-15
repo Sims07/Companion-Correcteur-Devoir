@@ -217,10 +217,12 @@ export async function extractBlindVisualGraph(
     for (const { arrow, index } of candidates.slice(0, 2)) {
       if (request.signal?.aborted) throw new DOMException('Traitement interrompu.', 'AbortError');
       if (!arrow.bounds) { zoom.unavailable++; continue; }
+      let sentWithoutTiming = false;
       try {
         const crop = await (request.prepareZoom ?? cropObservedArrow)(request.image, arrow.bounds);
         if (!crop) { zoom.unavailable++; continue; }
         zoom.attempted++;
+        sentWithoutTiming = true;
         const followup = await send(url, {
           method: 'POST', headers: { 'content-type': 'application/json' }, signal: request.signal,
           body: JSON.stringify({
@@ -236,6 +238,7 @@ export async function extractBlindVisualGraph(
         if (!followup.ok) { nativeTimingMissing = true; zoom.failures++; continue; }
         const payload: unknown = await followup.json();
         collectNativeTiming(payload);
+        sentWithoutTiming = false;
         const result = payload as { message?: { content?: unknown } };
         const rawTip = typeof result.message?.content === 'string' ? result.message.content : '';
         if (rawTip.length > 500) { zoom.failures++; continue; }
@@ -247,6 +250,7 @@ export async function extractBlindVisualGraph(
           zoom.resolved++;
         } else if (choice !== 'none' && choice !== 'unclear') zoom.failures++;
       } catch (cause) {
+        if (sentWithoutTiming) nativeTimingMissing = true;
         if (request.signal?.aborted || (cause instanceof Error && cause.name === 'AbortError')) throw cause;
         zoom.failures++;
       }
@@ -282,6 +286,7 @@ export async function extractBlindVisualGraph(
           }
           if (imageMode === 'full') recheck.fullImageFallbacks++;
           recheck.attempted++;
+          let sentWithoutTiming = true;
           try {
             const followup = await send(url, {
               method: 'POST', headers: { 'content-type': 'application/json' }, signal: request.signal,
@@ -309,6 +314,7 @@ export async function extractBlindVisualGraph(
             if (!followup.ok) { nativeTimingMissing = true; throw new Error('Relecture de flèche indisponible.'); }
             const responsePayload: unknown = await followup.json();
             collectNativeTiming(responsePayload);
+            sentWithoutTiming = false;
             const payload = responsePayload as { message?: { content?: unknown } };
             const raw = typeof payload?.message?.content === 'string' ? payload.message.content : '';
             if (raw.length > 500) throw new Error('Réponse de flèche trop longue.');
@@ -325,6 +331,7 @@ export async function extractBlindVisualGraph(
               recheck.changed++;
             }
           } catch (cause) {
+            if (sentWithoutTiming) nativeTimingMissing = true;
             if (request.signal?.aborted || (cause instanceof Error && cause.name === 'AbortError')) throw cause;
             recheck.failures++;
           }
@@ -333,6 +340,7 @@ export async function extractBlindVisualGraph(
         // Unlike a biological question, this asks for ALL visible contour pairs,
         // including explicit outside relations. The pair to grade is not named.
         recheck.attempted = 1;
+        let sentWithoutTiming = true;
         try {
           const followup = await send(url, {
             method: 'POST', headers: { 'content-type': 'application/json' }, signal: request.signal,
@@ -366,6 +374,7 @@ export async function extractBlindVisualGraph(
           if (!followup.ok) { nativeTimingMissing = true; throw new Error('Relecture des contours indisponible.'); }
           const responsePayload: unknown = await followup.json();
           collectNativeTiming(responsePayload);
+          sentWithoutTiming = false;
           const payload = responsePayload as { message?: { content?: unknown } };
           const raw = typeof payload?.message?.content === 'string' ? payload.message.content : '';
           if (raw.length > 12_000) throw new Error('Réponse de contours trop longue.');
@@ -396,6 +405,7 @@ export async function extractBlindVisualGraph(
             }
           }
         } catch (cause) {
+          if (sentWithoutTiming) nativeTimingMissing = true;
           if (request.signal?.aborted || (cause instanceof Error && cause.name === 'AbortError')) throw cause;
           recheck.failures++;
         }
