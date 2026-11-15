@@ -128,6 +128,28 @@ export async function extractBlindVisualGraph(
   const hints = request.promptVariant === 'pixel-leaders-v1' ? await arrowContext([request.image], undefined, request.signal, 'leaders-v1')
     : request.promptVariant === 'pixel-arrows' ? await arrowContext([request.image], undefined, request.signal, 'small-tips-v1') : '';
   const imageAudit = auditBlindGraphImage(request.image);
+  // Ollama reports total_duration in nanoseconds, independently of browser sleep.
+  // Count the initial call, malformed-JSON retries, and every additional reading.
+  // A single response without native timing makes the method's total unavailable.
+  let totalNativeDurationMs = 0;
+  let nativeTimingCalls = 0;
+  let nativeTimingMissing = false;
+  const collectNativeTiming = (payload: unknown) => {
+    const duration = !compatible && payload && typeof payload === 'object' && !Array.isArray(payload)
+      ? (payload as Record<string, unknown>).total_duration : null;
+    if (typeof duration !== 'number' || !Number.isFinite(duration) || duration < 0) {
+      nativeTimingMissing = true;
+      return;
+    }
+    totalNativeDurationMs += duration / 1_000_000;
+    nativeTimingCalls++;
+  };
+  const publishDiagnostic = (diagnostic: BlindGraphDiagnostic) => {
+    diagnostic.providerDurationMs = nativeTimingCalls > 0 && !nativeTimingMissing
+      ? Math.round(totalNativeDurationMs) : null;
+    diagnostic.providerTimingCalls = nativeTimingCalls;
+    request.onDiagnostic?.(diagnostic);
+  };
   let previousValidationError: string | undefined;
   for (let attempt = 1; attempt <= 2; attempt++) {
     if (request.signal?.aborted) throw new DOMException('Traitement interrompu.', 'AbortError');
@@ -159,6 +181,7 @@ export async function extractBlindVisualGraph(
     if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
       throw new Error('Réponse du serveur Vision invalide.');
     }
+    collectNativeTiming(payload);
     const result = payload as { message?: { content?: unknown }; done_reason?: unknown; eval_count?: unknown; usage?: { completion_tokens?: unknown } };
     const generated = result.eval_count ?? result.usage?.completion_tokens;
     const raw = typeof result.message?.content === 'string' ? result.message.content : '';
@@ -182,10 +205,10 @@ export async function extractBlindVisualGraph(
         previousValidationError = validationError;
         continue;
       }
-      request.onDiagnostic?.({ ...diagnostic, validationError });
+      publishDiagnostic({ ...diagnostic, validationError });
       throw cause;
     }
-    request.onDiagnostic?.(diagnostic);
+    publishDiagnostic(diagnostic);
   if (request.zoomUncertainArrows) {
     const candidates = graph.arrows.map((arrow, index) => ({ arrow, index }))
       .filter(({ arrow }) => arrow.tip === 'none' || arrow.tip === 'unclear');
@@ -194,10 +217,12 @@ export async function extractBlindVisualGraph(
     for (const { arrow, index } of candidates.slice(0, 2)) {
       if (request.signal?.aborted) throw new DOMException('Traitement interrompu.', 'AbortError');
       if (!arrow.bounds) { zoom.unavailable++; continue; }
+      let sentWithoutTiming = false;
       try {
         const crop = await (request.prepareZoom ?? cropObservedArrow)(request.image, arrow.bounds);
         if (!crop) { zoom.unavailable++; continue; }
         zoom.attempted++;
+        sentWithoutTiming = true;
         const followup = await send(url, {
           method: 'POST', headers: { 'content-type': 'application/json' }, signal: request.signal,
           body: JSON.stringify({
@@ -210,8 +235,11 @@ export async function extractBlindVisualGraph(
             options: { temperature: 0, num_predict: 64, num_ctx: 2048 },
           }),
         });
-        if (!followup.ok) { zoom.failures++; continue; }
-        const result = await followup.json() as { message?: { content?: unknown } };
+        if (!followup.ok) { nativeTimingMissing = true; zoom.failures++; continue; }
+        const payload: unknown = await followup.json();
+        collectNativeTiming(payload);
+        sentWithoutTiming = false;
+        const result = payload as { message?: { content?: unknown } };
         const rawTip = typeof result.message?.content === 'string' ? result.message.content : '';
         if (rawTip.length > 500) { zoom.failures++; continue; }
         const parsed: unknown = JSON.parse(rawTip);
@@ -222,12 +250,13 @@ export async function extractBlindVisualGraph(
           zoom.resolved++;
         } else if (choice !== 'none' && choice !== 'unclear') zoom.failures++;
       } catch (cause) {
+        if (sentWithoutTiming) nativeTimingMissing = true;
         if (request.signal?.aborted || (cause instanceof Error && cause.name === 'AbortError')) throw cause;
         zoom.failures++;
       }
     }
     diagnostic.zoom = zoom;
-    request.onDiagnostic?.(diagnostic);
+    publishDiagnostic(diagnostic);
   }
     // These are deliberately separate laboratory arms: the baseline extraction
     // remains byte-for-byte identical, and neither arm receives a grading rubric.
@@ -257,6 +286,7 @@ export async function extractBlindVisualGraph(
           }
           if (imageMode === 'full') recheck.fullImageFallbacks++;
           recheck.attempted++;
+          let sentWithoutTiming = true;
           try {
             const followup = await send(url, {
               method: 'POST', headers: { 'content-type': 'application/json' }, signal: request.signal,
@@ -281,8 +311,11 @@ export async function extractBlindVisualGraph(
                 think: false, keep_alive: 0, options: { temperature: 0, num_predict: 64, num_ctx: 2048 },
               }),
             });
-            if (!followup.ok) throw new Error('Relecture de flèche indisponible.');
-            const payload = await followup.json() as { message?: { content?: unknown } };
+            if (!followup.ok) { nativeTimingMissing = true; throw new Error('Relecture de flèche indisponible.'); }
+            const responsePayload: unknown = await followup.json();
+            collectNativeTiming(responsePayload);
+            sentWithoutTiming = false;
+            const payload = responsePayload as { message?: { content?: unknown } };
             const raw = typeof payload?.message?.content === 'string' ? payload.message.content : '';
             if (raw.length > 500) throw new Error('Réponse de flèche trop longue.');
             const parsed: unknown = JSON.parse(raw);
@@ -298,6 +331,7 @@ export async function extractBlindVisualGraph(
               recheck.changed++;
             }
           } catch (cause) {
+            if (sentWithoutTiming) nativeTimingMissing = true;
             if (request.signal?.aborted || (cause instanceof Error && cause.name === 'AbortError')) throw cause;
             recheck.failures++;
           }
@@ -306,6 +340,7 @@ export async function extractBlindVisualGraph(
         // Unlike a biological question, this asks for ALL visible contour pairs,
         // including explicit outside relations. The pair to grade is not named.
         recheck.attempted = 1;
+        let sentWithoutTiming = true;
         try {
           const followup = await send(url, {
             method: 'POST', headers: { 'content-type': 'application/json' }, signal: request.signal,
@@ -336,8 +371,11 @@ export async function extractBlindVisualGraph(
               think: false, keep_alive: 0, options: { temperature: 0, num_predict: 512, num_ctx: 2048 },
             }),
           });
-          if (!followup.ok) throw new Error('Relecture des contours indisponible.');
-          const payload = await followup.json() as { message?: { content?: unknown } };
+          if (!followup.ok) { nativeTimingMissing = true; throw new Error('Relecture des contours indisponible.'); }
+          const responsePayload: unknown = await followup.json();
+          collectNativeTiming(responsePayload);
+          sentWithoutTiming = false;
+          const payload = responsePayload as { message?: { content?: unknown } };
           const raw = typeof payload?.message?.content === 'string' ? payload.message.content : '';
           if (raw.length > 12_000) throw new Error('Réponse de contours trop longue.');
           const parsed: unknown = JSON.parse(raw);
@@ -367,11 +405,12 @@ export async function extractBlindVisualGraph(
             }
           }
         } catch (cause) {
+          if (sentWithoutTiming) nativeTimingMissing = true;
           if (request.signal?.aborted || (cause instanceof Error && cause.name === 'AbortError')) throw cause;
           recheck.failures++;
         }
       }
-      request.onDiagnostic?.(diagnostic);
+      publishDiagnostic(diagnostic);
     }
     return graph;
   }

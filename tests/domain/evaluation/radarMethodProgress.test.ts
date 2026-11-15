@@ -179,5 +179,35 @@ it('explains why historical calls without native timing cannot measure performan
   expect(progress.successful).toBe(23);
   expect(progress.missing).toEqual(['speed']);
   expect(progress.reason).toContain('Temps Ollama natif');
+  expect(progress.steps.map(step => step.protocol)).toEqual(['reference', 'arrows', 'semantic', 'graph']);
+});
+
+it('resumes only S0–S5 graph when this is the sole battery without native timing', () => {
+  const entries = all('pixel-v1', 'missing-graph-time');
+  const graph = entries.find(entry => entry.protocol === 'graph')!;
+  if (!('cases' in graph.report)) throw Error('Graph report required');
+  for (const testCase of graph.report.cases) {
+    for (const run of testCase.experiments) Reflect.deleteProperty(run, 'providerDurationMs');
+  }
+  const progress = scienceMethodProgress(entries, model).find(item => item.method === 'pixel-v1')!;
+  expect(progress.successful).toBe(23);
+  expect(progress.measured).toBe(8);
+  expect(progress.missing).toEqual(['speed']);
+  expect(progress.steps.map(step => step.protocol)).toEqual(['graph']);
+  expect(progress.steps[0]).toMatchObject({ graphVariant: 'pixel-arrows' });
+  expect(progress.reason).not.toContain('Aucune relance automatique utile');
+});
+
+it('avoids useless native-time reruns on an OpenAI-compatible graph provider', () => {
+  const entries = all('leaders-v1', 'remote-graph-time');
+  const graph = entries.find(entry => entry.protocol === 'graph')!;
+  if (!('cases' in graph.report)) throw Error('Graph report required');
+  for (const testCase of graph.report.cases) for (const run of testCase.experiments) {
+    Reflect.deleteProperty(run, 'providerDurationMs');
+    Object.assign(run, { provider: 'openai-compatible' });
+  }
+  const progress = scienceMethodProgress(entries, model).find(item => item.method === 'leaders-v1')!;
+  expect(progress.missing).toEqual(['speed']);
   expect(progress.steps).toEqual([]);
+  expect(progress.reason).toContain('Aucune relance automatique utile');
 });

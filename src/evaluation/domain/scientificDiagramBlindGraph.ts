@@ -277,6 +277,11 @@ export interface BlindGraphDiagnostic {
   doneReason?: string;
   outputTokens?: number;
   validationError?: string;
+  /** Sum of Ollama total_duration values (ns converted to ms) for ALL Vision calls.
+   * Null if one call has no native timing; browser wall time is never substituted. */
+  providerDurationMs?: number | null;
+  /** Number of individual Ollama responses carrying native timing. */
+  providerTimingCalls?: number;
   /** Total Vision requests for this graph (one or two). */
   attempts?: number;
   /** Fixed-format parser message only; never includes the prior raw response. */
@@ -340,6 +345,8 @@ export interface BlindVisualObservationRun {
   provider?: 'ollama-local' | 'openai-compatible';
   remote?: boolean;
   durationMs: number;
+  /** Native Ollama duration including second reads, when every call is measured. */
+  providerDurationMs?: number | null;
   status: 'success' | 'failed' | 'aborted';
   zoom?: boolean;
   promptVariant?: BlindGraphPromptVariant;

@@ -2870,6 +2870,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
                 model, zoom: Boolean(request.zoomUncertainArrows), promptVariant: request.promptVariant ?? 'baseline', provider: profile.configuration.apiCompatible ? 'openai-compatible' : 'ollama-local',
                 remote: !isLoopbackPilotEndpoint(profile.configuration.endpoint),
                 status: 'success', durationMs: Math.round(performance.now() - started),
+                providerDurationMs: diagnostic?.providerDurationMs ?? null,
                 observations: compareBlindVisualGraph(graph), graph, diagnostic,
                 relationDetails: explainBlindVisualGraph(graph),
                 arrowCount: graph.arrows.length, containmentCount: graph.containment.length,
