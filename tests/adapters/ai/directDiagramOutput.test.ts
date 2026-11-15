@@ -274,7 +274,7 @@ describe('compact direct diagram output', () => {
       expect(body.messages[0].content).not.toContain('transcription_etudiant');
     }
     for (const body of bodies) expect(body.messages[0].content).toContain('légende → cible observée');
-    expect(trace.mock.calls.map(c => c[0].promptVersion)).toEqual([4, 4]);
+    expect(trace.mock.calls.map(c => c[0].promptVersion)).toEqual([6, 6]);
     expect(bodies[1].messages[0].content).toContain('missing-id');
     expect(trace.mock.calls.map(c => c[0].promptId)).toEqual(['diagram.direct-grading', 'diagram.direct-repair']);
   });

@@ -34,7 +34,7 @@ test('benchmark radar ranks complete scientific candidates and reveals the origi
     const createdAt = '2026-11-10T' + (12 + index) + ':00:00Z';
     return {
       id: protocol + ':' + createdAt, protocol, state: 'finished', createdAt, savedAt: now,
-      title: protocol === 'reference' ? 'Qualité graphique · A/B/C' : protocol === 'arrows' ? 'Sens des flèches · D/E'
+      title: protocol === 'reference' ? 'Qualité graphique · A/B/C' : protocol === 'arrows' ? 'Traits de rappel · D/E'
         : protocol === 'semantic' ? 'Compréhension biologique · S0–S5' : 'Graphe des relations · S0–S5',
       plannedRepetitions: 3, profiles: ['Vision témoin', 'Vision rapide'], experimentCount: cases.length * 6,
       successfulCount: cases.length * 6, localOnly: true,
@@ -96,14 +96,14 @@ test('benchmark radar ranks complete scientific candidates and reveals the origi
   await radar.getByLabel('Choisir un LLM').selectOption('vision-good:4b');
   await radar.getByLabel('Priorité du classement').selectOption('balanced');
   await radar.getByText('Pondérations et méthode de calcul').click();
-  await expect(radar.getByRole('slider', { name: 'Poids : Sens des flèches' })).toHaveValue('1');
+  await expect(radar.getByRole('slider', { name: 'Poids : Correspondance des légendes' })).toHaveValue('1');
   await radar.getByRole('group', { name: 'Axe à examiner' }).getByRole('button', { name: 'Précision de lecture' }).click();
   await expect(radar.getByText('Précision de lecture A/B/C')).toBeVisible();
   await expect(radar.getByText('Précision de lecture D/E')).toBeVisible();
-  await radar.getByRole('group', { name: 'Axe à examiner' }).getByRole('button', { name: 'Sens des flèches' }).click();
+  await radar.getByRole('group', { name: 'Axe à examiner' }).getByRole('button', { name: 'Correspondance des légendes' }).click();
   await expect(radar.getByText('Correspondance sur D/E').first()).toBeVisible();
   await radar.getByRole('button', { name: 'Consulter la campagne' }).first().click();
-  await expect(journal.getByRole('group', { name: 'Campagnes enregistrées' }).getByRole('button', { name: /Sens des flèches/ })).toBeVisible();
+  await expect(journal.getByRole('group', { name: 'Campagnes enregistrées' }).getByRole('button', { name: /Traits de rappel/ })).toBeVisible();
 
   await page.reload();
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();

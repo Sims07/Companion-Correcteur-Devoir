@@ -39,7 +39,7 @@ function record(status: 'success' | 'failed' = 'success'): ModelEvaluationRecord
     results: [result], stage: 'integrated',
   };
 }
-describe('jeu de dessins scientifiques A/B/C et contrôle de flèches D/E', () => {
+describe('jeu de dessins scientifiques A/B/C et contrôle des traits de rappel D/E', () => {
   it('conserve les quatre catégories du professeur et les 10 points explicitement détaillés', () => {
     expect(validateRubric(SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC))
       .toMatchObject({ valid: true, maximumPoints: 10 });
@@ -109,7 +109,7 @@ describe('jeu de dessins scientifiques A/B/C et contrôle de flèches D/E', () =
       expectedPoints: { [horizontal]: 0.33, [emphasis]: 0.33, [subject]: 0 },
       gold: { [horizontal]: 'present', [emphasis]: 'present', [subject]: 'absent' },
     });
-    expect(report.version).toBe(6);
+    expect(report.version).toBe(7);
     expect(report.limitations).toContain('C=0,66/10');
     expect(report.limitations).toContain('anciens rapports et archives');
   });
@@ -127,7 +127,7 @@ describe('jeu de dessins scientifiques A/B/C et contrôle de flèches D/E', () =
     expect(report.cases[4]?.summaries).toEqual([]);
     expect(report.cases[1]?.experiments[0]?.status).toBe('failed');
   });
-  it('isole uniquement la validité des flèches entre le témoin D et le piège E', () => {
+  it('isole uniquement la cible des traits de rappel entre le témoin D et le piège E', () => {
     const control = SCIENTIFIC_DIAGRAM_FIXTURES.find((fixture) => fixture.id === 'D')!;
     const trap = SCIENTIFIC_DIAGRAM_FIXTURES.find((fixture) => fixture.id === 'E')!;
     const legend = SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC.criteria.find((criterion) => criterion.id === 'legends')!;
@@ -140,7 +140,13 @@ describe('jeu de dessins scientifiques A/B/C et contrôle de flèches D/E', () =
     expect(trap.labelPointerChallenge).toMatchObject({ kind: 'label-pointer-correspondence',
       expected: 'incorrect', criterionKey: SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET });
     const alignment = diagramTargetKey('legends', 'legends-aligned');
+    const alignmentRule = legend.subcriteria?.find((sub) => sub.id === 'legends-aligned');
+    expect(alignmentRule?.description).toContain('les uns sous les autres');
+    expect(alignmentRule?.description).toContain('côte à côte sur une même ligne');
+    expect(alignmentRule?.description).toContain('évaluée séparément');
     expect(control.referenceScore).toBe(9.34);
+    expect(legend.subcriteria?.find((sub) => sub.id === 'legends-visible')?.title).toContain('traits de rappel corrects');
+    expect(legend.subcriteria?.find((sub) => sub.id === 'legends-visible')?.description).toContain('sans pointe de flèche');
     expect(trap.referenceScore).toBe(8.66);
     // The user-visible teacher rubric explicitly requires a COLUMN of legends.
     // Both drawings place labels on horizontal rows beneath the cells.
@@ -167,8 +173,8 @@ describe('jeu de dessins scientifiques A/B/C et contrôle de flèches D/E', () =
     }
     const report = buildScientificDiagramFixtureReport(
       [{ caseId: 'E', repetition: 1, record: record() }], 1, '2026-11-08T23:00:00Z');
-    expect(report.version).toBe(6);
-    expect(report.protocolId).toBe('scientific-diagram-generated-a-b-c-plus-label-pointers-v6');
+    expect(report.version).toBe(7);
+    expect(report.protocolId).toBe('scientific-diagram-generated-a-b-c-plus-label-pointers-v7');
     expect(report.cases.find((item) => item.caseId === 'E')?.labelPointerChallenge)
       .toMatchObject({ expected: 'incorrect', criterionKey: SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET });
     expect(report.cases.filter((item) => item.caseId === 'D' || item.caseId === 'E')
@@ -180,9 +186,15 @@ describe('jeu de dessins scientifiques A/B/C et contrôle de flèches D/E', () =
       readFile(new URL('../../../src/evaluation/assets/pilot/scientific-mitosis-labels-swapped.svg', import.meta.url), 'utf8'),
     ]);
     const line = /<line id="(pointer-[^"]+)" class="pointer" x1="(\d+)" y1="(\d+)" x2="(\d+)" y2="(\d+)"\/>/g;
-    const arrows = (svg: string) => Object.fromEntries([...svg.matchAll(line)].map((m) =>
+    const leaders = (svg: string) => Object.fromEntries([...svg.matchAll(line)].map((m) =>
       [m[1]!, { start: [Number(m[2]), Number(m[3])], end: [Number(m[4]), Number(m[5])] }]));
-    const a = arrows(control), b = arrows(trap);
+    const a = leaders(control), b = leaders(trap);
+    // Microscopy drawings have leader lines, not arrows: no arrowhead marker is drawn.
+    for (const svg of [control, trap]) {
+      expect(svg).not.toContain('marker-end');
+      expect(svg).not.toContain('<marker');
+      expect(svg).toContain('.pointer{fill:none;stroke:#374151;stroke-width:2.7}');
+    }
     expect(Object.keys(a)).toHaveLength(6);
     expect(Object.keys(b)).toEqual(Object.keys(a));
     expect(control.replace(line, (_all, id, x1, y1) =>

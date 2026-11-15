@@ -138,6 +138,7 @@ export interface ScientificDiagramProtocolPanelProps {
     promptVariant?: BlindGraphPromptVariant;
   }) => Promise<BlindGraphReport>;
   onStop: () => void;
+  onManageProfiles?: () => void;
   report: DiagramReport | null;
   fixtureReport: FixtureReport | null;
   sensitivityReport: SensitivityReport | null;
@@ -156,7 +157,7 @@ export interface ScientificDiagramProtocolPanelProps {
 }
 
 export function ScientificDiagramProtocolPanel({
-  selectedProfiles, busy, progress, onPrepareImages, onRun, onRunFixtures, onStop,
+  selectedProfiles, busy, progress, onPrepareImages, onRun, onRunFixtures, onStop, onManageProfiles,
   report, fixtureReport, sensitivityReport, blindGraphReport,
   onClearReport, onClearFixtureReport, onClearSensitivityReport, onClearBlindGraphReport,
   onRunSensitivity, onRunBlindGraph, autoRequest, onAutoRequestConsumed, onOpenRadar, onAutoBusyChange, onAutoStepChange, onAutoEvaluationFinished, onAutoWasStopped,
@@ -165,7 +166,7 @@ export function ScientificDiagramProtocolPanel({
   const [context, setContext] = useState('');
   const [images, setImages] = useState<ImageInput[]>([]);
   const [uploading, setUploading] = useState(false);
-  const [repetitions, setRepetitions] = useState<DiagramProtocolCount>(3);
+  const [repetitions, setRepetitions] = useState<DiagramProtocolCount>(1);
   const [gold, setGold] = useState<DiagramGold>({});
   const [message, setMessage] = useState('');
   const [fixtureCount, setFixtureCount] = useState<DiagramProtocolCount>(1);
@@ -427,7 +428,7 @@ export function ScientificDiagramProtocolPanel({
     try {
       const prepared = await onPrepareImages(Array.from(files));
       setImages(prepared);
-      setMessage(prepared.length + ' page(s) préparée(s). Les mêmes pages serviront aux répétitions.');
+      setMessage(prepared.length + ' page(s) préparée(s). Vous pouvez lancer une analyse unique ou choisir plusieurs passages.');
     } catch (cause) {
       setMessage('Lecture impossible : ' + (cause instanceof Error ? cause.message : String(cause)));
     } finally { setUploading(false); }
@@ -477,7 +478,7 @@ export function ScientificDiagramProtocolPanel({
     <div className="diagram-lab-catalog" role="tablist" aria-label="Protocoles automatiques des schémas scientifiques">
       {([
         ['reference', 'FORME', 'Qualité graphique', 'A/B/C · Présentation et justesse', '3 dessins'],
-        ['arrows', 'FLÈCHES', 'Sens des flèches', 'D/E · Témoin et inversion', '2 dessins'],
+        ['arrows', 'LÉGENDES', 'Traits de rappel', 'D/E · Destinations des traits', '2 dessins'],
         ['semantic', 'BIOLOGIE', 'Compréhension biologique', 'S0–S5 · Relations fausses et témoins', '6 dessins'],
         ['graph', 'GRAPHE', 'Graphe des relations', 'S0–S5 · Lecture sans barème', '6 dessins'],
       ] as const).map(([id, number, title, subtitle, count]) =>
@@ -488,7 +489,7 @@ export function ScientificDiagramProtocolPanel({
         </button>)}
     </div>
 
-    <p className="diagram-lab-protocol-summary" role="status">{({ reference: '3 schémas · présentation, légendes et justesse', arrows: '2 schémas · témoin D et flèches inversées E', semantic: '6 variantes · erreurs biologiques et faux rejets', graph: '6 schémas · relations sans barème' } as const)[activeProtocol]}</p>
+    <p className="diagram-lab-protocol-summary" role="status">{({ reference: '3 schémas · présentation, légendes et justesse', arrows: '2 schémas · traits corrects D et cibles incorrectes E', semantic: '6 variantes · erreurs biologiques et faux rejets', graph: '6 schémas · relations sans barème' } as const)[activeProtocol]}</p>
     {activeProtocol !== 'graph' && (autoSequenceRunning && activeAutoStep
       ? <div className="diagram-fixture-run-controls diagram-lab-method diagram-lab-auto-engine" role="status"
         aria-label="Moteur de la batterie automatique">
@@ -520,8 +521,8 @@ export function ScientificDiagramProtocolPanel({
     {(activeProtocol === 'reference' || activeProtocol === 'arrows') && <section id="evaluation-diagram-fixture-launch" className="diagram-protocol-fixtures" aria-label="Schémas de référence intégrés">
       <div className="diagram-protocol-fixtures-heading">
         <div>
-          <h4>{activeProtocol === 'arrows' ? 'Flèches : témoin D et dessin E aux pointes inversées' : 'Qualité graphique : trois niveaux de référence A/B/C'}</h4>
-          <p>A/B/C : difficulté progressive. D/E : <strong>mêmes mots et mêmes structures</strong>, mais quatre flèches volontairement inversées en E. Barème sur 10 points et références provisoires à valider par un enseignant. La différence attendue ne sera jamais envoyée au modèle.</p>
+          <h4>{activeProtocol === 'arrows' ? 'Traits de rappel : témoin D et dessin E aux cibles incorrectes' : 'Qualité graphique : trois niveaux de référence A/B/C'}</h4>
+          <p>A/B/C : difficulté progressive. D/E : <strong>mêmes mots et mêmes structures</strong>, mais quatre traits de rappel arrivent à la mauvaise structure en E. Ce sont de simples traits sans pointes de flèche, comme sur un dessin d’observation. Barème sur 10 points et références provisoires à valider par un enseignant. La différence attendue ne sera jamais envoyée au modèle.</p>
         </div>
       </div>
       <div className="diagram-fixture-run-controls">
@@ -538,7 +539,7 @@ export function ScientificDiagramProtocolPanel({
           </Button>}
           {activeProtocol === 'arrows' && <Button variant="secondary" disabled={!canRunFixtures}
             onClick={() => { void runPreparedFixtures(SCIENTIFIC_DIAGRAM_POINTER_CASE_IDS); }}>
-            Tester les flèches D/E en un clic
+            Tester les traits D/E en un clic
           </Button>}
           {activeProtocol === 'arrows' && <Button variant="secondary"
             disabled={busy || fixtureLoading || !selectedProfiles.length
@@ -571,7 +572,7 @@ export function ScientificDiagramProtocolPanel({
             </p>}
             {fixture.labelPointerChallenge && <details>
               <summary>Voir les correspondances à vérifier</summary>
-              <p>{fixture.labelPointerChallenge.expected === 'incorrect' ? 'Flèches erronées attendues :' : 'Témoin sans erreur de flèche :'}</p>
+              <p>{fixture.labelPointerChallenge.expected === 'incorrect' ? 'Traits mal reliés attendus :' : 'Témoin avec traits corrects :'}</p>
               <ul>{fixture.labelPointerChallenge.descriptions.map((description) => <li key={description}>{description}</li>)}</ul>
             </details>}
             {fixture.referenceReview && <details>
@@ -598,7 +599,7 @@ export function ScientificDiagramProtocolPanel({
         </div>
         <div className="pilot-evaluation-table-scroll">
           <table className="pilot-evaluation-table">
-            <thead><tr><th>Schéma</th><th>Configuration</th><th>Parcours</th><th>Attendu</th><th>Notes obtenues</th><th>Exécution</th><th>Décisions récupérées</th><th>Justesse stricte</th><th>Légendes et flèches</th><th>Think (demande / trace)</th><th>Stabilité</th><th>Temps moyen</th></tr></thead>
+            <thead><tr><th>Schéma</th><th>Configuration</th><th>Parcours</th><th>Attendu</th><th>Notes obtenues</th><th>Exécution</th><th>Décisions récupérées</th><th>Justesse stricte</th><th>Légendes et traits</th><th>Think (demande / trace)</th><th>Stabilité</th><th>Temps moyen</th></tr></thead>
             <tbody>{fixtureReport.cases.flatMap((caseResult) => caseResult.summaries.map((summary) => {
               const experiments = caseResult.experiments.filter((experiment) => experiment.profileId === summary.profileId && experiment.method === summary.method);
               return <tr key={caseResult.caseId + '-' + summary.profileId + '-' + summary.method}>
@@ -891,7 +892,7 @@ export function ScientificDiagramProtocolPanel({
     </section>}
     <details className="diagram-lab-legacy">
       <summary>Essai libre avec un schéma personnel (fonction avancée)</summary>
-      <p>Fonction historique conservée, distincte des protocoles automatiques. Elle permet un essai avec votre propre image et un barème personnalisé.</p>
+      <p>Importez un schéma réel et lancez une analyse unique. Le barème est personnalisable ; les références du professeur et les répétitions sont facultatives.</p>
     <div className="diagram-protocol-inputs">
       <div className="diagram-protocol-import">
         <h4>1. Schéma et barème</h4>
@@ -911,8 +912,10 @@ export function ScientificDiagramProtocolPanel({
       </div>
       <div className="diagram-protocol-reference">
         <h4>2. Référence du professeur (facultatif)</h4>
-        <p className="pilot-evaluation-hint">Pour mesurer la justesse, indiquez ce qui est réellement visible sur cette copie. Sans référence, le test mesure seulement la répétabilité et la couverture ; il n’invente aucune note attendue.</p>
-        <div className="diagram-protocol-labels">
+        <p className="pilot-evaluation-hint">Sans référence, l’analyse fournit ses décisions et sa couverture, sans prétendre mesurer la justesse. La répétabilité nécessite plusieurs passages.</p>
+        <details className="diagram-protocol-reference-details">
+          <summary>Renseigner les observations attendues pour mesurer la justesse</summary>
+          <div className="diagram-protocol-labels">
           {rubric.criteria.map((criterion) => <fieldset key={criterion.id}>
             <legend>{criterion.title} · {criterion.maxPoints} pts</legend>
             {getRubricSubcriteria(criterion).map((sub) => {
@@ -938,22 +941,32 @@ export function ScientificDiagramProtocolPanel({
               </label>;
             })}
           </fieldset>)}
-        </div>
+          </div>
+        </details>
       </div>
     </div>
     <div id="evaluation-diagram-personal-launch" className="diagram-protocol-run">
-      <h4>3. Répéter à l’identique</h4>
+      <h4>3. Lancer l’analyse du schéma</h4>
+      <p className="pilot-evaluation-hint">Un passage suffit pour une première correction. Choisissez 3 ou 5 passages uniquement si vous souhaitez ensuite étudier la répétabilité.</p>
       <p className="pilot-evaluation-hint">Configurations : {selectedProfiles.length ? selectedProfiles.map((profile) =>
         profile.name + ' (' + selectDiagramMethods(profile, methodSelection).map((method) => diagramMethodLabels[method]).join(' / ') + ')').join(' · ') :
-        'Sélectionnez les profils dans « Configurations à exécuter » plus bas.'}</p>
+        'Aucune configuration active pour cet essai.'}</p>
+      {!selectedProfiles.length && <div className="diagram-personal-setup" role="status">
+        <p>Choisissez un modèle IA enregistré pour pouvoir lancer l’analyse.</p>
+        {onManageProfiles && <Button variant="secondary" onClick={onManageProfiles}>Choisir un modèle à tester</Button>}
+      </div>}
+      {!images.length && <p className="pilot-evaluation-hint">Importez d’abord le schéma à analyser (image ou PDF).</p>}
+      {!validation.valid && <p role="status" className="pilot-evaluation-hint">Le barème doit être valide pour lancer le test.</p>}
       {profileIssues.map((issue) => <p className="pilot-evaluation-hint" role="status" key={issue}>{issue}</p>)}
       <div className="pilot-evaluation-actions">
-        <label htmlFor="diagram-protocol-repeat-count">Répétitions</label>
+        <label htmlFor="diagram-protocol-repeat-count">Passages du schéma personnel</label>
         <DesignSystemSelect id="diagram-protocol-repeat-count" disabled={busy} value={repetitions}
-          onChange={(event) => setRepetitions(event.currentTarget.value === '5' ? 5 : 3)}>
-          <option value={3}>3 passages</option><option value={5}>5 passages</option>
+          onChange={(event) => setRepetitions(event.currentTarget.value === '5' ? 5 : event.currentTarget.value === '3' ? 3 : 1)}>
+          <option value={1}>1 passage — analyse simple</option>
+          <option value={3}>3 passages — répétabilité</option>
+          <option value={5}>5 passages — répétabilité</option>
         </DesignSystemSelect>
-        <Button disabled={!canRun} onClick={() => { void start(); }}>Tester le schéma en un clic</Button>
+        <Button disabled={!canRun} onClick={() => { void start(); }}>Analyser mon schéma</Button>
         {busy && <Button variant="secondary" onClick={stopProtocol}>Arrêter maintenant</Button>}
       </div>
       {(progress || message) && <p role="status" className="pilot-evaluation-message">{message || progress}</p>}
@@ -975,7 +988,7 @@ export function ScientificDiagramProtocolPanel({
             <td>{summary.runsCompleted}/{summary.plannedRepetitions}</td>
             <td>{summary.accuracyPercent === null ? 'Non mesurable' : summary.accuracyPercent + ' %'}{summary.labelledTargets ? ' (' + summary.labelledTargets + ' références)' : ''}</td>
             <td>{summary.coveragePercent === null ? '—' : summary.coveragePercent + ' %'}</td>
-            <td>{summary.stableResolvedTargets === null ? 'Série incomplète' : summary.stableResolvedTargets + '/' + summary.totalTargets}</td>
+            <td>{summary.plannedRepetitions === 1 ? 'Non mesuré (1 passage)' : summary.stableResolvedTargets === null ? 'Série incomplète' : summary.stableResolvedTargets + '/' + summary.totalTargets}</td>
             <td>{summary.meanDurationMs === null ? '—' : (summary.meanDurationMs / 1000).toFixed(1) + ' s'}</td>
           </tr>)}</tbody>
         </table>

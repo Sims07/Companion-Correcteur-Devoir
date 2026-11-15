@@ -24,6 +24,8 @@ export function MethodRadarComparison({sorted, axes, gallery}: {sorted:TimelineP
   const activeProtocol = !gallery && protocols.includes(protocol) ? protocol : '';
   const candidates = activeProtocol ? sorted.filter(p => p.protocolLabel === activeProtocol) : sorted;
   const methods = [...new Set(candidates.map(p => p.label))];
+  const comparesGraphDetectors = methods.some(label => label.includes('longs traits (#438)')) &&
+    methods.some(label => label.includes('petites pointes (#439)'));
   // Start with the latest complete campaign for each method, even after a targeted rerun.
   const representatives = methods.map(m => candidates.find(p => p.label === m && isFull(p, axes)) ?? candidates.find(p => p.label === m)!);
   const preferred = [...representatives].sort((a,b) => Number(isFull(b,axes)) - Number(isFull(a,axes)) || b.date.localeCompare(a.date));
@@ -33,6 +35,11 @@ export function MethodRadarComparison({sorted, axes, gallery}: {sorted:TimelineP
   const series = second ? [first, second] : [first];
   const ring = (r:number) => axes.map((_,i) => position(i,axes.length,r)).map(p => p.x+','+p.y).join(' ');
   return <section className="lab-radar"><h3>Comparer les radars par méthode</h3>
+    {comparesGraphDetectors && <p className="lab-scope">
+      Les détecteurs #438 et #439 diffèrent sur l’extraction du graphe S0–S5.
+      Les autres batteries utilisent le même moteur de lecture ; des scores égaux sur ces axes sont attendus.
+      Pour les départager, comparez surtout « Lecture des relations » et « Performance ».
+    </p>}
     {gallery ?? <><label className="lab-scope">Campagnes comparées<select value={activeProtocol} onChange={e => setProtocol(e.target.value)}>
       <option value="">Radar complet en priorité</option>{protocols.map(name => <option key={name}>{name}</option>)}</select></label>
     <div className="lab-radar-layout"><div className="lab-method-series">{series.map((p,index) =>

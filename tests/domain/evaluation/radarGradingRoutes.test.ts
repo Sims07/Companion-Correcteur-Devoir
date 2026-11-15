@@ -17,11 +17,12 @@ const plan = (method: ScienceMethod) => ({
 describe('parcours réels de correction dans le Radar', () => {
   it.each([
     'graph-first-v1', 'graph-first-v2', 'vision-then-analysis',
-    'direct-image-generative', 'direct-image-generative-thinking',
+    'image-direct-v1', 'direct-image-generative-thinking',
   ] as const)('conserve le moteur %s pour chaque batterie de notation', method => {
     const result = resolveModelProfile([local], 'model', candidate, plan(method));
+    const engine = method === 'image-direct-v1' ? 'direct-image-generative' : method;
     expect(result?.steps.filter(step => step.protocol !== 'graph').map(step => step.method))
-      .toEqual([method, method, method]);
+      .toEqual([engine, engine, engine]);
     expect(result?.steps.find(step => step.protocol === 'graph')?.method).toBe('compare');
   });
 

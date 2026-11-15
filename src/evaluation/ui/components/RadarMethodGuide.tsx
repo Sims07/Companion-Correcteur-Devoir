@@ -96,8 +96,8 @@ export function RadarMethodGuide({ domain }: { domain: RadarMethodDomain }) {
       <MethodScientificDetails entry={selected}/>
     </div>}
     {domain === 'diagrams' && <p className="lab-guide-disclaimer">
-      Les détecteurs #438 et #439 apportent des indices géométriques locaux au modèle Vision : ils ne prouvent pas, à eux seuls,
-      qu’une relation scientifique est correcte. Les autres batteries utilisent leur propre moteur de correction.
+      La correction directe reçoit l’image et le barème dans un même modèle multimodal. Les détecteurs #438 et #439 apportent
+      seulement des indices à la lecture du graphe ; la batterie Relations est indépendante et ne fait pas partie de la chaîne de notation directe.
     </p>}
   </section>;
 }

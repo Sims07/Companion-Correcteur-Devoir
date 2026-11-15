@@ -12,13 +12,18 @@ test('shows the app version in the header and offers reload for another publishe
   const version = page.getByRole('button', { name: /Version de l’application/ });
   await expect(version).toBeVisible();
   await expect(version).toContainText('v0.3.0');
+  await expect(version).not.toContainText('local');
   await expect(version).toContainText('Mise à jour');
   await version.click();
-  await expect(page.getByRole('status').getByText('Nouvelle version disponible.')).toBeVisible();
+  await expect(page.getByRole('status').getByText('Une nouvelle version est disponible.')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Nouveautés de cette version' })).toBeVisible();
+  await expect(page.getByText('Les nouveautés seront disponibles pour une version publiée.')).toBeVisible();
+  await expect(page.getByText('Identifiant du build :')).toBeHidden();
   await expect(page.getByRole('button', { name: 'Recharger la dernière version' })).toBeVisible();
   // Local/PR builds do not point to a release that has not been published.
   await expect(page.getByRole('link', { name: 'Voir la release GitHub' })).toHaveCount(0);
-  await expect(page.getByRole('link', { name: 'Voir le build sur GitHub' })).toBeVisible();
+  await page.getByText('Détails techniques').click();
+  await expect(page.getByRole('link', { name: 'Voir le commit sur GitHub' })).toBeVisible();
 
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(version).toBeVisible();
@@ -29,6 +34,6 @@ test('does not claim the installed version is current if the published version i
   await page.route('**/version.json', (route) => route.abort());
   await page.goto('/');
   await page.getByRole('button', { name: /Version de l’application/ }).click();
-  await expect(page.getByRole('status').getByText(/Impossible de confirmer la dernière version/)).toBeVisible();
+  await expect(page.getByRole('status').getByText(/Vérification des mises à jour indisponible/)).toBeVisible();
   await expect(page.getByRole('button', { name: 'Recharger la dernière version' })).toHaveCount(0);
 });

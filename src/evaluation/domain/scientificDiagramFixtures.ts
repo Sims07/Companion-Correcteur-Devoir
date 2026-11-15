@@ -9,14 +9,14 @@ export const SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC: Rubric = {
   title: 'Mitose végétale — schéma scientifique (10 points)',
   criteria: [
     // The embedded exercise tests both visibility and the actual geometric
-    // connection between a written legend and its arrow endpoint. It does
+    // connection between a written legend and its line endpoint. It does
     // not modify the user's general teacher rubric.
     ...structuredClone(SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC.criteria).map((criterion) => (
       criterion.id === 'legends' ? {
         ...criterion,
         subcriteria: criterion.subcriteria?.map((sub) => sub.id === 'legends-visible'
-          ? { ...sub, title: 'Légendes : structures visibles et flèches correctes',
-            description: 'Une légende doit nommer une structure dessinée ET son trait de rappel doit réellement pointer cette structure. Des mots exacts reliés à une autre structure ne valident pas cet attendu.' }
+          ? { ...sub, title: 'Légendes : structures visibles et traits de rappel corrects',
+            description: 'Pour chaque légende, suivre le trait de rappel depuis le texte jusqu’à son extrémité dans le dessin : la structure réellement touchée doit correspondre au mot écrit. Une ligne sans pointe de flèche est suffisante ; des mots corrects reliés à une autre structure ne valident pas cet attendu.' }
           : sub),
       } : criterion
     )),
@@ -145,7 +145,7 @@ function makeCase(id: ScientificDiagramFixtureId, label: string, description: st
 
 /** Both D and E use horizontal rows of legends, not the single column
  * required by the teacher rubric. Calibrate that defect identically in the
- * control and the trap; only the arrow-endpoint criterion should differ. */
+ * control and the trap; only the leader-line endpoint criterion should differ. */
 const POINTER_LAYOUT_TARGET = diagramTargetKey('legends', 'legends-aligned');
 const pointerControlPoints = Object.fromEntries(SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC.criteria.flatMap((criterion) =>
   getRubricSubcriteria(criterion).map((sub) => [
@@ -159,8 +159,8 @@ const POINTER_LAYOUT_OBSERVATION = {
   reason: 'Les légendes sont disposées en lignes sous les cellules, et non alignées en colonne comme l’exige le barème.',
 } as const;
 const POINTER_LABELS = [
-  'En métaphase : « Chromosomes » pointe le fuseau et « Fuseau mitotique » pointe les chromosomes.',
-  'En télophase : « Noyau fils » pointe la plaque cellulaire et « Plaque cellulaire » pointe le noyau fils.',
+  'En métaphase : le trait de « Chromosomes » arrive au fuseau et celui de « Fuseau mitotique » arrive aux chromosomes.',
+  'En télophase : le trait de « Noyau fils » arrive à la plaque cellulaire et celui de « Plaque cellulaire » arrive au noyau fils.',
 ] as const;
 
 /** Generated scenarios, not a teacher-certified dataset. */
@@ -176,14 +176,14 @@ export const SCIENTIFIC_DIAGRAM_FIXTURES: readonly ScientificDiagramFixtureCase[
         'title-horizontal': 'Le texte « cellule ? » est écrit horizontalement : ce critère de forme est acquis malgré un titre scientifiquement incomplet.',
         'title-emphasis': 'Un trait de soulignement est visible sous « cellule ? ». Le critère accepte un titre souligné indépendamment de son contenu.',
       } } },
-  { ...makeCase('D', 'D — témoin, flèches justes', 'Mêmes quatre phases, mêmes mots et même barème que E ; flèches correctes, mais légendes non alignées en colonne.', pointerControlPoints),
+  { ...makeCase('D', 'D — témoin, traits corrects', 'Mêmes phases, mêmes mots et même barème que E ; traits de rappel vers les bonnes structures, mais légendes non alignées en colonne.', pointerControlPoints),
     layoutObservation: POINTER_LAYOUT_OBSERVATION,
     labelPointerChallenge: {
       kind: 'label-pointer-correspondence', expected: 'correct',
       criterionKey: SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET,
-      descriptions: ['Les flèches correspondent aux noms écrits, y compris fuseau, chromosomes, noyau fils et plaque cellulaire.'],
+      descriptions: ['Les traits de rappel relient les noms aux bonnes structures : fuseau, chromosomes, noyau fils et plaque cellulaire.'], 
     } },
-  { ...makeCase('E', 'E — piège, flèches inversées', 'Même dessin et mêmes mots que D ; quatre flèches erronées et légendes non alignées en colonne.', wrongPointerPoints),
+  { ...makeCase('E', 'E — piège, traits mal reliés', 'Même dessin et mêmes mots que D ; quatre traits de rappel aboutissent aux mauvaises structures.', wrongPointerPoints),
     layoutObservation: POINTER_LAYOUT_OBSERVATION,
     labelPointerChallenge: {
       kind: 'label-pointer-correspondence', expected: 'incorrect',
@@ -192,7 +192,7 @@ export const SCIENTIFIC_DIAGRAM_FIXTURES: readonly ScientificDiagramFixtureCase[
 ];
 
 export const SCIENTIFIC_DIAGRAM_FIXTURE_CONTEXT =
-  'Travail universitaire de biologie : réaliser un dessin scientifique montrant la mitose d’une cellule végétale, avec interphase, télophase et phragmoplaste visible, puis deux autres étapes distinctes choisies parmi prophase, métaphase, anaphase. Vérifier la qualité graphique, le titre, les légendes (y compris le point d’arrivée de chaque trait de rappel) et la présence des étapes réellement dessinées.';
+  'Travail universitaire de biologie : dessin scientifique d’observation de cellules végétales au microscope montrant la mitose, avec interphase, télophase et phragmoplaste visible, puis deux autres étapes distinctes choisies parmi prophase, métaphase, anaphase. Vérifier la qualité graphique, le titre, les légendes et le point d’arrivée réel de chaque trait de rappel, sans exiger de pointe de flèche, ainsi que les étapes réellement dessinées.';
 
 /** The actual physical destinations are private test references, never input
  * to the rubric-blind V2 Vision call. D/E share texts but four endpoints swap. */
@@ -335,10 +335,10 @@ export function buildScientificDiagramFixtureReport(
   });
   return {
     format: 'companion-scientific-diagram-fixture-report' as const,
-    version: 6,
+    version: 7,
     diagnosticSchemaVersion: 1,
     pairedDiagnostics,
-    protocolId: 'scientific-diagram-generated-a-b-c-plus-label-pointers-v6',
+    protocolId: 'scientific-diagram-generated-a-b-c-plus-label-pointers-v7',
     createdAt,
     plannedRepetitions,
     rubric: structuredClone(SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC),
@@ -346,7 +346,7 @@ export function buildScientificDiagramFixtureReport(
     localOnly: runs.every(({ record }) => record.configurations.every((config) => {
       try { return ['localhost', '127.0.0.1', '[::1]'].includes(new URL(config.endpoint).hostname); } catch { return false; }
     })),
-    limitations: 'Cinq dessins synthétiques (A/B/C et paire contrôlée D/E), références PROVISOIRES non validées par un enseignant. A=9,84/10, B=7,36/10, C=0,66/10, D=9,34/10, E=8,66/10. Revue du 12 novembre 2026 : A perd 0,16 point au titre incomplet (cellule végétale et coupe indiquées, mais organe et organisme absents) ; C gagne 0,33 point au titre souligné, en plus de son orientation horizontale déjà reconnue le 11 novembre. Le contenu « cellule ? » reste insuffisant et ne valide pas le sujet du titre. Les autres appréciations de C, notamment la qualité des légendes, restent à arbitrer par un enseignant. Les anciens rapports et archives conservent leurs références d’origine pour traçabilité ; le radar recalcule la justesse A/B/C sur les décisions sauvegardées en utilisant la référence v6 lorsque les 19 critères sont identiques. D et E perdent chacun 0,66 point au critère « Légendes alignées en colonne », car leurs légendes sont en lignes. Les deux images ne diffèrent que par quatre destinations de flèches : seul le critère « Légendes : structures visibles et flèches correctes » (0,68 point) change entre D et E. Ces pénalités suivent le barème du pilote, mais les notes totales restent des références provisoires à confirmer par un enseignant. Les images, clés, endpoints et réponses brutes ne sont jamais exportés.',
+    limitations: 'Cinq dessins synthétiques (A/B/C et paire contrôlée D/E), références PROVISOIRES non validées par un enseignant. A=9,84/10, B=7,36/10, C=0,66/10, D=9,34/10, E=8,66/10. Revue du 12 novembre 2026 : A perd 0,16 point au titre incomplet (cellule végétale et coupe indiquées, mais organe et organisme absents) ; C gagne 0,33 point au titre souligné, en plus de son orientation horizontale déjà reconnue le 11 novembre. Le contenu « cellule ? » reste insuffisant et ne valide pas le sujet du titre. Les autres appréciations de C, notamment la qualité des légendes, restent à arbitrer par un enseignant. Les anciens rapports et archives conservent leurs références d’origine pour traçabilité ; le radar recalcule la justesse A/B/C sur les décisions sauvegardées en utilisant la référence v7 lorsque les 19 critères sont identiques. D et E perdent chacun 0,66 point au critère « Légendes alignées en colonne », car leurs légendes sont en lignes. D/E utilisent désormais des traits de rappel sans pointe de flèche, conformément aux dessins d’observation. Les deux images ne diffèrent que par quatre destinations de traits : seul le critère « Légendes : structures visibles et traits de rappel corrects » (0,68 point) change entre D et E. Les résultats D/E de la version 6 ne sont pas directement comparables à ceux de la version 7 (dessins de test modifiés). Ces pénalités suivent le barème du pilote, mais les notes totales restent des références provisoires à confirmer par un enseignant. Les images, clés, endpoints et réponses brutes ne sont jamais exportés.',
     cases,
   };
 }

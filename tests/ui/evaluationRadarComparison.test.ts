@@ -224,8 +224,8 @@ it('launches every remaining scientific strategy as independent, sequentially ex
   expect(runScienceBatch).toHaveBeenCalledOnce();
   const requests = runScienceBatch.mock.calls[0]![0];
   expect(requests.map((request: {trial: {method: string}}) => request.trial.method))
-    .toEqual(['graph-first-v1', 'leaders-v1', 'pixel-v1', 'direct-v1', 'guided-v1',
-        'graph-first-v2', 'vision-then-analysis', 'direct-image-generative', 'direct-image-generative-thinking']);
+    .toEqual(['image-direct-v1', 'graph-first-v1', 'leaders-v1', 'pixel-v1', 'direct-v1', 'guided-v1',
+        'graph-first-v2', 'vision-then-analysis', 'direct-image-generative-thinking']);
   expect(new Set(requests.map((request: {trial: {id: string}}) => request.trial.id)).size).toBe(9);
   expect(requests.every((request: {modelId: string; steps: unknown[]}) =>
     request.modelId === models[0] && request.steps.length === 4)).toBe(true);
@@ -362,7 +362,7 @@ it('keeps four successive scientific methods as four independently selectable ra
 });
 
 
-it('audits all ten scientific methods and schedules only compatible pending trials from one button', async () => {
+it('audits all ten scientific methods and schedules only pending method trials from one button', async () => {
   const node = document.createElement('div');
   document.body.append(node);
   const root = createRoot(node);
@@ -394,7 +394,7 @@ it('audits all ten scientific methods and schedules only compatible pending tria
   const targeted = audit.querySelector<HTMLButtonElement>('tbody tr button')!;
   await act(async () => targeted.click());
   expect(runScience).toHaveBeenCalledWith(expect.objectContaining({
-    trial: expect.objectContaining({method: 'graph-first-v1'}),
+    trial: expect.objectContaining({method: 'image-direct-v1'}),
     steps: expect.arrayContaining([expect.objectContaining({protocol: 'graph'})]),
   }));
   await act(async () => root.unmount());

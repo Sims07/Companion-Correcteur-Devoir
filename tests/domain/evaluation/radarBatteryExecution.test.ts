@@ -28,6 +28,17 @@ describe('radar battery execution labels', () => {
     expect(graph.batteryIndex).toBe(4);
     expect(graph.selectedMethod).toBe(describeRadarBattery(request, 0).selectedMethod);
   });
+  it('executes the direct-image baseline as a grading method, without mistaking graph extraction for grading', () => {
+    const direct = { ...request, trial: { ...request.trial!, method: 'image-direct-v1' as const },
+      steps: trialSteps('image-direct-v1') };
+    expect(direct.steps.map(step => step.method)).toEqual([
+      'direct-image-generative', 'direct-image-generative', 'direct-image-generative', 'compare',
+    ]);
+    expect(direct.steps[3]?.graphVariant).toBe('baseline');
+    expect(describeRadarBattery(direct, 0).selectedMethod).toContain('correction directe');
+    expect(describeRadarBattery(direct, 0).engineLabel).toBe('Image → génératif direct');
+    expect(describeRadarBattery(direct, 3).engineLabel).toBe('Extraction de graphe · Lecture directe du graphe');
+  });
   it('does not mislabel an independent graph as a direct generative engine', () => {
     expect(radarBatteryEngine({ ...request.steps[3]!, graphVariant: 'baseline' }))
       .toContain('Lecture directe du graphe');

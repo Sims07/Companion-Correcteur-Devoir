@@ -7,7 +7,7 @@ test('scientific fixtures can be enlarged, rotated, zoomed and closed without ch
   await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Tests', exact: true }).click();
   await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: /Schémas scientifiques/ }).click();
   const panel = page.getByRole('region', { name: 'Protocole schémas scientifiques' });
-  await panel.getByRole('tab', { name: /Sens des flèches/ }).click();
+  await panel.getByRole('tab', { name: /Traits de rappel/ }).click();
   const images = panel.getByRole('region', { name: 'Schémas de référence intégrés' });
   await images.getByRole('button', { name: /Agrandir : Schéma de mitose végétale — E/ }).click();
   const viewer = page.getByRole('dialog', { name: /Visualiseur : Schéma de mitose végétale — E/ });
@@ -148,8 +148,8 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
   await expect(results).toBeVisible({ timeout: 30_000 });
   await expect(results.locator('tbody tr')).toHaveCount(3);
   await expect(activity).toContainText('TEST TERMINÉ');
-  await activity.getByRole('button', { name: 'Voir les résultats' }).click();
-  await expect(results).toBeVisible();
+  // The detailed inline results remain available before navigating to the
+  // archived campaign; the activity button now opens that exact campaign.
   // All 19 native image decisions remain measurable even if a resulting
   // provisional grade needs teacher review.
   await expect(results.getByText('19/19', { exact: true })).toHaveCount(3);
@@ -169,6 +169,12 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
     }[] }[] }[];
   };
   expect(complete.cases.flatMap((entry) => entry.experiments)).toHaveLength(3);
+  await activity.getByRole('button', { name: 'Voir le bilan de cette campagne' }).click();
+  const archived = page.getByRole('region', { name: 'Campagnes de test scientifiques' });
+  await expect(archived.getByRole('region', { name: 'Bilan du test sélectionné' }))
+    .toContainText('Axe concerné : Qualité graphique');
+  await expect(archived.getByRole('heading', { name: 'Résultats par schéma et configuration' })).toBeVisible();
+  await expect(archived.locator('.diagram-lab-history-detail')).toContainText('Qualité graphique');
   // One run must not be presented as proof that a model is "always correct".
   expect(complete.cases.flatMap((entry) => entry.summaries)
     .flatMap((summary) => summary.decisions)
@@ -260,12 +266,12 @@ test('paired D/E diagrams test the pointed structure, not just the written label
   await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Tests', exact: true }).click();
   await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: /Schémas scientifiques/ }).click();
   const panel = page.getByRole('region', { name: 'Protocole schémas scientifiques' });
-  await panel.getByRole('tab', { name: /Sens des flèches/ }).click();
+  await panel.getByRole('tab', { name: /Traits de rappel/ }).click();
   const fixtures = panel.getByRole('region', { name: 'Schémas de référence intégrés' });
   const cards = fixtures.locator('.diagram-fixture-card');
   await expect(cards).toHaveCount(2);
-  await expect(cards.nth(0).getByText('D — témoin, flèches justes')).toBeVisible();
-  await expect(cards.nth(1).getByText('E — piège, flèches inversées')).toBeVisible();
+  await expect(cards.nth(0).getByText('D — témoin, traits corrects')).toBeVisible();
+  await expect(cards.nth(1).getByText('E — piège, traits mal reliés')).toBeVisible();
   await expect(cards.nth(0).getByText('9.34/10 attendu')).toBeVisible();
   await expect(cards.nth(1).getByText('8.66/10 attendu')).toBeVisible();
   await expect(cards.nth(0).getByText(/Alignement en colonne : 0\/0\.66 pt/)).toBeVisible();
@@ -274,7 +280,7 @@ test('paired D/E diagrams test the pointed structure, not just the written label
   const modelDialog = page.getByRole('dialog', { name: 'Gérer les configurations IA' });
   await modelDialog.getByRole('checkbox').first().check();
   await modelDialog.getByRole('button', { name: 'Terminer' }).click();
-  await fixtures.getByRole('button', { name: 'Tester les flèches D/E en un clic' }).click();
+  await fixtures.getByRole('button', { name: 'Tester les traits D/E en un clic' }).click();
   const results = fixtures.getByRole('region', { name: 'Résultats des schémas scientifiques' });
   await expect(results.locator('tbody tr')).toHaveCount(2, { timeout: 30_000 });
   await expect(results.getByText('1/1 détection(s)', { exact: true })).toBeVisible();
@@ -395,7 +401,7 @@ test(scenario.model + ' compares Think OFF/ON on E with runtime Ollama capabilit
   await modelDialog.getByRole('button', { name: 'Terminer' }).click();
   await panel.getByRole('combobox', { name: 'Méthode de correction scientifique à tester' })
     .selectOption('compare-thinking');
-  await panel.getByRole('tab', { name: /Sens des flèches/ }).click();
+  await panel.getByRole('tab', { name: /Traits de rappel/ }).click();
   const fixtures = panel.getByRole('region', { name: 'Schémas de référence intégrés' });
   await fixtures.locator('.diagram-fixture-card').nth(1)
     .getByRole('button', { name: 'Tester ce schéma' }).click();

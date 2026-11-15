@@ -2265,6 +2265,15 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
       setShowAiSettings(false);
       setShowAssignmentsHome(false);
       setInterfaceMode('diagnostic');
+      if (item.campaignId && item.journey === 'diagrams') {
+        setReportId(item.campaignId);
+        setEvaluationJourney('diagrams');
+        setBiologyRadarOpen(false);
+        setEvaluationJumpTarget(null);
+        setDiagramLabView('history');
+        setEvaluationWorkspaceStep('configuration');
+        return;
+      }
       if (item.campaignId) { showCampaigns({ domain: item.journey, ids: [item.campaignId] }); return; }
       setBiologyRadarOpen(false);
       setEvaluationJourney(item.journey ?? 'custom');
@@ -2283,6 +2292,18 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
   function showEvaluationActivity() {
     if (!evaluationActivity) return;
     if (evaluationActivity.campaignId && evaluationActivity.status !== 'running' && evaluationActivity.journey === 'biology') { showCampaigns({ domain: 'biology', ids: [evaluationActivity.campaignId] }); return; }
+    // A finished scientific test has a persisted, deterministic campaign ID.
+    // Open its evidence directly instead of sending the teacher back to the
+    // crowded protocol launcher (which may show a different active battery).
+    if (evaluationActivity.campaignId && evaluationActivity.status !== 'running' && evaluationActivity.journey === 'diagrams') {
+      setReportId(evaluationActivity.campaignId);
+      setEvaluationJourney('diagrams');
+      setBiologyRadarOpen(false);
+      setEvaluationJumpTarget(null);
+      setDiagramLabView('history');
+      setEvaluationWorkspaceStep('configuration');
+      return;
+    }
     setBiologyRadarOpen(false);
     setEvaluationJourney(evaluationActivity.journey);
     // Keep the live stage selected by the active runner; the initial scenario can differ from it.
@@ -2849,6 +2870,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
                 model, zoom: Boolean(request.zoomUncertainArrows), promptVariant: request.promptVariant ?? 'baseline', provider: profile.configuration.apiCompatible ? 'openai-compatible' : 'ollama-local',
                 remote: !isLoopbackPilotEndpoint(profile.configuration.endpoint),
                 status: 'success', durationMs: Math.round(performance.now() - started),
+                providerDurationMs: diagnostic?.providerDurationMs ?? null,
                 observations: compareBlindVisualGraph(graph), graph, diagnostic,
                 relationDetails: explainBlindVisualGraph(graph),
                 arrowCount: graph.arrows.length, containmentCount: graph.containment.length,
@@ -4137,7 +4159,9 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
         <div className="evaluation-activity-actions">
           <button type="button" className="primary-button" onClick={showEvaluationActivity}>
             {evaluationActivity.status === 'running' ? 'Suivre ce test'
-              : evaluationActivity.status === 'completed' ? 'Voir les résultats' : 'Consulter ce test'}
+              : evaluationActivity.journey === 'diagrams' && evaluationActivity.campaignId
+                ? 'Voir le bilan de cette campagne'
+                : evaluationActivity.status === 'completed' ? 'Voir les résultats' : 'Consulter ce test'}
           </button>
           {evaluationActivity.status === 'running' && <Button variant="secondary" onClick={evaluationActivity.journey === 'custom' ? cancelModelEvaluation : stopPilotProtocol}>Arrêter maintenant</Button>}
           {evaluationActivity.status !== 'running' && <button type="button" className="evaluation-activity-dismiss" aria-label="Masquer le bandeau" title="Masquer le bandeau" onClick={() => setEvaluationActivity(null)}>×</button>}
@@ -4175,6 +4199,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
           onRunSensitivity={(request) => followEvaluation({ title: 'Schémas scientifiques · sensibilité sémantique', journey: 'diagrams', targetId: 'evaluation-diagram-sensitivity-results', profiles: selectedEvaluationProfiles.map((profile) => profile.name).join(' · ') }, () => runScientificDiagramSensitivity(request))}
           onRunBlindGraph={(request) => followEvaluation({ title: 'Schémas scientifiques · graphe de relations', journey: 'diagrams', targetId: 'evaluation-diagram-graph-results', profiles: selectedEvaluationProfiles.map((profile) => profile.name).join(' · ') }, () => runScientificDiagramBlindGraph(request))}
           onStop={stopPilotProtocol}
+          onManageProfiles={() => setManagingEvaluationProfiles(true)}
           report={diagramProtocolReport}
           fixtureReport={diagramFixtureReport}
           sensitivityReport={diagramSensitivityReport}

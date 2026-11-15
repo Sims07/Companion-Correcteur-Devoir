@@ -12,6 +12,17 @@ export interface RadarMethodDescription {
 }
 
 export const SCIENCE_METHOD_DESCRIPTIONS: Record<ScienceMethod, RadarMethodDescription> = {
+  'image-direct-v1': {
+    principle: 'Méthode témoin : fournir au LLM multimodal les pixels du schéma et le barème de correction dans un même parcours génératif. Le modèle décide directement des points par critère, sans OCR, extraction de graphe ou détecteur géométrique en amont.',
+    steps: [
+      'Envoyer les images originales du schéma et les attendus du barème au modèle multimodal sélectionné.',
+      'Demander les décisions, les justifications et les points par critère en une correction directe.',
+      'Vérifier la structure de la réponse et comparer les décisions à la correction de référence du professeur.',
+    ],
+    interest: 'Référence indispensable pour savoir si un graphe, un guidage ou des détecteurs améliorent vraiment la qualité et la vitesse de correction.',
+    limitations: 'Le modèle peut halluciner des structures, interpréter le sens attendu plutôt que le tracé et attribuer une note plausible mais incorrecte. Le format de sortie peut être incomplet ; une réparation éventuelle coûte un appel supplémentaire.',
+    radarScope: 'A/B/C, D/E et Biologie S0–S5 emploient « Image → génératif direct » (sans OCR ni graphe). La batterie Relations S0–S5 reste une extraction indépendante « baseline », mesurée à part : elle n’est pas un préalable à la correction et ne prouve pas la qualité de la notation directe.',
+  },
   'pixel-v1': {
     principle: 'Analyse géométrique locale des petites pointes de flèches, suivie d’une vérification par le modèle Vision. Le nom « petites pointes » désigne les extrémités en forme de triangle ou de coin, pas des flèches plus courtes.',
     steps: [
@@ -90,17 +101,6 @@ export const SCIENCE_METHOD_DESCRIPTIONS: Record<ScienceMethod, RadarMethodDescr
     interest: 'Permet de combiner deux modèles spécialisés et de distinguer lecture et correction.',
     limitations: 'L’analyse ne revoit pas les pixels : une erreur OCR ou de connexion peut devenir définitive. Deux appels peuvent aussi coûter plus cher.',
     radarScope: 'Vision → analyse pour la notation ; la batterie de graphe utilise une observation visuelle indépendante.',
-  },
-  'direct-image-generative': {
-    principle: 'Méthode témoin : envoyer directement la photographie du schéma ET le barème au LLM multimodal, sans OCR ni graphe préalable, avec Think OFF.',
-    steps: [
-      'Envoyer image et critères au modèle génératif Vision.',
-      'Lui demander directement les points, décisions et justifications par critère.',
-      'Comparer chaque décision au professeur, pas seulement la note totale.',
-    ],
-    interest: 'Mesure la correction de bout en bout par un seul modèle, sans pipeline intermédiaire.',
-    limitations: 'Le modèle peut inventer des relations vraisemblables ou manquer une flèche inversée en donnant une note apparemment correcte.',
-    radarScope: 'Parcours direct image → correction sur les batteries de notation ; le graphe indépendant reste un contrôle séparé.',
   },
   'direct-image-generative-thinking': {
     principle: 'Même méthode directe image + barème → LLM génératif, avec le mode Think demandé explicitement à Ollama compatible.',

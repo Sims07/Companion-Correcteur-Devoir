@@ -104,13 +104,14 @@ export function RadarPlot({ candidates, onAxis, colors }: {
   </svg>;
 }
 
-export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, profileIds, profiles = [], busy }: {
+export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, profileIds, profiles = [], busy, initialAxis = 'arrows' }: {
   entries: DiagramLabArchiveEntry[];
   onOpenReport: (id: string) => void;
   onRunMissing: (request: Omit<RadarMissingTestRequest, 'id'>) => void;
   profileIds: readonly string[];
   profiles?: readonly RadarModelConfiguration[];
   busy: boolean;
+  initialAxis?: RadarAxisId;
 }) {
   const [grouping, setGrouping] = useState<RadarGrouping>('model');
   const [modelId, setModelId] = useState(restoredModelId);
@@ -123,7 +124,7 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
     return (key as 'scientific' | 'balanced' | 'throughput' | undefined) ?? 'custom';
   });
   const [picked, setPicked] = useState<string[] | null>(null);
-  const [axis, setAxis] = useState<RadarAxisId>('arrows');
+  const [axis, setAxis] = useState<RadarAxisId>(initialAxis);
   const [focus, setFocus] = useState('');
   const candidates = useMemo(() => buildDiagramLabRadar(entries, grouping, profiles), [entries, grouping, profiles]);
   const filtered = useMemo(() => grouping !== 'method' ? candidates : candidates.filter((candidate) =>

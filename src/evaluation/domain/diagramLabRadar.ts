@@ -4,7 +4,7 @@ import { diagramLabProtocolLabels, type DiagramLabArchiveEntry, type DiagramLabP
 
 export const RADAR_AXES = [
   { id: 'graphics', label: 'Qualité graphique', short: 'Graphisme', detail: 'Accord des décisions visuelles avec les références A/B/C.' },
-  { id: 'arrows', label: 'Sens des flèches', short: 'Flèches', detail: 'Correspondances exactes sur la paire témoin D et piège E.' },
+  { id: 'arrows', label: 'Correspondance des légendes', short: 'Légendes', detail: 'Destination réelle de chaque trait de rappel des dessins au microscope D/E, sans pointe de flèche requise.' },
   { id: 'precision', label: 'Précision de lecture', short: 'Précision', detail: 'Décisions visuelles exactes sur les campagnes complètes A/B/C et D/E. Chaque attendu compte une fois par passage : ce score mesure la justesse, pas seulement les réponses renseignées.' },
   { id: 'biology', label: 'Cohérence biologique', short: 'Biologie', detail: 'Mutations S1/S2/S3 détectées après observation correcte du témoin S0.' },
   { id: 'relations', label: 'Lecture des relations', short: 'Relations', detail: 'Extraction indépendante : mutations reconnues et relations correctes préservées.' },
@@ -296,7 +296,7 @@ function makeCandidateAxes(batteries: Map<DiagramLabProtocol, Battery>, stabilit
   const measurableGraph = relationsBattery ?? graph;
   const relationFractions = measurableGraph ? sensitivityFractions(measurableGraph.readings) : null;
   const graphics = fromFraction(reference, 'Accord avec A/B/C', reference ? goldAccuracy(reference) : null, 'A/B/C non exécutés ou sans décision exploitable.');
-  const arrowScore = fromFraction(arrows, 'Correspondance sur D/E', arrows ? goldAccuracy(arrows, SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET) : null, 'Paire D/E non complète ou sans décision sur les flèches.');
+  const arrowScore = fromFraction(arrows, 'Correspondance sur D/E', arrows ? goldAccuracy(arrows, SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET) : null, 'Paire D/E non complète ou sans décision sur les traits de rappel.');
   // Aggregate labelled decisions, not per-drawing or per-campaign percentages.
   // A complete D/E campaign alone can populate this axis from old archives;
   // A/B/C contributes its 19 targets per drawing when a complete series exists.
@@ -374,14 +374,24 @@ function makeCandidateAxes(batteries: Map<DiagramLabProtocol, Battery>, stabilit
     ? { value: percent(covered, possible), reason: 'Part des décisions déterminées dans les batteries complètes.',
         evidence: coverageEvidence }
     : empty('Aucune batterie complète avec attendus mesurables.');
+  const timed = (ms: number | null | undefined): ms is number =>
+    typeof ms === 'number' && Number.isFinite(ms) && ms >= 0;
   const durations = valid.flatMap((battery) => battery.readings
-    .map((run) => run.providerDurationMs).filter((ms): ms is number => typeof ms === 'number' && Number.isFinite(ms) && ms >= 0));
+    .map((run) => run.providerDurationMs).filter(timed));
+  const totalReadings = valid.reduce((sum, battery) => sum + battery.readings.length, 0);
+  const missingProtocols = valid.filter((battery) =>
+    battery.readings.some((run) => !timed(run.providerDurationMs)))
+    .map((battery) => diagramLabProtocolLabels[battery.entry.protocol]);
   const avgMs = durations.length ? durations.reduce((sum, ms) => sum + ms, 0) / durations.length : null;
-  const speed: RadarAxisScore = avgMs !== null && valid.every((battery) => battery.readings.every((run) => run.providerDurationMs !== null && run.providerDurationMs !== undefined))
+  // Keep an honest 8/9 until every selected passage has an Ollama-native time.
+  // Never silently substitute browser wall time, which includes sleeping laptops.
+  const speed: RadarAxisScore = avgMs !== null && durations.length === totalReadings
     ? { value: limited(100 / (1 + avgMs / 60_000)),
-        reason: '100 ÷ (1 + durée moyenne par dessin / 60 s). Les variantes à appels supplémentaires portent leur coût.',
-        evidence: valid.map((b) => evidence(b, 'Temps Ollama natif (ms)', b.readings.reduce((n, r) => n + (r.providerDurationMs ?? 0), 0), b.readings.length)) }
-    : empty('Temps Ollama natif non mesuré pour toutes les batteries complètes ; durée navigateur exclue.');
+        reason: '100 ÷ (1 + durée native moyenne par dessin / 60 s). Toutes les relectures Ollama sont incluses.',
+        evidence: valid.map((b) => evidence(b, 'Temps Ollama natif (ms)', b.readings.reduce((n, r) => n + r.providerDurationMs!, 0), b.readings.length)) }
+    : empty('Temps Ollama natifs : ' + durations.length + '/' + totalReadings +
+        ' passages mesurés. Manquants : ' + (missingProtocols.join(' ; ') || 'aucune batterie complète') +
+        '. Les archives sans total_duration ne permettent pas de reconstituer la vitesse ; une relance ciblée après mise à jour est nécessaire. Durée navigateur exclue.');
   return { graphics, arrows: arrowScore, precision, biology, relations, robustness, stability, coverage, speed };
 }
 
@@ -393,6 +403,11 @@ export function buildDiagramLabRadar(
   const candidates = new Map<string, CandidateDraft>();
   for (const entry of [...entries].sort((a, b) => b.createdAt.localeCompare(a.createdAt))) {
     if (entry.state !== 'finished' || entry.protocol === 'personal') continue;
+    // D/E artwork changed in fixture v7: the microscopy leaders no longer
+    // have arrowheads. Keep older reports in history, but do not score v6
+    // arrowheaded images as evidence for the new leader-line benchmark.
+    if (entry.protocol === 'arrows' && entry.report.format === 'companion-scientific-diagram-fixture-report'
+      && typeof entry.report.version === 'number' && entry.report.version < 7) continue;
     const rows = flatten(entry);
     const participant = new Map<string, Reading[]>();
     for (const row of rows) {

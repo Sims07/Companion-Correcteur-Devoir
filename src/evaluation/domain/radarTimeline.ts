@@ -7,6 +7,7 @@ import { buildDiagramLabRadar, observedRadarScore, RADAR_AXES, type RadarWeights
 import type { RadarTestStep } from './diagramLabRadarLaunch.ts';
 
 export const scienceMethods = {
+  'image-direct-v1': { label: 'Image → LLM → correction directe · référence', graphVariant: 'baseline', promptMode: 'standard' },
   'graph-first-v1': { label: 'Image → graphe → correction · v1', graphVariant: 'isolated-arrows-outside', promptMode: 'standard' },
   'leaders-v1': { label: 'Graphe · détecteur des longs traits (#438)', graphVariant: 'pixel-leaders-v1', promptMode: 'standard' },
   'pixel-v1': { label: 'Graphe · détecteur des petites pointes (#439)', graphVariant: 'pixel-arrows', promptMode: 'standard' },
@@ -14,7 +15,6 @@ export const scienceMethods = {
   'guided-v1': { label: 'Examen guidé, trait par trait · v1', graphVariant: 'isolated-arrows-outside', promptMode: 'guided' },
   'graph-first-v2': { label: 'Image → relations légendes/structures → correction · v2', graphVariant: 'baseline', promptMode: 'standard' },
   'vision-then-analysis': { label: 'Vision puis analyse — 2 étapes', graphVariant: 'baseline', promptMode: 'standard' },
-  'direct-image-generative': { label: 'Image → modèle génératif — Think OFF', graphVariant: 'baseline', promptMode: 'standard' },
   'direct-image-generative-thinking': { label: 'Image → modèle génératif — Think ON', graphVariant: 'baseline', promptMode: 'standard' },
   'direct-image-systemone': { label: 'Image → décisionnel System One — sans OCR', graphVariant: 'baseline', promptMode: 'standard' },
 } as const;
@@ -53,8 +53,8 @@ export function trialSteps(method: ScienceMethod): RadarTestStep[] {
   // Real correction engines remain distinct from the blind-graph observation battery.
   const gradingMethod: DiagramMethodSelection = method in diagramMethodLabels ? method as DiagramMethod : 'compare';
   return (['reference', 'arrows', 'semantic', 'graph'] as const).map(protocol => ({
-    protocol, repetitions: protocol === 'reference' ? 3 : 1,
-    method: protocol === 'graph' ? 'compare' : gradingMethod,
+    protocol, repetitions: protocol === 'reference' ? 3 : 1, method: protocol === 'graph' ? 'compare'
+      : method === 'image-direct-v1' ? 'direct-image-generative' : gradingMethod,
     promptMode, graphVariant, zoom: false,
   }));
 }

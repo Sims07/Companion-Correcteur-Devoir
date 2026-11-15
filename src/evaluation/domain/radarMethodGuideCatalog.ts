@@ -9,7 +9,7 @@ import {
 export type MethodGuideIllustration =
   | 'small-tips' | 'long-shafts' | 'direct-graph' | 'guided' | 'graph-first'
   | 'relations-v2' | 'vision-analysis' | 'direct-grading' | 'thinking-grading' | 'systemone-grading'
-  | 'question-contracts' | 'standard-rubric' | 'historical-pilot';
+  | 'question-contracts' | 'standard-rubric' | 'historical-pilot' | 'direct-correction';
 
 export interface MethodGuidePresentation {
   title: string;
@@ -27,6 +27,13 @@ export interface MethodGuideEntry extends MethodGuidePresentation {
 
 /** Display data is separate from the scientific facts and references canonical method IDs. */
 export const SCIENCE_METHOD_PRESENTATION: Record<ScienceMethod, MethodGuidePresentation> = {
+  'image-direct-v1': {
+    title: 'Correction directe sur image · référence',
+    summary: 'Le LLM reçoit directement le schéma et le barème pour produire la correction.',
+    illustration: 'direct-correction',
+    visualFocus: 'Du schéma à la note, sans graphe intermédiaire',
+    visualCaption: 'Image et barème entrent dans le même modèle multimodal. Il rend les décisions et la note ; aucun graphe ni détecteur ne précède la correction.',
+  },
   'pixel-v1': {
     title: 'Détecteur des petites pointes',
     summary: 'Recherche des pointes discrètes dans les pixels avant vérification par Vision.',
@@ -76,13 +83,6 @@ export const SCIENCE_METHOD_PRESENTATION: Record<ScienceMethod, MethodGuidePrese
     visualFocus: 'Deux rôles distincts',
     visualCaption: 'Le modèle d’analyse reçoit le texte de Vision mais ne peut pas contrôler lui-même le dessin.',
   },
-  'direct-image-generative': {
-    title: 'Image → correction directe (Think OFF)',
-    summary: 'Photographie et barème directement au modèle génératif.',
-    illustration: 'direct-grading',
-    visualFocus: 'Correction sans intermédiaire',
-    visualCaption: 'Le même LLM lit le dessin et attribue les points à partir du barème sans graphe préalable.',
-  },
   'direct-image-generative-thinking': {
     title: 'Image → correction directe (Think ON)',
     summary: 'Même correction directe, raisonnement Think demandé à Ollama.',
@@ -124,9 +124,9 @@ export const BIOLOGY_METHOD_PRESENTATION: Record<BiologyMethodId, MethodGuidePre
 };
 
 const scienceOrder: readonly ScienceMethod[] =
-  ['pixel-v1', 'leaders-v1', 'direct-v1', 'guided-v1', 'graph-first-v1',
-    'graph-first-v2', 'vision-then-analysis', 'direct-image-generative',
-    'direct-image-generative-thinking', 'direct-image-systemone'];
+  ['image-direct-v1', 'pixel-v1', 'leaders-v1', 'direct-v1', 'guided-v1', 'graph-first-v1',
+    'graph-first-v2', 'vision-then-analysis', 'direct-image-generative-thinking',
+    'direct-image-systemone'];
 
 /** Includes excluded methods and strategies with no archived score. */
 export function radarMethodGuideEntries(domain: RadarMethodDomain): MethodGuideEntry[] {

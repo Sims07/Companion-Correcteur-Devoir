@@ -151,7 +151,7 @@ export function EvaluationRadarHome({
     const request = resolveModelProfile(profiles, 'model', sci, {
       profileId: sci.profileId, profileName: sci.name, modelId: selected,
       axis: progress.missing[0] ?? 'graphics', steps: progress.steps,
-    });
+    }, progress.method);
     return request && request.steps.length && profiles.some(profile => profile.id === request.profileId)
       ? [{ method: progress.method, request, trial: progress.trial }] : [];
   });
@@ -161,7 +161,7 @@ export function EvaluationRadarHome({
 
   const fullPlan = sci && activeScienceMethod && resolveModelProfile(profiles, 'model', sci, {
     profileId: sci.profileId, profileName: sci.name, axis: 'graphics', steps: trialSteps(activeScienceMethod),
-  });
+  }, activeScienceMethod);
   const timeline = useMemo(() => ({
     diagrams: campaignGroups(entries.filter(isRadarBenchmark), e => e.trial?.id ?? e.id).flatMap<TimelinePoint>(group => {
       const last = [...group].sort((a,b) => b.createdAt.localeCompare(a.createdAt))[0]!;
@@ -241,7 +241,7 @@ export function EvaluationRadarHome({
             else if (profile) runBiologyBatch?.(profile.id, missingBiology);
           }}>Évaluer toutes les méthodes restantes ({scientific ? scienceBatchPlans.length : missingBiology.length})</Button>
       </div>
-      {scientific && <section className="radar-method-audit" aria-label={'État des ' + scientificProgress.length + ' méthodes scientifiques'}>
+      {scientific && <section className="radar-method-audit" aria-label={'État des ' + Object.keys(scienceMethods).length + ' méthodes scientifiques'}>
         <h3>Bilan de complétude par méthode</h3>
         <p>Une campagne terminée n'est pas forcément un radar complet. Les relances ciblées
           conservent le même essai et ne refont pas les batteries déjà exploitables.</p>

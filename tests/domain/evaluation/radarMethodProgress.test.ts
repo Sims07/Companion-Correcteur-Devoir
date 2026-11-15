@@ -58,6 +58,16 @@ const all = (method: ScienceMethod, id: string) =>
   (['reference', 'arrows', 'semantic', 'graph'] as const).map(protocol => campaign(protocol, method, id));
 
 describe('scientific-method progress and targeted recovery', () => {
+  it('keeps pre-v7 D/E arrowheaded archives out of the current leader-line radar', () => {
+    const old = campaign('arrows', 'leaders-v1', 'old', { date: '2026-11-14T10:00:00Z' });
+    Object.assign(old.report, { version: 6 });
+    expect(buildDiagramLabRadar([old], 'model')[0]?.axes.arrows.value ?? null).toBeNull();
+
+    const current = campaign('arrows', 'leaders-v1', 'new', { date: '2026-11-15T12:00:00Z' });
+    Object.assign(current.report, { version: 7 });
+    expect(buildDiagramLabRadar([old, current], 'model')[0]?.axes.arrows.value).toBe(100);
+  });
+
   it('counts 23 successful calls but reports 8/9 measured axes when a graph is indeterminate', () => {
     const records = all('leaders-v1', 'leaders');
     records[3] = campaign('graph', 'leaders-v1', 'leaders', { undecidable: true });
@@ -122,6 +132,13 @@ describe('scientific-method progress and targeted recovery', () => {
     expect(progress.successful).toBe(23);
   });
 
+  it('offers the direct-image baseline among the methods to run, with no archived graph assumed', () => {
+    const progress = scienceMethodProgress([], model).find(item => item.method === 'image-direct-v1')!;
+    expect(progress.complete).toBe(false);
+    expect(progress.steps.map(step => step.protocol)).toEqual(['reference', 'arrows', 'semantic', 'graph']);
+    expect(progress.steps.slice(0, 3).every(step => step.method === 'direct-image-generative')).toBe(true);
+    expect(progress.steps[3]).toMatchObject({ graphVariant: 'baseline', method: 'compare' });
+  });
   it('offers one four-family trial for a never evaluated method', () => {
     const progress = scienceMethodProgress([], model).find(item => item.method === 'direct-v1')!;
     expect(progress.trial).toBeNull();
@@ -157,7 +174,7 @@ it('compares different strategies on identical cases and weights, including afte
   const other = all('pixel-v1', 'other');
   const point = (records: DiagramLabArchiveEntry[]) => sciencePoints(records, RADAR_PRESETS.scientific)[0]!;
   const reference = point(first);
-  expect(reference.caseCounts?.['Sens des flèches']).toBe(2);
+  expect(reference.caseCounts?.['Correspondance des légendes']).toBe(2);
   expect(point(other).comparisonBasis).toBe(reference.comparisonBasis);
   other.push(campaign('graph', 'pixel-v1', 'other', {date:'2026-11-15T12:00:00Z', zoom:true}));
   expect(point(other).comparisonBasis).toBe(reference.comparisonBasis);
@@ -179,5 +196,35 @@ it('explains why historical calls without native timing cannot measure performan
   expect(progress.successful).toBe(23);
   expect(progress.missing).toEqual(['speed']);
   expect(progress.reason).toContain('Temps Ollama natif');
+  expect(progress.steps.map(step => step.protocol)).toEqual(['reference', 'arrows', 'semantic', 'graph']);
+});
+
+it('resumes only S0–S5 graph when this is the sole battery without native timing', () => {
+  const entries = all('pixel-v1', 'missing-graph-time');
+  const graph = entries.find(entry => entry.protocol === 'graph')!;
+  if (!('cases' in graph.report)) throw Error('Graph report required');
+  for (const testCase of graph.report.cases) {
+    for (const run of testCase.experiments) Reflect.deleteProperty(run, 'providerDurationMs');
+  }
+  const progress = scienceMethodProgress(entries, model).find(item => item.method === 'pixel-v1')!;
+  expect(progress.successful).toBe(23);
+  expect(progress.measured).toBe(8);
+  expect(progress.missing).toEqual(['speed']);
+  expect(progress.steps.map(step => step.protocol)).toEqual(['graph']);
+  expect(progress.steps[0]).toMatchObject({ graphVariant: 'pixel-arrows' });
+  expect(progress.reason).not.toContain('Aucune relance automatique utile');
+});
+
+it('avoids useless native-time reruns on an OpenAI-compatible graph provider', () => {
+  const entries = all('leaders-v1', 'remote-graph-time');
+  const graph = entries.find(entry => entry.protocol === 'graph')!;
+  if (!('cases' in graph.report)) throw Error('Graph report required');
+  for (const testCase of graph.report.cases) for (const run of testCase.experiments) {
+    Reflect.deleteProperty(run, 'providerDurationMs');
+    Object.assign(run, { provider: 'openai-compatible' });
+  }
+  const progress = scienceMethodProgress(entries, model).find(item => item.method === 'leaders-v1')!;
+  expect(progress.missing).toEqual(['speed']);
   expect(progress.steps).toEqual([]);
+  expect(progress.reason).toContain('Aucune relance automatique utile');
 });
