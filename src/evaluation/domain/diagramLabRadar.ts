@@ -4,7 +4,7 @@ import { diagramLabProtocolLabels, type DiagramLabArchiveEntry, type DiagramLabP
 
 export const RADAR_AXES = [
   { id: 'graphics', label: 'Qualité graphique', short: 'Graphisme', detail: 'Accord des décisions visuelles avec les références A/B/C.' },
-  { id: 'arrows', label: 'Sens des flèches', short: 'Flèches', detail: 'Correspondances exactes sur la paire témoin D et piège E.' },
+  { id: 'arrows', label: 'Correspondance des légendes', short: 'Légendes', detail: 'Destination réelle de chaque trait de rappel des dessins au microscope D/E, sans pointe de flèche requise.' },
   { id: 'precision', label: 'Précision de lecture', short: 'Précision', detail: 'Décisions visuelles exactes sur les campagnes complètes A/B/C et D/E. Chaque attendu compte une fois par passage : ce score mesure la justesse, pas seulement les réponses renseignées.' },
   { id: 'biology', label: 'Cohérence biologique', short: 'Biologie', detail: 'Mutations S1/S2/S3 détectées après observation correcte du témoin S0.' },
   { id: 'relations', label: 'Lecture des relations', short: 'Relations', detail: 'Extraction indépendante : mutations reconnues et relations correctes préservées.' },
@@ -296,7 +296,7 @@ function makeCandidateAxes(batteries: Map<DiagramLabProtocol, Battery>, stabilit
   const measurableGraph = relationsBattery ?? graph;
   const relationFractions = measurableGraph ? sensitivityFractions(measurableGraph.readings) : null;
   const graphics = fromFraction(reference, 'Accord avec A/B/C', reference ? goldAccuracy(reference) : null, 'A/B/C non exécutés ou sans décision exploitable.');
-  const arrowScore = fromFraction(arrows, 'Correspondance sur D/E', arrows ? goldAccuracy(arrows, SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET) : null, 'Paire D/E non complète ou sans décision sur les flèches.');
+  const arrowScore = fromFraction(arrows, 'Correspondance sur D/E', arrows ? goldAccuracy(arrows, SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET) : null, 'Paire D/E non complète ou sans décision sur les traits de rappel.');
   // Aggregate labelled decisions, not per-drawing or per-campaign percentages.
   // A complete D/E campaign alone can populate this axis from old archives;
   // A/B/C contributes its 19 targets per drawing when a complete series exists.
