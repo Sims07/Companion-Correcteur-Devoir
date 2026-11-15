@@ -171,7 +171,7 @@ it('explains why historical calls without native timing cannot measure performan
     if (!('cases' in entry.report)) continue;
     for (const item of entry.report.cases) {
       for (const run of item.experiments) {
-        if ('providerDurationMs' in run) delete run.providerDurationMs;
+        Reflect.deleteProperty(run, 'providerDurationMs');
       }
     }
   }
