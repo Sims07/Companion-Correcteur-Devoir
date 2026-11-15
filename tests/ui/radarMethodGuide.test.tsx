@@ -19,7 +19,7 @@ it('renders illustrated method tabs and one full-width scientific detail even wi
     const guide = node.querySelector<HTMLElement>('[aria-label="Fiches scientifiques des méthodes"]')!;
     expect(guide).not.toBeNull();
     const tabs = [...guide.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
-    expect(tabs).toHaveLength(5);
+    expect(tabs).toHaveLength(Object.keys(scienceMethods).length);
     expect(tabs.map(tab => tab.textContent)).toEqual(expect.arrayContaining([
       expect.stringContaining(scienceMethods['pixel-v1'].label),
       expect.stringContaining(scienceMethods['leaders-v1'].label),
@@ -49,6 +49,11 @@ it('renders illustrated method tabs and one full-width scientific detail even wi
     expect(panel.querySelector('[data-illustration="guided"]')).not.toBeNull();
     await act(async () => tabs[4]!.click());
     expect(panel.querySelector('[data-illustration="graph-first"]')).not.toBeNull();
+    await act(async () => tabs[7]!.click());
+    expect(panel.dataset.selectedMethod).toBe('direct-image-generative');
+    expect(panel.querySelector('[data-illustration="direct-grading"]')).not.toBeNull();
+    await act(async () => tabs[9]!.click());
+    expect(panel.querySelector('[data-illustration="systemone-grading"]')).not.toBeNull();
   } finally { await act(async () => root.unmount()); }
 });
 
@@ -67,8 +72,8 @@ it('supports keyboard navigation between methods with one accessible tab panel',
     expect(document.activeElement).toBe(tabs[1]);
     expect(tabs[1]?.tabIndex).toBe(0);
     await act(async () => tabs[1]!.dispatchEvent(new KeyboardEvent('keydown', {key: 'End', bubbles: true})));
-    expect(panel.dataset.selectedMethod).toBe('graph-first-v1');
-    await act(async () => tabs[4]!.dispatchEvent(new KeyboardEvent('keydown', {key: 'Home', bubbles: true})));
+    expect(panel.dataset.selectedMethod).toBe('direct-image-systemone');
+    await act(async () => tabs[9]!.dispatchEvent(new KeyboardEvent('keydown', {key: 'Home', bubbles: true})));
     expect(panel.dataset.selectedMethod).toBe('pixel-v1');
   } finally { await act(async () => root.unmount()); node.remove(); }
 });
