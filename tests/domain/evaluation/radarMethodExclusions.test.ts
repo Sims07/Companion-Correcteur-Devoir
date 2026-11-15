@@ -5,8 +5,8 @@ import type { BiologyRadarObservation } from '../../../src/evaluation/domain/bio
 import type { TimelinePoint } from '../../../src/evaluation/domain/radarTimeline.ts';
 import {
   activeBiologyObservations, activeScienceEntries, activeTimelinePoints,
-  loadRadarMethodExclusions, methodIsActive, parseRadarMethodExclusions,
-  saveRadarMethodExclusions, toggleRadarMethodExclusion,
+  loadRadarMethodExclusions, methodIsActive, observedRadarMethodId, parseRadarMethodExclusions,
+  saveRadarMethodExclusions, timelineMethodId, toggleRadarMethodExclusion,
 } from '../../../src/evaluation/domain/radarMethodExclusions.ts';
 
 afterEach(() => window.localStorage.removeItem('companion:radar-method-exclusions:v1'));
@@ -62,5 +62,35 @@ describe('reversible, persisted method exclusions', () => {
     expect(scientific).toHaveLength(3);
     expect(biology).toHaveLength(2);
     expect(points).toHaveLength(3);
+  });
+});
+
+describe('observed method names, distinct from launch strategies', () => {
+  it('keeps old strategy exclusions and permits persistent exclusions for archived labels', () => {
+    const legacy = observedRadarMethodId('diagrams', 'Image → génératif direct');
+    const variant = observedRadarMethodId('biology', 'Contrats par question · generative · ollama');
+    const initial = parseRadarMethodExclusions({ diagrams: ['pixel-v1', legacy], biology: [variant] });
+    expect(initial).toEqual({ diagrams: ['pixel-v1', legacy], biology: [variant] });
+    expect(saveRadarMethodExclusions(initial)).toBe(true);
+    expect(loadRadarMethodExclusions()).toEqual(initial);
+    expect(parseRadarMethodExclusions({ diagrams: ['historique:', 'historique:bad\\nname'],
+      biology: ['variante:', 'other', variant] })).toEqual({ diagrams: [], biology: [variant] });
+    expect(timelineMethodId('diagrams', { label: 'Image → génératif direct' } as TimelinePoint)).toBe(legacy);
+  });
+
+  it('excludes only the selected observed biology variant while respecting older protocol exclusions', () => {
+    const generative = {
+      id: 'g', protocol: 'contract', method: 'generative', provider: 'ollama',
+    } as BiologyRadarObservation;
+    const decision = { ...generative, id: 'd', method: 'decision' };
+    const variant = observedRadarMethodId('biology', 'Contrats par question · generative · ollama');
+    const excluded = { diagrams: [], biology: [variant] };
+    expect(activeBiologyObservations([generative, decision], excluded).map(row => row.id)).toEqual(['d']);
+    expect(activeTimelinePoints([
+      { id: 'g', label: 'Contrats par question · generative · ollama', biologyMethod: 'contract' },
+      { id: 'd', label: 'Contrats par question · decision · ollama', biologyMethod: 'contract' },
+    ] as TimelinePoint[], 'biology', excluded).map(row => row.id)).toEqual(['d']);
+    expect(activeBiologyObservations([generative, decision], { diagrams: [], biology: ['contract'] })).toEqual([]);
+    expect(toggleRadarMethodExclusion(excluded, 'biology', variant)).toEqual({ diagrams: [], biology: [] });
   });
 });
