@@ -54,6 +54,7 @@ it('renders illustrated method tabs and one full-width scientific detail even wi
 
 it('supports keyboard navigation between methods with one accessible tab panel', async () => {
   const node = document.createElement('div');
+  document.body.appendChild(node);
   const root = createRoot(node);
   try {
     await act(async () => root.render(createElement(RadarTimeline, {
@@ -69,7 +70,7 @@ it('supports keyboard navigation between methods with one accessible tab panel',
     expect(panel.dataset.selectedMethod).toBe('graph-first-v1');
     await act(async () => tabs[4]!.dispatchEvent(new KeyboardEvent('keydown', {key: 'Home', bubbles: true})));
     expect(panel.dataset.selectedMethod).toBe('pixel-v1');
-  } finally { await act(async () => root.unmount()); }
+  } finally { await act(async () => root.unmount()); node.remove(); }
 });
 
 it('illustrates biology contracts, standard rubric and historical pilot without changing tests', async () => {
