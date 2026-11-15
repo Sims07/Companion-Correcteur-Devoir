@@ -1,6 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1040" viewBox="0 0 1200 1040" role="img" aria-label="Dessin scientifique de mitose végétale, quatre phases et légendes à traits de rappel">
 <defs>
- <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 9 5 L 0 9 Z" fill="#374151"/></marker>
  <style>
  .wall{fill:#fbfcf9;stroke:#384b42;stroke-width:5;stroke-linejoin:round}
  .interior{fill:none;stroke:#58736d;stroke-width:2.5;stroke-linecap:round}
@@ -9,7 +8,7 @@
  .plate{stroke:#51765a;stroke-width:9;stroke-linecap:round}
  .phase{font:600 26px "Arial",sans-serif;fill:#243b33;letter-spacing:1px}
  .legend{font:22px "Arial",sans-serif;fill:#1f2937}
- .pointer{fill:none;stroke:#374151;stroke-width:2.7;marker-end:url(#arrow)}
+ .pointer{fill:none;stroke:#374151;stroke-width:2.7}
  </style>
 </defs>
 <rect x="3" y="3" width="1194" height="1034" rx="8" fill="white" stroke="#d3dbd4" stroke-width="3"/>

@@ -3,6 +3,17 @@ import { validateRubric } from '../../../src/correction/domain/rubric.ts';
 import { SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC, parseScientificDiagramRubric } from '../../../src/correction/domain/scientificDiagramRubric.ts';
 
 describe('barème enseignant du schéma scientifique', () => {
+  it('reconnaît les traits de rappel des dessins au microscope sans leur imposer de pointe de flèche', () => {
+    const legends = SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC.criteria.find((criterion) => criterion.id === 'legends');
+    const target = legends?.subcriteria?.find((sub) => sub.id === 'legends-visible');
+    expect(target?.maxPoints).toBe(0.68);
+    expect(target?.description).toContain('suivre son trait de rappel depuis le texte');
+    expect(target?.description).toContain('structure touchée');
+    expect(target?.description).toContain('simple trait sans pointe de flèche suffit');
+    expect(target?.description).toContain('reliée à une mauvaise structure');
+    expect(target?.description).toContain('demander une vérification');
+  });
+
   it('conserves les 15 attendus observables et les 8 points exacts du barème professeur', () => {
     const rubric = SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC;
     expect(validateRubric(rubric)).toMatchObject({ valid: true, maximumPoints: 8 });

@@ -345,7 +345,7 @@ it('freezes the weighted score and the executable graph method for each independ
 it('identifies the actual archived method independently of the D/E battery title', async () => {
   const { sciencePoints } = await import('../../../src/evaluation/domain/radarTimeline.ts');
   const row = sample('arrows', '2026-11-14T09:16:00Z');
-  row.title = 'Sens des flèches · D/E';
+  row.title = 'Traits de rappel · D/E';
   if (row.report.format !== 'companion-scientific-diagram-fixture-report') throw Error();
   for (const c of row.report.cases) for (const run of c.experiments) run.method = 'graph-first-v1';
   expect(sciencePoints([row], RADAR_PRESETS.scientific)[0]).toMatchObject({

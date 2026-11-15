@@ -478,7 +478,7 @@ export function ScientificDiagramProtocolPanel({
     <div className="diagram-lab-catalog" role="tablist" aria-label="Protocoles automatiques des schémas scientifiques">
       {([
         ['reference', 'FORME', 'Qualité graphique', 'A/B/C · Présentation et justesse', '3 dessins'],
-        ['arrows', 'FLÈCHES', 'Sens des flèches', 'D/E · Témoin et inversion', '2 dessins'],
+        ['arrows', 'LÉGENDES', 'Traits de rappel', 'D/E · Destinations des traits', '2 dessins'],
         ['semantic', 'BIOLOGIE', 'Compréhension biologique', 'S0–S5 · Relations fausses et témoins', '6 dessins'],
         ['graph', 'GRAPHE', 'Graphe des relations', 'S0–S5 · Lecture sans barème', '6 dessins'],
       ] as const).map(([id, number, title, subtitle, count]) =>
@@ -489,7 +489,7 @@ export function ScientificDiagramProtocolPanel({
         </button>)}
     </div>
 
-    <p className="diagram-lab-protocol-summary" role="status">{({ reference: '3 schémas · présentation, légendes et justesse', arrows: '2 schémas · témoin D et flèches inversées E', semantic: '6 variantes · erreurs biologiques et faux rejets', graph: '6 schémas · relations sans barème' } as const)[activeProtocol]}</p>
+    <p className="diagram-lab-protocol-summary" role="status">{({ reference: '3 schémas · présentation, légendes et justesse', arrows: '2 schémas · traits corrects D et cibles incorrectes E', semantic: '6 variantes · erreurs biologiques et faux rejets', graph: '6 schémas · relations sans barème' } as const)[activeProtocol]}</p>
     {activeProtocol !== 'graph' && (autoSequenceRunning && activeAutoStep
       ? <div className="diagram-fixture-run-controls diagram-lab-method diagram-lab-auto-engine" role="status"
         aria-label="Moteur de la batterie automatique">
@@ -521,8 +521,8 @@ export function ScientificDiagramProtocolPanel({
     {(activeProtocol === 'reference' || activeProtocol === 'arrows') && <section id="evaluation-diagram-fixture-launch" className="diagram-protocol-fixtures" aria-label="Schémas de référence intégrés">
       <div className="diagram-protocol-fixtures-heading">
         <div>
-          <h4>{activeProtocol === 'arrows' ? 'Flèches : témoin D et dessin E aux pointes inversées' : 'Qualité graphique : trois niveaux de référence A/B/C'}</h4>
-          <p>A/B/C : difficulté progressive. D/E : <strong>mêmes mots et mêmes structures</strong>, mais quatre flèches volontairement inversées en E. Barème sur 10 points et références provisoires à valider par un enseignant. La différence attendue ne sera jamais envoyée au modèle.</p>
+          <h4>{activeProtocol === 'arrows' ? 'Traits de rappel : témoin D et dessin E aux cibles incorrectes' : 'Qualité graphique : trois niveaux de référence A/B/C'}</h4>
+          <p>A/B/C : difficulté progressive. D/E : <strong>mêmes mots et mêmes structures</strong>, mais quatre traits de rappel arrivent à la mauvaise structure en E. Ce sont de simples traits sans pointes de flèche, comme sur un dessin d’observation. Barème sur 10 points et références provisoires à valider par un enseignant. La différence attendue ne sera jamais envoyée au modèle.</p>
         </div>
       </div>
       <div className="diagram-fixture-run-controls">
@@ -539,7 +539,7 @@ export function ScientificDiagramProtocolPanel({
           </Button>}
           {activeProtocol === 'arrows' && <Button variant="secondary" disabled={!canRunFixtures}
             onClick={() => { void runPreparedFixtures(SCIENTIFIC_DIAGRAM_POINTER_CASE_IDS); }}>
-            Tester les flèches D/E en un clic
+            Tester les traits D/E en un clic
           </Button>}
           {activeProtocol === 'arrows' && <Button variant="secondary"
             disabled={busy || fixtureLoading || !selectedProfiles.length
@@ -572,7 +572,7 @@ export function ScientificDiagramProtocolPanel({
             </p>}
             {fixture.labelPointerChallenge && <details>
               <summary>Voir les correspondances à vérifier</summary>
-              <p>{fixture.labelPointerChallenge.expected === 'incorrect' ? 'Flèches erronées attendues :' : 'Témoin sans erreur de flèche :'}</p>
+              <p>{fixture.labelPointerChallenge.expected === 'incorrect' ? 'Traits mal reliés attendus :' : 'Témoin avec traits corrects :'}</p>
               <ul>{fixture.labelPointerChallenge.descriptions.map((description) => <li key={description}>{description}</li>)}</ul>
             </details>}
             {fixture.referenceReview && <details>
@@ -599,7 +599,7 @@ export function ScientificDiagramProtocolPanel({
         </div>
         <div className="pilot-evaluation-table-scroll">
           <table className="pilot-evaluation-table">
-            <thead><tr><th>Schéma</th><th>Configuration</th><th>Parcours</th><th>Attendu</th><th>Notes obtenues</th><th>Exécution</th><th>Décisions récupérées</th><th>Justesse stricte</th><th>Légendes et flèches</th><th>Think (demande / trace)</th><th>Stabilité</th><th>Temps moyen</th></tr></thead>
+            <thead><tr><th>Schéma</th><th>Configuration</th><th>Parcours</th><th>Attendu</th><th>Notes obtenues</th><th>Exécution</th><th>Décisions récupérées</th><th>Justesse stricte</th><th>Légendes et traits</th><th>Think (demande / trace)</th><th>Stabilité</th><th>Temps moyen</th></tr></thead>
             <tbody>{fixtureReport.cases.flatMap((caseResult) => caseResult.summaries.map((summary) => {
               const experiments = caseResult.experiments.filter((experiment) => experiment.profileId === summary.profileId && experiment.method === summary.method);
               return <tr key={caseResult.caseId + '-' + summary.profileId + '-' + summary.method}>

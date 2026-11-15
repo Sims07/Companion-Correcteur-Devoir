@@ -18,7 +18,7 @@ describe('scientific diagram fixture history', () => {
         format: 'companion-scientific-diagram-fixture-report',
         limitations: 'Provisional references',
         cases: [{
-          caseId: 'E', label: 'E — piège, flèches inversées', referenceScore: 8.66,
+          caseId: 'E', label: 'E — piège, traits mal reliés', referenceScore: 8.66,
           experiments: [{}],
           layoutObservation: { reason: 'Les légendes sont disposées en lignes sous les cellules.' },
           labelPointerChallenge: {
@@ -42,7 +42,7 @@ describe('scientific diagram fixture history', () => {
     expect(html.match(/Statut : Conforme/g)).toHaveLength(17);
     expect(html.match(/Statut : Écart/g)).toHaveLength(2);
     expect(html).toContain('Alignées en colonne');
-    expect(html).toContain('Légendes : structures visibles et flèches correctes');
+    expect(html).toContain('Légendes : structures visibles et traits de rappel corrects');
     expect(html).toContain('Les légendes sont visibles, mais quatre traits pointent vers une autre structure');
     expect(html).toContain('Agrandir : Schéma de référence E');
     expect(html).toContain('Voir uniquement les écarts');

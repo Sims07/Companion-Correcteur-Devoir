@@ -13,7 +13,7 @@ export type DiagramLabProtocol = 'reference' | 'arrows' | 'semantic' | 'graph' |
 
 export const diagramLabProtocolLabels: Record<DiagramLabProtocol, string> = {
   reference: 'Qualité graphique · A/B/C',
-  arrows: 'Sens des flèches · D/E',
+  arrows: 'Traits de rappel · D/E',
   semantic: 'Compréhension biologique · S0–S5',
   graph: 'Graphe des relations · S0–S5',
   personal: 'Ancien essai libre',
