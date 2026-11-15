@@ -35,7 +35,7 @@ export const SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC: Rubric = {
       analysisMode: 'scientific-diagram',
       subcriteria: [
         { id: 'legends-horizontal', title: 'Ecriture horizontale', description: '', maxPoints: 0.66 },
-        { id: 'legends-aligned', title: 'Alignées en colonne', description: '', maxPoints: 0.66 },
+        { id: 'legends-aligned', title: 'Alignées en colonne', description: 'Pour un même schéma, les textes des légendes sont placés les uns sous les autres et alignés verticalement dans une même colonne. Des légendes côte à côte sur une même ligne ne satisfont pas ce critère. L’écriture horizontale des mots est évaluée séparément.', maxPoints: 0.66 },
         { id: 'legends-visible', title: 'Ne mentionnent que des structures visibles', description: '', maxPoints: 0.68 },
       ],
     },
