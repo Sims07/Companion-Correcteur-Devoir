@@ -8,6 +8,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { TimelinePoint } from '../../domain/radarTimeline.ts';
 import { MethodRadarComparison } from './MethodRadarComparison.tsx';
 import { MethodRadarGallery } from './MethodRadarGallery.tsx';
+import { RadarMethodGuide } from './RadarMethodGuide.tsx';
 import { Button } from '../../../shared/ui/design-system/index.ts';
 
 const format = (n: number | null | undefined) => n == null ? '—' : n.toLocaleString('fr-FR', {maximumFractionDigits:1});
@@ -118,6 +119,7 @@ export function RadarTimeline({
     <nav aria-label="Fil d’Ariane"><button type="button" onClick={onBack}>Retour aux radars</button> / {domainLabel}</nav>
     <header><div><h2>Laboratoire des méthodes</h2><p>{model} · {domainLabel}</p></div>
 </header>
+    <RadarMethodGuide domain={domain}/>
 
     <section className="lab-method-visibility" aria-label="Méthodes actives et exclues">
       <h3>Inclure ou exclure les méthodes</h3>
