@@ -525,6 +525,27 @@ describe('Ollama-native timing of the independent graph pipeline', () => {
     expect(transport).toHaveBeenCalledTimes(3);
   });
 
+  it('marks native performance unknown if a second Vision request fails in transport', async () => {
+    const transport = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        message: { content: JSON.stringify(graph) }, total_duration: 800_000_000,
+      })))
+      .mockRejectedValueOnce(new TypeError('network unavailable'))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        message: { content: JSON.stringify({ tip: 'first' }) }, total_duration: 200_000_000,
+      })));
+    const onDiagnostic = vi.fn();
+    await extractBlindVisualGraph({
+      endpoint: 'http://localhost:11434', model: 'qwen3.5:4b',
+      image, promptVariant: 'recheck-arrows', onDiagnostic,
+    }, transport);
+    expect(transport).toHaveBeenCalledTimes(3);
+    expect(onDiagnostic).toHaveBeenLastCalledWith(expect.objectContaining({
+      providerDurationMs: null, providerTimingCalls: 2,
+      recheck: expect.objectContaining({ failures: 1 }),
+    }));
+  });
+
   it('keeps native time unavailable for a provider that only returns OpenAI usage', async () => {
     const transport = vi.fn(async () => new Response(JSON.stringify({
       choices: [{ message: { content: JSON.stringify(graph) }, finish_reason: 'stop' }],
