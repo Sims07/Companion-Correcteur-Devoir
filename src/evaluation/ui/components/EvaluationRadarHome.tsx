@@ -2,10 +2,10 @@ import { buildRadarTimelineExport } from '../../domain/radarTimelineExport.ts';
 import { remainingBiologyMethods, type BiologyMethod } from '../../domain/radarRemainingMethods.ts';
 import {
   activeBiologyObservations, activeScienceEntries, biologyMethodLabels, loadRadarMethodExclusions,
-  methodIsActive, saveRadarMethodExclusions, toggleRadarMethodExclusion,
+  methodIsActive, observedRadarMethodId, saveRadarMethodExclusions, toggleRadarMethodExclusion,
 } from '../../domain/radarMethodExclusions.ts';
 import { scienceMethodProgress } from '../../domain/radarMethodProgress.ts';
-import { biologyPoints, campaignGroups, scienceMethods, sciencePoints, trialSteps, type ScienceMethod, type TimelinePoint } from '../../domain/radarTimeline.ts';
+import { biologyPoints, biologyRunMethodLabel, campaignGroups, scienceMethods, sciencePoints, trialSteps, type ScienceMethod, type TimelinePoint } from '../../domain/radarTimeline.ts';
 import { RadarTimeline } from './RadarTimeline.tsx';
 import { buildRadarAnalysisExport, isRadarBenchmark } from '../../domain/radarAnalysisExport.ts';
 import { downloadJson } from '../../../shared/ui/downloadJson.ts';
@@ -68,7 +68,7 @@ export function EvaluationRadarHome({
   const [weights] = useState(restoredWeights);
   const [excluded, setExcluded] = useState(loadRadarMethodExclusions);
   const enabled = (domain: RadarDomain, methodId: string) => methodIsActive(excluded, domain, methodId);
-  const eligibleEntries = useMemo(() => activeScienceEntries(entries, excluded), [entries, excluded]);
+  const eligibleEntries = useMemo(() => activeScienceEntries(entries, excluded, weights), [entries, excluded, weights]);
   const eligibleHistory = useMemo(() => activeBiologyObservations(history, excluded), [history, excluded]);
   const science = useMemo(
     () => rankDiagramLabRadar(buildDiagramLabRadar(eligibleEntries, 'model', profiles), weights),
@@ -131,8 +131,12 @@ export function EvaluationRadarHome({
   const [bioMethod, setBioMethod] = useState<'standard' | 'contract'>('contract');
   const activeScienceMethod = enabled('diagrams', method) ? method
     : (Object.keys(scienceMethods) as ScienceMethod[]).find(id => enabled('diagrams', id));
-  const activeBioMethod = enabled('biology', bioMethod) ? bioMethod
-    : (['contract', 'standard'] as const).find(id => enabled('biology', id));
+  const activeBioMethodAllowed = (id: 'standard' | 'contract') => enabled('biology', id) &&
+    (!profile || enabled('biology', observedRadarMethodId('biology', biologyRunMethodLabel(
+      id, profile.configuration.correctionMethod,
+      profile.configuration.apiCompatible ? 'openai-compatible' : 'ollama'))));
+  const activeBioMethod = activeBioMethodAllowed(bioMethod) ? bioMethod
+    : (['contract', 'standard'] as const).find(activeBioMethodAllowed);
   const scientificProgress = useMemo(() => scienceMethodProgress(entries, selected), [entries, selected]);
   function toggleMethod(domain: RadarDomain, id: string) {
     if (busy) return;
@@ -152,7 +156,7 @@ export function EvaluationRadarHome({
       ? [{ method: progress.method, request, trial: progress.trial }] : [];
   });
   const missingBiology = profile
-    ? remainingBiologyMethods(history, selected, profile.id).filter(id => enabled('biology', id))
+    ? remainingBiologyMethods(history, selected, profile.id).filter(activeBioMethodAllowed)
     : [];
 
   const fullPlan = sci && activeScienceMethod && resolveModelProfile(profiles, 'model', sci, {
