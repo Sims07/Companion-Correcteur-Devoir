@@ -1,5 +1,5 @@
 import type { DiagnosticCriterionScore } from './diagnosticScore.ts';
-import { type Rubric } from '../../correction/domain/contract.ts';
+import { type Rubric } from '../../correction/api/index.ts';
 
 export interface ReferenceCriterionScore {
   criterionId: string;

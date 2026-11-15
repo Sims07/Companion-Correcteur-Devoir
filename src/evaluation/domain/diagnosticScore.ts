@@ -1,4 +1,4 @@
-import { type GradingProposal, type Rubric } from '../../correction/domain/contract.ts';
+import { type GradingProposal, type Rubric } from '../../correction/api/index.ts';
 import { sumGradeScores } from '../../shared/domain/scorePrecision.ts';
 
 export interface DiagnosticCriterionScore {

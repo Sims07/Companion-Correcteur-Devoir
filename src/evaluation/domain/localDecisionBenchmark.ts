@@ -1,5 +1,5 @@
 import type { CorrectionMethod } from '../../shared/domain/correctionMethod.ts';
-import { rubricEvaluationSignature, type Rubric, isNativeDecisionModel } from '../../correction/domain/contract.ts';
+import { rubricEvaluationSignature, type Rubric, isNativeDecisionModel } from '../../correction/api/index.ts';
 import type { DiagnosticCriterionScore } from './diagnosticScore.ts';
 import type { ReferenceCriterionScore } from './diagnosticReference.ts';
 import { compareWithDiagnosticReference, validateDiagnosticReference } from './diagnosticReference.ts';

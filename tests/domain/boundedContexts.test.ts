@@ -37,13 +37,17 @@ it('keeps correction independent of evaluation, including indirect and type-only
   for (const path of sourceFiles(correction)) visit(path, [relative(domain, path)]);
 });
 
-it('routes evaluation imports of correction through its published contract', () => {
-  const contract = resolve(correction, 'domain/contract.ts');
-  for (const path of sourceFiles(evaluation)) {
-    for (const dependency of dependencies(path)) {
-      if (dependency.startsWith(correction + sep)) {
-        expect([contract, resolve(correction, 'events/gradingOutcome.ts')], relative(domain, path)).toContain(dependency);
+it.each([
+  [evaluation, correction],
+  [correction, evaluation],
+])('requires the public entry point for cross-context imports from %s to %s', (source, other) => {
+  const api = resolve(other, 'api/index.ts');
+  for (const path of sourceFiles(source)) {
+    for (const target of dependencies(path)) {
+      if (target.startsWith(other + sep)) {
+        expect(target, relative(domain, path)).toBe(api);
       }
+      expect(target.startsWith(resolve(domain, 'shell') + sep), relative(domain, path)).toBe(false);
     }
   }
 });

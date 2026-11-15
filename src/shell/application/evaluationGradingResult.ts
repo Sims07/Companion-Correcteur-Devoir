@@ -1,6 +1,5 @@
-import { reportGradingOutcome } from '../../correction/application/reportGradingOutcome.ts';
-import type { Rubric } from '../../correction/domain/contract.ts';
-import { observeGradingOutcome, type ObservedGrade } from '../../evaluation/application/observeGradingOutcome.ts';
+import { reportGradingOutcome, type Rubric } from '../../correction/api/index.ts';
+import { observeGradingOutcome, type ObservedGrade } from '../../evaluation/api/index.ts';
 import type { ModelEvaluationRecord } from '../../evaluation/domain/modelEvaluation.ts';
 
 /** Scope delivery to the current experiment, including concurrent model runs. */

@@ -42,6 +42,15 @@ Le domaine ne dépend d'aucune autre couche. L'application dépend du domaine et
 
 Chaque contexte possède son `domain/`, ses cas d’usage dans `application/`, ses contrats dans `ports/`, ses implémentations dans `adapters/` et ses composants dans `ui/`. Les dépôts de correction et d’évaluation ouvrent la même base locale et conservent son schéma et ses clés.
 
+### API entre contextes
+
+Un module qui dépend de l’autre contexte importe uniquement son point d’entrée public, y compris pour les types et les événements. Chaque contexte utilise librement ses modules internes. Le shell assemble les parcours et les services. Le test `tests/domain/boundedContexts.test.ts` contrôle cette frontière et l’indépendance de Correction vis-à-vis d’Évaluation.
+
+| Point d’entrée | Contrat utilisé entre les contextes |
+| --- | --- |
+| `src/correction/api/index.ts` | Types de barème et de proposition, opérations sur les critères et le barème scientifique, publication et type des événements de notation. |
+| `src/evaluation/api/index.ts` | Réception d’un événement de notation via `observeGradingOutcome` et résultat observé (`ObservedGrade`). Le shell relie cette opération au producteur de Correction pour l’essai en cours. |
+
 Lors d’un essai de notation, Correction interprète la réponse du modèle et publie `correction.proposal-produced` avec la proposition et ses preuves, ou `correction.response-ungradable`. Le shell livre l’événement en mémoire au seul essai concerné. Évaluation calcule la note comparable. Une lecture Vision seule, une proposition incomplète ou une sortie inexploitable donnent une note absente. Une note justifiée de zéro reste zéro. Les lectures de barèmes et de types passent par le contrat publié de Correction. Les tests d’architecture contrôlent les imports entre contextes.
 
 La mémoire est un rappel local léger fondé sur le recouvrement de termes, pas un moteur vectoriel, un fine-tuning ou un entraînement automatique. Les retours sont associés à une correction et à l'empreinte du barème. Ils peuvent être recherchés dans le périmètre pertinent, mais ne modifient pas silencieusement le barème courant. Les règles ne doivent être réutilisées comme règles de barème que si l'enseignant les a explicitement promues.
