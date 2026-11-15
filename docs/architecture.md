@@ -33,6 +33,28 @@ Le domaine ne dépend d'aucune autre couche. L'application dépend du domaine et
 
 ## Contextes métier
 
+### Carte des contextes
+
+Le trait plein va de l’appelant vers le contexte qui expose l’API. Les pointillés vont du contexte qui publie l’événement vers celui qui le reçoit.
+
+```mermaid
+flowchart TB
+    evaluation["Évaluation des modèles"]
+    correction["Correction des copies"]
+    evaluation -->|"Appels directs à l’API de Correction"| correction
+    correction -.->|"correction.proposal-produced"| evaluation
+    correction -.->|"correction.response-ungradable"| evaluation
+```
+
+| Échange | Utilisation |
+| --- | --- |
+| Appels directs d’Évaluation à Correction | Évaluation valide et compare les barèmes (`validateRubric`, `rubricEvaluationSignature`), lit leurs sous-critères et prépare les décisions à tester. |
+| `correction.proposal-produced` | Correction a interprété la réponse du modèle. Évaluation reçoit la proposition et ses preuves, puis calcule la note comparable si la proposition est complète. |
+| `correction.response-ungradable` | Correction signale une réponse inexploitable. Évaluation conserve un résultat sans proposition ni note. |
+
+La dépendance de code va d’Évaluation vers Correction. Pour un essai de notation, le shell relie `reportGradingOutcome` à `observeGradingOutcome` et livre en mémoire l’un des deux événements, de manière synchrone. Correction ignore quel contexte le reçoit. Une lecture Vision seule ne déclenche aucun des deux événements.
+
+
 | Racine | Responsabilités |
 | --- | --- |
 | `src/correction/` | Devoirs, barèmes, copies, propositions justifiées, annotations et décision de l’enseignant. |
@@ -51,7 +73,7 @@ Un module qui dépend de l’autre contexte importe uniquement son point d’ent
 | `src/correction/api/index.ts` | Types de barème et de proposition, opérations sur les critères et le barème scientifique, publication et type des événements de notation. |
 | `src/evaluation/api/index.ts` | Réception d’un événement de notation via `observeGradingOutcome` et résultat observé (`ObservedGrade`). Le shell relie cette opération au producteur de Correction pour l’essai en cours. |
 
-Lors d’un essai de notation, Correction interprète la réponse du modèle et publie `correction.proposal-produced` avec la proposition et ses preuves, ou `correction.response-ungradable`. Le shell livre l’événement en mémoire au seul essai concerné. Évaluation calcule la note comparable. Une lecture Vision seule, une proposition incomplète ou une sortie inexploitable donnent une note absente. Une note justifiée de zéro reste zéro. Les lectures de barèmes et de types passent par le contrat publié de Correction. Les tests d’architecture contrôlent les imports entre contextes.
+Une note justifiée de zéro reste zéro. Une lecture Vision seule, une proposition incomplète ou une réponse inexploitable donnent une note absente.
 
 La mémoire est un rappel local léger fondé sur le recouvrement de termes, pas un moteur vectoriel, un fine-tuning ou un entraînement automatique. Les retours sont associés à une correction et à l'empreinte du barème. Ils peuvent être recherchés dans le périmètre pertinent, mais ne modifient pas silencieusement le barème courant. Les règles ne doivent être réutilisées comme règles de barème que si l'enseignant les a explicitement promues.
 

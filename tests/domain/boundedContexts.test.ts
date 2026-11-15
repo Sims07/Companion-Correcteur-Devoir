@@ -59,3 +59,13 @@ it('keeps the common foundation independent of features and the composition shel
     }
   }
 });
+
+it('documents each published grading event from correction to evaluation on the context map', () => {
+  const contract = readFileSync(resolve(correction, 'api/gradingOutcome.ts'), 'utf8');
+  const events = Array.from(contract.matchAll(/readonly type:\s*'([^']+)'/g), match => match[1]);
+  const architecture = readFileSync(resolve(domain, '../docs/architecture.md'), 'utf8');
+  const diagram = architecture.match(/### Carte des contextes\s+[\s\S]*?```mermaid\s+([\s\S]*?)```/)?.[1] ?? '';
+  const deliveries = Array.from(diagram.matchAll(/correction\s+-\.->\|"([^"]+)"\|\s+evaluation\b/g), match => match[1]);
+  expect(events.length).toBeGreaterThan(0);
+  expect(deliveries.sort()).toEqual(events.sort());
+});
