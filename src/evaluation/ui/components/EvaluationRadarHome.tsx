@@ -200,7 +200,7 @@ export function EvaluationRadarHome({
       onBack={() => setLab(null)} points={timeline[lab].filter(p => p.model === selected)}
       onExport={() => {
         const date = new Date().toISOString();
-        const report = buildRadarTimelineExport(lab, selected, timeline[lab], entries, history, weights, date);
+        const report = buildRadarTimelineExport(lab, selected, timeline[lab], entries, history, weights, date, excluded);
         const filenameModel = selected.replace(/[^a-zA-Z0-9._-]+/g, '-');
         downloadJson(report, 'companion-methodes-' + lab + '-' + filenameModel + '-' + date.replace(/:/g, '-') + '.json');
       }}
@@ -314,7 +314,7 @@ export function EvaluationRadarHome({
         <Button variant="secondary" disabled={!history.length && !entries.some(isRadarBenchmark)}
           onClick={() => {
             const date = new Date().toISOString();
-            downloadJson(buildRadarAnalysisExport(entries, history, weights, date),
+            downloadJson(buildRadarAnalysisExport(entries, history, weights, date, excluded),
               'companion-radars-' + date.replace(/:/g, '-') + '.json');
           }}>Exporter tous les résultats</Button>
       </header>
