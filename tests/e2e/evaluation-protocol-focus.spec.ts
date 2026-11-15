@@ -11,7 +11,7 @@ test('all scientific protocol buttons are reachable before the image catalog, on
   await expect(panel.getByText('3 schémas · présentation, légendes et justesse')).toBeVisible();
   for (const [label, action] of [
     [/Qualité graphique/, /Tester les 3 schémas en un clic/],
-    [/Sens des flèches/, /Tester les flèches D\/E en un clic/],
+    [/Traits de rappel/, /Tester les flèches D\/E en un clic/],
     [/Compréhension biologique/, /Tester les 6 variantes sémantiques/],
     [/Graphe des relations/, /Extraire les relations des 6 schémas/],
   ] as const) {
