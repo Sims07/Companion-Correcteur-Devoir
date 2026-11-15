@@ -191,3 +191,18 @@ describe('model evaluation history rubric compatibility', () => {
     expect(canCompareModelEvaluationRecords([first, second])).toBe(false);
   });
 });
+
+describe('Ollama benchmark timing completeness', () => {
+  it('uses 82 seconds of native time rather than a 10-hour browser delay', async () => {
+    const { sumReportedProviderDurationForStage, sumReportedProviderDurationForRuns } = await import('../../../src/evaluation/domain/modelEvaluation.ts');
+    const runs = [
+      { stage: 'analysis' as const, elapsedMs: 37_126_720, providerDurationMs: 81_920 },
+      { stage: 'analysis' as const, elapsedMs: 800, providerDurationMs: 500 },
+    ];
+    expect(sumReportedProviderDurationForStage(runs, 'analysis')).toBe(82_420);
+    expect(sumReportedProviderDurationForRuns(runs)).toBe(82_420);
+    expect(sumReportedProviderDurationForStage(runs, 'reading')).toBeNull();
+    expect(sumReportedProviderDurationForRuns([...runs, { stage: 'analysis' as const }])).toBeNull();
+    expect(sumReportedProviderDurationForRuns([{ stage: 'analysis', providerDurationMs: -2 }])).toBeNull();
+  });
+});

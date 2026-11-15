@@ -93,4 +93,30 @@ describe('NetworkInspector live request feedback', () => {
     expect(container.textContent).toContain('16.00 s');
     expect(container.textContent).toContain('En attente du serveur (modèle en cours de chargement ?)');
   });
+  it('shows Ollama native time first and preserves browser elapsed time for the diagnostic', async () => {
+    mockNetworkHistory.records = [{
+      ...pendingRecord, id: 'native-ollama', state: 'success', status: 200, durationMs: 37_126_720,
+      providerTimings: { totalMs: 81_920, loadMs: 4_600, promptEvaluationMs: 46_050, generationMs: 31_180 },
+    }];
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+    await act(async () => { root?.render(<NetworkInspector />); });
+    expect(container.querySelector('.network-request-row .network-duration')?.textContent).toContain('81.92 s');
+    expect(container.querySelector('.network-request-row .network-duration')?.textContent).not.toContain('37126');
+    expect(container.textContent).toContain('Temps navigateur : 37126.72 s');
+    expect(container.textContent).toContain('veille, attente ou interruption possible');
+  });
+
+  it('never substitutes browser time for missing Ollama metadata', async () => {
+    mockNetworkHistory.records = [{ ...pendingRecord, state: 'success', status: 200, durationMs: 37_126_720 }];
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+    await act(async () => { root?.render(<NetworkInspector />); });
+    expect(container.querySelector('.network-request-row .network-duration')?.textContent).toContain('Non mesuré');
+    expect(container.querySelector('.network-request-row .network-duration')?.textContent).not.toContain('37126');
+    expect(container.textContent).toContain('Temps navigateur : 37126.72 s');
+  });
+
 });

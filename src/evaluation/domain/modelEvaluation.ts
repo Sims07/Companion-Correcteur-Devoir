@@ -126,6 +126,21 @@ export interface ModelEvaluationTokenUsage {
   totalTokens?: number;
   /** Ollama's generation duration in milliseconds, excluding prompt evaluation. */
   generationMs?: number;
+  /** Native Ollama request time, independent from browser sleep. */
+  providerDurationMs?: number;
+}
+
+/** Never compare browser wall time with native model time. Null means not measured. */
+export function sumReportedProviderDurationForRuns(runs: readonly ModelEvaluationTokenUsage[]): number | null {
+  if (!runs.length || runs.some((run) => typeof run.providerDurationMs !== 'number'
+    || !Number.isFinite(run.providerDurationMs) || run.providerDurationMs < 0)) return null;
+  return runs.reduce((sum, run) => sum + run.providerDurationMs!, 0);
+}
+
+export function sumReportedProviderDurationForStage(
+  runs: readonly ModelEvaluationTokenUsage[], stage: 'reading' | 'analysis',
+): number | null {
+  return sumReportedProviderDurationForRuns(runs.filter((run) => run.stage === stage));
 }
 
 /** Sum only counters reported for one stage; missing metadata stays unknown, not zero. */
@@ -169,6 +184,7 @@ export interface ModelEvaluationCallTrace {
   /** Network/provider failure for this exact call, when the stream did not complete. */
   error?: string;
   elapsedMs: number;
+  providerDurationMs?: number;
   promptTokens?: number;
   generatedTokens?: number;
   totalTokens?: number;
@@ -189,6 +205,9 @@ export interface ModelEvaluationResultSnapshot {
   elapsedMs: number;
   readingMs: number;
   analysisMs: number;
+  /** Per-stage native model time; absent for legacy / unmeasured results. */
+  readingProviderMs?: number | null;
+  analysisProviderMs?: number | null;
   /** Token counters reported by Ollama for the vision stage; absent in legacy records. */
   readingTokens?: number | null;
   /** Token counters reported by Ollama for the analysis stage; absent in legacy records. */

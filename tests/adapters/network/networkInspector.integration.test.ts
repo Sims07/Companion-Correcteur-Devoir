@@ -364,3 +364,32 @@ describe('network inspector fetch integration', () => {
   });
 
 });
+
+describe('Ollama native timings in observed requests', () => {
+  it('retains native total_duration when a response was delayed, including after localStorage truncation', async () => {
+    const values = new Map<string, string>();
+    vi.stubGlobal('window', {
+      fetch: vi.fn(async () => new Response(
+        JSON.stringify({ message: { content: 'x'.repeat(5000) }, done: false }) + '\n' +
+        JSON.stringify({ done: true, total_duration: 81_920_000_000, load_duration: 4_600_000_000, prompt_eval_duration: 46_050_000_000, eval_duration: 31_180_000_000, done_reason: 'length' }) + '\n',
+        { status: 200, headers: { 'content-type': 'application/x-ndjson' } },
+      )),
+      localStorage: { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => { values.set(key, value); }, removeItem: (key: string) => { values.delete(key); } },
+      dispatchEvent: vi.fn(),
+      location: { origin: 'http://localhost' },
+    });
+    vi.stubGlobal('CustomEvent', class { constructor(public type: string) {} });
+    clearNetworkHistory();
+    const restore = installNetworkInspector();
+    await (await window.fetch('http://localhost:11434/api/chat', { method: 'POST' })).text();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const [record] = loadNetworkHistory();
+    expect(record.providerTimings).toEqual({
+      totalMs: 81920, loadMs: 4600, promptEvaluationMs: 46050, generationMs: 31180, doneReason: 'length',
+    });
+    const stored = JSON.parse(values.get('companion-correcteur:network-inspector:v1') ?? '[]');
+    expect(stored[0].providerTimings.totalMs).toBe(81920);
+    expect(stored[0].responseBody.length).toBeLessThanOrEqual(4000);
+    restore();
+  });
+});
