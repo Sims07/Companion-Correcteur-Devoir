@@ -4242,10 +4242,11 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
             // from the number of API calls or a notification saying "terminé".
             const archived = await diagramArchive.list();
             const outcome = radarEvaluationOutcome(request.trial ? archived.filter(entry => entry.trial?.id === request.trial!.id) : archived, request.modelId);
+            if (!outcome.complete && scienceMethodQueue.current && !failed.length) scienceMethodQueue.current.failures++;
             if (outcome.complete) return batteryStatus + 'Radar complet pour ' + request.profileName +
-              ' : 8/8 caractéristiques mesurées.';
+              ' : 9/9 caractéristiques mesurées.';
             return batteryStatus + 'Évaluation partielle pour ' + request.profileName + ' : ' +
-              outcome.measured + '/8 caractéristiques mesurées. Restent à mesurer : ' +
+              outcome.measured + '/9 caractéristiques mesurées. Restent à mesurer : ' +
               outcome.missing.map((axis) => axis.label + ' (' + axis.reason + ')').join(' ; ') +
               '. Consultez les campagnes pour comprendre les échecs ou les décisions indéterminées.';
           }}

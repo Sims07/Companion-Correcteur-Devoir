@@ -315,3 +315,19 @@
 .lab-radar-gallery .lab-gallery-data { fill:rgba(33,104,120,.13); stroke:#216878; stroke-width:2.8; }
 .lab-radar-gallery .lab-gallery-dot { fill:#216878; }
 .radar-method-launch-actions { display:flex; flex-wrap:wrap; gap:.6rem; align-items:center; }
+
+
+/* A compact, explicit ledger keeps successful calls distinct from usable axes. */
+.radar-method-audit { margin-top: 16px; }
+.radar-method-audit > p { margin: 6px 0 12px; color: var(--ds-color-text-muted); }
+.radar-method-audit-scroll { overflow-x: auto; }
+.radar-method-audit table { width: 100%; border-collapse: collapse; font-size: .89rem; }
+.radar-method-audit th, .radar-method-audit td {
+  padding: 9px 12px; border-bottom: 1px solid var(--ds-color-border);
+  vertical-align: top; text-align: left;
+}
+.radar-method-audit th { font-weight: 650; }
+.radar-method-audit td:nth-child(2), .radar-method-audit td:nth-child(3) { white-space: nowrap; }
+.radar-method-audit details { max-width: 34rem; }
+.radar-method-audit summary { cursor: pointer; text-decoration: underline; }
+.radar-method-audit details p { margin: 6px 0 0; line-height: 1.45; }

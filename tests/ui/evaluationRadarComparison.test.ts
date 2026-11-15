@@ -316,3 +316,43 @@ it('keeps four successive scientific methods as four independently selectable ra
   }
   await act(async () => root.unmount());
 });
+
+
+it('audits all five scientific methods and schedules only pending method trials from one button', async () => {
+  const node = document.createElement('div');
+  document.body.append(node);
+  const root = createRoot(node);
+  const runScienceBatch = vi.fn();
+  const runScience = vi.fn();
+  await act(async () => root.render(createElement(EvaluationRadarHome, {
+    entries: [entries[0]!], history: [], profiles: [profiles[0]!], model: 'alpha:4b',
+    choose: vi.fn(), busy: false, manage: vi.fn(), details: vi.fn(), campaigns: vi.fn(),
+    runScience, runBiology: vi.fn(), runScienceBatch,
+  })));
+  const analyse = [...node.querySelectorAll<HTMLButtonElement>('button')].find(button =>
+    button.textContent?.trim() === 'Analyse des méthodes')!;
+  await act(async () => analyse.click());
+  const audit = node.querySelector('section[aria-label="État des cinq méthodes scientifiques"]')!;
+  expect(audit).toBeTruthy();
+  expect(audit.querySelectorAll('tbody tr')).toHaveLength(5);
+  expect(audit.textContent).toContain('Non testé');
+  expect(audit.textContent).toContain('/9');
+  const launch = [...node.querySelectorAll<HTMLButtonElement>('button')].find(button =>
+    button.textContent?.includes('Évaluer toutes les méthodes restantes (5)'))!;
+  expect(launch.disabled).toBe(false);
+  await act(async () => launch.click());
+  const requests = runScienceBatch.mock.calls[0]![0] as Array<{
+    trial: {id:string; method:string}; steps: Array<{protocol:string}>;
+  }>;
+  expect(requests).toHaveLength(5);
+  expect(new Set(requests.map(item => item.trial.method)).size).toBe(5);
+  expect(requests.every(item => item.steps.length === 4)).toBe(true);
+  const targeted = audit.querySelector<HTMLButtonElement>('tbody tr button')!;
+  await act(async () => targeted.click());
+  expect(runScience).toHaveBeenCalledWith(expect.objectContaining({
+    trial: expect.objectContaining({method: 'graph-first-v1'}),
+    steps: expect.arrayContaining([expect.objectContaining({protocol: 'graph'})]),
+  }));
+  await act(async () => root.unmount());
+  node.remove();
+});
