@@ -205,6 +205,7 @@ export function resolveModelProfile(profiles: readonly RadarModelConfiguration[]
   if (!profiles.length) return plan; // Compatibility with historical archives and older embeds.
   const needsGrading = plan.steps.some((step) => step.protocol !== 'graph');
   const needsGraph = plan.steps.some((step) => step.protocol === 'graph');
+  const requestedMethod = plan.steps.find(step => step.protocol !== 'graph' && step.method !== 'compare')?.method;
   const graphModelFor = (profile: RadarModelConfiguration) => {
     const cfg = profile.configuration;
     const raw = cfg.visionModel.trim() || cfg.generativeModel?.trim() ||
@@ -215,8 +216,16 @@ export function resolveModelProfile(profiles: readonly RadarModelConfiguration[]
   const canGrade = (profile: RadarModelConfiguration) => {
     const cfg = profile.configuration;
     if (!needsGrading) return true;
-    if (plan.steps.some(step => step.method === 'graph-first-v1')) return cfg.correctionMethod === 'generative' && cfg.analysisModel.trim() === candidate.id;
     if (cfg.analysisModel.trim() !== candidate.id) return false;
+    if (requestedMethod === 'graph-first-v1' || requestedMethod === 'graph-first-v2' ||
+        requestedMethod === 'direct-image-generative') return cfg.correctionMethod === 'generative';
+    if (requestedMethod === 'direct-image-generative-thinking')
+      return cfg.correctionMethod === 'generative' && !cfg.apiCompatible;
+    if (requestedMethod === 'direct-image-systemone')
+      return !cfg.apiCompatible && (cfg.correctionMethod === 'decision' || cfg.correctionMethod === 'visual-decision') &&
+        isVisualDecisionModel(cfg.analysisModel);
+    if (requestedMethod === 'vision-then-analysis')
+      return Boolean(cfg.visionModel.trim()) && (cfg.apiCompatible || !isNativeDecisionModel(cfg.visionModel));
     if (cfg.correctionMethod === 'visual-decision') {
       return !cfg.apiCompatible && isVisualDecisionModel(cfg.analysisModel);
     }
@@ -252,7 +261,7 @@ export function resolveModelProfile(profiles: readonly RadarModelConfiguration[]
   return {
     ...plan, profileId: matching.id, profileName: matching.name, modelId: candidate.id,
     steps: steps.map((step) => ({
-      ...step, method: step.protocol === 'graph' || step.method === 'graph-first-v1' ? step.method : method,
+      ...step, method: step.protocol === 'graph' || step.method !== 'compare' ? step.method : method,
     })),
   };
 }
