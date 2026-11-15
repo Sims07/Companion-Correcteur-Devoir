@@ -2,7 +2,7 @@ import type { BiologyRadarObservation } from './biologyTeacherRadar.ts';
 import type { DiagramLabArchiveEntry } from './diagramLabHistory.ts';
 import { RADAR_PRESETS, type RadarWeights } from './diagramLabRadar.ts';
 import {
-  biologyRunMethodLabel, scienceMethods, sciencePoints, type ScienceMethod, type TimelinePoint,
+  biologyRunMethodLabel, scienceMethods, sciencePoints, type TimelinePoint,
 } from './radarTimeline.ts';
 
 export type RadarMethodDomain = 'diagrams' | 'biology';
