@@ -84,7 +84,7 @@ Depuis l’éditeur d’un barème, l’enseignant peut exporter un ou plusieurs
 
 ## Architecture
 
-Voir [`docs/architecture.md`](docs/architecture.md) pour les couches, les flux, les règles de dépendance et la stratégie de tests.
+La [carte des contextes](docs/architecture.md#carte-des-contextes) montre les appels et les événements entre Correction et Évaluation.
 
 - `src/correction/` regroupe les règles de notation, les cas d’usage, les ports, les adaptateurs et les écrans du parcours enseignant.
 - `src/evaluation/` regroupe les protocoles, les campagnes, leurs images de référence, la persistance et les radars.
