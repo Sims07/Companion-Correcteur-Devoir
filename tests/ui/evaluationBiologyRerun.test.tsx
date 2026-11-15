@@ -58,7 +58,7 @@ describe('biology radar retry without changing the dashboard layout', () => {
   it('reruns D1 after fixing a previously saved, wrongly generative configuration', async () => {
     const view = await renderRadar();
     const oldRuns = history('generative');
-    expect(buildBiologyRadar(oldRuns, 'contract')[0]?.measured).toBe(5);
+    expect(buildBiologyRadar(oldRuns, 'contract')[0]?.measured).toBe(6);
     try {
       await view.render(profile('generative'), oldRuns);
       expect(view.button()?.textContent).toContain('Relancer l’évaluation');
@@ -73,11 +73,11 @@ describe('biology radar retry without changing the dashboard layout', () => {
     } finally { await view.cleanup(); }
   });
 
-  it('allows a fresh full benchmark even when the current decision model already has 5/5 axes', async () => {
+  it('allows a fresh full benchmark even when the current decision model already has 6/6 axes', async () => {
     const view = await renderRadar();
     try {
       const runs = history('decision');
-      expect(buildBiologyRadar(runs, 'contract')[0]?.measured).toBe(5);
+      expect(buildBiologyRadar(runs, 'contract')[0]?.measured).toBe(6);
       await view.render(profile('decision'), runs);
       expect(view.button()?.textContent).toContain('Relancer l’évaluation');
       expect(view.button()?.disabled).toBe(false);
