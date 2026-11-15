@@ -8,9 +8,9 @@ const installedBuild: AppBuildVersion = {
   revision: import.meta.env.VITE_EVALUATION_REVISION || null,
 };
 
-const releaseTag: string | null = import.meta.env.VITE_APP_RELEASE_TAG || null;
+const installedReleaseTag: string | null = import.meta.env.VITE_APP_RELEASE_TAG || null;
 
-export function AppVersionBadge() {
+export function AppVersionBadge({ releaseTag = installedReleaseTag }: { releaseTag?: string | null } = {}) {
   const [open, setOpen] = useState(false);
   const [checking, setChecking] = useState(true);
   const [status, setStatus] = useState<AppVersionStatus>('unverified');
