@@ -14,6 +14,11 @@ export const scienceMethods = {
   'guided-v1': { label: 'Examen guidé, trait par trait · v1', graphVariant: 'isolated-arrows-outside', promptMode: 'guided' },
 } as const;
 export type ScienceMethod = keyof typeof scienceMethods;
+/** Canonical observed-method label, shared by history, comparisons and exclusions. */
+export function biologyRunMethodLabel(protocol: 'contract' | 'standard' | 'pilot', method: string, provider: string): string {
+  const protocolLabel = ({ contract: 'Contrats par question', standard: 'Barème standard', pilot: 'Pilote' })[protocol];
+  return protocolLabel + ' · ' + method + ' · ' + provider;
+}
 export interface RadarTrial {
   id: string;
   method: ScienceMethod;
@@ -126,8 +131,7 @@ export function biologyPoints(group: BiologyRadarObservation[]): TimelinePoint[]
       return {
         id: [latest.campaignId ?? latest.id, protocol, candidate.id].join('|'),
         date: latest.recordedAt, model: candidate.name, revision: latest.revision,
-        label: ({ contract: 'Contrats par question', standard: 'Barème standard', pilot: 'Pilote' })[protocol] +
-          ' · ' + candidate.method + ' · ' + candidate.provider,
+        label: biologyRunMethodLabel(protocol, candidate.method, candidate.provider),
         protocolLabel: [...new Set(rows.map(r => r.caseId))].sort().join(' / '),
         comparisonBasis: JSON.stringify([candidate.provider, BIOLOGY_RADAR_AXES.map(axis => axis.weight),
           rows.map(row => JSON.stringify([row.caseId, row.referenceScore,

@@ -1,6 +1,9 @@
 import type { BiologyRadarObservation } from './biologyTeacherRadar.ts';
 import type { DiagramLabArchiveEntry } from './diagramLabHistory.ts';
-import { scienceMethods, type ScienceMethod, type TimelinePoint } from './radarTimeline.ts';
+import { RADAR_PRESETS, type RadarWeights } from './diagramLabRadar.ts';
+import {
+  biologyRunMethodLabel, scienceMethods, sciencePoints, type TimelinePoint,
+} from './radarTimeline.ts';
 
 export type RadarMethodDomain = 'diagrams' | 'biology';
 export const biologyMethodLabels = {
@@ -10,24 +13,33 @@ export const biologyMethodLabels = {
 } as const;
 export type BiologyMethodId = keyof typeof biologyMethodLabels;
 
+/** Keep existing protocol/strategy ids valid; observed archived methods get stable namespaced ids. */
 export interface RadarMethodExclusions {
-  diagrams: ScienceMethod[];
-  biology: BiologyMethodId[];
+  diagrams: string[];
+  biology: string[];
 }
 export const EMPTY_RADAR_EXCLUSIONS: RadarMethodExclusions = { diagrams: [], biology: [] };
 const KEY = 'companion:radar-method-exclusions:v1';
+const OBSERVED_PREFIX = { diagrams: 'historique:', biology: 'variante:' } as const;
+
+export function observedRadarMethodId(domain: RadarMethodDomain, label: string): string {
+  return OBSERVED_PREFIX[domain] + label;
+}
+function allowedId(domain: RadarMethodDomain, id: unknown): id is string {
+  if (typeof id !== 'string') return false;
+  const known = domain === 'diagrams' ? Object.keys(scienceMethods) : Object.keys(biologyMethodLabels);
+  if (known.includes(id)) return true;
+  const prefix = OBSERVED_PREFIX[domain];
+  return id.startsWith(prefix) && id.length > prefix.length && id.length <= 512 &&
+    !/[\u0000-\u001f]/.test(id);
+}
 
 export function parseRadarMethodExclusions(input: unknown): RadarMethodExclusions {
   const data = input && typeof input === 'object' ? input as Record<string, unknown> : {};
-  const allowed = (value: unknown, keys: readonly string[]) => Array.isArray(value)
-    ? [...new Set(value.filter((entry): entry is string => typeof entry === 'string' && keys.includes(entry)))]
-    : [];
-  return {
-    diagrams: allowed(data.diagrams, Object.keys(scienceMethods)) as ScienceMethod[],
-    biology: allowed(data.biology, Object.keys(biologyMethodLabels)) as BiologyMethodId[],
-  };
+  const values = (domain: RadarMethodDomain): string[] => Array.isArray(data[domain])
+    ? [...new Set(data[domain].filter((id: unknown) => allowedId(domain, id)))] : [];
+  return { diagrams: values('diagrams'), biology: values('biology') };
 }
-
 export function loadRadarMethodExclusions(): RadarMethodExclusions {
   try { return parseRadarMethodExclusions(JSON.parse(window.localStorage.getItem(KEY) ?? '{}')); }
   catch { return { diagrams: [], biology: [] }; }
@@ -37,37 +49,67 @@ export function saveRadarMethodExclusions(value: RadarMethodExclusions): boolean
   catch { return false; }
 }
 
-/** Excluding a method never deletes the evidence: it only removes it from active scoring and scheduling. */
 export function methodIsActive(exclusions: RadarMethodExclusions, domain: RadarMethodDomain, id?: string): boolean {
-  return !id || !(exclusions[domain] as readonly string[]).includes(id);
+  return !id || !exclusions[domain].includes(id);
 }
 export function toggleRadarMethodExclusion(
   previous: RadarMethodExclusions, domain: RadarMethodDomain, id: string,
 ): RadarMethodExclusions {
-  const allowed = domain === 'diagrams' ? Object.keys(scienceMethods) : Object.keys(biologyMethodLabels);
-  if (!allowed.includes(id)) return previous;
-  const next = (previous[domain] as string[]).includes(id)
+  if (!allowedId(domain, id)) return previous;
+  const next = previous[domain].includes(id)
     ? previous[domain].filter(value => value !== id)
     : [...previous[domain], id];
   return parseRadarMethodExclusions({ ...previous, [domain]: next });
 }
 
+/** A gallery card and its checkbox must resolve to exactly the same ID. */
 export function timelineMethodId(domain: RadarMethodDomain, point: TimelinePoint): string | undefined {
-  return domain === 'diagrams' ? point.scienceMethod
-    : (point.biologyMethod ?? (point.label.startsWith('Pilote ·') ? 'pilot' : undefined));
+  if (domain === 'diagrams') return point.scienceMethod ?? (point.label
+    ? observedRadarMethodId(domain, point.label) : undefined);
+  return point.label ? observedRadarMethodId(domain, point.label)
+    : (point.biologyMethod ?? undefined);
+}
+
+function biologyProtocolFor(point: TimelinePoint): BiologyMethodId | undefined {
+  if (point.biologyMethod) return point.biologyMethod;
+  if (point.label?.startsWith('Pilote ·')) return 'pilot';
+  if (point.label?.startsWith('Contrats par question ·')) return 'contract';
+  if (point.label?.startsWith('Barème standard ·')) return 'standard';
+  return undefined;
+}
+
+/** Protocol exclusions from previous versions remain authoritative alongside finer observed variants. */
+export function timelineMethodIsActive(
+  exclusions: RadarMethodExclusions, domain: RadarMethodDomain, point: TimelinePoint,
+): boolean {
+  return methodIsActive(exclusions, domain, timelineMethodId(domain, point)) &&
+    (domain !== 'biology' || methodIsActive(exclusions, domain, biologyProtocolFor(point)));
 }
 export function activeTimelinePoints(
   points: readonly TimelinePoint[], domain: RadarMethodDomain, exclusions: RadarMethodExclusions,
 ): TimelinePoint[] {
-  return points.filter(point => methodIsActive(exclusions, domain, timelineMethodId(domain, point)));
+  return points.filter(point => timelineMethodIsActive(exclusions, domain, point));
 }
+
+/** An archived, pre-trial radar is not one of the five newer graph strategies.
+ * Identify its displayed label from its evidence so exclusions can hide its score too. */
 export function activeScienceEntries(
   entries: readonly DiagramLabArchiveEntry[], exclusions: RadarMethodExclusions,
+  weights: RadarWeights = RADAR_PRESETS.balanced,
 ): DiagramLabArchiveEntry[] {
-  return entries.filter(entry => methodIsActive(exclusions, 'diagrams', entry.trial?.method));
+  return entries.filter(entry => {
+    if (entry.trial) return methodIsActive(exclusions, 'diagrams', entry.trial.method);
+    if (!exclusions.diagrams.some(id => id.startsWith(OBSERVED_PREFIX.diagrams)) ||
+      !entry.report || entry.report.format === 'companion-scientific-diagram-protocol') return true;
+    const labels = sciencePoints([entry], weights).map(point => point.label);
+    return !labels.length || labels.some(label =>
+      methodIsActive(exclusions, 'diagrams', observedRadarMethodId('diagrams', label)));
+  });
 }
 export function activeBiologyObservations(
   history: readonly BiologyRadarObservation[], exclusions: RadarMethodExclusions,
 ): BiologyRadarObservation[] {
-  return history.filter(row => methodIsActive(exclusions, 'biology', row.protocol));
+  return history.filter(row => methodIsActive(exclusions, 'biology', row.protocol) &&
+    methodIsActive(exclusions, 'biology', observedRadarMethodId('biology',
+      biologyRunMethodLabel(row.protocol, row.method, row.provider))));
 }
