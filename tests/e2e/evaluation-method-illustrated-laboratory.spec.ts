@@ -53,6 +53,9 @@ test('method laboratory displays a full-width illustrated panel for every strate
   await expect(panel).toHaveAttribute('data-selected-method', 'leaders-v1');
 
   await lab.getByRole('button', { name: 'Retour aux radars' }).click();
+  // The mobile dashboard presents its articles as display:contents. Navigate
+  // back on desktop to test the separate biology laboratory, not dashboard semantics.
+  await page.setViewportSize({ width: 1280, height: 900 });
   await home.getByRole('article', { name: 'Biologie' })
     .getByRole('button', { name: 'Analyse des méthodes' }).click();
   const biologyLab = page.getByRole('region', { name: 'Laboratoire des méthodes' });
