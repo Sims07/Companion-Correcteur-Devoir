@@ -70,7 +70,7 @@ export function RadarMethodGuide({ domain }: { domain: RadarMethodDomain }) {
       <div>
         <span className="lab-guide-overline">LABORATOIRE · COMPRENDRE</span>
         <h3>Comprendre les méthodes</h3>
-        <p>Choisissez une méthode pour examiner son fonctionnement, ses étapes et les éléments qu’elle regarde réellement dans le dessin.</p>
+        <p>Retrouvez les parcours de correction directe image + barème → LLM et les stratégies d’observation des graphes. « Comparer Think OFF / ON » déclenche deux parcours, ce n’est pas une méthode supplémentaire.</p>
       </div>
     </header>
     <div className="lab-guide-tabs" role="tablist" aria-label="Méthodes expliquées">
