@@ -300,7 +300,7 @@ export function buildScientificDiagramProtocolReport(
         ? 'Échec avant traitement du schéma : vérifiez la configuration ou les modèles dans l’observabilité locale.'
         : 'Échec durant le traitement : détails dans l’observabilité locale.'
       : null,
-    durationMs: result.elapsedMs, providerDurationMs: sumReportedProviderDurationForRuns(result.diagnosticRuns ?? []), readingMs: result.readingMs, analysisMs: result.analysisMs,
+    durationMs: result.elapsedMs, providerDurationMs: record.graphFirst ? null : sumReportedProviderDurationForRuns(result.diagnosticRuns ?? []), readingMs: result.readingMs, analysisMs: result.analysisMs,
     tokens: result.tokens, score: result.score,
     ...(result.diagnosticRuns?.length ? { prompts: evaluationPromptReferences(result.diagnosticRuns) } : {}),
     diagnostics: diagramAnalysisDiagnostics(result),
@@ -354,7 +354,8 @@ export function buildScientificDiagramProtocolReport(
       failedRuns: items.filter((item) => item.scoreStatus === 'execution-failed').length,
       resolvedDecisions: resolved, totalDecisions: items.length * ids.length,
       complete,
-      meanDurationMs: items.length ? Math.round(items.reduce((sum, item) => sum + item.durationMs, 0) / items.length) : null,
+      meanDurationMs: items.length && items.every((item) => item.providerDurationMs !== null)
+        ? Math.round(items.reduce((sum, item) => sum + (item.providerDurationMs ?? 0), 0) / items.length) : null,
       labelledTargets: labelled.length, totalTargets,
       // Zero recovered answers is a technical/no-coverage state, NOT evidence
       // that the model is wrong on every rubric item.
