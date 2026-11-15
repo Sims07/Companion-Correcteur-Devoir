@@ -6,10 +6,10 @@ describe('stable prompt metadata', () => {
   it('tracks distinct prompts for local decision, native System One and vision diagrams', () => {
     expect(promptTrace('decision.chat')).toEqual({ promptId: 'decision.chat', promptVersion: 1 });
     expect(promptTrace('decision.system-one')).toEqual({ promptId: 'decision.system-one', promptVersion: 7 });
-    expect(promptTrace('decision.system-one-visual').promptVersion).toBe(5);
-    expect(promptTrace('diagram.direct-grading').promptVersion).toBe(5);
-    expect(promptTrace('diagram.direct-repair').promptVersion).toBe(5);
-    expect(promptTrace('diagram.scientific-analysis')).toEqual({ promptId: 'diagram.scientific-analysis', promptVersion: 6 });
+    expect(promptTrace('decision.system-one-visual').promptVersion).toBe(6);
+    expect(promptTrace('diagram.direct-grading').promptVersion).toBe(6);
+    expect(promptTrace('diagram.direct-repair').promptVersion).toBe(6);
+    expect(promptTrace('diagram.scientific-analysis')).toEqual({ promptId: 'diagram.scientific-analysis', promptVersion: 7 });
     expect(promptTrace('vision.copy-transcription').promptId).not.toBe(promptTrace('grading.incremental').promptId);
   });
 
