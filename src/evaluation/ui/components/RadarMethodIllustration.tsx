@@ -8,6 +8,11 @@ const titles: Record<MethodGuideIllustration, string> = {
   'direct-graph': 'Transformation du dessin visible en nœuds et relations déclarés par le modèle Vision',
   guided: 'Contrôle successif des extrémités, du tracé, de la pointe et des contours',
   'graph-first': 'Chaîne séparant observation du graphe et décisions selon le barème',
+  'relations-v2': 'Image vers relations entre légendes et structures, puis correction',
+  'vision-analysis': 'Deux appels distincts : image vers modèle Vision, transcription vers analyse',
+  'direct-grading': 'Image et barème directement envoyés au modèle génératif sans OCR préalable',
+  'thinking-grading': 'Image et barème envoyés au modèle génératif avec le mode Think demandé',
+  'systemone-grading': 'Image et barème directement envoyés au modèle visuel System One',
   'question-contracts': 'Correction d’une réponse à l’aide de trois attendus indépendants',
   'standard-rubric': 'Confrontation d’une réponse au barème standard et comparaison des critères',
   'historical-pilot': 'Campagnes archivées avec leur date, protocole et référence',
@@ -210,6 +215,31 @@ function Pilot() {
   </>;
 }
 
+type RouteKind = 'relations-v2' | 'vision-analysis' | 'direct-grading' | 'thinking-grading' | 'systemone-grading';
+const routes: Record<RouteKind, { stages: string[]; note: string; badge: string }> = {
+  'relations-v2': { stages: ['Image', 'Relations v2', 'Correction'], note: 'Étiquettes, cibles et inclusions vérifiées', badge: 'Graphe v2' },
+  'vision-analysis': { stages: ['Image', 'Vision → texte', 'Analyse'], note: 'Le second modèle ne voit pas les pixels', badge: 'Deux appels' },
+  'direct-grading': { stages: ['Image + barème', 'LLM Vision', 'Note'], note: 'Pas de graphe ni transcription préalable', badge: 'Think OFF' },
+  'thinking-grading': { stages: ['Image + barème', 'LLM + Think', 'Note'], note: 'Même entrée, raisonnement demandé en plus', badge: 'Think ON' },
+  'systemone-grading': { stages: ['Image + barème', 'System One', 'Décisions'], note: 'Modèle décisionnel acceptant les pixels requis', badge: 'Sans OCR' },
+};
+function RouteScene({ kind }: { kind: RouteKind }) {
+  const route = routes[kind];
+  return <>
+    <BaseBiologyDrawing/>
+    <Tag x={45} y={335} width={190} label={route.badge} tone="purple"/>
+    <rect x="40" y="372" width="680" height="70" rx="16" fill="#eef4ff" stroke="#b8ccea" strokeWidth="2"/>
+    {route.stages.map((stage, index) => <g key={stage}>
+      <rect x={62 + index * 224} y="382" width="182" height="44" rx="10" fill={index === 1 ? '#f0e5ff' : '#e0efff'}
+        stroke={index === 1 ? '#8050b8' : '#2663b6'} strokeWidth="2"/>
+      <text x={153 + index * 224} y="410" textAnchor="middle" fontSize="16" fontWeight="700" fill="#1a3152">{stage}</text>
+      {index < 2 && <path d={'M' + (246 + index * 224) + ' 404 h36'} stroke="#8050b8" strokeWidth="2.5"
+        markerEnd="url(#lab-guide-arrow-purple)"/>}
+    </g>)}
+    <text x="470" y="358" textAnchor="middle" fontSize="16" fill="#465e7a">{route.note}</text>
+  </>;
+}
+
 export function RadarMethodIllustration({ kind }: { kind: MethodGuideIllustration }) {
   return <svg className="lab-guide-illustration" viewBox="0 0 760 465" role="img"
     data-illustration={kind} aria-label={titles[kind]}>
@@ -229,6 +259,7 @@ export function RadarMethodIllustration({ kind }: { kind: MethodGuideIllustratio
     {kind === 'direct-graph' && <DirectGraph/>}
     {kind === 'guided' && <Guided/>}
     {kind === 'graph-first' && <GraphFirst/>}
+    {kind in routes && <RouteScene kind={kind as RouteKind}/>}
     {kind === 'question-contracts' && <Contracts/>}
     {kind === 'standard-rubric' && <Standard/>}
     {kind === 'historical-pilot' && <Pilot/>}
@@ -238,6 +269,7 @@ export function RadarMethodIllustration({ kind }: { kind: MethodGuideIllustratio
 export function RadarMethodThumbnail({ kind }: { kind: MethodGuideIllustration }) {
   const arrow = kind === 'small-tips' || kind === 'long-shafts';
   const graph = kind === 'direct-graph' || kind === 'graph-first';
+  const route = kind in routes;
   return <svg viewBox="0 0 80 80" className="lab-guide-thumbnail" aria-hidden="true" focusable="false">
     <rect x="1" y="1" width="78" height="78" rx="17" fill="#edf4ff"/>
     {arrow && <>
@@ -257,6 +289,12 @@ export function RadarMethodThumbnail({ kind }: { kind: MethodGuideIllustration }
         {i!==2 && <path d={`M20 ${y} l4 4 7 -9`} fill="none" stroke="#2d8662" strokeWidth="2.5"/>}
         <path d={`M39 ${y} H66`} stroke="#8aa6c5" strokeWidth="4" strokeLinecap="round"/>
       </g>)}
+    </>}
+    {route && <>
+      {[17,40,63].map((x,i) => <rect key={x} x={x-10} y="27" width="20" height="27" rx="5"
+        fill={i === 1 ? '#e8dcf7' : '#dceeff'} stroke={i === 1 ? '#8050b8' : '#2663b6'} strokeWidth="2"/>)}
+      <path d="M27 40 H30 M50 40 H53" stroke="#8050b8" strokeWidth="2"/>
+      <circle cx="40" cy="15" r="5" fill={kind === 'thinking-grading' ? '#8050b8' : '#2663b6'}/>
     </>}
     {kind === 'historical-pilot' && <>
       <path d="M13 47 H67" stroke="#86a2c2" strokeWidth="4"/>
