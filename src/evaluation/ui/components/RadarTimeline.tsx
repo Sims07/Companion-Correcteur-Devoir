@@ -101,7 +101,8 @@ export function RadarTimeline({
   const catalogue = domain === 'diagrams'
     ? Object.entries(scienceMethods).map(([id, method]) => ({id, label: method.label}))
     : Object.entries(biologyMethodLabels).map(([id, label]) => ({id, label}));
-  const activeFilter = filter ?? methods[0] ?? '';
+  const activeFilter = filter === '' || (filter && methods.includes(filter))
+    ? filter : methods[0] ?? '';
   const filtered = sorted.filter(p => !activeFilter || p.label === activeFilter);
   const decision = radarMethodDecision(sorted);
   const current = filtered.find(p => p.id === selected) ?? filtered[0];
@@ -114,7 +115,8 @@ export function RadarTimeline({
     <section className="lab-method-visibility" aria-label="Méthodes actives et exclues">
       <h3>Inclure ou exclure les méthodes</h3>
       <p>Décochez une méthode pour la retirer des prochains lancements, des radars, des tendances et des recommandations.
-        Les anciens résultats restent consultables dans l’historique. Vous pouvez la réactiver à tout moment.</p>
+        Ce réglage s’applique à tous les LLM de ce type de radar. Les anciens résultats restent dans l’historique ;
+        vous pouvez réactiver chaque méthode à tout moment.</p>
       <div className="lab-method-options">{catalogue.map(method => {
         const active = methodIsActive(exclusions, domain, method.id);
         return <label key={method.id} data-excluded={!active}>
