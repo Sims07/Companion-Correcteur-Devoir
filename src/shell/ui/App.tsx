@@ -4199,6 +4199,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
           onRunSensitivity={(request) => followEvaluation({ title: 'Schémas scientifiques · sensibilité sémantique', journey: 'diagrams', targetId: 'evaluation-diagram-sensitivity-results', profiles: selectedEvaluationProfiles.map((profile) => profile.name).join(' · ') }, () => runScientificDiagramSensitivity(request))}
           onRunBlindGraph={(request) => followEvaluation({ title: 'Schémas scientifiques · graphe de relations', journey: 'diagrams', targetId: 'evaluation-diagram-graph-results', profiles: selectedEvaluationProfiles.map((profile) => profile.name).join(' · ') }, () => runScientificDiagramBlindGraph(request))}
           onStop={stopPilotProtocol}
+          onManageProfiles={() => setManagingEvaluationProfiles(true)}
           report={diagramProtocolReport}
           fixtureReport={diagramFixtureReport}
           sensitivityReport={diagramSensitivityReport}

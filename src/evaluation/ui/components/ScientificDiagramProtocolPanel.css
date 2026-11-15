@@ -7,6 +7,14 @@
   border-radius: var(--ds-radius-md); min-width: 0; align-content: start;
 }
 .diagram-protocol-import > label { font-size: .86rem; font-weight: 600; }
+.diagram-protocol-reference-details > summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: .86rem;
+}
+.diagram-protocol-reference-details[open] > summary { margin-bottom: var(--ds-space-3); }
+.diagram-personal-setup { display: flex; align-items: center; gap: var(--ds-space-3); flex-wrap: wrap; }
+.diagram-personal-setup p { margin: 0; font-size: .86rem; }
 .diagram-protocol-labels { max-height: 450px; overflow-y: auto; display: grid; gap: var(--ds-space-3); }
 .diagram-protocol-labels fieldset { border: 1px solid var(--ds-color-border); border-radius: var(--ds-radius-sm); min-width: 0; }
 .diagram-protocol-labels legend { font-weight: 600; font-size: .85rem; }

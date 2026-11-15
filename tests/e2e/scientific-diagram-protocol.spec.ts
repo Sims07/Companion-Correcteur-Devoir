@@ -85,10 +85,14 @@ test('a scientific diagram protocol accepts a photo, rubric, teacher decisions a
   await panel.locator('details.diagram-lab-legacy > summary').click();
   await expect(panel.getByText('15 attendus', { exact: false }).first()).toBeVisible();
   await expect(panel.getByText('8 points', { exact: false }).first()).toBeVisible();
-  await expect(panel.getByRole('button', { name: 'Tester le schéma en un clic' })).toBeDisabled();
-  await expect(panel.getByRole('combobox', { name: 'Répétitions' })).toHaveValue('3');
-  await panel.getByRole('combobox', { name: 'Répétitions' }).selectOption('5');
-  await expect(panel.getByRole('combobox', { name: 'Répétitions' })).toHaveValue('5');
+  await expect(panel.getByRole('button', { name: 'Analyser mon schéma' })).toBeDisabled();
+  await expect(panel.getByRole('combobox', { name: 'Passages du schéma personnel' })).toHaveValue('1');
+  await panel.getByRole('combobox', { name: 'Passages du schéma personnel' }).selectOption('3');
+  await expect(panel.getByRole('combobox', { name: 'Passages du schéma personnel' })).toHaveValue('3');
+  await panel.getByRole('combobox', { name: 'Passages du schéma personnel' }).selectOption('5');
+  await expect(panel.getByRole('combobox', { name: 'Passages du schéma personnel' })).toHaveValue('5');
+  await panel.getByRole('combobox', { name: 'Passages du schéma personnel' }).selectOption('1');
+  await expect(panel.getByRole('combobox', { name: 'Passages du schéma personnel' })).toHaveValue('1');
 
   const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/ZckAAAAASUVORK5CYII=', 'base64');
   await panel.locator('#diagram-protocol-photos').setInputFiles({
@@ -96,6 +100,7 @@ test('a scientific diagram protocol accepts a photo, rubric, teacher decisions a
   });
   await expect(panel.getByText('1 page(s) prêtes')).toBeVisible();
 
+  await panel.locator('details.diagram-protocol-reference-details > summary').click();
   await panel.getByRole('combobox', { name: 'Référence : Occupe toute la page' }).selectOption('present');
   await expect(panel.getByRole('combobox', { name: 'Référence : Occupe toute la page' })).toHaveValue('present');
 
@@ -118,7 +123,7 @@ test('a scientific diagram protocol accepts a photo, rubric, teacher decisions a
 
   await chooseEvaluationModel(page);
   await expect(panel.getByText('System One image directe', { exact: false })).toBeVisible();
-  await expect(panel.getByRole('button', { name: 'Tester le schéma en un clic' })).toBeEnabled();
+  await expect(panel.getByRole('button', { name: 'Analyser mon schéma' })).toBeEnabled();
 });
 
 
@@ -158,4 +163,97 @@ test('the scientific-diagram lab exposes an explicit multimodal comparison indep
   await expect(panel.getByText(/Le parcours System One image exige/).first()).toBeVisible();
   await method.selectOption('compare');
   await expect(panel.getByRole('button', { name: 'Tester les 3 schémas en un clic' })).toBeEnabled();
+});
+
+test('a personal diagram runs once without teacher references and exports a readable result', async ({ page }) => {
+  const configuration = {
+    endpoint: 'http://localhost:11434', apiCompatible: false, apiKey: '',
+    visionModel: '', analysisModel: 'qwen3.5:4b', correctionMethod: 'generative',
+    secondAnalysisModel: '', arbitratorModel: '', diagnosticStrategy: 'single',
+    analysisThinking: false, criterionByCriterion: true,
+  };
+  await page.addInitScript((profile) => {
+    localStorage.setItem('companion-correcteur:ollama-profiles:v1', JSON.stringify([profile]));
+    localStorage.removeItem('companion-correcteur:evaluation-selected-profiles:v1');
+  }, { id: 'professor-diagram', name: 'Modèle professeur', mode: 'single',
+    updatedAt: '2026-11-15T00:00:00Z', configuration });
+
+  const chatPayloads: Record<string, any>[] = [];
+  await page.route('http://localhost:11434/**', async route => {
+    const path = new URL(route.request().url()).pathname;
+    const headers = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*',
+      'access-control-allow-methods': 'GET,POST,OPTIONS' };
+    if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers });
+    if (path === '/api/tags') return route.fulfill({ headers, json: { models: [{ name: 'qwen3.5:4b' }] } });
+    if (path === '/api/ps') return route.fulfill({ headers, json: { models: [] } });
+    if (path === '/api/show') return route.fulfill({ headers, json: { capabilities: ['completion', 'vision'] } });
+    if (path === '/api/chat') {
+      chatPayloads.push(route.request().postDataJSON());
+      return route.fulfill({ headers, contentType: 'application/x-ndjson', body:
+        JSON.stringify({ message: { content: JSON.stringify({ criteria: {
+          cells: { evidence: 'Structures observables', confidence: 'high', questionForTeacher: '',
+            subcriteria: {
+              nucleus: { points: 1, evidence: 'Noyau identifié' },
+              membrane: { points: 1, evidence: 'Membrane identifiée' },
+            } },
+        } }) } }) + '\n' +
+        JSON.stringify({ done: true, done_reason: 'stop', eval_count: 128 }) + '\n',
+      });
+    }
+    return route.fulfill({ headers, json: { done: true, message: { content: '{}' } } });
+  });
+
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' })
+    .getByRole('button', { name: 'Tests', exact: true }).click();
+  await page.getByRole('group', { name: 'Parcours de test' })
+    .getByRole('button', { name: /Schémas scientifiques/ }).click();
+  const panel = page.getByRole('region', { name: 'Protocole schémas scientifiques' });
+  await panel.locator('details.diagram-lab-legacy > summary').click();
+
+  await expect(panel.getByRole('combobox', { name: 'Référence : Occupe toute la page' })).toBeHidden();
+  await expect(panel.getByRole('combobox', { name: 'Passages du schéma personnel' })).toHaveValue('1');
+  await expect(panel.getByRole('button', { name: 'Analyser mon schéma' })).toBeDisabled();
+  await panel.getByRole('button', { name: 'Choisir un modèle à tester' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Gérer les configurations IA' });
+  await dialog.getByRole('group', { name: 'Configurations à exécuter' })
+    .getByRole('checkbox', { name: /Modèle professeur/ }).check();
+  await dialog.getByRole('button', { name: 'Terminer' }).click();
+
+  await panel.getByRole('combobox', { name: 'Méthode de correction scientifique à tester' })
+    .selectOption('direct-image-generative');
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/ZckAAAAASUVORK5CYII=', 'base64');
+  await panel.locator('#diagram-protocol-photos').setInputFiles({
+    name: 'schema-professeur.png', mimeType: 'image/png', buffer: png,
+  });
+  await expect(panel.getByText('1 page(s) prêtes')).toBeVisible();
+  await panel.locator('#diagram-protocol-rubric').setInputFiles({
+    name: 'bareme-professeur.json', mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify({
+      rubricTitle: 'Barème professeur',
+      criteria: [{ id: 'cells', title: 'Anatomie', maxPoints: 2, subcriteria: [
+        { id: 'nucleus', title: 'Noyau', maxPoints: 1 },
+        { id: 'membrane', title: 'Membrane', maxPoints: 1 },
+      ] }],
+    })),
+  });
+  await expect(panel.getByText('Barème professeur', { exact: false })).toBeVisible();
+  await expect(panel.getByRole('button', { name: 'Analyser mon schéma' })).toBeEnabled();
+  await panel.getByRole('button', { name: 'Analyser mon schéma' }).click();
+
+  const result = panel.locator('#evaluation-diagram-personal-results');
+  await expect(result).toContainText('1 essai(s) exécuté(s)');
+  await expect(result).toContainText('Non mesurable');
+  await expect(result).toContainText('Non mesuré (1 passage)');
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    result.getByRole('button', { name: 'Exporter JSON' }).click(),
+  ]);
+  const report = JSON.parse(await readFile(await download.path(), 'utf8'));
+  expect(report.experiments).toHaveLength(1);
+  expect(report.experiments[0].status).toBe('success');
+  expect(report.plannedRepetitions).toBe(1);
+  expect(chatPayloads).toHaveLength(1);
+  expect(chatPayloads[0].messages?.[0]?.images?.length).toBe(1);
 });
