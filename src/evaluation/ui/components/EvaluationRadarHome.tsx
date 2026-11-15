@@ -225,7 +225,7 @@ export function EvaluationRadarHome({
           onChange={e => { setBioMethod(e.target.value as typeof bioMethod); markChosen(lab); }}>
           {!activeBioMethod && <option value="">Aucune méthode active</option>}
           {(['contract', 'standard'] as const).map(id =>
-            <option key={id} value={id} disabled={!enabled('biology', id)}>{biologyMethodLabels[id]}{!enabled('biology', id) ? ' (exclue)' : ''}</option>)}
+            <option key={id} value={id} disabled={!activeBioMethodAllowed(id)}>{biologyMethodLabels[id]}{!activeBioMethodAllowed(id) ? ' (exclue)' : ''}</option>)}
         </select>}
       </label>
       {scientific && <p className="radar-method-help">La stratégie de la campagne et le moteur exécuté sont deux informations distinctes : le suivi indique le moteur réel de chaque batterie, conservé dans l’historique.</p>}
