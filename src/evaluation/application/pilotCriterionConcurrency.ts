@@ -1,6 +1,6 @@
-import type { CriterionProposal } from '../../correction/domain/contract.ts';
+import type { CriterionProposal } from '../../correction/api/index.ts';
 import { PILOT_RUBRIC, type PilotCase, type PilotConcurrencyLevel, type PilotConcurrencySample, type PilotCriterionTrial } from '../domain/pilotEvaluationProtocol.ts';
-import type { RubricCriterion } from '../../correction/domain/contract.ts';
+import type { RubricCriterion } from '../../correction/api/index.ts';
 
 export type { PilotConcurrencyLevel, PilotConcurrencySample, PilotConcurrencyRun, PilotCriterionTrial } from '../domain/pilotEvaluationProtocol.ts';
 export const PILOT_CONCURRENCY_LEVELS = [1, 2, 4] as const;

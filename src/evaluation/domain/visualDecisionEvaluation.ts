@@ -1,5 +1,5 @@
 import type { ModelEvaluationResultSnapshot } from './modelEvaluation.ts';
-import { expectedDecisionTargets, type Rubric, type RubricCriterion } from '../../correction/domain/contract.ts';
+import { expectedDecisionTargets, type Rubric, type RubricCriterion } from '../../correction/api/index.ts';
 
 export type VisualChoice = 'present' | 'absent' | 'partial' | 'uncertain';
 export interface VisualDecisionObservation {

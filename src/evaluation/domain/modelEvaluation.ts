@@ -1,4 +1,4 @@
-import { type GradingProposal, rubricEvaluationSignature, type Rubric } from '../../correction/domain/contract.ts';
+import { type GradingProposal, rubricEvaluationSignature, type Rubric } from '../../correction/api/index.ts';
 import type { CorrectionMethod } from '../../shared/domain/correctionMethod.ts';
 import { modelEvaluationImageSignature } from './modelEvaluationImageIdentity.ts';
 

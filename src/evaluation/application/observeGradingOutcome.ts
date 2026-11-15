@@ -1,5 +1,4 @@
-import type { GradingOutcome } from '../../correction/events/gradingOutcome.ts';
-import type { Rubric } from '../../correction/domain/contract.ts';
+import type { GradingOutcome, Rubric } from '../../correction/api/index.ts';
 import { buildDiagnosticScore } from '../domain/diagnosticScore.ts';
 import type { ModelEvaluationResultSnapshot } from '../domain/modelEvaluation.ts';
 

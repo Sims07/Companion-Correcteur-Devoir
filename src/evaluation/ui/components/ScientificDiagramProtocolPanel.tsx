@@ -7,9 +7,9 @@ import type { AiModelProfile } from '../../../shared/domain/aiModelProfiles.ts';
 import { radarPlanDescription, RADAR_TEST_PROTOCOL_NAMES, type RadarMissingTestRequest, type RadarTestStep } from '../../domain/diagramLabRadarLaunch.ts';
 import { describeRadarBattery } from '../../domain/radarBatteryExecution.ts';
 import { buildBlindVisualObservationReport, blindGraphProfileIssue, blindGraphVisionModel, type BlindGraphPromptVariant } from '../../domain/scientificDiagramBlindGraph.ts';
-import type { Rubric } from '../../../correction/domain/contract.ts';
+import type { Rubric } from '../../../correction/api/index.ts';
 import type { ImageInput } from '../../../shared/domain/imageInput.ts';
-import { getRubricSubcriteria, validateRubric } from '../../../correction/domain/contract.ts';
+import { getRubricSubcriteria, validateRubric } from '../../../correction/api/index.ts';
 import { Button, TextArea } from '../../../shared/ui/design-system/index.ts';
 import { DesignSystemSelect } from '../../../shared/ui/components/DesignSystemSelect.tsx';
 import { FilePicker } from '../../../shared/ui/components/FilePicker.tsx';
@@ -31,7 +31,7 @@ import {
   type DiagramProtocolCount,
   type buildScientificDiagramProtocolReport,
 } from '../../domain/scientificDiagramProtocol.ts';
-import { SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC, parseScientificDiagramRubric } from '../../../correction/domain/contract.ts';
+import { SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC, parseScientificDiagramRubric } from '../../../correction/api/index.ts';
 import './PilotEvaluationPanel.css';
 import './ScientificDiagramProtocolPanel.css';
 

@@ -7,7 +7,7 @@ import { downloadJson } from '../../../shared/ui/downloadJson.ts';
 import { Button } from '../../../shared/ui/design-system/index.ts';
 import { useMemo, useState } from 'react';
 import type { AiModelProfile } from '../../../shared/domain/aiModelProfiles.ts';
-import { isNativeDecisionModel } from '../../../correction/domain/contract.ts';
+import { isNativeDecisionModel } from '../../../correction/api/index.ts';
 import type { DiagramLabArchiveEntry } from '../../domain/diagramLabHistory.ts';
 import {
   buildDiagramLabRadar,

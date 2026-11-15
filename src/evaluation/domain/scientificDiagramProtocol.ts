@@ -1,7 +1,7 @@
 import { evaluationPromptReferences } from './evaluationPromptReferences.ts';
 import type { AiModelProfile } from '../../shared/domain/aiModelProfiles.ts';
 import type { ModelEvaluationRecord, ModelEvaluationResultSnapshot } from './modelEvaluation.ts';
-import { getRubricSubcriteria, type Rubric, isNativeDecisionModel, isVisualDecisionModel } from '../../correction/domain/contract.ts';
+import { getRubricSubcriteria, type Rubric, isNativeDecisionModel, isVisualDecisionModel } from '../../correction/api/index.ts';
 import { extractSystemOneDecisions, type VisualChoice } from './visualDecisionEvaluation.ts';
 import { isSupportedPilotProfile, isLoopbackPilotEndpoint } from './pilotEvaluationProtocol.ts';
 

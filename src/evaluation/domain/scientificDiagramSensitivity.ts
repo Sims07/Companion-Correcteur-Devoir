@@ -1,5 +1,5 @@
 import { buildScientificDiagramProtocolReport, diagramTargetKey, type DiagramGold, type DiagramProtocolCount, type DiagramProtocolRun } from './scientificDiagramProtocol.ts';
-import { type Rubric } from '../../correction/domain/contract.ts';
+import { type Rubric } from '../../correction/api/index.ts';
 
 export const DIAGRAM_SENSITIVITY_PROTOCOL_ID = 'scientific-diagram-semantic-sensitivity-v1';
 export const DIAGRAM_SENSITIVITY_RUBRIC: Rubric = {

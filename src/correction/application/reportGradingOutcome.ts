@@ -1,6 +1,6 @@
 import { parseGradingProposal } from '../domain/grading.ts';
 import type { Rubric } from '../domain/rubric.ts';
-import type { GradingOutcome } from '../events/gradingOutcome.ts';
+import type { GradingOutcome } from '../api/gradingOutcome.ts';
 
 /** Publish once to the subscriber supplied for this particular run. */
 export function reportGradingOutcome(
