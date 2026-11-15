@@ -403,6 +403,11 @@ export function buildDiagramLabRadar(
   const candidates = new Map<string, CandidateDraft>();
   for (const entry of [...entries].sort((a, b) => b.createdAt.localeCompare(a.createdAt))) {
     if (entry.state !== 'finished' || entry.protocol === 'personal') continue;
+    // D/E artwork changed in fixture v7: the microscopy leaders no longer
+    // have arrowheads. Keep older reports in history, but do not score v6
+    // arrowheaded images as evidence for the new leader-line benchmark.
+    if (entry.protocol === 'arrows' && entry.report.format === 'companion-scientific-diagram-fixture-report'
+      && typeof entry.report.version === 'number' && entry.report.version < 7) continue;
     const rows = flatten(entry);
     const participant = new Map<string, Reading[]>();
     for (const row of rows) {
