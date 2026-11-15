@@ -14,6 +14,19 @@ const request: ScientificDiagramAnalysisRequest = {
 };
 
 describe('scientific observation contract across grading routes', () => {
+  it('explains legend column alignment without confusing it with horizontal writing or other diagrams', () => {
+    expect(SCIENTIFIC_DIAGRAM_OBSERVATION_RULES).toContain('seulement si le barème exige « alignées en colonne »');
+    expect(SCIENTIFIC_DIAGRAM_OBSERVATION_RULES).toContain('les uns sous les autres');
+    expect(SCIENTIFIC_DIAGRAM_OBSERVATION_RULES).toContain('Plusieurs légendes côte à côte sur une même ligne ne forment PAS une colonne');
+    expect(SCIENTIFIC_DIAGRAM_OBSERVATION_RULES).toContain('écriture horizontale des mots');
+    expect(SCIENTIFIC_DIAGRAM_OBSERVATION_RULES).toContain('dessins distincts');
+    const directPrompt = buildDirectDiagramPrompt({
+      question: request.question, rubric: JSON.stringify(request.rubric), images: request.images,
+    });
+    expect(directPrompt).toContain('les uns sous les autres');
+    expect(buildScientificDiagramPrompt(request)).toContain('les uns sous les autres');
+    expect(buildConciseScientificDiagramPrompt(request)).toContain('les uns sous les autres');
+  });
   it.each(['direct', 'direct-repair', 'page', 'page-repair', 'concise'] as const)(
     'keeps visual grounding, source separation and rubric in %s', (route) => {
       const direct = { question: request.question, rubric: JSON.stringify(request.rubric), images: request.images };
