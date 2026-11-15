@@ -15,7 +15,7 @@ function sample(protocol: Exclude<DiagramLabProtocol, 'personal'>, createdAt: st
       : DIAGRAM_SENSITIVITY_CASES.find((c) => c.id === id)?.gold ?? {};
     const experiments = Array.from({ length: repetitions }, (_, index) => ({
       profileId: 'profile-q', profileName: 'Qwen Vision', model: 'qwen:4b', repetition: index + 1,
-      status: 'success', method: 'direct-image-generative', durationMs: 60_000,
+      status: 'success', method: 'direct-image-generative', durationMs: 37_000_000, providerDurationMs: 60_000,
       ...(protocol === 'graph' ? { zoom: false, observations: { ...gold } }
         : { observations: Object.entries(gold).map(([key, choice]) => ({ key, choice })) }),
     }));

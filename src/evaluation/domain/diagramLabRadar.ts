@@ -11,7 +11,7 @@ export const RADAR_AXES = [
   { id: 'robustness', label: 'Robustesse aux pièges', short: 'Robustesse', detail: 'Absence de faux rejets sur les relations valides et de faux positifs sur les témoins.' },
   { id: 'stability', label: 'Stabilité', short: 'Stabilité', detail: 'Décisions identiques et déterminées sur au moins trois passages du même dessin.' },
   { id: 'coverage', label: 'Couverture', short: 'Couverture', detail: 'Part des décisions déterminées parmi les attendus mesurables des batteries complètes.' },
-  { id: 'speed', label: 'Performance', short: 'Vitesse', detail: 'Durée moyenne par dessin, y compris les appels supplémentaires de la méthode ; 60 s correspondent à 50/100.' },
+  { id: 'speed', label: 'Performance', short: 'Vitesse', detail: 'Temps natif Ollama moyen par dessin, y compris les appels supplémentaires de la méthode ; 60 s correspondent à 50/100. Les temps navigateur ne sont pas utilisés.' },
 ] as const;
 
 export type RadarAxisId = typeof RADAR_AXES[number]['id'];
@@ -71,6 +71,7 @@ interface Reading {
   repetition: number;
   status: string;
   durationMs: number;
+  providerDurationMs?: number | null;
   observations: Record<string, string>;
 }
 interface Battery {
@@ -128,6 +129,7 @@ function flatten(entry: DiagramLabArchiveEntry): Reading[] {
       method: run.zoom ? 'blind-graph-zoom' : 'blind-graph',
       variant: report.promptVariant, caseId: testCase.caseId, repetition: run.repetition,
       status: run.status, durationMs: run.durationMs,
+      providerDurationMs: 'providerDurationMs' in run && typeof run.providerDurationMs === 'number' ? run.providerDurationMs : null,
       observations: run.observations && typeof run.observations === 'object' && !Array.isArray(run.observations)
         ? { ...run.observations } : {},
     })));
@@ -137,6 +139,7 @@ function flatten(entry: DiagramLabArchiveEntry): Reading[] {
       profileId: run.profileId, profileName: run.profileName, model: run.model,
       method: run.method, variant: testCase.promptMode, caseId: testCase.caseId,
       repetition: run.repetition, status: run.status, durationMs: run.durationMs,
+      providerDurationMs: 'providerDurationMs' in run && typeof run.providerDurationMs === 'number' ? run.providerDurationMs : null,
       observations: Object.fromEntries((Array.isArray(run.observations) ? run.observations : [])
         .map((item) => [item.key, item.choice])),
     })));
@@ -145,6 +148,7 @@ function flatten(entry: DiagramLabArchiveEntry): Reading[] {
     profileId: run.profileId, profileName: run.profileName, model: run.model,
     method: run.method, variant: 'standard', caseId: testCase.caseId,
     repetition: run.repetition, status: run.status, durationMs: run.durationMs,
+      providerDurationMs: 'providerDurationMs' in run && typeof run.providerDurationMs === 'number' ? run.providerDurationMs : null,
     observations: Object.fromEntries((Array.isArray(run.observations) ? run.observations : [])
         .map((item) => [item.key, item.choice])),
   })));
@@ -367,13 +371,13 @@ function makeCandidateAxes(batteries: Map<DiagramLabProtocol, Battery>, stabilit
         evidence: coverageEvidence }
     : empty('Aucune batterie complète avec attendus mesurables.');
   const durations = valid.flatMap((battery) => battery.readings
-    .map((run) => run.durationMs).filter((ms) => Number.isFinite(ms) && ms >= 0));
+    .map((run) => run.providerDurationMs).filter((ms): ms is number => typeof ms === 'number' && Number.isFinite(ms) && ms >= 0));
   const avgMs = durations.length ? durations.reduce((sum, ms) => sum + ms, 0) / durations.length : null;
-  const speed: RadarAxisScore = avgMs !== null
+  const speed: RadarAxisScore = avgMs !== null && valid.every((battery) => battery.readings.every((run) => run.providerDurationMs !== null && run.providerDurationMs !== undefined))
     ? { value: limited(100 / (1 + avgMs / 60_000)),
         reason: '100 ÷ (1 + durée moyenne par dessin / 60 s). Les variantes à appels supplémentaires portent leur coût.',
-        evidence: valid.map((b) => evidence(b, 'Durée incluse (ms rapportés)', b.readings.reduce((n, r) => n + r.durationMs, 0), b.readings.length)) }
-    : empty('Durée non renseignée sur les batteries complètes.');
+        evidence: valid.map((b) => evidence(b, 'Temps Ollama natif (ms)', b.readings.reduce((n, r) => n + (r.providerDurationMs ?? 0), 0), b.readings.length)) }
+    : empty('Temps Ollama natif non mesuré pour toutes les batteries complètes ; durée navigateur exclue.');
   return { graphics, arrows: arrowScore, precision, biology, relations, robustness, stability, coverage, speed };
 }
 

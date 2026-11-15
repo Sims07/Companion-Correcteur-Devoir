@@ -1,4 +1,5 @@
 import { evaluationPromptReferences } from './evaluationPromptReferences.ts';
+import { sumReportedProviderDurationForRuns } from './modelEvaluation.ts';
 import type { AiModelProfile } from '../../shared/domain/aiModelProfiles.ts';
 import type { ModelEvaluationRecord, ModelEvaluationResultSnapshot } from './modelEvaluation.ts';
 import { getRubricSubcriteria, type Rubric, isNativeDecisionModel, isVisualDecisionModel } from '../../correction/api/index.ts';
@@ -299,7 +300,7 @@ export function buildScientificDiagramProtocolReport(
         ? 'Échec avant traitement du schéma : vérifiez la configuration ou les modèles dans l’observabilité locale.'
         : 'Échec durant le traitement : détails dans l’observabilité locale.'
       : null,
-    durationMs: result.elapsedMs, readingMs: result.readingMs, analysisMs: result.analysisMs,
+    durationMs: result.elapsedMs, providerDurationMs: sumReportedProviderDurationForRuns(result.diagnosticRuns ?? []), readingMs: result.readingMs, analysisMs: result.analysisMs,
     tokens: result.tokens, score: result.score,
     ...(result.diagnosticRuns?.length ? { prompts: evaluationPromptReferences(result.diagnosticRuns) } : {}),
     diagnostics: diagramAnalysisDiagnostics(result),
