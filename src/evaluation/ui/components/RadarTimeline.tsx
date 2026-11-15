@@ -1,3 +1,4 @@
+import { radarMethodDecision } from '../../domain/radarMethodDecision.ts';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { TimelinePoint } from '../../domain/radarTimeline.ts';
 import { MethodRadarComparison } from './MethodRadarComparison.tsx';
@@ -44,8 +45,8 @@ function ScoreChart({ points, current, axis, select }: {
           {[0,25,50,75,100].map(t => <line key={t} className="trend-grid" x1="0" x2="100" y1={t} y2={t}/>)}
           {data.slice(1).map(({point,score,index},i) => {
             const previous = data[i]!;
-            if (index !== previous.index + 1) return null;
-            return <line key={point.id} className="trend-segment" strokeDasharray={comparable(previous.point,point) ? undefined : '7 5'}
+            if (index !== previous.index + 1 || point.label !== previous.point.label || !comparable(previous.point, point)) return null;
+            return <line key={point.id} className="trend-segment"
               x1={x(previous.index)} x2={x(index)} y1={100-previous.score} y2={100-score}/>;
           })}
         </svg>
@@ -62,10 +63,10 @@ function ScoreChart({ points, current, axis, select }: {
       </div>
     </div></div></div>
     <div className="lab-date-axis">Campagnes par ordre chronologique</div>
-    <div className="trend-key"><span>━ Même périmètre</span><span>┄ Périmètre différent ou inconnu</span>
+    <div className="trend-key"><span>━ Même périmètre</span>
       <span>● Complète　○ Partielle</span></div>
     <div className="trend-selection" aria-live="polite">{selected && <>
-      <strong>{format(selected.score)} / 100</strong><div><b>{current.label}</b><br/>{date(current.date)} · {current.protocolLabel} · {coverage(current)}</div>
+      <strong>{format(selected.score)} / 100</strong><div><b>{current.label}</b><br/>{date(current.date)} · {current.protocolLabel} · {coverage(current)} · Révision {current.revision?.slice(0,8) ?? 'inconnue'}</div>
     </>}</div>
   </figure>;
 }
@@ -77,31 +78,41 @@ interface Props {
 
 export function RadarTimeline({points, model, domainLabel, children, onBack, onExport, selectMethod}:Props) {
   const [selected, setSelected] = useState('');
-  const [filter, setFilter] = useState('');
+  const [filter, setFilter] = useState<string | null>(null);
+  const [overlay, setOverlay] = useState(false);
   const [axis, setAxis] = useState('');
   const sorted = [...points].sort((a,b) => b.date.localeCompare(a.date));
   const methods = [...new Set(sorted.map(p => p.label))];
-  const filtered = sorted.filter(p => !filter || p.label === filter);
+  const activeFilter = filter ?? methods[0] ?? '';
+  const filtered = sorted.filter(p => !activeFilter || p.label === activeFilter);
+  const decision = radarMethodDecision(sorted);
   const current = filtered.find(p => p.id === selected) ?? filtered[0];
   const axes = [...new Set(sorted.flatMap(p => Object.keys(p.axes)))];
   return <section className="method-lab" aria-label="Laboratoire des méthodes">
     <nav aria-label="Fil d’Ariane"><button type="button" onClick={onBack}>Retour aux radars</button> / {domainLabel}</nav>
     <header><div><h2>Laboratoire des méthodes</h2><p>{model} · {domainLabel}</p></div>
-      <Button variant="secondary" disabled={!points.length} onClick={onExport}>Exporter l’historique des méthodes</Button></header>
+</header>
 
     {!points.length ? <p>Aucun essai enregistré pour ce modèle.</p> : <>
-      <MethodRadarComparison sorted={sorted} axes={axes}/>
-      <MethodRadarGallery points={sorted} selectedId={current?.id ?? ''} onSelect={point => {
-        setFilter(point.label);
-        setSelected(point.id);
-      }}/>
+      <section aria-label="Choix de méthode"><h3>{decision.title}</h3><p>{decision.detail}</p>
+        {decision.winner && (decision.winner.scienceMethod || decision.winner.biologyMethod) &&
+          <Button variant="secondary" onClick={() => selectMethod(decision.winner!)}>Choisir la recommandation pour le prochain essai</Button>}
+        <a href="#method-batteries">Examiner ou compléter les batteries</a></section>
       <section><h3>Évolution des notes</h3>
-        <div className="lab-controls"><label>Méthode affichée<select value={filter} onChange={e => setFilter(e.target.value)}>
+        <div className="lab-controls"><label>Méthode affichée<select value={activeFilter} onChange={e => setFilter(e.target.value)}>
           <option value="">Toutes les méthodes</option>{methods.map(m => <option key={m}>{m}</option>)}</select></label>
           <label>Mesure affichée<select value={axis} onChange={e => setAxis(e.target.value)}><option value="">Indice de l’essai</option>{axes.map(a => <option key={a}>{a}</option>)}</select></label></div>
         {current && <ScoreChart select={setSelected} current={current} points={[...filtered].reverse()} axis={axis}/>}
       </section>
-      <section><h3>Résultats par méthode</h3><div className="lab-scroll"><table><caption>Dernier essai de chaque méthode</caption>
+      <div role="group" aria-label="Affichage des radars">
+        <Button variant="secondary" aria-pressed={!overlay} onClick={() => setOverlay(false)}>Côte à côte</Button>
+        <Button variant="secondary" aria-pressed={overlay} onClick={() => setOverlay(true)}>Superposer</Button>
+      </div>
+      <MethodRadarComparison sorted={sorted} axes={axes} gallery={overlay ? undefined : <MethodRadarGallery points={sorted} selectedId={current?.id ?? ''} onSelect={point => {
+        setFilter(point.label);
+        setSelected(point.id);
+      }}/>}/>
+      <details><summary>Détail des essais et historique</summary><Button variant="secondary" disabled={!points.length} onClick={onExport}>Exporter l’historique des méthodes</Button><section><h3>Résultats par méthode</h3><div className="lab-scroll"><table><caption>Dernier essai de chaque méthode</caption>
         <thead><tr><th>Méthode utilisée</th><th>Essais</th><th>Dernier test</th><th>Date</th><th>Indice /100</th><th>Couverture</th></tr></thead>
         <tbody>{methods.map(m => { const rows = sorted.filter(p => p.label === m); const p = rows[0]!;
           return <tr key={m}><th><button onClick={() => { setFilter(m); setSelected(p.id); }}>{m}</button></th><td>{rows.length}</td><td>{p.protocolLabel ?? 'Non renseigné'}</td><td>{date(p.date)}</td><td>{format(p.score)}</td><td>{coverage(p)}</td></tr>;
@@ -116,8 +127,8 @@ export function RadarTimeline({points, model, domainLabel, children, onBack, onE
         </details> : null}
         <details><summary>Prompts et consignes de l’essai sélectionné</summary><p>{current.prompts.join(' · ') || 'Référence inconnue'}</p>{current.instructions?.map((s,i) => <p key={i}>{s}</p>)}</details>
         {(current.scienceMethod || current.biologyMethod) && <Button variant="secondary" onClick={() => selectMethod(current)}>Choisir cette méthode pour le prochain essai</Button>}
-      </section>}
+      </section>}</details>
     </>}
-    <section className="lab-launch">{children}</section>
+    <section className="lab-launch" id="method-batteries">{children}</section>
   </section>;
 }

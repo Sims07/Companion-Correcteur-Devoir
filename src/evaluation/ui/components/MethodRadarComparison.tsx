@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { radarCriterionLeaders } from '../../domain/radarCriterionLeaders.ts';
 import { RADAR_AXES } from '../../domain/diagramLabRadar.ts';
 import type { TimelinePoint } from '../../domain/radarTimeline.ts';
@@ -16,12 +16,12 @@ function position(i: number, count: number, radius: number) {
   return {x:200 + radius * Math.cos(angle), y:144 + radius * Math.sin(angle)};
 }
 
-export function MethodRadarComparison({sorted, axes}: {sorted:TimelinePoint[]; axes:string[]}) {
+export function MethodRadarComparison({sorted, axes, gallery}: {sorted:TimelinePoint[]; axes:string[]; gallery?: ReactNode}) {
   const [primary, setPrimary] = useState('');
   const [secondary, setSecondary] = useState('');
   const [protocol, setProtocol] = useState('');
   const protocols = [...new Set(sorted.flatMap(p => p.protocolLabel ? [p.protocolLabel] : []))];
-  const activeProtocol = protocols.includes(protocol) ? protocol : '';
+  const activeProtocol = !gallery && protocols.includes(protocol) ? protocol : '';
   const candidates = activeProtocol ? sorted.filter(p => p.protocolLabel === activeProtocol) : sorted;
   const methods = [...new Set(candidates.map(p => p.label))];
   // Start with the latest complete campaign for each method, even after a targeted rerun.
@@ -33,7 +33,7 @@ export function MethodRadarComparison({sorted, axes}: {sorted:TimelinePoint[]; a
   const series = second ? [first, second] : [first];
   const ring = (r:number) => axes.map((_,i) => position(i,axes.length,r)).map(p => p.x+','+p.y).join(' ');
   return <section className="lab-radar"><h3>Comparer les radars par méthode</h3>
-    <label className="lab-scope">Campagnes comparées<select value={activeProtocol} onChange={e => setProtocol(e.target.value)}>
+    {gallery ?? <><label className="lab-scope">Campagnes comparées<select value={activeProtocol} onChange={e => setProtocol(e.target.value)}>
       <option value="">Radar complet en priorité</option>{protocols.map(name => <option key={name}>{name}</option>)}</select></label>
     <div className="lab-radar-layout"><div className="lab-method-series">{series.map((p,index) =>
       <div key={index} className={'lab-series series-'+index}>
@@ -58,7 +58,7 @@ export function MethodRadarComparison({sorted, axes}: {sorted:TimelinePoint[]; a
             {isFull(p,axes) && <polygon points={vertices.map(v => v.x+','+v.y).join(' ')} fillOpacity=".09" strokeWidth="2.6" strokeDasharray={index ? '6 4' : undefined}/>}
             {vertices.map(v => <circle key={v.axis} cx={v.x} cy={v.y} r={index ? 3 : 4.5} fill={index ? 'white' : colors[index]} strokeWidth="2"><title>{p.label} · {v.axis} · {number(p.axes[v.axis])}/100</title></circle>)}</g>;
         })}
-      </svg><figcaption>Du centre au bord · 0 à 100 par pas de 25</figcaption></figure></div>
+      </svg><figcaption>Du centre au bord · 0 à 100 par pas de 25</figcaption></figure></div></>}
       <section className="criterion-leaders" aria-labelledby="criterion-leaders-title">
         <h4 id="criterion-leaders-title">Méthodes en tête par critère</h4>
         <p>Meilleures notes observées parmi les {methods.length} méthode{methods.length > 1 ? 's' : ''} du filtre « {activeProtocol || 'Radar complet en priorité'} ».</p>
@@ -70,14 +70,15 @@ export function MethodRadarComparison({sorted, axes}: {sorted:TimelinePoint[]; a
           else if (result.lead != null) comparison = '+' + number(result.lead) + ' pts sur la deuxième';
           return <li key={axis}><div className="criterion-leader-heading">
             <h5>{axis}</h5>{result.score != null && <strong>{number(result.score)} <small>/100</small></strong>}
-          </div>{result.leaders.map(method => <div className="criterion-leader-name" key={method}>{method}</div>)}
+          </div>{result.leaders.map(method => <div className="criterion-leader-name" key={method}>{method}{representatives.find(p => p.label === method)?.caseCounts?.[axis] != null &&
+              ' · ' + representatives.find(p => p.label === method)!.caseCounts![axis] + ' cas dans les batteries sources'}</div>)}
           <small>{comparison}{result.count > 1 && ' · ' + result.count + ' méthodes mesurées'}</small></li>;
         })}</ul>
       </section>
-      <details><summary>Valeurs par critère{second && ' et écarts entre méthodes'}</summary>
+      {!gallery && <details><summary>Valeurs par critère{second && ' et écarts entre méthodes'}</summary>
         <div className="lab-scroll"><table><thead><tr><th>Critère /100</th><th>Méthode A</th>{second && <><th>Méthode B</th><th>B − A</th></>}</tr></thead>
         <tbody>{axes.map(a => {const aScore=first.axes[a], bScore=second?.axes[a];
           const gap=aScore!=null && bScore!=null ? Math.round((bScore-aScore)*10)/10 : null;
-          return <tr key={a}><th>{a}</th><td>{number(aScore)}</td>{second && <><td>{number(bScore)}</td><td>{gap!=null && gap>0 ? '+' : ''}{number(gap)}</td></>}</tr>;})}</tbody></table></div></details>
+          return <tr key={a}><th>{a}</th><td>{number(aScore)}</td>{second && <><td>{number(bScore)}</td><td>{gap!=null && gap>0 ? '+' : ''}{number(gap)}</td></>}</tr>;})}</tbody></table></div></details>}
     </section>;
 }

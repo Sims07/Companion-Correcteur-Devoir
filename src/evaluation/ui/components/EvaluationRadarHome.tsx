@@ -151,7 +151,7 @@ export function EvaluationRadarHome({
       const saved = group.flatMap(row => row.timeline ? [row.timeline] : []);
       return biologyPoints(group).map(point => {
         const stored = saved.find(p => p.id === point.id && p.date === point.date);
-        return stored ? {...point, ...stored} : {...point, reconstructed:true};
+        return stored ? {...point, ...stored, comparisonBasis: point.comparisonBasis, caseCounts: point.caseCounts} : {...point, reconstructed:true};
       });
     }),
   }), [entries, history, weights]);

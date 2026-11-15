@@ -33,6 +33,7 @@ export interface TimelinePoint {
   instructions?: string[];
   protocolLabel?: string;
   comparisonBasis?: string;
+  caseCounts?: Record<string, number>;
   batteryEngines?: Array<{ protocol: string; engine: string }>;
   reconstructed?: boolean;
 }
@@ -81,6 +82,21 @@ export function sciencePoints(group: DiagramLabArchiveEntry[], weights: RadarWei
     ...(report.format === 'companion-scientific-diagram-blind-graph-report' ? [report.promptVariant] : []),
     ...(report.format === 'companion-scientific-diagram-sensitivity-report' ? report.promptModes : []),
   ]))].filter(Boolean);
+  const evidenceFor = (entry: DiagramLabArchiveEntry) => {
+    if (!('cases' in entry.report)) return null;
+    const cases = entry.report.cases.map(item => [item.caseId, Object.entries(item.gold ?? {}).sort()]).sort();
+    return { protocol: entry.protocol, id: entry.report.protocolId, repetitions: entry.plannedRepetitions, cases };
+  };
+  const reports = new Map(group.map(entry => [entry.id, evidenceFor(entry)]));
+  function measurementScope(candidate: ReturnType<typeof buildDiagramLabRadar>[number]) {
+    const sources = RADAR_AXES.map(axis => {
+      const signatures = candidate.axes[axis.id].evidence.map(item => JSON.stringify(reports.get(item.reportId)));
+      return [...new Set(signatures)].sort();
+    });
+    const references = [...new Set(sources.flat())].sort();
+    const byAxis = sources.map(list => list.map(signature => references.indexOf(signature)));
+    return JSON.stringify([references, byAxis, Object.entries(trial?.weights ?? weights).sort()]);
+  }
   return buildDiagramLabRadar(group, 'model').map(candidate => ({
     id: trial?.id ?? latest.id, date: latest.createdAt, model: candidate.id,
     label: trial ? scienceMethods[trial.method]?.label ?? trial.method : candidate.methods.map(raw => {
@@ -88,7 +104,9 @@ export function sciencePoints(group: DiagramLabArchiveEntry[], weights: RadarWei
       return [diagramMethodLabels[method as DiagramMethod] ?? method, variant].filter(Boolean).join(' · ');
     }).join(' + ') || 'Méthode non renseignée',
     protocolLabel: [...new Set(group.map(entry => entry.title))].join(' / '),
-    comparisonBasis: JSON.stringify([group.map(e => [e.protocol, e.report.protocolId, e.plannedRepetitions]).sort(), Object.entries(trial?.weights ?? weights).sort()]),
+    comparisonBasis: measurementScope(candidate),
+    caseCounts: Object.fromEntries(RADAR_AXES.map(axis => [axis.label, new Set(candidate.axes[axis.id].evidence
+      .flatMap(item => reports.get(item.reportId)?.cases.map(([id]) => id) ?? [])).size])),
     scienceMethod: trial?.method ?? (candidate.methods.length === 1 && candidate.methods[0] === 'graph-first-v1' ? 'graph-first-v1' : undefined),
     instructions: trial ? [diagramSensitivityContext(scienceMethods[trial.method].promptMode),
       blindVisualObservationPrompt(scienceMethods[trial.method].graphVariant)] : undefined,
@@ -111,7 +129,11 @@ export function biologyPoints(group: BiologyRadarObservation[]): TimelinePoint[]
         label: ({ contract: 'Contrats par question', standard: 'Barème standard', pilot: 'Pilote' })[protocol] +
           ' · ' + candidate.method + ' · ' + candidate.provider,
         protocolLabel: [...new Set(rows.map(r => r.caseId))].sort().join(' / '),
-        comparisonBasis: JSON.stringify([candidate.provider, candidate.method, rows.map(r => r.caseId).sort()]),
+        comparisonBasis: JSON.stringify([candidate.provider, BIOLOGY_RADAR_AXES.map(axis => axis.weight),
+          rows.map(row => JSON.stringify([row.caseId, row.referenceScore,
+            row.decisions.map(item => [item.id, item.expected]).sort()])).sort()]),
+        caseCounts: Object.fromEntries(BIOLOGY_RADAR_AXES.map(axis => [axis.label,
+          new Set(rows.filter(row => (axis.id === 'traps' ? ['D','E','F','G'] : ['A','B','C']).includes(row.caseId)).map(row => row.caseId)).size])),
         biologyMethod: protocol === 'pilot' ? undefined : protocol,
         prompts: [...new Set(rows.flatMap(row => (row.prompts ?? []).map(p => p.promptId + ' v' + (p.promptVersion ?? '?'))))],
         score: candidate.score ?? candidate.partialScore,
