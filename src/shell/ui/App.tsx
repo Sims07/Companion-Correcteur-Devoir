@@ -2265,6 +2265,15 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
       setShowAiSettings(false);
       setShowAssignmentsHome(false);
       setInterfaceMode('diagnostic');
+      if (item.campaignId && item.journey === 'diagrams') {
+        setReportId(item.campaignId);
+        setEvaluationJourney('diagrams');
+        setBiologyRadarOpen(false);
+        setEvaluationJumpTarget(null);
+        setDiagramLabView('history');
+        setEvaluationWorkspaceStep('configuration');
+        return;
+      }
       if (item.campaignId) { showCampaigns({ domain: item.journey, ids: [item.campaignId] }); return; }
       setBiologyRadarOpen(false);
       setEvaluationJourney(item.journey ?? 'custom');
@@ -2288,6 +2297,8 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     // crowded protocol launcher (which may show a different active battery).
     if (evaluationActivity.campaignId && evaluationActivity.status !== 'running' && evaluationActivity.journey === 'diagrams') {
       setReportId(evaluationActivity.campaignId);
+      setEvaluationJourney('diagrams');
+      setBiologyRadarOpen(false);
       setEvaluationJumpTarget(null);
       setDiagramLabView('history');
       setEvaluationWorkspaceStep('configuration');
