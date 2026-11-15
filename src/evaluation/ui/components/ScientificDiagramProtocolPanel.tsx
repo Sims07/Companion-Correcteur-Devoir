@@ -5,7 +5,7 @@ import { ZoomableImage } from '../../../shared/ui/components/ZoomableImage.tsx';
 import { useEffect, useRef, useState } from 'react';
 import type { AiModelProfile } from '../../../shared/domain/aiModelProfiles.ts';
 import { radarPlanDescription, RADAR_TEST_PROTOCOL_NAMES, type RadarMissingTestRequest, type RadarTestStep } from '../../domain/diagramLabRadarLaunch.ts';
-import { describeRadarBattery } from '../../domain/radarBatteryExecution.ts';
+import { describeRadarBattery, radarBatteryEngine } from '../../domain/radarBatteryExecution.ts';
 import { buildBlindVisualObservationReport, blindGraphProfileIssue, blindGraphVisionModel, type BlindGraphPromptVariant } from '../../domain/scientificDiagramBlindGraph.ts';
 import type { Rubric } from '../../../correction/api/index.ts';
 import type { ImageInput } from '../../../shared/domain/imageInput.ts';
@@ -188,6 +188,7 @@ export function ScientificDiagramProtocolPanel({
   const [radarAutoStatus, setRadarAutoStatus] = useState('');
   const [diagnosticCopyMessage, setDiagnosticCopyMessage] = useState('');
   const [autoSequenceRunning, setAutoSequenceRunning] = useState(false);
+  const [activeAutoStep, setActiveAutoStep] = useState<RadarTestStep | null>(null);
   const targets = rubric.criteria.flatMap((criterion) =>
     getRubricSubcriteria(criterion).map((item) => ({ criterion, item, key: diagramTargetKey(criterion.id, item.id) })));
   const validation = validateRubric(rubric);
@@ -337,6 +338,7 @@ export function ScientificDiagramProtocolPanel({
         const description = describeRadarBattery(autoRequest, index);
         onAutoStepChange?.(autoRequest, index);
         setActiveProtocol(step.protocol);
+        setActiveAutoStep(step);
         setFixtureCount(step.repetitions);
         setMethodSelection(step.method);
         setSensitivityPromptSelection(step.promptMode);
@@ -373,6 +375,7 @@ export function ScientificDiagramProtocolPanel({
           (cause instanceof Error ? cause.message : String(cause)) + '. Consultez les campagnes enregistrées.');
       } finally {
         setAutoSequenceRunning(false);
+        setActiveAutoStep(null);
         onAutoBusyChange?.(false);
       }
     })();
@@ -486,8 +489,17 @@ export function ScientificDiagramProtocolPanel({
     </div>
 
     <p className="diagram-lab-protocol-summary" role="status">{({ reference: '3 schémas · présentation, légendes et justesse', arrows: '2 schémas · témoin D et flèches inversées E', semantic: '6 variantes · erreurs biologiques et faux rejets', graph: '6 schémas · relations sans barème' } as const)[activeProtocol]}</p>
-    {activeProtocol !== 'graph' && <div className="diagram-fixture-run-controls diagram-lab-method">
-      <label htmlFor="diagram-method-selection">Méthode de correction scientifique à tester</label>
+    {activeProtocol !== 'graph' && (autoSequenceRunning && activeAutoStep
+      ? <div className="diagram-fixture-run-controls diagram-lab-method diagram-lab-auto-engine" role="status"
+        aria-label="Moteur de la batterie automatique">
+        <strong>Moteur réellement exécuté pour cette batterie</strong>
+        <span>{radarBatteryEngine(activeAutoStep)}</span>
+        <p className="pilot-evaluation-hint">Ce moteur est fixé par la campagne automatique, pas par le menu de test manuel.
+          Une stratégie de graphe comme « détecteur des petites pointes (#439) » s'applique à la batterie Graphe des relations,
+          et non à la qualité graphique A/B/C.</p>
+      </div>
+      : <div className="diagram-fixture-run-controls diagram-lab-method">
+      <label htmlFor="diagram-method-selection">Méthode de correction scientifique à tester (essai manuel)</label>
       <DesignSystemSelect id="diagram-method-selection" value={methodSelection} disabled={busy || fixtureLoading || uploading}
         onChange={(event) => {
           setMethodSelection(event.currentTarget.value as DiagramMethodSelection);
@@ -504,7 +516,7 @@ export function ScientificDiagramProtocolPanel({
         <option value="direct-image-systemone">Image → décisionnel System One — sans OCR</option>
       </DesignSystemSelect>
       <details className="diagram-lab-explanation"><summary>Compatibilité et limites des méthodes</summary><p className="pilot-evaluation-hint">Les méthodes sont choisies dans ce laboratoire uniquement. Le choix habituel « Comparer toutes les méthodes » n’active jamais Think. L’option OFF / ON fonctionne avec tout modèle génératif Vision sur Ollama local qui prend en charge Think : le serveur est interrogé sur les capacités du modèle avant l’essai. Les niveaux nommés sont respectés quand Ollama en indique un. 4 096 tokens maximum par appel Think et 1 passage par défaut. Pensez à « Arrêter » si l’essai est trop long. Le rapport distingue Thinking demandé et trace réellement émise, sans enregistrer le raisonnement. D1/D3 compatibles peuvent comparer deux étapes et System One image ; TEV1 n’utilise l’image que via la transcription préalable.</p></details>
-    </div>}
+    </div>)}
     {(activeProtocol === 'reference' || activeProtocol === 'arrows') && <section id="evaluation-diagram-fixture-launch" className="diagram-protocol-fixtures" aria-label="Schémas de référence intégrés">
       <div className="diagram-protocol-fixtures-heading">
         <div>
