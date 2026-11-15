@@ -150,3 +150,34 @@ it('flags a stale running trial without discarding earlier valid evidence', () =
   expect(progress.reason).toContain('restée en cours');
   expect(progress.steps.map(step => step.protocol)).toEqual(['reference', 'arrows']);
 });
+
+it('compares different strategies on identical cases and weights, including after a targeted retry', async () => {
+  const { sciencePoints } = await import('../../../src/evaluation/domain/radarTimeline.ts');
+  const first = all('leaders-v1', 'first');
+  const other = all('pixel-v1', 'other');
+  const point = (records: DiagramLabArchiveEntry[]) => sciencePoints(records, RADAR_PRESETS.scientific)[0]!;
+  const reference = point(first);
+  expect(reference.caseCounts?.['Sens des flèches']).toBe(2);
+  expect(point(other).comparisonBasis).toBe(reference.comparisonBasis);
+  other.push(campaign('graph', 'pixel-v1', 'other', {date:'2026-11-15T12:00:00Z', zoom:true}));
+  expect(point(other).comparisonBasis).toBe(reference.comparisonBasis);
+  other.forEach(entry => { entry.trial!.weights = RADAR_PRESETS.balanced; });
+  expect(point(other).comparisonBasis).not.toBe(reference.comparisonBasis);
+});
+
+it('explains why historical calls without native timing cannot measure performance', () => {
+  const records = all('leaders-v1', 'historical');
+  for (const entry of records) {
+    if (!('cases' in entry.report)) continue;
+    for (const item of entry.report.cases) {
+      for (const run of item.experiments) {
+        Reflect.deleteProperty(run, 'providerDurationMs');
+      }
+    }
+  }
+  const progress = scienceMethodProgress(records, model).find(item => item.method === 'leaders-v1')!;
+  expect(progress.successful).toBe(23);
+  expect(progress.missing).toEqual(['speed']);
+  expect(progress.reason).toContain('Temps Ollama natif');
+  expect(progress.steps).toEqual([]);
+});

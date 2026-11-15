@@ -62,6 +62,10 @@ test('reopens two dated scores for the same model and selects the older method',
   const bio = home.getByRole('article', {name:'Biologie'});
   await bio.getByRole('button', {name:'Analyse des méthodes'}).click();
   const lab = page.getByRole('region', {name:'Laboratoire des méthodes'});
+  await expect(lab.getByRole('region', {name:'Tous les radars par méthode'})).toBeVisible();
+  await lab.getByRole('button', {name:'Superposer'}).click();
+  await lab.getByLabel('Méthode affichée').selectOption('');
+  await lab.getByText('Détail des essais et historique', {exact:true}).click();
   await expect(lab.getByRole('img', {name:'Radars superposés des méthodes sur 100'}).locator('g[data-method] polygon')).toHaveCount(2);
   await expect(lab.getByLabel('Méthode A', {exact:true})).not.toHaveValue(await lab.getByLabel('Méthode B', {exact:true}).inputValue());
   const trend = lab.getByRole('figure', {name:/Évolution des notes/});
