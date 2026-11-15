@@ -212,6 +212,14 @@ it('launches every remaining scientific strategy as independent, sequentially ex
   const launch = [...node.querySelectorAll<HTMLButtonElement>('.method-lab button')]
     .find(button => button.textContent?.startsWith('Évaluer toutes les méthodes restantes'))!;
   expect(launch.textContent).toContain('(5)');
+  const methodSelect = node.querySelector<HTMLSelectElement>('.lab-launch select')!;
+  await act(async () => {
+    methodSelect.value = 'guided-v1';
+    methodSelect.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  expect(methodSelect.value).toBe('guided-v1');
+  expect(node.querySelector('.radar-method-help')?.textContent)
+    .toContain('quel que soit le choix affiché');
   await act(async () => launch.click());
   expect(runScienceBatch).toHaveBeenCalledOnce();
   const requests = runScienceBatch.mock.calls[0]![0];

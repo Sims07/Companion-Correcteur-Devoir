@@ -67,9 +67,17 @@ describe('scientific automatic protocol runner invoked from radar', () => {
     expect(status).toContain('Batterie 1/1');
     expect(status).toContain('Stratégie choisie : Graphe · détecteur des petites pointes (#439)');
     expect(status).toContain('Moteur utilisé : Image → génératif direct');
+    const automaticEngine = container.querySelector('[aria-label="Moteur de la batterie automatique"]');
+    expect(automaticEngine?.textContent).toContain('Moteur réellement exécuté pour cette batterie');
+    expect(automaticEngine?.textContent).toContain('Image → génératif direct');
+    expect(automaticEngine?.textContent).toContain('détecteur des petites pointes (#439)');
+    // The manual method picker must not masquerade an automatic strategy.
+    expect(container.querySelector('#diagram-method-selection')).toBeNull();
     await act(async () => { releaseFixture(); });
     await vi.waitFor(() => expect(busyChange).toHaveBeenLastCalledWith(false));
     expect(container.textContent).toContain('Batteries terminées');
+    // Manual controls become available again once the automatic run ends.
+    expect(container.querySelector('#diagram-method-selection')).not.toBeNull();
     await act(async () => root.render(createElement(ScientificDiagramProtocolPanel, props)));
     expect(onRunFixtures).toHaveBeenCalledTimes(1);
     await act(async () => root.unmount());

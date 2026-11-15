@@ -215,7 +215,7 @@ export function EvaluationRadarHome({
         if (point.scienceMethod && enabled('diagrams', point.scienceMethod)) setMethod(point.scienceMethod);
         if (point.biologyMethod && enabled('biology', point.biologyMethod)) setBioMethod(point.biologyMethod);
       }}>
-      <label>Méthode du prochain essai
+      <label>Méthode du prochain essai (pour « Évaluer avec cette méthode »)
         {scientific ? <select value={activeScienceMethod ?? ''} disabled={!activeScienceMethod}
           onChange={e => { setMethod(e.target.value as ScienceMethod); markChosen(lab); }}>
           {!activeScienceMethod && <option value="">Aucune méthode active</option>}
@@ -228,7 +228,7 @@ export function EvaluationRadarHome({
             <option key={id} value={id} disabled={!activeBioMethodAllowed(id)}>{biologyMethodLabels[id]}{!activeBioMethodAllowed(id) ? ' (exclue)' : ''}</option>)}
         </select>}
       </label>
-      {scientific && <p className="radar-method-help">La stratégie de la campagne et le moteur exécuté sont deux informations distinctes : le suivi indique le moteur réel de chaque batterie, conservé dans l’historique.</p>}
+      {scientific && <p className="radar-method-help">« Évaluer avec cette méthode » utilise le choix ci-dessus. « Évaluer toutes les méthodes restantes » lance séparément les méthodes non exclues, dans l'ordre de la file, quel que soit le choix affiché. La stratégie de chaque campagne peut différer du moteur exécuté pour une batterie : le suivi indique les deux informations.</p>}
       <div className="radar-method-launch-actions">
         <Button disabled={busy || !(scientific ? activeScienceMethod && canLaunchScience(fullPlan) : profile && activeBioMethod)}
           onClick={() => launchChosen(lab)}>Évaluer avec cette méthode</Button>
