@@ -1,5 +1,5 @@
 import type { DiagramLabArchiveEntry, DiagramLabProtocol } from './diagramLabHistory.ts';
-import { buildBiologyRadar, type BiologyRadarObservation } from './biologyTeacherRadar.ts';
+import { BIOLOGY_RADAR_AXES, buildBiologyRadar, type BiologyRadarObservation } from './biologyTeacherRadar.ts';
 import { scienceMethods, type ScienceMethod } from './radarTimeline.ts';
 
 export type BiologyMethod = 'contract' | 'standard';
@@ -42,5 +42,5 @@ export function remainingBiologyMethods(
 ): BiologyMethod[] {
   const observations = history.filter(row => row.model === model && row.profileId === profileId);
   return biologyMethods.filter(method =>
-    !buildBiologyRadar(observations, method).some(candidate => candidate.name === model && candidate.measured === 5));
+    !buildBiologyRadar(observations, method).some(candidate => candidate.name === model && candidate.measured === BIOLOGY_RADAR_AXES.length));
 }

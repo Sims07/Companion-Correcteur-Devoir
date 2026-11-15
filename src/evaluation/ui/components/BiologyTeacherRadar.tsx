@@ -29,7 +29,7 @@ export function BiologyRadarPlot({ candidate }: { candidate?: BiologyRadarCandid
   };
   const polygon = (values: number[]) => values.map((value, index) => vertex(index, value).join(',')).join(' ');
   return <svg viewBox="0 0 520 330" role="img" className="biology-radar-plot"
-    aria-label={'Radar de fidélité biologique pour ' + (candidate?.name ?? 'modèle à évaluer') + ' ; ' + (candidate?.measured ?? 0) + ' axes sur 5'}>
+    aria-label={'Radar de fidélité biologique pour ' + (candidate?.name ?? 'modèle à évaluer') + ' ; ' + (candidate?.measured ?? 0) + ' axes sur ' + BIOLOGY_RADAR_AXES.length}>
     {[0.25, 0.5, 0.75, 1].map((level) =>
       <polygon key={level} points={polygon(BIOLOGY_RADAR_AXES.map(() => level))}
         fill="none" stroke="currentColor" strokeOpacity=".17" />)}
@@ -38,8 +38,8 @@ export function BiologyRadarPlot({ candidate }: { candidate?: BiologyRadarCandid
       const [lx, ly] = vertex(i, 1.3);
       return <g key={axis.id}>
         <line x1="260" y1="157" x2={x} y2={y} stroke="currentColor" strokeOpacity=".17" />
-        <text x={lx} y={ly} fill="currentColor" textAnchor={i === 0 ? 'middle' : i < 3 ? 'start' : 'end'}
-          fontSize="12">{['Note professeur', 'Barème', 'Bonnes réponses', 'Erreurs', 'Cas pièges'][i]}</text>
+        <text x={lx} y={ly} fill="currentColor" textAnchor={Math.abs(lx - 260) < 1 ? 'middle' : lx > 260 ? 'start' : 'end'}
+          fontSize="12">{['Note professeur', 'Barème', 'Bonnes réponses', 'Erreurs', 'Cas pièges', 'Erreur majeure'][i]}</text>
       </g>;
     })}
     {candidate?.measured === BIOLOGY_RADAR_AXES.length
@@ -94,8 +94,8 @@ export function BiologyTeacherRadar({ history, profiles, busy, onEvaluate, onSho
   for (const item of configured) if (!candidates.some((candidate) => candidate.id === item.id)) {
     candidates.push({
       id: item.id, name: item.model, provider: item.provider, method: item.method,
-      protocol, axes: { grade: null, rubric: null, positives: null, negatives: null, traps: null },
-      measured: 0, score: null, partialScore: null, gradeDifference: null, observations: [], unresolvedDecisions: 0,
+      protocol, axes: { grade: null, rubric: null, positives: null, negatives: null, traps: null, critical: null },
+      measured: 0, score: null, partialScore: null, gradeDifference: null, maxGradeDifference: null, observations: [], unresolvedDecisions: 0,
     });
   }
   const selected = candidates.find((item) => item.id === selectedId) ?? candidates.find((item) => item.name === initialModel) ?? candidates[0];
@@ -124,13 +124,15 @@ export function BiologyTeacherRadar({ history, profiles, busy, onEvaluate, onSho
             <span>{selected.score === null ? 'Indice partiel de fidélité' : 'Fidélité à la correction du professeur'}</span>
             <strong>{selected.score ?? selected.partialScore ?? '—'} <small>/ 100</small></strong>
             <small>{selected.score === null
-              ? 'Score global non disponible tant que les 5 axes ne sont pas mesurés.'
-              : 'Score pondéré : note 40 %, barème 25 %, bonnes réponses 15 %, erreurs 15 %, pièges 5 %.'}</small>
+              ? 'Score global non disponible tant que les ' + BIOLOGY_RADAR_AXES.length + ' axes ne sont pas mesurés.'
+              : 'Score pondéré : note 30 %, barème 20 %, bonnes réponses 10 %, erreurs 15 %, pièges 5 %, erreurs majeures 20 %.'}</small>
           </div>
           <div className="biology-radar-grade-meta">
             <strong>{selected.gradeDifference === null ? '—' : selected.gradeDifference.toLocaleString('fr-FR') + ' pt'}</strong>
             <span>Écart moyen de note avec le professeur, sur 10</span>
-            <strong>{selected.measured} / 5</strong>
+            <strong>{selected.maxGradeDifference === null ? '—' : selected.maxGradeDifference.toLocaleString('fr-FR') + ' pt'}</strong>
+            <span>Pire écart de note observé, sur 10</span>
+            <strong>{selected.measured} / {BIOLOGY_RADAR_AXES.length}</strong>
             <span>Caractéristiques mesurées</span>
           </div>
         </div>

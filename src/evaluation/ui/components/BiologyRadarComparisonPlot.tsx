@@ -15,7 +15,7 @@ export function BiologyRadarComparisonPlot({ candidates, colors }: {
 
   return <svg viewBox="0 0 520 330" role="img" className="biology-radar-plot"
     aria-label={'Comparaison biologique (contrat par question) : ' +
-      candidates.map((candidate) => candidate.name + ', ' + candidate.measured + ' axes sur 5').join(' ; ')}>
+      candidates.map((candidate) => candidate.name + ', ' + candidate.measured + ' axes sur ' + BIOLOGY_RADAR_AXES.length).join(' ; ')}>
     {[0.25, 0.5, 0.75, 1].map((level) =>
       <polygon key={level} points={points(BIOLOGY_RADAR_AXES.map(() => level))}
         fill="none" stroke="currentColor" strokeOpacity=".17" />)}
@@ -25,8 +25,8 @@ export function BiologyRadarComparisonPlot({ candidates, colors }: {
       return <g key={axis.id}>
         <line x1="260" y1="157" x2={x} y2={y} stroke="currentColor" strokeOpacity=".17" />
         <text x={labelX} y={labelY} fill="currentColor"
-          textAnchor={index === 0 ? 'middle' : index < 3 ? 'start' : 'end'} fontSize="12">
-          {['Note professeur', 'Barème', 'Bonnes réponses', 'Erreurs', 'Cas pièges'][index]}
+          textAnchor={Math.abs(labelX - 260) < 1 ? 'middle' : labelX > 260 ? 'start' : 'end'} fontSize="12">
+          {['Note professeur', 'Barème', 'Bonnes réponses', 'Erreurs', 'Cas pièges', 'Erreur majeure'][index]}
         </text>
       </g>;
     })}

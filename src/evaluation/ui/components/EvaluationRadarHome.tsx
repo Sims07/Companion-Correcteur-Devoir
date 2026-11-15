@@ -21,7 +21,7 @@ import {
   resolveModelProfile,
   type RadarMissingTestRequest,
 } from '../../domain/diagramLabRadarLaunch.ts';
-import { buildBiologyRadar, type BiologyRadarCandidate, type BiologyRadarObservation } from '../../domain/biologyTeacherRadar.ts';
+import { BIOLOGY_RADAR_AXES, buildBiologyRadar, type BiologyRadarCandidate, type BiologyRadarObservation } from '../../domain/biologyTeacherRadar.ts';
 import { BiologyRadarPlot } from './BiologyTeacherRadar.tsx';
 import { BiologyRadarComparisonPlot } from './BiologyRadarComparisonPlot.tsx';
 import { RADAR_COMPARISON_COLORS } from './RadarComparisonPalette.ts';
@@ -80,7 +80,7 @@ export function EvaluationRadarHome({
   const measuredFor = (name: string) =>
     (science.find((candidate) => candidate.id === name)?.measured ?? 0) / 9 +
     Math.max(0, ...biology.filter((candidate) => candidate.name === name)
-      .map((candidate) => candidate.measured / 5));
+      .map((candidate) => candidate.measured / BIOLOGY_RADAR_AXES.length));
   const [lab, setLab] = useState<RadarDomain | null>(initialLab);
   const [explicitMethod, setExplicitMethod] = useState({diagrams:false, biology:false});
   const [expanded, setExpanded] = useState<RadarDomain>('diagrams');
@@ -151,7 +151,9 @@ export function EvaluationRadarHome({
       const saved = group.flatMap(row => row.timeline ? [row.timeline] : []);
       return biologyPoints(group).map(point => {
         const stored = saved.find(p => p.id === point.id && p.date === point.date);
-        return stored ? {...point, ...stored, comparisonBasis: point.comparisonBasis, caseCounts: point.caseCounts} : {...point, reconstructed:true};
+        // Recompute grade metrics from archived teacher-keyed decisions even when an
+        // earlier snapshot recorded the obsolete five-axis weighting.
+        return stored ? {...stored, ...point, reconstructed: true} : {...point, reconstructed: true};
       });
     }),
   }), [entries, history, weights]);
@@ -317,7 +319,7 @@ export function EvaluationRadarHome({
         {(['diagrams', 'biology'] as const).map((domain) => {
           const scientific = domain === 'diagrams';
           const count = (scientific ? sci : bio)?.measured ?? 0;
-          const total = scientific ? 9 : 5;
+          const total = scientific ? 9 : BIOLOGY_RADAR_AXES.length;
           const value = scientific
             ? sci && observedRadarScore(sci, weights)
             : (bio?.score ?? bio?.partialScore);
@@ -418,7 +420,8 @@ export function EvaluationRadarHome({
                             activeBio.axes.grade === null ||
                             activeBio.axes.rubric === null ||
                             activeBio.axes.positives === null ||
-                            activeBio.axes.negatives === null,
+                            activeBio.axes.negatives === null ||
+                            activeBio.axes.critical === null,
                           !activeBio || activeBio.measured === total || activeBio.axes.traps === null,
                         );
                     }}

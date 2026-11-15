@@ -32,7 +32,7 @@ describe('biology teacher radar UI', () => {
     await act(async () => root.render(createElement(BiologyTeacherRadar,
       { history: records, profiles, busy: false, onEvaluate, onShowTests })));
     expect(mount.querySelector('[aria-label="Résultat biologique du LLM"]')?.textContent).toContain('Indice partiel');
-    expect(mount.querySelector('[aria-label="Résultat biologique du LLM"]')?.textContent).toContain('4 / 5');
+    expect(mount.querySelector('[aria-label="Résultat biologique du LLM"]')?.textContent).toContain('5 / 6');
     expect(mount.querySelector('[aria-label="Radar de correction biologique"]')?.textContent).toContain('Cas pièges');
     expect(mount.querySelector('[aria-label="Classement de correction biologique"]')?.textContent).toContain('Aucun classement définitif');
     const launch = [...mount.querySelectorAll('button')].find((item) => item.textContent === 'Évaluer le modèle')!;
@@ -62,10 +62,12 @@ describe('biology teacher radar UI', () => {
     await act(async () => root.render(createElement(BiologyTeacherRadar,
       { history: [...records, ...stressed], profiles, busy: false, onEvaluate: vi.fn(), onShowTests: vi.fn() })));
     const headline = mount.querySelector('[aria-label="Résultat biologique du LLM"]')!;
-    expect(headline.textContent).toContain('5 / 5');
+    expect(headline.textContent).toContain('6 / 6');
     expect(headline.textContent).not.toContain('Indice partiel');
     expect(mount.textContent).toContain('7 décisions non tranchées');
     expect(mount.textContent).toContain('À vérifier');
+    expect(mount.textContent).toContain('Absence d’erreur majeure');
+    expect(mount.textContent).toContain('Pire écart de note observé');
     expect(mount.querySelector('.biology-radar-missing')).toBeNull();
     expect(mount.querySelector('[aria-label="Classement de correction biologique"]')?.textContent).toContain('qwen:4b');
     await act(async () => root.unmount());
@@ -79,7 +81,7 @@ describe('biology teacher radar UI', () => {
     await act(async () => root.render(createElement(BiologyTeacherRadar, {
       history: [], profiles, busy: false, onEvaluate: vi.fn(), onShowTests: vi.fn(),
     })));
-    expect(mount.textContent).toContain('0 / 5');
+    expect(mount.textContent).toContain('0 / 6');
     expect(mount.textContent).toContain('—');
     await act(async () => root.unmount());
     mount.remove();
@@ -136,7 +138,7 @@ it('the dashboard runs only missing traps and links the reference copies for the
     manage: vi.fn(), details: vi.fn(), campaigns, runScience: vi.fn(), runBiology,
   })));
   const card = rootNode.querySelector('article[aria-label="Biologie"]')!;
-  expect(card.textContent).toContain('4/5 axes');
+  expect(card.textContent).toContain('5/6 axes');
   expect(card.textContent).toContain('100 / 100');
   const action = (text: string) => [...card.querySelectorAll('button')].find(button => button.textContent === text)!;
   action('Compléter les tests').click();

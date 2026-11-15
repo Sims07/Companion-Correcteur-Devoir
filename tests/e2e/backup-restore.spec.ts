@@ -143,7 +143,7 @@ test('a backup restores both biology radar scores when the destination PWA has i
   for (const model of ['biology-alpha', 'biology-beta']) {
     await radars.getByLabel('Choisir un LLM').selectOption(model);
     await expect(biography.locator('.radar-home-score')).toHaveText('100 / 100');
-    await expect(biography).toContainText('5/5 axes');
+    await expect(biography).toContainText('6/6 axes');
   }
   const nav = page.getByRole('navigation', { name: 'Espaces de l’évaluation' });
   await nav.getByRole('button', { name: 'Campagnes' }).click();

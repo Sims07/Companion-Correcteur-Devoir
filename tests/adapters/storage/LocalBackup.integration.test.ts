@@ -192,7 +192,7 @@ describe('portable local backup (localhost to PWA)', () => {
     const radars = buildBiologyRadar(imported, 'contract');
     expect(radars).toHaveLength(2);
     expect(radars.map((r) => r.score)).toEqual([100, 100]);
-    expect(radars.every((r) => r.measured === 5)).toBe(true);
+    expect(radars.every((r) => r.measured === 6)).toBe(true);
     // Reimporting exactly the same backup must not duplicate history.
     await restoreLocalBackup(saved, 'merge', settings);
     expect(JSON.parse(settings.getItem(key)!)).toHaveLength(14);

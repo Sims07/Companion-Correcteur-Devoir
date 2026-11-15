@@ -38,7 +38,8 @@ describe('biology radar scored against teacher-keyed references', () => {
     expect(initial.axes.positives).toBe(100);
     expect(initial.axes.negatives).toBe(100);
     expect(initial.axes.traps).toBeNull();
-    expect(initial.measured).toBe(4);
+    expect(initial.axes.critical).toBe(100);
+    expect(initial.measured).toBe(5);
     expect(initial.score).toBeNull();
     expect(initial.partialScore).toBe(100);
     const complete = buildBiologyRadar(allCases(), 'contract')[0]!;
@@ -81,7 +82,7 @@ describe('biology radar scored against teacher-keyed references', () => {
     expect(partial.axes.rubric).toBeLessThan(100);
     expect(partial.axes.positives).toBeLessThan(100);
     expect(partial.unresolvedDecisions).toBe(1);
-    expect(partial.measured).toBe(5);
+    expect(partial.measured).toBe(6);
     expect(partial.score).not.toBeNull();
   });
 
@@ -113,9 +114,78 @@ describe('biology radar scored against teacher-keyed references', () => {
     const result = buildBiologyRadar([...baseline(), ...repetitions], 'contract')[0]!;
     expect(result.axes.traps).toBe(71.7); // 86 correct of 120 decisions
     expect(result.unresolvedDecisions).toBe(20);
-    expect(result.measured).toBe(5);
+    expect(result.measured).toBe(6);
     expect(result.score).not.toBeNull();
     expect(result.observations.find((item) => item.caseId === 'E')?.score).toBeNull();
+  });
+
+
+  it('makes an 8/10 award on a 0/10 copy lose to cautious contract grading', () => {
+    // Regression based on the Qwen 3.5 4B export of 2026-11-15.
+    // The mean score alone rewarded the standard protocol despite 8 false positives on B.
+    const standard = allCases().map((item) => ({
+      ...item, protocol: 'standard' as const, id: 'standard:' + item.id,
+      decisions: item.decisions.map((decision) => ({ ...decision })),
+    }));
+    const contract = allCases().map((item) => ({
+      ...item, decisions: item.decisions.map((decision) => ({ ...decision })),
+    }));
+    const inCase = (items: BiologyRadarObservation[], id: string) =>
+      items.find((item) => item.caseId === id)!;
+
+    const badB = inCase(standard, 'B');
+    badB.decisions.slice(0, 8).forEach((decision) => { decision.awarded = 1; });
+    badB.score = 8; // Teacher: 0/10
+    const standardC = inCase(standard, 'C');
+    standardC.decisions[4]!.awarded = 0;
+    standardC.score = 4; // Teacher: 5/10
+    const standardF = inCase(standard, 'F');
+    standardF.decisions.filter((decision) => decision.expected === 1).slice(0, 4)
+      .forEach((decision) => { decision.awarded = 0; });
+    standardF.score = 3; // Teacher: 7/10
+    const standardE = inCase(standard, 'E');
+    standardE.decisions.forEach((decision) => { decision.awarded = null; });
+    standardE.score = null;
+
+    const uncertainA = inCase(contract, 'A');
+    uncertainA.decisions[0]!.awarded = null;
+    uncertainA.decisions[1]!.awarded = null;
+    uncertainA.decisions[7]!.awarded = 0;
+    uncertainA.decisions[9]!.awarded = 0;
+    uncertainA.score = null;
+    const uncertainC = inCase(contract, 'C');
+    uncertainC.decisions[9]!.awarded = null;
+    uncertainC.score = null;
+    const contractF = inCase(contract, 'F');
+    contractF.decisions.filter((decision) => decision.expected === 1).slice(0, 3)
+      .forEach((decision) => { decision.awarded = 0; });
+    contractF.score = 4;
+    const contractE = inCase(contract, 'E');
+    contractE.decisions[3]!.awarded = null;
+    contractE.score = null;
+
+    const standardRadar = buildBiologyRadar(standard, 'standard')[0]!;
+    const contractRadar = buildBiologyRadar(contract, 'contract')[0]!;
+    expect(standardRadar.axes.grade).toBe(70);
+    expect(standardRadar.maxGradeDifference).toBe(8);
+    expect(standardRadar.axes.critical).toBe(0);
+    expect(contractRadar.maxGradeDifference).toBe(3);
+    expect(contractRadar.axes.critical).toBe(40);
+    expect(standardRadar.score).toBeLessThan(contractRadar.score!);
+    expect(standardRadar.score).toBeLessThan(60);
+    expect(contractRadar.unresolvedDecisions).toBeGreaterThan(0);
+  });
+
+  it('penalizes both undergrading and overgrading proportionally to the worst error', () => {
+    const cases = allCases();
+    const f = cases.find((item) => item.caseId === 'F')!;
+    f.decisions.filter((decision) => decision.expected === 1).slice(0, 3)
+      .forEach((decision) => { decision.awarded = 0; });
+    f.score = 4; // Worse than the teacher's 7, even without false positives.
+    const result = buildBiologyRadar(cases, 'contract')[0]!;
+    expect(result.maxGradeDifference).toBe(3);
+    expect(result.axes.critical).toBe(40);
+    expect(result.axes.grade).toBe(100); // Baseline grade quality is independent.
   });
 
   it('isolates the standard and contract protocols and uses the newest usable case', () => {

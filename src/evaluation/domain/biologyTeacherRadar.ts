@@ -4,13 +4,14 @@ import { buildQuestionContractReport, type QuestionContractRun } from './questio
 import { buildQuestionContractRepeatabilityReport, type QuestionContractRepeatabilityRun, type RepeatabilityCount, type RepeatabilitySuite } from './questionContractRepeatability.ts';
 
 export type BiologyCorrectionProtocol = 'contract' | 'standard' | 'pilot';
-export type BiologyRadarAxis = 'grade' | 'rubric' | 'positives' | 'negatives' | 'traps';
+export type BiologyRadarAxis = 'grade' | 'rubric' | 'positives' | 'negatives' | 'traps' | 'critical';
 export const BIOLOGY_RADAR_AXES: readonly { id: BiologyRadarAxis; label: string; detail: string; weight: number }[] = [
-  { id: 'grade', label: 'Justesse de la note', detail: 'Fidélité à la note du professeur sur A/B/C. Une copie sans note exploitable pénalise la fiabilité du modèle, sans attribuer de zéro à l’étudiant.', weight: 40 },
-  { id: 'rubric', label: 'Respect du barème', detail: 'Décisions identiques à celles du professeur pour les dix sous-critères de chaque copie A/B/C.', weight: 25 },
-  { id: 'positives', label: 'Bonnes réponses reconnues', detail: 'Points attribués aux notions effectivement présentes dans les réponses A/B/C.', weight: 15 },
+  { id: 'grade', label: 'Justesse de la note', detail: 'Fidélité à la note du professeur sur A/B/C. Une copie sans note exploitable pénalise la fiabilité du modèle, sans attribuer de zéro à l’étudiant.', weight: 30 },
+  { id: 'rubric', label: 'Respect du barème', detail: 'Décisions identiques à celles du professeur pour les dix sous-critères de chaque copie A/B/C.', weight: 20 },
+  { id: 'positives', label: 'Bonnes réponses reconnues', detail: 'Points attribués aux notions effectivement présentes dans les réponses A/B/C.', weight: 10 },
   { id: 'negatives', label: 'Erreurs détectées', detail: 'Points non attribués lorsque la réponse attendue est absente ou fausse dans A/B/C.', weight: 15 },
   { id: 'traps', label: 'Cas pièges', detail: 'Accord avec le barème sur les 3 dernières répétitions de D/E/F/G. Une décision non tranchée diminue la fiabilité, sans devenir un zéro de copie.', weight: 5 },
+  { id: 'critical', label: 'Absence d’erreur majeure', detail: 'Pire écart absolu entre une note LLM complète et la note du professeur sur A/B/C/D/E/F/G : −20 points par point d’écart, 0/100 dès 5 points d’écart sur 10. Les notes indéterminées restent pénalisées dans la justesse.', weight: 20 },
 ];
 
 export interface BiologyRadarObservation {
@@ -123,6 +124,8 @@ export interface BiologyRadarCandidate {
   score: number | null;
   partialScore: number | null;
   gradeDifference: number | null;
+  /** Worst absolute grade error on complete, teacher-keyed assessments. */
+  maxGradeDifference: number | null;
   observations: BiologyRadarObservation[];
   /** Missing model decisions reduce benchmark reliability, never the student's grade. */
   unresolvedDecisions: number;
@@ -183,12 +186,23 @@ export function buildBiologyRadar(history: readonly BiologyRadarObservation[], p
       sum + (item.score !== null && item.score >= 0 && item.score <= 10 &&
         item.decisions.every((decision) => decision.awarded !== null)
         ? Math.max(0, 1 - Math.abs(item.score - item.referenceScore) / 10) : 0), 0) / baseline.length) : null;
+    // The mean grade accuracy hides catastrophic errors (e.g. 8/10 given to a
+    // 0/10 copy). A dedicated worst-case axis makes these mistakes visible.
+    // Only complete grades can demonstrate an error; unresolved grades are
+    // already penalized by the grade axis and do not become student zeros.
+    const graded = [...baseline, ...traps].filter((item) =>
+      item.score !== null && item.score >= 0 && item.score <= 10 &&
+      item.decisions.every((decision) => decision.awarded !== null));
+    const maxGradeDifference = graded.length
+      ? round(Math.max(...graded.map((item) => Math.abs(item.score! - item.referenceScore))))
+      : null;
     const axes: Record<BiologyRadarAxis, number | null> = {
       grade: gradeQuality,
       rubric: ready ? accuracy(baseline) : null,
       positives: ready ? axisFraction(baseline, 1) : null,
       negatives: ready ? axisFraction(baseline, 0) : null,
       traps: trapGroups.every((runs) => runs.length > 0) ? accuracy(traps) : null,
+      critical: ready ? maxGradeDifference === null ? 0 : round(Math.max(0, 100 - 20 * maxGradeDifference)) : null,
     };
     const available = BIOLOGY_RADAR_AXES.filter((axis) => axes[axis.id] !== null);
     const weighted = available.reduce((sum, axis) => sum + axes[axis.id]! * axis.weight, 0);
@@ -198,7 +212,7 @@ export function buildBiologyRadar(history: readonly BiologyRadarObservation[], p
       id, name: newest[0]!.model, provider: newest[0]!.provider, method: newest[0]!.method,
       protocol, axes, measured: available.length, score: complete ? round(weighted / weightSum) : null,
       partialScore: weightSum ? round(weighted / weightSum) : null,
-      gradeDifference,
+      gradeDifference, maxGradeDifference,
       observations: [...latestByCase.values()],
       unresolvedDecisions: [...baseline, ...traps].reduce((sum, item) =>
         sum + item.decisions.filter((decision) => decision.awarded === null).length, 0),
