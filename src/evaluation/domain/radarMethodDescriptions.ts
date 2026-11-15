@@ -69,6 +69,61 @@ export const SCIENCE_METHOD_DESCRIPTIONS: Record<ScienceMethod, RadarMethodDescr
     limitations: 'Une erreur dans le graphe peut se propager à toutes les décisions. La stratégie d’essai n’emploie pas nécessairement le même moteur sur ses quatre batteries.',
     radarScope: 'La notation A/B/C et D/E peut employer « graph-first-v1 ». La batterie de graphe indépendant utilise une lecture isolée distincte.',
   },
+  'graph-first-v2': {
+    principle: 'Le modèle Vision extrait les relations explicites entre légendes, structures et contours avant de corriger selon le barème.',
+    steps: [
+      'Observer les légendes, flèches et structures présentes sur le dessin sans attribuer de points.',
+      'Extraire les relations légende → cible et les inclusions en gardant les incertitudes.',
+      'Comparer les relations au corrigé et produire les décisions pédagogiques.',
+    ],
+    interest: 'Distingue les erreurs de reconnaissance des liens des erreurs de décision.',
+    limitations: 'Une relation erronée peut se propager à la note. Le modèle peut reconstituer un lien biologiquement plausible sans suivre le trait réel.',
+    radarScope: 'Correction graphe v2 sur A/B/C, D/E et biologie ; le graphe indépendant S0–S5 conserve son extracteur distinct.',
+  },
+  'vision-then-analysis': {
+    principle: 'Parcours en deux appels : Vision lit la photographie et le modèle d’analyse corrige sa transcription à partir du barème.',
+    steps: [
+      'Décrire les objets et relations visibles avec le modèle Vision.',
+      'Transmettre la transcription textuelle au modèle d’analyse, sans image.',
+      'Comparer les décisions produites aux références sur les batteries de test.',
+    ],
+    interest: 'Permet de combiner deux modèles spécialisés et de distinguer lecture et correction.',
+    limitations: 'L’analyse ne revoit pas les pixels : une erreur OCR ou de connexion peut devenir définitive. Deux appels peuvent aussi coûter plus cher.',
+    radarScope: 'Vision → analyse pour la notation ; la batterie de graphe utilise une observation visuelle indépendante.',
+  },
+  'direct-image-generative': {
+    principle: 'Méthode témoin : envoyer directement la photographie du schéma ET le barème au LLM multimodal, sans OCR ni graphe préalable, avec Think OFF.',
+    steps: [
+      'Envoyer image et critères au modèle génératif Vision.',
+      'Lui demander directement les points, décisions et justifications par critère.',
+      'Comparer chaque décision au professeur, pas seulement la note totale.',
+    ],
+    interest: 'Mesure la correction de bout en bout par un seul modèle, sans pipeline intermédiaire.',
+    limitations: 'Le modèle peut inventer des relations vraisemblables ou manquer une flèche inversée en donnant une note apparemment correcte.',
+    radarScope: 'Parcours direct image → correction sur les batteries de notation ; le graphe indépendant reste un contrôle séparé.',
+  },
+  'direct-image-generative-thinking': {
+    principle: 'Même méthode directe image + barème → LLM génératif, avec le mode Think demandé explicitement à Ollama compatible.',
+    steps: [
+      'Vérifier la disponibilité du mode Think sur le modèle et le serveur Ollama.',
+      'Envoyer les mêmes images et critères que pour Think OFF.',
+      'Évaluer décisions, erreurs et temps fournisseur sur les mêmes cas.',
+    ],
+    interest: 'Vérifie si le raisonnement demandé améliore les décisions sur les pièges visuels.',
+    limitations: 'Think peut ne pas être pris en charge, être ignoré ou allonger la durée ; il ne garantit pas une meilleure lecture.',
+    radarScope: 'Un parcours distinct de Think OFF. « Comparer Think OFF / ON » déclenche les deux et ne représente pas une troisième méthode.',
+  },
+  'direct-image-systemone': {
+    principle: 'Envoyer directement les pixels au modèle décisionnel visuel System One avec le barème, sans OCR ni génératif intermédiaire.',
+    steps: [
+      'Vérifier que le modèle décisionnel et le protocole acceptent réellement les images.',
+      'Transmettre la photographie et les critères de décision.',
+      'Contrôler les décisions structurées sur les références de notation.',
+    ],
+    interest: 'Teste une décision visuelle native sans étape de transcription.',
+    limitations: 'Tous les modèles décisionnels ne sont pas visuels : TEV1 texte ne peut pas utiliser System One image. Le graphe reste une batterie distincte.',
+    radarScope: 'Ne se lance que sur un modèle System One compatible Vision ; aucun remplacement silencieux par Vision puis analyse.',
+  },
 };
 
 export const BIOLOGY_METHOD_DESCRIPTIONS: Record<BiologyMethodId, RadarMethodDescription> = {
