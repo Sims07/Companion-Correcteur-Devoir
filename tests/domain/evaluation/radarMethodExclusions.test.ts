@@ -1,6 +1,10 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from 'vitest';
-import type { DiagramLabArchiveEntry } from '../../../src/evaluation/domain/diagramLabHistory.ts';
+import { summarizeDiagramLabReport, type DiagramLabArchiveEntry } from '../../../src/evaluation/domain/diagramLabHistory.ts';
+import { buildBlindVisualObservationReport } from '../../../src/evaluation/domain/scientificDiagramBlindGraph.ts';
+import { DIAGRAM_SENSITIVITY_CASES } from '../../../src/evaluation/domain/scientificDiagramSensitivity.ts';
+import { sciencePoints } from '../../../src/evaluation/domain/radarTimeline.ts';
+import { RADAR_PRESETS } from '../../../src/evaluation/domain/diagramLabRadar.ts';
 import type { BiologyRadarObservation } from '../../../src/evaluation/domain/biologyTeacherRadar.ts';
 import type { TimelinePoint } from '../../../src/evaluation/domain/radarTimeline.ts';
 import {
@@ -93,4 +97,19 @@ describe('observed method names, distinct from launch strategies', () => {
     expect(activeBiologyObservations([generative, decision], { diagrams: [], biology: ['contract'] })).toEqual([]);
     expect(toggleRadarMethodExclusion(excluded, 'biology', variant)).toEqual({ diagrams: [], biology: [] });
   });
+});
+
+it('keeps archived scientific evidence available but removes a selected legacy method from active scoring', () => {
+  const model = 'local-vision';
+  const report = buildBlindVisualObservationReport(DIAGRAM_SENSITIVITY_CASES.map(item => ({
+    caseId:item.id, profileId:'p', profileName:'Vision', model,
+    repetition:1, status:'success' as const, durationMs:900,
+    observations:{ ...item.gold }, arrowCount:2, containmentCount:1,
+  })), 1, '2026-11-15T10:00:00Z');
+  const entry = summarizeDiagramLabReport(report, 'finished');
+  const label = sciencePoints([entry], RADAR_PRESETS.balanced)[0]?.label;
+  expect(label).toBeTruthy();
+  const exclusions = { diagrams:[observedRadarMethodId('diagrams', label!)], biology:[] };
+  expect(activeScienceEntries([entry], exclusions, RADAR_PRESETS.balanced)).toEqual([]);
+  expect(entry.report).toBe(report);
 });
