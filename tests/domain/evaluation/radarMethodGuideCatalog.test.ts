@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { scienceMethods } from '../../../src/evaluation/domain/radarTimeline.ts';
+import { scienceMethods, trialSteps } from '../../../src/evaluation/domain/radarTimeline.ts';
+import { diagramMethodLabels } from '../../../src/evaluation/domain/scientificDiagramProtocol.ts';
 import { biologyMethodLabels } from '../../../src/evaluation/domain/radarMethodExclusions.ts';
 import {
   BIOLOGY_METHOD_PRESENTATION, SCIENCE_METHOD_PRESENTATION, radarMethodGuideEntries,
@@ -13,8 +14,16 @@ describe('catalogue des fiches illustrées du laboratoire', () => {
     const biology = radarMethodGuideEntries('biology');
     expect(science.map(entry => entry.id)).toEqual([
       'pixel-v1', 'leaders-v1', 'direct-v1', 'guided-v1', 'graph-first-v1',
+      'graph-first-v2', 'vision-then-analysis', 'direct-image-generative',
+      'direct-image-generative-thinking', 'direct-image-systemone',
     ]);
     expect(biology).toHaveLength(3);
+    for (const route of Object.keys(diagramMethodLabels)) {
+      expect(science.map(entry => entry.id)).toContain(route);
+      expect(trialSteps(route as keyof typeof scienceMethods).filter(step => step.protocol !== 'graph')
+        .map(step => step.method)).toEqual([route, route, route]);
+    }
+    expect(science.map(entry => entry.id)).not.toContain('compare-thinking');
     expect(science.map(entry => entry.label)).toEqual(science.map(entry =>
       scienceMethods[entry.id as keyof typeof scienceMethods].label));
     expect(biology.map(entry => entry.label)).toEqual(Object.values(biologyMethodLabels));
@@ -34,5 +43,9 @@ describe('catalogue des fiches illustrées du laboratoire', () => {
     expect(entries[1]?.science.radarScope).toContain('S0–S5');
     expect(entries[0]?.science.limitations).toMatch(/fausses pointes/);
     expect(entries[1]?.science.limitations).toMatch(/manquée/);
+    expect(entries.find(entry => entry.id === 'direct-image-generative')?.science.principle)
+      .toContain('photographie');
+    expect(entries.find(entry => entry.id === 'direct-image-systemone')?.science.limitations)
+      .toContain('TEV1');
   });
 });
