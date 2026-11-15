@@ -21,7 +21,7 @@ test('benchmark radar ranks complete scientific candidates and reveals the origi
             profileId, profileName: accurate ? 'Vision témoin' : 'Vision rapide',
             model: accurate ? 'vision-good:4b' : 'vision-fast:4b',
             method: 'direct-image-generative', repetition: rep + 1,
-            status: 'success', durationMs: accurate ? 60_000 : 5_000,
+            status: 'success', durationMs: 37_000_000, providerDurationMs: accurate ? 60_000 : 5_000,
             ...(protocol === 'graph' ? { observations: observed } :
               { observations: Object.entries(observed).map(([key, choice]) => ({ key, choice })) }),
           };
