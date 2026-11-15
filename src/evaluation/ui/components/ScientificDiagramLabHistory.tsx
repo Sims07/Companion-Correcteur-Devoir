@@ -5,7 +5,7 @@ import { diagramMethodLabels } from '../../domain/scientificDiagramProtocol.ts';
 import { BlindGraphRunDetails } from './BlindGraphRunDetails.tsx';
 import { buildDiagramLabComparison } from '../../domain/diagramLabComparison.ts';
 import type { RadarMissingTestRequest } from '../../domain/diagramLabRadarLaunch.ts';
-import { buildDiagramLabRadar, type RadarModelConfiguration } from '../../domain/diagramLabRadar.ts';
+import { buildDiagramLabRadar, type RadarAxisId, type RadarModelConfiguration } from '../../domain/diagramLabRadar.ts';
 import { describeDiagramCampaign } from '../../domain/diagramCampaignVerdict.ts';
 import { summarizeDiagramLabReadiness } from '../../domain/diagramLabReadiness.ts';
 import { ScientificDiagramRadar } from './ScientificDiagramRadar.tsx';
@@ -203,6 +203,7 @@ export function ScientificDiagramLabHistory({ initialReportId, revision, archive
   onBack?: () => void;
 }) {
   const [entries, setEntries] = useState<DiagramLabArchiveEntry[]>([]);
+  const [requestedRadarAxis, setRequestedRadarAxis] = useState<RadarAxisId | undefined>();
   const [loadingError, setLoadingError] = useState('');
   const [protocolFilter, setProtocolFilter] = useState<DiagramLabProtocol | 'all'>('all');
   const [search, setSearch] = useState('');
@@ -301,7 +302,7 @@ export function ScientificDiagramLabHistory({ initialReportId, revision, archive
       </div>
     </section>}
 
-    {view === 'radar' && <ScientificDiagramRadar entries={entries} profileIds={profileIds} profiles={profiles} busy={busy} onRunMissing={onRunMissing} onOpenReport={(id) => {
+    {view === 'radar' && <ScientificDiagramRadar entries={entries} profileIds={profileIds} profiles={profiles} busy={busy} initialAxis={requestedRadarAxis} onRunMissing={onRunMissing} onOpenReport={(id) => {
       setSelectedId(id);
       setProtocolFilter('all');
       setSearch('');
@@ -353,7 +354,7 @@ export function ScientificDiagramLabHistory({ initialReportId, revision, archive
             </div>
             <p>{campaignResult.conclusion}</p>
             {selected.protocol === 'graph' && <Button variant="secondary"
-              onClick={() => onViewChange('radar')}>Voir l’axe Qualité graphique dans le radar</Button>}
+              onClick={() => { setRequestedRadarAxis('graphics'); onViewChange('radar'); }}>Voir l’axe Qualité graphique dans le radar</Button>}
           </section>}
           <div className="diagram-lab-kpis">
             <div><strong>{selected.experimentCount}</strong><span>Passages</span></div>
