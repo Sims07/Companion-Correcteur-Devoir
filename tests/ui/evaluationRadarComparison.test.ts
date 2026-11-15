@@ -189,7 +189,7 @@ it('launches every remaining scientific strategy as independent, sequentially ex
   await act(async () => root.unmount());
 });
 
-it('offers only biology methods without five measured axes and disables batching while running', async () => {
+it('offers only biology methods without all measured axes and disables batching while running', async () => {
   const node = document.createElement('div');
   const root = createRoot(node);
   const runBiologyBatch = vi.fn();
