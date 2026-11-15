@@ -59,8 +59,10 @@ export interface DiagnosticModelResult {
   raw: string;
   /** Provider/network failure associated with this exact request, when the call did not complete. */
   error?: string;
-  /** Wall-clock duration for this specific Ollama request. */
+  /** Wall-clock duration for diagnostics only (may include system sleep). */
   elapsedMs: number;
+  /** Completed native Ollama total_duration, converted from nanoseconds to milliseconds. */
+  providerDurationMs?: number;
   /** Usage reported by Ollama's final streaming event; absent when unsupported. */
   promptTokens?: number;
   generatedTokens?: number;

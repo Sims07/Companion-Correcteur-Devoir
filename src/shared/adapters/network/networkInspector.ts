@@ -1,4 +1,5 @@
 import { getNetworkRequestMetadata } from '../../ports/networkRequestMetadata.ts';
+import { isOllamaInferenceRequest, readOllamaNativeTimings, type OllamaNativeTimings } from '../../domain/ollamaTimings.ts';
 
 export type NetworkRequestState = 'pending' | 'success' | 'error';
 
@@ -9,7 +10,10 @@ export type NetworkRequestRecord = {
   intent: string;
   context: string;
   startedAt: string;
+  /** Elapsed browser time, diagnostic only. */
   durationMs: number | null;
+  /** Native model time, never inferred from browser elapsed time. */
+  providerTimings?: OllamaNativeTimings | null;
   state: NetworkRequestState;
   status: number | null;
   statusText: string;
@@ -222,7 +226,9 @@ export function installNetworkInspector(): () => void {
               update({ responseBody: body });
             }
             body += decoder.decode();
-            update({ responseBody: body, durationMs: Math.round(performance.now() - started), state: response.ok ? 'success' : 'error' }, true);
+            update({ responseBody: body, durationMs: Math.round(performance.now() - started), state: response.ok ? 'success' : 'error',
+              ...(response.ok && isOllamaInferenceRequest(url) ? { providerTimings: readOllamaNativeTimings(body) } : {}),
+            }, true);
           } catch (cause) {
             update({ responseBody: body, durationMs: Math.round(performance.now() - started), state: 'error', error: cause instanceof Error ? cause.message : 'Lecture de la réponse impossible.' }, true);
           }

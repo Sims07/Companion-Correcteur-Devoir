@@ -477,3 +477,23 @@ describe('JSON prompt output contracts', () => {
     expect(prompt.split('\n\n').at(-1)).toContain('{"studentTranscription":"Texte étudiant.","annotations":[]}');
   });
 });
+
+describe('Ollama authoritative timings', () => {
+  it('propagates completed total_duration into the diagnostic without replacing elapsed time', async () => {
+    let observedDuration: number | undefined;
+    let observedElapsed: number | undefined;
+    const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', visionModel: 'qwen3.5:4b' },
+      vi.fn(async () => new Response(
+        JSON.stringify({ message: { content: 'Cellule identifiée.' } }) + '\n' +
+        JSON.stringify({ done: true, done_reason: 'stop', total_duration: 81_920_000_000, load_duration: 4_617_131_548 }) + '\n',
+        { status: 200, headers: { 'content-type': 'application/x-ndjson' } },
+      )) as unknown as typeof fetch);
+    await provider.generate({
+      question: 'Transcrire', rubric: '{}', visionOnly: true,
+      images: [{ base64: 'aW1hZ2U=', mimeType: 'image/png' }],
+    }, undefined, undefined, undefined, (run) => { observedDuration = run.providerDurationMs; observedElapsed = run.elapsedMs; });
+    expect(observedDuration).toBe(81920);
+    expect(typeof observedElapsed).toBe('number');
+    expect(observedElapsed).toBeLessThan(observedDuration!);
+  });
+});

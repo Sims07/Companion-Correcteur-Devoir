@@ -46,6 +46,7 @@ interface OllamaChatResponse {
 
 interface OllamaStreamResult {
   content: string;
+  providerDurationMs?: number;
   promptTokens?: number;
   generatedTokens?: number;
   totalTokens?: number;
@@ -110,6 +111,7 @@ async function readOllamaStream(response: Response, onChunk?: (chunk: string) =>
         eval_count: event.eval_count ?? finalEvent?.eval_count,
         usage: event.usage ?? finalEvent?.usage,
         eval_duration: event.eval_duration ?? finalEvent?.eval_duration,
+        total_duration: event.total_duration ?? finalEvent?.total_duration,
         done_reason: event.done_reason ?? finalEvent?.done_reason,
         prompt_eval_duration: event.prompt_eval_duration ?? finalEvent?.prompt_eval_duration,
         load_duration: event.load_duration ?? finalEvent?.load_duration,
@@ -156,6 +158,8 @@ async function readOllamaStream(response: Response, onChunk?: (chunk: string) =>
     ...(reportedTotalTokens !== undefined ? { totalTokens: reportedTotalTokens } : promptTokens !== undefined && generatedTokens !== undefined ? { totalTokens: promptTokens + generatedTokens } : {}),
     ...(typeof finalEvent?.prompt_eval_duration === 'number' ? { promptEvaluationMs: nanosecondsToMilliseconds(finalEvent.prompt_eval_duration) } : {}),
     ...(generationMs !== undefined ? { generationMs } : {}),
+    ...(typeof finalEvent?.total_duration === 'number' && finalEvent.total_duration >= 0 && Number.isFinite(finalEvent.total_duration)
+      ? { providerDurationMs: nanosecondsToMilliseconds(finalEvent.total_duration) } : {}),
     ...(typeof finalEvent?.load_duration === 'number' ? { loadMs: nanosecondsToMilliseconds(finalEvent.load_duration) } : {}),
     ...(generatedTokens !== undefined && generationDurationNs !== undefined && generationDurationNs > 0
       ? { tokensPerSecond: Math.round(generatedTokens / (generationDurationNs / 1_000_000_000) * 100) / 100 }
@@ -665,6 +669,7 @@ export function createOllamaProvider(
               ...(result.totalTokens !== undefined ? { totalTokens: result.totalTokens } : {}),
               ...(result.promptEvaluationMs !== undefined ? { promptEvaluationMs: result.promptEvaluationMs } : {}),
               ...(result.generationMs !== undefined ? { generationMs: result.generationMs } : {}),
+              ...(result.providerDurationMs !== undefined ? { providerDurationMs: result.providerDurationMs } : {}),
               ...(result.loadMs !== undefined ? { loadMs: result.loadMs } : {}),
               ...(result.tokensPerSecond !== undefined ? { tokensPerSecond: result.tokensPerSecond } : {}),
               ...(result.doneReason ? { doneReason: result.doneReason } : {}),
