@@ -1,4 +1,4 @@
-import { diagramMethodLabels, type DiagramMethod } from './scientificDiagramProtocol.ts';
+import { diagramMethodLabels, type DiagramMethod, type DiagramMethodSelection } from './scientificDiagramProtocol.ts';
 import { blindVisualObservationPrompt } from './scientificDiagramBlindGraph.ts';
 import { diagramSensitivityContext } from './scientificDiagramSensitivity.ts';
 import { BIOLOGY_RADAR_AXES, buildBiologyRadar, type BiologyRadarObservation } from './biologyTeacherRadar.ts';
@@ -12,6 +12,11 @@ export const scienceMethods = {
   'pixel-v1': { label: 'Graphe · détecteur des petites pointes (#439)', graphVariant: 'pixel-arrows', promptMode: 'standard' },
   'direct-v1': { label: 'Lecture directe du graphe · v1', graphVariant: 'baseline', promptMode: 'standard' },
   'guided-v1': { label: 'Examen guidé, trait par trait · v1', graphVariant: 'isolated-arrows-outside', promptMode: 'guided' },
+  'graph-first-v2': { label: 'Image → relations légendes/structures → correction · v2', graphVariant: 'baseline', promptMode: 'standard' },
+  'vision-then-analysis': { label: 'Vision puis analyse — 2 étapes', graphVariant: 'baseline', promptMode: 'standard' },
+  'direct-image-generative': { label: 'Image → modèle génératif — Think OFF', graphVariant: 'baseline', promptMode: 'standard' },
+  'direct-image-generative-thinking': { label: 'Image → modèle génératif — Think ON', graphVariant: 'baseline', promptMode: 'standard' },
+  'direct-image-systemone': { label: 'Image → décisionnel System One — sans OCR', graphVariant: 'baseline', promptMode: 'standard' },
 } as const;
 export type ScienceMethod = keyof typeof scienceMethods;
 /** Canonical observed-method label, shared by history, comparisons and exclusions. */
@@ -45,8 +50,11 @@ export interface TimelinePoint {
 
 export function trialSteps(method: ScienceMethod): RadarTestStep[] {
   const { promptMode, graphVariant } = scienceMethods[method];
+  // Real correction engines remain distinct from the blind-graph observation battery.
+  const gradingMethod: DiagramMethodSelection = method in diagramMethodLabels ? method as DiagramMethod : 'compare';
   return (['reference', 'arrows', 'semantic', 'graph'] as const).map(protocol => ({
-    protocol, repetitions: protocol === 'reference' ? 3 : 1, method: method === 'graph-first-v1' && protocol !== 'graph' ? 'graph-first-v1' : 'compare',
+    protocol, repetitions: protocol === 'reference' ? 3 : 1,
+    method: protocol === 'graph' ? 'compare' : gradingMethod,
     promptMode, graphVariant, zoom: false,
   }));
 }
