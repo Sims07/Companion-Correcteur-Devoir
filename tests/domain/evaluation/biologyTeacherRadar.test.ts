@@ -179,6 +179,8 @@ describe('biology radar scored against teacher-keyed references', () => {
   it('penalizes both undergrading and overgrading proportionally to the worst error', () => {
     const cases = allCases();
     const f = cases.find((item) => item.caseId === 'F')!;
+    f.decisions.filter((decision) => decision.expected === 1).slice(0, 3)
+      .forEach((decision) => { decision.awarded = 0; });
     f.score = 4; // Worse than the teacher's 7, even without false positives.
     const result = buildBiologyRadar(cases, 'contract')[0]!;
     expect(result.maxGradeDifference).toBe(3);
