@@ -348,3 +348,24 @@
 .lab-method-options label span { flex: 1; overflow-wrap: anywhere; }
 .lab-method-options label small { font-size: .72rem; color: var(--ds-color-text-muted); }
 .radar-method-audit tr[data-excluded='true'] { opacity: .75; }
+
+/* Laboratory method handbook: compact accordions, accessible even for excluded methods. */
+.lab-method-science-guide > p { margin:.25rem 0 1rem; color:var(--ds-color-text-muted); line-height:1.5; }
+.lab-method-science-list { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,310px),1fr)); gap:.65rem; align-items:start; }
+.lab-method-science-list details {
+  margin:0; border:1px solid var(--ds-color-border); border-radius:9px;
+  background:var(--ds-color-surface-subtle); min-width:0;
+}
+.lab-method-science-list details[open] { background:var(--ds-color-surface); }
+.lab-method-science-list summary {
+  cursor:pointer; padding:.85rem 1rem; font-weight:650; font-size:.89rem;
+  line-height:1.4; overflow-wrap:anywhere;
+}
+.lab-method-science-list summary:focus-visible { outline:2px solid var(--ds-color-brand-700); outline-offset:2px; }
+.lab-method-science-body { padding:.1rem 1rem 1rem; border-top:1px solid var(--ds-color-border); font-size:.87rem; line-height:1.55; }
+.lab-method-science-body p { margin:.65rem 0; }
+.lab-method-science-body ol { margin:.45rem 0 .8rem; padding-left:1.4rem; }
+.lab-method-science-body li { margin:.35rem 0; }
+.lab-method-science-guide .lab-method-science-caution { margin:.85rem 0 0; font-size:.81rem; }
+.lab-launch .radar-method-guide-link { margin:.2rem 0; font-size:.86rem; }
+@media(max-width:640px) { .lab-method-science-list { grid-template-columns:minmax(0,1fr); } }
