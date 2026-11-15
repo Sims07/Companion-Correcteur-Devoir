@@ -44,6 +44,8 @@ Les deux contextes métier partagent le même déploiement et la même base loca
 | `src/domain/correction/` | Devoirs, barèmes, copies, preuves, propositions, annotations et validation par l’enseignant. Le barème initial d’un dessin scientifique appartient à la correction. |
 | `src/domain/evaluation/` | Références expérimentales, protocoles, campagnes, résultats par méthode, comparaisons et radars. Une campagne peut observer une proposition de correction. |
 
+Le contrat publié de Correction (`correction/contract.ts`) expose les types de barème et de proposition, la validation et les opérations de lecture utilisées par Évaluation. À la réception d’une sortie IA, `readEvaluationGradingResult` conserve les preuves et produit une note comparable lorsque tous les critères sont évalués. Le résultat d’une lecture Vision seule ou d’une sortie inexploitable porte une note `null`. Un zéro justifié est conservé. Les archives contiennent le barème de l’essai et la proposition observée ; une archive sans étape explicite se relit comme un essai intégré.
+
 La correction est le contexte amont. Le laboratoire peut consommer ses règles de notation et comparer les résultats à ses propres références. Le test d’architecture parcourt les dépendances transitives de la correction, y compris les imports de types. Les services techniques utilisés par plusieurs parcours (configuration IA, calcul décimal, observabilité) conservent leur emplacement à la racine du domaine.
 
 ### Ports — `src/ports/`

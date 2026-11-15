@@ -1,6 +1,5 @@
-import type { GradingProposal } from '../correction/grading.ts';
+import { type GradingProposal, rubricEvaluationSignature, type Rubric } from '../correction/contract.ts';
 import type { CorrectionMethod } from '../correctionMethod.ts';
-import { rubricEvaluationSignature, type Rubric } from '../correction/rubric.ts';
 import { modelEvaluationImageSignature } from './modelEvaluationImageIdentity.ts';
 
 export interface ModelEvaluationConfiguration {

@@ -39,6 +39,7 @@ import { accumulateClockwiseRotation, getConfidentDiagramRotation } from '../dom
 import { mergeScientificDiagramCriteria, partitionScientificRubric, shouldRunTeacherScientificDiagramWorkflow } from '../domain/correction/scientificRubricRouting.ts';
 import { mergeDecisionScientificDiagramCriteria } from '../domain/correction/scientificDiagramDecisions.ts';
 import type { CriterionAnalysisUpdate, DiagnosticModelResult, DiagnosticStrategy, GradingProgressEvent, ImageInput } from '../ports/aiProvider.ts';
+import { readEvaluationGradingResult } from '../domain/evaluation/evaluationGradingResult.ts';
 import { buildDiagnosticScore } from '../domain/evaluation/diagnosticScore.ts';
 import { compareWithDiagnosticReference, validateDiagnosticReference, type ReferenceCriterionScore } from '../domain/evaluation/diagnosticReference.ts';
 import { createDecisionMemoryEntries, fingerprintRubric, LOCAL_MEMORY_CORRECTION_ID_KEY, LOCAL_MEMORY_RUBRIC_FINGERPRINT_KEY, LOCAL_MEMORY_RUBRIC_UPDATED_EVENT, LOCAL_MEMORY_UPDATED_EVENT } from '../domain/correction/localMemory.ts';
@@ -2085,11 +2086,12 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         if (runStage === 'vision' && analysisStartedAt === null) readingMs = Math.max(0, analysisFinishedAt - startedAt);
         const analysisMs = analysisStartedAt === null ? 0 : Math.max(0, analysisFinishedAt - analysisStartedAt);
         setEvaluationStage('parsing');
-        let score: number | null = null;
-        let parsedProposal: GradingProposal | null = null;
-        if (runStage !== 'vision') {
-          try { parsedProposal = parseGradingProposal(raw, runRubric, configuration.correctionMethod === 'generative' ? (runStage === 'analysis' ? runTranscription ?? '' : extractedTranscription) : undefined); score = buildDiagnosticScore(parsedProposal, runRubric).modelScore; } catch { /* Preserve raw output for inspection even when it cannot be scored. */ }
-        }
+        const { score, proposal: parsedProposal } = readEvaluationGradingResult(
+          runStage, raw, runRubric,
+          configuration.correctionMethod === 'generative'
+            ? (runStage === 'analysis' ? runTranscription ?? '' : extractedTranscription)
+            : undefined,
+        );
         const finishedAt = Date.now();
         const readingTokens = sumReportedTokensForStage(measuredRuns, 'reading');
         const analysisTokens = sumReportedTokensForStage(measuredRuns, 'analysis');

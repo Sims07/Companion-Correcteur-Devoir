@@ -1,6 +1,6 @@
 import { isLoopbackPilotEndpoint } from './pilotEvaluationProtocol.ts';
 import type { ModelEvaluationRecord } from './modelEvaluation.ts';
-import type { Rubric } from '../correction/rubric.ts';
+import { type Rubric } from '../correction/contract.ts';
 import type { PilotCase } from './pilotEvaluationProtocol.ts';
 import { PILOT_RUBRIC, summarizePilotResult } from './pilotEvaluationProtocol.ts';
 

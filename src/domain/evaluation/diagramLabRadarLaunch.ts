@@ -1,5 +1,5 @@
 import { BLIND_GRAPH_PROMPT_VARIANTS, type BlindGraphPromptVariant } from './scientificDiagramBlindGraph.ts';
-import { isNativeDecisionModel, isVisualDecisionModel } from '../correction/systemOneDecision.ts';
+import { isNativeDecisionModel, isVisualDecisionModel } from '../correction/contract.ts';
 import type { DiagramMethodSelection } from './scientificDiagramProtocol.ts';
 import { buildDiagramLabRadar, diagnoseGraphRadarMeasurement, diagnoseUnmeasuredRadarAxis, RADAR_AXES, type RadarAxisId, type RadarCandidate, type RadarModelConfiguration, type RadarRankedCandidate, type RadarGrouping } from './diagramLabRadar.ts';
 import type { DiagramLabArchiveEntry } from './diagramLabHistory.ts';

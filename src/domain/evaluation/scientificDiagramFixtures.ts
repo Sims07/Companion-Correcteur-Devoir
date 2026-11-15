@@ -1,6 +1,5 @@
 import { diagramTargetKey, type DiagramGold, type DiagramProtocolCount, type DiagramProtocolRun, buildScientificDiagramProtocolReport } from './scientificDiagramProtocol.ts';
-import { SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC } from '../correction/scientificDiagramRubric.ts';
-import { getRubricSubcriteria, validateRubric, type Rubric } from '../correction/rubric.ts';
+import { SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC, getRubricSubcriteria, validateRubric, type Rubric } from '../correction/contract.ts';
 import { sumGradeScores } from '../scorePrecision.ts';
 import { auditRelationGraphV2, type RelationExpectationV2 } from './scientificDiagramRelationGraphV2.ts';
 

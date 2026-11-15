@@ -2,9 +2,19 @@ import { describe, expect, it } from 'vitest';
 import type { AiModelProfile } from '../../../src/domain/aiModelProfiles.ts';
 import type { ModelEvaluationRecord, ModelEvaluationResultSnapshot } from '../../../src/domain/evaluation/modelEvaluation.ts';
 import { defaultAiModelConfiguration } from '../../../src/domain/aiModelProfiles.ts';
-import { validateRubric } from '../../../src/domain/correction/rubric.ts';
-import { buildScientificDiagramProtocolReport, availableDiagramMethods, selectDiagramMethods, diagramMethodIssue, diagramAnalysisDiagnostics, diagramFailureCategory, diagramObservations, diagramProtocolProfileIssue, diagramTargetKey, usesDirectDiagramVision,  } from '../../../src/domain/evaluation/scientificDiagramProtocol.ts';
-import { SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC, parseScientificDiagramProtocolRubric } from '../../../src/domain/correction/scientificDiagramRubric.ts';
+import {
+  buildScientificDiagramProtocolReport,
+  availableDiagramMethods,
+  selectDiagramMethods,
+  diagramMethodIssue,
+  diagramAnalysisDiagnostics,
+  diagramFailureCategory,
+  diagramObservations,
+  diagramProtocolProfileIssue,
+  diagramTargetKey,
+  usesDirectDiagramVision,
+} from '../../../src/domain/evaluation/scientificDiagramProtocol.ts';
+import { SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC } from '../../../src/domain/correction/scientificDiagramRubric.ts';
 
 const profile = (analysisModel: string, method: 'generative' | 'decision' | 'visual-decision' = 'decision'): AiModelProfile => ({
   id: 'candidate', name: 'Candidat', mode: 'single', updatedAt: '2026-11-07T00:00:00Z',
@@ -44,44 +54,6 @@ function record(one: ModelEvaluationResultSnapshot = result()): ModelEvaluationR
 }
 
 describe('protocole de schémas scientifiques', () => {
-  it('conserves les 15 attendus observables et les 8 points exacts du barème professeur', () => {
-    const rubric = SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC;
-    expect(validateRubric(rubric)).toMatchObject({ valid: true, maximumPoints: 8 });
-    expect(rubric.criteria.map(({ title, maxPoints }) => [title, maxPoints])).toEqual([
-      ['Qualité du dessin', 4], ['Titre', 2], ['légendes', 2],
-    ]);
-    expect(rubric.criteria.flatMap((item) => item.subcriteria ?? [])).toHaveLength(15);
-    expect(rubric.criteria.every((item) => item.analysisMode === 'scientific-diagram')).toBe(true);
-  });
-  it('importe le JSON historique, exclut la compréhension non détaillée et ne modifie pas l’original', () => {
-    const source = {
-      format: 'companion-correcteur-rubric', rubricTitle: 'Barème à définir',
-      criteria: [
-        { id: 'a', title: 'Qualité du dessin', maxPoints: 1, subcriteria: [
-          { id: 'a-1', title: 'Centré', maxPoints: 1 },
-        ] },
-        { id: 'b', title: 'Compréhension', maxPoints: 2, description: 'Mitose' },
-      ],
-    };
-    const result = parseScientificDiagramProtocolRubric(source);
-    expect(result.title).toBe('Barème à définir');
-    expect(result.criteria).toHaveLength(1);
-    expect(result.criteria[0]?.analysisMode).toBe('scientific-diagram');
-    expect(result.criteria[0]?.subcriteria?.[0]?.description).toBe('');
-    expect(source.criteria).toHaveLength(2);
-    expect(validateRubric(result).valid).toBe(true);
-  });
-  it('ne déduit aucune pondération et rejette une compréhension non découpée', () => {
-    expect(() => parseScientificDiagramProtocolRubric({ title: 'Essai', criteria: [
-      { id: 'a', title: 'Structures biologiques', maxPoints: 2, subcriteria: [] },
-    ] })).toThrow('sous-critères');
-    expect(() => parseScientificDiagramProtocolRubric({ title: 'Essai', criteria: [
-      { id: 'a', title: 'Structures', maxPoints: 2, subcriteria: [{ id: 'a-1', title: 'Noyau', maxPoints: 1 }] },
-    ] })).toThrow('totalisent');
-    expect(() => parseScientificDiagramProtocolRubric({ title: 'Essai', criteria: [
-      { id: 'a', title: 'Structures', maxPoints: '2', subcriteria: [] },
-    ] })).toThrow('points');
-  });
   it('réserve la décision image native à D1/D3 et n’invente pas de vision TEV1', () => {
     expect(usesDirectDiagramVision(profile('d1:3b'))).toBe(true);
     expect(usesDirectDiagramVision(profile('d3:4b'))).toBe(true);

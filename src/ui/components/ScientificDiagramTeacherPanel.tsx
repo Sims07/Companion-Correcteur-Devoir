@@ -4,7 +4,7 @@ import type { GradingProposal } from '../../domain/correction/grading.ts';
 import { validateRubric, type Rubric } from '../../domain/correction/rubric.ts';
 import { buildDiagramReview } from '../../domain/correction/diagramTeacherReview.ts';
 import { accumulateClockwiseRotation } from '../../domain/correction/scientificPageOrientation.ts';
-import { SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC, parseScientificDiagramProtocolRubric } from '../../domain/correction/scientificDiagramRubric.ts';
+import { SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC, parseScientificDiagramRubric } from '../../domain/correction/scientificDiagramRubric.ts';
 import type { ImageInput } from '../../ports/aiProvider.ts';
 import type { DirectScientificDiagramRequest } from '../../application/directScientificDiagramCorrection.ts';
 import { Button, TextArea } from '../design-system/index.ts';
@@ -96,7 +96,7 @@ export function ScientificDiagramTeacherPanel({
     invalidate();
     try {
       const parsed = JSON.parse(await files[0]!.text()) as unknown;
-      const imported = parseScientificDiagramProtocolRubric(parsed);
+      const imported = parseScientificDiagramRubric(parsed);
       setRubric(imported);
       setMessage('Barème chargé : ' + imported.title + '.');
     } catch (cause) {
