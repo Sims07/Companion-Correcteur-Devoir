@@ -34,6 +34,6 @@ test('does not claim the installed version is current if the published version i
   await page.route('**/version.json', (route) => route.abort());
   await page.goto('/');
   await page.getByRole('button', { name: /Version de l’application/ }).click();
-  await expect(page.getByRole('status').getByText(/Impossible de confirmer la dernière version/)).toBeVisible();
+  await expect(page.getByRole('status').getByText(/Vérification des mises à jour indisponible/)).toBeVisible();
   await expect(page.getByRole('button', { name: 'Recharger la dernière version' })).toHaveCount(0);
 });
