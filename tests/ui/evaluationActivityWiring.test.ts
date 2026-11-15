@@ -14,6 +14,15 @@ describe('persistent evaluation activity deep links', () => {
     expect(app).toContain('setEvaluationActivity({ ...activity, status:');
   });
 
+  it('opens the exact archived diagram campaign rather than re-opening the protocol launcher', () => {
+    expect(app).toContain("evaluationActivity.journey === 'diagrams') {");
+    expect(app).toContain('setReportId(evaluationActivity.campaignId)');
+    expect(app).toContain("setDiagramLabView('history')");
+    expect(app).toContain("setEvaluationWorkspaceStep('configuration')");
+    expect(app).toContain('Voir le bilan de cette campagne');
+    expect(app).toContain('initialReportId={reportId}');
+  });
+
   it('offers an accessible dismissal only after a test stops, without clearing archived results', () => {
     expect(app).toContain("evaluationActivity.status !== 'running' && <button");
     expect(app).toContain('aria-label="Masquer le bandeau"');

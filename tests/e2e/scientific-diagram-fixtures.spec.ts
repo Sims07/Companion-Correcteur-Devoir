@@ -148,8 +148,8 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
   await expect(results).toBeVisible({ timeout: 30_000 });
   await expect(results.locator('tbody tr')).toHaveCount(3);
   await expect(activity).toContainText('TEST TERMINÉ');
-  await activity.getByRole('button', { name: 'Voir les résultats' }).click();
-  await expect(results).toBeVisible();
+  // The detailed inline results remain available before navigating to the
+  // archived campaign; the activity button now opens that exact campaign.
   // All 19 native image decisions remain measurable even if a resulting
   // provisional grade needs teacher review.
   await expect(results.getByText('19/19', { exact: true })).toHaveCount(3);
@@ -169,6 +169,12 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
     }[] }[] }[];
   };
   expect(complete.cases.flatMap((entry) => entry.experiments)).toHaveLength(3);
+  await activity.getByRole('button', { name: 'Voir le bilan de cette campagne' }).click();
+  const archived = page.getByRole('region', { name: 'Campagnes de test scientifiques' });
+  await expect(archived.getByRole('region', { name: 'Bilan du test sélectionné' }))
+    .toContainText('Axe concerné : Qualité graphique');
+  await expect(archived.getByRole('heading', { name: 'Résultats par schéma et configuration' })).toBeVisible();
+  await expect(archived.locator('.diagram-lab-history-detail')).toContainText('Qualité graphique');
   // One run must not be presented as proof that a model is "always correct".
   expect(complete.cases.flatMap((entry) => entry.summaries)
     .flatMap((summary) => summary.decisions)

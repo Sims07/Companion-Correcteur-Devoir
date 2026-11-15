@@ -2265,6 +2265,15 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
       setShowAiSettings(false);
       setShowAssignmentsHome(false);
       setInterfaceMode('diagnostic');
+      if (item.campaignId && item.journey === 'diagrams') {
+        setReportId(item.campaignId);
+        setEvaluationJourney('diagrams');
+        setBiologyRadarOpen(false);
+        setEvaluationJumpTarget(null);
+        setDiagramLabView('history');
+        setEvaluationWorkspaceStep('configuration');
+        return;
+      }
       if (item.campaignId) { showCampaigns({ domain: item.journey, ids: [item.campaignId] }); return; }
       setBiologyRadarOpen(false);
       setEvaluationJourney(item.journey ?? 'custom');
@@ -2283,6 +2292,18 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
   function showEvaluationActivity() {
     if (!evaluationActivity) return;
     if (evaluationActivity.campaignId && evaluationActivity.status !== 'running' && evaluationActivity.journey === 'biology') { showCampaigns({ domain: 'biology', ids: [evaluationActivity.campaignId] }); return; }
+    // A finished scientific test has a persisted, deterministic campaign ID.
+    // Open its evidence directly instead of sending the teacher back to the
+    // crowded protocol launcher (which may show a different active battery).
+    if (evaluationActivity.campaignId && evaluationActivity.status !== 'running' && evaluationActivity.journey === 'diagrams') {
+      setReportId(evaluationActivity.campaignId);
+      setEvaluationJourney('diagrams');
+      setBiologyRadarOpen(false);
+      setEvaluationJumpTarget(null);
+      setDiagramLabView('history');
+      setEvaluationWorkspaceStep('configuration');
+      return;
+    }
     setBiologyRadarOpen(false);
     setEvaluationJourney(evaluationActivity.journey);
     // Keep the live stage selected by the active runner; the initial scenario can differ from it.
@@ -4137,7 +4158,9 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
         <div className="evaluation-activity-actions">
           <button type="button" className="primary-button" onClick={showEvaluationActivity}>
             {evaluationActivity.status === 'running' ? 'Suivre ce test'
-              : evaluationActivity.status === 'completed' ? 'Voir les résultats' : 'Consulter ce test'}
+              : evaluationActivity.journey === 'diagrams' && evaluationActivity.campaignId
+                ? 'Voir le bilan de cette campagne'
+                : evaluationActivity.status === 'completed' ? 'Voir les résultats' : 'Consulter ce test'}
           </button>
           {evaluationActivity.status === 'running' && <Button variant="secondary" onClick={evaluationActivity.journey === 'custom' ? cancelModelEvaluation : stopPilotProtocol}>Arrêter maintenant</Button>}
           {evaluationActivity.status !== 'running' && <button type="button" className="evaluation-activity-dismiss" aria-label="Masquer le bandeau" title="Masquer le bandeau" onClick={() => setEvaluationActivity(null)}>×</button>}
