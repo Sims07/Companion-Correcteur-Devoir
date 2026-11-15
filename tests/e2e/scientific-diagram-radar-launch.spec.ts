@@ -8,7 +8,7 @@ import { SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET } from '../../src/evaluation/do
 
 const report = buildBlindVisualObservationReport(DIAGRAM_SENSITIVITY_CASES.map((item) => ({
   caseId: item.id, profileId: 'radar-prof', profileName: 'Vision à compléter',
-  model: 'vision:4b', repetition: 1, status: 'success' as const, durationMs: 2000,
+  model: 'vision:4b', repetition: 1, status: 'success' as const, durationMs: 37_000_000, providerDurationMs: 2000,
   observations: { ...item.gold }, arrowCount: 2, containmentCount: 1,
 })), 1, '2026-11-10T12:00:00Z');
 
@@ -260,7 +260,7 @@ test('qwen-like 7/9 radar targets A/B/C x3 to fill graphics and stability in one
   };
   const makeRuns = (observations: Record<string, string>) => [{
     profileId: profile.id, profileName: profile.name, model, repetition: 1, status: 'success',
-    method: 'direct-image-generative', durationMs: 2000,
+    method: 'direct-image-generative', durationMs: 37_000_000, providerDurationMs: 2000,
     observations: Object.entries(observations).map(([key, choice]) => ({ key, choice })),
   }];
   const arrows = {
