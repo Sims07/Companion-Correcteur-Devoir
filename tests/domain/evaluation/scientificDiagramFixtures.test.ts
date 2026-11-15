@@ -140,6 +140,10 @@ describe('jeu de dessins scientifiques A/B/C et contrôle de flèches D/E', () =
     expect(trap.labelPointerChallenge).toMatchObject({ kind: 'label-pointer-correspondence',
       expected: 'incorrect', criterionKey: SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET });
     const alignment = diagramTargetKey('legends', 'legends-aligned');
+    const alignmentRule = legend.subcriteria?.find((sub) => sub.id === 'legends-aligned');
+    expect(alignmentRule?.description).toContain('les uns sous les autres');
+    expect(alignmentRule?.description).toContain('côte à côte sur une même ligne');
+    expect(alignmentRule?.description).toContain('évaluée séparément');
     expect(control.referenceScore).toBe(9.34);
     expect(trap.referenceScore).toBe(8.66);
     // The user-visible teacher rubric explicitly requires a COLUMN of legends.
