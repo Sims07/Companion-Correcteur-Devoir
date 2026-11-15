@@ -58,6 +58,16 @@ const all = (method: ScienceMethod, id: string) =>
   (['reference', 'arrows', 'semantic', 'graph'] as const).map(protocol => campaign(protocol, method, id));
 
 describe('scientific-method progress and targeted recovery', () => {
+  it('keeps pre-v7 D/E arrowheaded archives out of the current leader-line radar', () => {
+    const old = campaign('arrows', 'leaders-v1', 'old', { date: '2026-11-14T10:00:00Z' });
+    Object.assign(old.report, { version: 6 });
+    expect(buildDiagramLabRadar([old], 'model')[0]?.axes.arrows.value ?? null).toBeNull();
+
+    const current = campaign('arrows', 'leaders-v1', 'new', { date: '2026-11-15T12:00:00Z' });
+    Object.assign(current.report, { version: 7 });
+    expect(buildDiagramLabRadar([old, current], 'model')[0]?.axes.arrows.value).toBe(100);
+  });
+
   it('counts 23 successful calls but reports 8/9 measured axes when a graph is indeterminate', () => {
     const records = all('leaders-v1', 'leaders');
     records[3] = campaign('graph', 'leaders-v1', 'leaders', { undecidable: true });
