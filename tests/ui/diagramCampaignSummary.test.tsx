@@ -50,6 +50,14 @@ describe('scientific archive result navigation', () => {
       expect(radar).toBeDefined();
       await act(async () => radar!.click());
       expect(onViewChange).toHaveBeenCalledWith('radar');
+      await act(async () => root.render(createElement(ScientificDiagramLabHistory, {
+        initialReportId: older.id, revision: 0, archiveError: '', repository,
+        view: 'radar', onViewChange, profileIds: ['local-q'], busy: false,
+        onRunMissing: vi.fn(),
+      })));
+      const buttons = node.querySelector('[aria-label="Axe à examiner"]');
+      expect([...buttons!.querySelectorAll('button')].find((button) =>
+        button.textContent?.includes('Qualité graphique'))?.getAttribute('aria-pressed')).toBe('true');
     } finally {
       await act(async () => root.unmount());
       node.remove();
