@@ -16,7 +16,7 @@ function milliseconds(value: unknown): number | undefined {
 /** Distinguish Ollama inference from ordinary HTTP requests; do not treat request latency as model time. */
 export function isOllamaInferenceRequest(url: string): boolean {
   try {
-    return /\\/api\\/(?:chat|generate)$/.test(new URL(url, 'http://localhost').pathname);
+    return /\/api\/(?:chat|generate)$/.test(new URL(url, 'http://localhost').pathname);
   } catch {
     return false;
   }
@@ -52,7 +52,7 @@ export function readOllamaNativeTimings(responseBody: string): OllamaNativeTimin
   };
   const whole = parse(responseBody.trim());
   if (whole) return whole;
-  const lines = responseBody.trim().split(/\\r?\\n/);
+  const lines = responseBody.trim().split(/\r?\n/);
   for (let index = lines.length - 1; index >= 0; index--) {
     const timing = parse(lines[index]!);
     if (timing) return timing;
