@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { planMissingRadarAxis, planRadarModelEvaluation, radarPlanDescription } from '../../../src/evaluation/domain/diagramLabRadarLaunch.ts';
+import { planMissingRadarAxis, planRadarModelEvaluation, radarPlanDescription, resolveModelProfile } from '../../../src/evaluation/domain/diagramLabRadarLaunch.ts';
+import { trialSteps } from '../../../src/evaluation/domain/radarTimeline.ts';
 import { RADAR_AXES, type RadarCandidate, type RadarAxisId } from '../../../src/evaluation/domain/diagramLabRadar.ts';
 
 function candidate(values: Partial<Record<RadarAxisId, number>> = {}, method?: string): RadarCandidate {
@@ -58,6 +59,38 @@ describe('launch missing radar tests', () => {
     expect(planMissingRadarAxis(graph, 'relations', 'method')?.steps[0]?.protocol).toBe('graph');
     const zoomed = candidate({}, 'blind-graph-zoom');
     expect(planMissingRadarAxis(zoomed, 'relations', 'method')?.steps[0]?.zoom).toBe(true);
+  });
+
+  it('keeps the explicit direct-image benchmark on the multimodal grader, never on a separate OCR route', () => {
+    const profiles = [
+      { id: 'ocr-first', name: 'OCR first', configuration: {
+        analysisModel: 'vision:4b', visionModel: 'ocr:4b', correctionMethod: 'generative', apiCompatible: false,
+      } },
+      { id: 'multimodal', name: 'Vision', configuration: {
+        analysisModel: 'vision:4b', visionModel: 'vision:4b', correctionMethod: 'generative', apiCompatible: false,
+      } },
+    ];
+    const plan = { axis: 'graphics' as const, profileId: 'saved-profile', profileName: 'Qwen Vision',
+      steps: trialSteps('image-direct-v1') };
+    const resolved = resolveModelProfile(profiles, 'model',
+      { ...candidate(), weightedScore: null }, plan, 'image-direct-v1');
+    expect(resolved?.profileId).toBe('multimodal');
+    expect(resolved?.steps.map(step => step.method)).toEqual([
+      'direct-image-generative', 'direct-image-generative', 'direct-image-generative', 'compare',
+    ]);
+    const withoutGraph = resolveModelProfile([profiles[0]!], 'model',
+      { ...candidate(), weightedScore: null }, plan, 'image-direct-v1');
+    expect(withoutGraph?.steps.map(step => step.protocol)).toEqual(['reference', 'arrows', 'semantic']);
+    expect(withoutGraph?.steps.every(step => step.method === 'direct-image-generative')).toBe(true);
+  });
+
+  it('rejects an explicit direct-image benchmark for a decision-only profile', () => {
+    const plan = { axis: 'graphics' as const, profileId: 'x', profileName: 'D1',
+      steps: trialSteps('image-direct-v1') };
+    const resolved = resolveModelProfile([{id: 'd1', name: 'D1', configuration: {
+      analysisModel: 'vision:4b', visionModel: 'vision:4b', correctionMethod: 'decision', apiCompatible: false,
+    }}], 'model', { ...candidate(), weightedScore: null }, plan, 'image-direct-v1');
+    expect(resolved).toBeNull();
   });
 
   it('does not offer another run for already measured axes, including a measured score of zero', () => {

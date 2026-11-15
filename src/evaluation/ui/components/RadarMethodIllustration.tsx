@@ -151,7 +151,7 @@ function DirectCorrection() {
     <path d="M256 222 H302 M493 222 H526" stroke="#5e61a7" strokeWidth="4" markerEnd="url(#lab-guide-arrow-purple)"/>
     <rect x="535" y="107" width="190" height="232" rx="20" fill="#eaf7f0" stroke="#74b594" strokeWidth="2"/>
     <Tag x={554} y={124} width={152} label="Correction" tone="green"/>
-    {['Critère 1  ✓', 'Critère 2  ✕', 'Note :  /10'].map((label, i) =>
+    {['Critère 1  ✓', 'Critère 2  ✕', 'Note : …/10'].map((label, i) =>
       <text key={label} x="555" y={201 + i * 43} fontSize="18" fill="#2a5d4b" fontWeight="600">{label}</text>)}
     <Tag x={210} y={384} width={350} label="Sans OCR ni extraction de graphe" tone="amber"/>
   </>;

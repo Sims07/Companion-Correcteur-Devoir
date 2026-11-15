@@ -3,6 +3,7 @@ import { isNativeDecisionModel, isVisualDecisionModel } from '../../correction/a
 import type { DiagramMethodSelection } from './scientificDiagramProtocol.ts';
 import { buildDiagramLabRadar, diagnoseGraphRadarMeasurement, diagnoseUnmeasuredRadarAxis, RADAR_AXES, type RadarAxisId, type RadarCandidate, type RadarModelConfiguration, type RadarRankedCandidate, type RadarGrouping } from './diagramLabRadar.ts';
 import type { DiagramLabArchiveEntry } from './diagramLabHistory.ts';
+import type { ScienceMethod } from './radarTimeline.ts';
 
 export type RadarTestProtocol = 'reference' | 'arrows' | 'semantic' | 'graph';
 export interface RadarTestStep {
@@ -200,7 +201,10 @@ export function radarEvaluationOutcome(entries: readonly DiagramLabArchiveEntry[
   return { measured: candidate?.measured ?? 0, complete: candidate?.complete ?? false, missing };
 }
 
-export function resolveModelProfile(profiles: readonly RadarModelConfiguration[], grouping: RadarGrouping, candidate: RadarRankedCandidate, plan: Omit<RadarMissingTestRequest, 'id'> | null) {
+export function resolveModelProfile(
+  profiles: readonly RadarModelConfiguration[], grouping: RadarGrouping, candidate: RadarRankedCandidate,
+  plan: Omit<RadarMissingTestRequest, 'id'> | null, selectedStrategy?: ScienceMethod,
+) {
   if (!plan || grouping !== 'model') return plan;
   if (!profiles.length) return plan; // Compatibility with historical archives and older embeds.
   const needsGrading = plan.steps.some((step) => step.protocol !== 'graph');
@@ -215,6 +219,10 @@ export function resolveModelProfile(profiles: readonly RadarModelConfiguration[]
   const canGrade = (profile: RadarModelConfiguration) => {
     const cfg = profile.configuration;
     if (!needsGrading) return true;
+    // An explicitly selected direct-image benchmark must never silently become
+    // Vision → analysis when a profile has two distinct models configured.
+    if (selectedStrategy === 'image-direct-v1') return cfg.correctionMethod === 'generative' &&
+      cfg.analysisModel.trim() === candidate.id;
     if (plan.steps.some(step => step.method === 'graph-first-v1')) return cfg.correctionMethod === 'generative' && cfg.analysisModel.trim() === candidate.id;
     if (cfg.analysisModel.trim() !== candidate.id) return false;
     if (cfg.correctionMethod === 'visual-decision') {
@@ -252,7 +260,9 @@ export function resolveModelProfile(profiles: readonly RadarModelConfiguration[]
   return {
     ...plan, profileId: matching.id, profileName: matching.name, modelId: candidate.id,
     steps: steps.map((step) => ({
-      ...step, method: step.protocol === 'graph' || step.method === 'graph-first-v1' ? step.method : method,
+      ...step, method: step.protocol === 'graph' || step.method === 'graph-first-v1' ||
+        (selectedStrategy === 'image-direct-v1' && step.method === 'direct-image-generative')
+        ? step.method : method,
     })),
   };
 }
