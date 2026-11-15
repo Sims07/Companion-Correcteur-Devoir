@@ -66,7 +66,7 @@ describe('scientific observation contract across grading routes', () => {
       expect(prompt).toContain('JSON');
       if (route === 'direct' || route === 'direct-repair') {
         expect(prompt).toContain('légende → cible observée');
-        expect(prompt).toContain('Si la cible est indiscernable, signale le doute');
+        expect(prompt).toContain('Si le trajet ou la cible est indiscernable, signale le doute');
         expect(prompt).toContain('évalue chaque attendu une seule fois');
         expect(prompt).toContain('dessins distincts');
         expect(prompt).toContain('confidence=low');
