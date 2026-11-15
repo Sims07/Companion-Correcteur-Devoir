@@ -1,7 +1,7 @@
 import { radarMethodDecision } from '../../domain/radarMethodDecision.ts';
 import {
   activeTimelinePoints, biologyMethodLabels, EMPTY_RADAR_EXCLUSIONS, methodIsActive,
-  timelineMethodId, type RadarMethodDomain, type RadarMethodExclusions,
+  timelineMethodId, timelineMethodIsActive, type RadarMethodDomain, type RadarMethodExclusions,
 } from '../../domain/radarMethodExclusions.ts';
 import { scienceMethods } from '../../domain/radarTimeline.ts';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
@@ -98,9 +98,16 @@ export function RadarTimeline({
   const archived = [...points].sort((a,b) => b.date.localeCompare(a.date));
   const methods = [...new Set(sorted.map(p => p.label))];
   const allMethods = [...new Set(archived.map(p => p.label))];
-  const catalogue = domain === 'diagrams'
+  // The source of truth for observed labels is the same history used by the gallery.
+  // Legacy campaigns have no named trial strategy and must still be selectable here.
+  const observed = [...new Map(archived.map(point => [
+    timelineMethodId(domain, point), { point, id: timelineMethodId(domain, point), label: point.label },
+  ]).filter((item): item is [string, {point: TimelinePoint; id: string; label: string}] =>
+    typeof item[0] === 'string')).values()];
+  const planned = (domain === 'diagrams'
     ? Object.entries(scienceMethods).map(([id, method]) => ({id, label: method.label}))
-    : Object.entries(biologyMethodLabels).map(([id, label]) => ({id, label}));
+    : Object.entries(biologyMethodLabels).map(([id, label]) => ({id, label})))
+    .filter(method => domain === 'biology' || !observed.some(row => row.id === method.id));
   const activeFilter = filter === '' || (filter && methods.includes(filter))
     ? filter : methods[0] ?? '';
   const filtered = sorted.filter(p => !activeFilter || p.label === activeFilter);
@@ -114,17 +121,32 @@ export function RadarTimeline({
 
     <section className="lab-method-visibility" aria-label="Méthodes actives et exclues">
       <h3>Inclure ou exclure les méthodes</h3>
-      <p>Décochez une méthode pour la retirer des prochains lancements, des radars, des tendances et des recommandations.
-        Ce réglage s’applique à tous les LLM de ce type de radar. Les anciens résultats restent dans l’historique ;
-        vous pouvez réactiver chaque méthode à tout moment.</p>
-      <div className="lab-method-options">{catalogue.map(method => {
-        const active = methodIsActive(exclusions, domain, method.id);
+      <p>Les noms ci-dessous sont identiques à ceux de « Tous les radars par méthode ».
+        Une méthode exclue sort des comparaisons et relances concernées, sans supprimer ses résultats.
+        Les exclusions s'appliquent à tous les LLM de ce type de radar.</p>
+      {observed.length > 0 && <div className="lab-method-options">{observed.map(method => {
+        const active = timelineMethodIsActive(exclusions, domain, method.point);
+        const protocol = domain === 'biology' ? method.point.biologyMethod ??
+          (method.label.startsWith('Pilote ·') ? 'pilot' : undefined) : undefined;
+        const blocked = protocol ? !methodIsActive(exclusions, 'biology', protocol) : false;
         return <label key={method.id} data-excluded={!active}>
-          <input type="checkbox" checked={active} disabled={methodSelectionDisabled || !onToggleMethod}
+          <input type="checkbox" checked={active} disabled={methodSelectionDisabled || !onToggleMethod || blocked}
             onChange={() => onToggleMethod?.(method.id)} aria-label={'Inclure ' + method.label}/>
-          <span>{method.label}</span><small>{active ? 'Active' : 'Exclue'}</small>
+          <span>{method.label}</span><small>{blocked ? 'Protocole exclu' : active ? 'Active' : 'Exclue'}</small>
         </label>;
-      })}</div>
+      })}</div>}
+      {planned.length > 0 && <details className="lab-method-planned">
+        <summary>{domain === 'diagrams' ? 'Stratégies sans radar enregistré' : 'Exclusions générales par protocole'}</summary>
+        {domain === 'biology' && <p>Ces réglages généraux excluent toutes les variantes du protocole, y compris celles de l'historique.</p>}
+        <div className="lab-method-options">{planned.map(method => {
+          const active = methodIsActive(exclusions, domain, method.id);
+          return <label key={method.id} data-excluded={!active}>
+            <input type="checkbox" checked={active} disabled={methodSelectionDisabled || !onToggleMethod}
+              onChange={() => onToggleMethod?.(method.id)} aria-label={'Inclure ' + method.label}/>
+            <span>{method.label}</span><small>{active ? 'Active' : 'Exclue'}</small>
+          </label>;
+        })}</div>
+      </details>}
     </section>
     {!points.length ? <p>Aucun essai enregistré pour ce modèle.</p> : <>
       {sorted.length ? <>
@@ -150,7 +172,7 @@ export function RadarTimeline({
       <details><summary>Détail des essais et historique</summary><Button variant="secondary" disabled={!points.length} onClick={onExport}>Exporter l’historique des méthodes</Button><section><h3>Résultats par méthode</h3><div className="lab-scroll"><table><caption>Dernier essai de chaque méthode</caption>
         <thead><tr><th>Méthode utilisée</th><th>Essais</th><th>Dernier test</th><th>Date</th><th>Indice /100</th><th>Couverture</th></tr></thead>
         <tbody>{allMethods.map(m => { const rows = archived.filter(p => p.label === m); const p = rows[0]!;
-          const active = methodIsActive(exclusions, domain, timelineMethodId(domain, p));
+          const active = timelineMethodIsActive(exclusions, domain, p);
           return <tr key={m} data-excluded={!active}>
             <th scope="row">{active
               ? <button onClick={() => { setFilter(m); setSelected(p.id); }}>{m}</button>
