@@ -130,3 +130,22 @@ describe('scientific-method progress and targeted recovery', () => {
     expect(progress.successful).toBe(0);
   });
 });
+
+
+it('flags a stale running trial without discarding earlier valid evidence', () => {
+  const records = [
+    campaign('reference', 'graph-first-v1', 'good', { fail: true }),
+    campaign('arrows', 'graph-first-v1', 'good', { fail: true }),
+    campaign('semantic', 'graph-first-v1', 'good'),
+    campaign('graph', 'graph-first-v1', 'good'),
+  ];
+  const stopped = campaign('reference', 'graph-first-v1', 'aborted', { fail: true,
+    date: '2026-11-15T12:00:00Z' });
+  stopped.state = 'running';
+  records.push(stopped);
+  const progress = scienceMethodProgress(records, model).find(item => item.method === 'graph-first-v1')!;
+  expect(progress.trial?.id).toBe('good');
+  expect(progress.interrupted).toBe(true);
+  expect(progress.reason).toContain('restée en cours');
+  expect(progress.steps.map(step => step.protocol)).toEqual(['reference', 'arrows']);
+});

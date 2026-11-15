@@ -82,7 +82,9 @@ export function scienceMethodProgress(entries: readonly DiagramLabArchiveEntry[]
       const latest = best.recent.find(entry => entry.protocol === protocol && entry.state === 'finished');
       return sum + (latest ? modelRuns(latest, model).filter(run => run.status !== 'success').length : 0);
     }, 0) : 0;
-    const interrupted = Boolean(best?.recent.some(entry => entry.state === 'running'));
+    // An interrupted second trial must remain visible even if an older trial
+    // has more usable measurements and is selected for targeted recovery.
+    const interrupted = [...groups.values()].some(group => group.some(entry => entry.state === 'running'));
     const complete = candidate?.complete ?? false;
     const reason = complete ? 'Neuf axes mesurables.' :
       [
