@@ -24,6 +24,12 @@ test('an existing exported scientific diagram report is readable tomorrow withou
   await expect(journal.getByRole('group', { name: 'Campagnes enregistrées' })
     .getByRole('button', { name: /Graphe des relations/ })).toBeVisible();
   await expect(journal.getByRole('heading', { name: 'Examiner les six dessins' })).toBeVisible();
+  const result = journal.getByRole('region', { name: 'Bilan du test sélectionné' });
+  await expect(result).toContainText('Axe concerné : Lecture des relations');
+  await expect(result).toContainText('Non mesuré');
+  await expect(result).toContainText('ne mesure pas la qualité graphique A/B/C');
+  await expect(journal.locator('.diagram-lab-compare')).not.toHaveAttribute('open', '');
+  await expect(journal.getByRole('button', { name: 'Voir l’axe Qualité graphique dans le radar' })).toBeVisible();
 
   await page.reload();
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
@@ -36,6 +42,7 @@ test('an existing exported scientific diagram report is readable tomorrow withou
   const restored = page.getByRole('region', { name: 'Campagnes de test scientifiques' });
   await expect(restored.getByRole('group', { name: 'Campagnes enregistrées' })
     .getByRole('button', { name: /Graphe des relations/ })).toBeVisible();
+  await expect(restored.getByRole('region', { name: 'Bilan du test sélectionné' })).toContainText('Non mesuré');
   await restored.getByRole('button', { name: 'Exporter JSON' }).click();
   // No model endpoint was needed for importing, reading or exporting this report.
 });
