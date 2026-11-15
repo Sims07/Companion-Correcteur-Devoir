@@ -113,3 +113,33 @@ it('keeps excluded scientific strategies out of the five-method sequential batch
     expect(single.mock.calls[0]![0].trial.method).not.toBe('pixel-v1');
   } finally { await act(async () => root.unmount()); }
 });
+
+it('switches the trend back to an active method if its currently selected method is excluded', async () => {
+  const points: TimelinePoint[] = (['pixel-v1', 'direct-v1'] as const).map((method, index) => ({
+    id: method, date: '2026-11-15T10:00:00Z', model: 'qwen:4b',
+    label: scienceMethods[method].label, scienceMethod: method,
+    prompts: [], score: 95 - index * 30, axes: {Flèches:95 - index * 30}, comparisonBasis:'same',
+  }));
+  const props = { points, model:'qwen:4b', domain:'diagrams' as const,
+    domainLabel:'Schémas scientifiques', children:null,
+    onBack:vi.fn(), onExport:vi.fn(), selectMethod:vi.fn() };
+  const node = document.createElement('div');
+  const root = createRoot(node);
+  try {
+    await act(async () => root.render(createElement(RadarTimeline, {
+      ...props, exclusions:{diagrams:[],biology:[]},
+    })));
+    const filter = node.querySelector<HTMLSelectElement>('.lab-controls select')!;
+    await act(async () => {
+      filter.value = scienceMethods['pixel-v1'].label;
+      filter.dispatchEvent(new Event('change', {bubbles:true}));
+    });
+    expect(filter.value).toBe(scienceMethods['pixel-v1'].label);
+    await act(async () => root.render(createElement(RadarTimeline, {
+      ...props, exclusions:{diagrams:['pixel-v1'],biology:[]},
+    })));
+    expect(node.querySelector<HTMLSelectElement>('.lab-controls select')?.value)
+      .toBe(scienceMethods['direct-v1'].label);
+    expect(node.querySelectorAll('.trend-point')).toHaveLength(1);
+  } finally { await act(async () => root.unmount()); }
+});
