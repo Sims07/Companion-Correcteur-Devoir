@@ -280,6 +280,7 @@ export function RadarMethodIllustration({ kind }: { kind: MethodGuideIllustratio
     {kind === 'guided' && <Guided/>}
     {kind === 'graph-first' && <GraphFirst/>}
     {kind === 'direct-correction' && <DirectCorrection/>}
+    {kind in routes && <RouteScene kind={kind as RouteKind}/>}
     {kind === 'question-contracts' && <Contracts/>}
     {kind === 'standard-rubric' && <Standard/>}
     {kind === 'historical-pilot' && <Pilot/>}
