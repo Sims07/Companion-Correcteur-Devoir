@@ -13,7 +13,7 @@ export function reportGradingOutcome(
   try {
     event = { type: 'correction.proposal-produced', proposal: parseGradingProposal(raw, rubric, studentTranscription) };
   } catch {
-    event = { type: 'correction.response-ungradable' };
+    event = { type: 'correction.response-rejected' };
   }
   publish(event);
 }

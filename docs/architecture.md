@@ -35,7 +35,7 @@ Le domaine ne dépend d'aucune autre couche. L'application dépend du domaine et
 
 ### Carte des contextes
 
-Le trait plein va de l’appelant vers le contexte qui expose l’API. Les pointillés vont du contexte qui publie l’événement vers celui qui le reçoit.
+Le trait plein va de l’appelant vers le contexte qui expose l’API. Les pointillés vont du contexte qui publie l’événement vers celui qui le reçoit. Chaque événement inter-contexte nomme un fait accompli avec un verbe au participe passé.
 
 ```mermaid
 flowchart TB
@@ -43,14 +43,14 @@ flowchart TB
     correction["Correction des copies"]
     evaluation -->|"Appels directs à l’API de Correction"| correction
     correction -.->|"correction.proposal-produced"| evaluation
-    correction -.->|"correction.response-ungradable"| evaluation
+    correction -.->|"correction.response-rejected"| evaluation
 ```
 
 | Échange | Utilisation |
 | --- | --- |
 | Appels directs d’Évaluation à Correction | Évaluation valide et compare les barèmes (`validateRubric`, `rubricEvaluationSignature`), lit leurs sous-critères et prépare les décisions à tester. |
 | `correction.proposal-produced` | Correction a interprété la réponse du modèle. Évaluation reçoit la proposition et ses preuves, puis calcule la note comparable si la proposition est complète. |
-| `correction.response-ungradable` | Correction signale une réponse inexploitable. Évaluation conserve un résultat sans proposition ni note. |
+| `correction.response-rejected` | Correction a rejeté la réponse du modèle car elle ne permettait pas de construire une proposition de notation. Évaluation conserve un résultat sans proposition ni note. |
 
 La dépendance de code va d’Évaluation vers Correction. Pour un essai de notation, le shell relie `reportGradingOutcome` à `observeGradingOutcome` et livre en mémoire l’un des deux événements, de manière synchrone. Correction ignore quel contexte le reçoit. Une lecture Vision seule ne déclenche aucun des deux événements.
 
