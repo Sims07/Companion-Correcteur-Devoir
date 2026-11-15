@@ -12,6 +12,7 @@ export interface ScienceMethodProgress {
   trial: RadarTrial | null;
   measured: number;
   complete: boolean;
+  batteries: Array<{ protocol: typeof protocols[number]; successful: number; failed: number; planned: number }>;
   successful: number;
   planned: number;
   failed: number;
@@ -42,11 +43,16 @@ export function scienceMethodProgress(entries: readonly DiagramLabArchiveEntry[]
     const evaluated = [...groups.values()].map(group => {
       const candidate = buildDiagramLabRadar(group, 'model').find(item => item.id === model);
       const recent = [...group].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-      return { group, candidate, recent, measured: candidate?.measured ?? 0,
-        successful: protocols.reduce((sum, protocol) => {
-          const latest = recent.find(entry => entry.protocol === protocol && entry.state === 'finished');
-          return sum + (latest ? modelRuns(latest, model).filter(run => run.status === 'success').length : 0);
-        }, 0) };
+      const batteries = protocols.map(protocol => {
+        const latest = recent.find(entry => entry.protocol === protocol && entry.state === 'finished');
+        const runs = latest ? modelRuns(latest, model) : [];
+        const successful = runs.filter(run => run.status === 'success').length;
+        const cases = protocol === 'reference' ? 3 : protocol === 'arrows' ? 2 : 6;
+        const repetitions = latest?.plannedRepetitions ?? (protocol === 'reference' ? 3 : 1);
+        return { protocol, successful, failed: runs.length - successful, planned: cases * repetitions };
+      });
+      return { group, candidate, recent, batteries, measured: candidate?.measured ?? 0,
+        successful: batteries.reduce((sum, battery) => sum + battery.successful, 0) };
     }).sort((a, b) => b.measured - a.measured || b.successful - a.successful ||
       (b.recent[0]?.createdAt ?? '').localeCompare(a.recent[0]?.createdAt ?? ''));
     const best = evaluated[0];
@@ -78,10 +84,8 @@ export function scienceMethodProgress(entries: readonly DiagramLabArchiveEntry[]
       return [{ ...original, zoom: protocol === 'graph' && graphDiagnosis?.kind === 'retry'
         ? true : original.zoom }];
     });
-    const failed = best ? protocols.reduce((sum, protocol) => {
-      const latest = best.recent.find(entry => entry.protocol === protocol && entry.state === 'finished');
-      return sum + (latest ? modelRuns(latest, model).filter(run => run.status !== 'success').length : 0);
-    }, 0) : 0;
+    const batteries = best?.batteries ?? [];
+    const failed = batteries.reduce((sum, battery) => sum + battery.failed, 0);
     // An interrupted second trial must remain visible even if an older trial
     // has more usable measurements and is selected for targeted recovery.
     const interrupted = [...groups.values()].some(group => group.some(entry => entry.state === 'running'));
@@ -91,12 +95,12 @@ export function scienceMethodProgress(entries: readonly DiagramLabArchiveEntry[]
         failed ? failed + ' essai(s) en échec.' : '',
         interrupted ? 'Une ancienne campagne est restée en cours et doit être reprise.' : '',
         missing.length ? 'Axes manquants : ' + missing.map(axis => axisNames[axis]).join(', ') + '.' : '',
-        graphBlocked ? graphDiagnosis!.message : '',
+        missing.includes('relations') && graphDiagnosis && graphDiagnosis.kind !== 'not-run' ? graphDiagnosis.message : '',
         !steps.length && missing.length && !graphBlocked ? 'Aucune relance automatique utile : consulter les diagnostics.' : '',
       ].filter(Boolean).join(' ') || 'Aucune campagne enregistrée.';
     return {
       method, label: scienceMethods[method].label, trial, measured: candidate?.measured ?? 0,
-      complete, successful: best?.successful ?? 0, planned: 23, failed, interrupted,
+      complete, successful: best?.successful ?? 0, batteries, planned: best ? batteries.reduce((sum, battery) => sum + battery.planned, 0) : 23, failed, interrupted,
       missing, steps: complete ? [] : steps, reason,
     };
   });

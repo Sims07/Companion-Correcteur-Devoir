@@ -219,7 +219,11 @@ export function EvaluationRadarHome({
               <td><strong>{progress.complete ? 'Complet' :
                 progress.interrupted ? 'Interrompu / partiel' :
                 !progress.trial ? 'Non testé' : next ? 'Partiel · à reprendre' : 'Partiel · bloqué'}</strong>
-                {!progress.complete && <details><summary>Pourquoi ?</summary><p>{progress.reason}</p></details>}
+                {!progress.complete && <details><summary>Pourquoi ?</summary><p>{progress.reason}</p>
+                  <ul>{progress.batteries.map(battery => <li key={battery.protocol}>
+                    {{reference: 'Référence A/B/C', arrows: 'Flèches D/E', semantic: 'Biologie S0–S5', graph: 'Relations S0–S5'}[battery.protocol]}
+                    {' · '}{battery.successful}/{battery.planned} passages réussis{battery.failed > 0 && ' · ' + battery.failed + ' en échec'}
+                  </li>)}</ul></details>}
               </td>
               <td><Button variant="secondary" disabled={busy || !runScience || !next}
                 onClick={() => {

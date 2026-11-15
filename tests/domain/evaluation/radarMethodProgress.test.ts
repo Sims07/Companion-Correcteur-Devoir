@@ -69,7 +69,8 @@ describe('scientific-method progress and targeted recovery', () => {
     expect(progress.missing).toEqual(['relations']);
     expect(progress.steps).toEqual([expect.objectContaining({ protocol: 'graph', zoom: true })]);
     expect(progress.trial?.id).toBe('leaders');
-    expect(progress.reason).toContain('Lecture des relations');
+    expect(progress.reason).toContain('0/3 mutations comparables');
+    expect(progress.batteries.map(battery => battery.successful)).toEqual([9, 2, 6, 6]);
   });
 
   it('retries only failed A/B/C and D/E batteries, preserving six successful biology and graph experiments', () => {
