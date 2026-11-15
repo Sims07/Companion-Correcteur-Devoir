@@ -123,6 +123,40 @@ it('keeps the same color for an LLM even when the primary has no result in one d
   node.remove();
 });
 
+it('recalculates historical biology scores instead of showing stale stored five-axis snapshots', async () => {
+  const { biologyPoints } = await import('../../src/evaluation/domain/radarTimeline.ts');
+  const old = history.filter(row => row.model === 'alpha:4b').map(row => ({
+    ...row, campaignId: 'historical-biology',
+  }));
+  const computed = biologyPoints(old)[0]!;
+  expect(computed.score).toBe(100);
+  const withSnapshot = old.map((row, index) => ({
+    ...row, timeline: index === 0 ? {
+      ...computed, score: 13, axes: { 'Justesse de la note': 13 },
+    } : undefined,
+  }));
+
+  const node = document.createElement('div');
+  const root = createRoot(node);
+  await act(async () => root.render(createElement(EvaluationRadarHome, {
+    entries: [], history: withSnapshot, profiles, model: 'alpha:4b', choose: vi.fn(),
+    busy: false, manage: vi.fn(), details: vi.fn(), campaigns: vi.fn(),
+    runScience: vi.fn(), runBiology: vi.fn(),
+  })));
+  const open = [...node.querySelectorAll<HTMLButtonElement>('button')]
+    .find(button => button.textContent === 'Analyse des méthodes')!;
+  // The first "Analyse des méthodes" button is for scientific diagrams.
+  const biologyOpen = [...node.querySelectorAll<HTMLButtonElement>('article[aria-label="Biologie"] button')]
+    .find(button => button.textContent === 'Analyse des méthodes')!;
+  expect(open).toBeTruthy();
+  await act(async () => biologyOpen.click());
+  const point = node.querySelector<HTMLButtonElement>('.method-lab .trend-point')!;
+  expect(point.getAttribute('aria-label')).toContain('100/100');
+  expect(point.getAttribute('aria-label')).not.toContain('13/100');
+  expect(node.querySelector('.method-lab')?.textContent).toContain('Absence d’erreur majeure');
+  await act(async () => root.unmount());
+});
+
 it('selects a dated score and runs its saved method again for the same model', async () => {
   const node = document.createElement('div');
   const root = createRoot(node);
