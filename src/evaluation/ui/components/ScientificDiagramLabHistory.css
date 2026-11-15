@@ -112,3 +112,19 @@
 .diagram-lab-decision-status span { font-size: 1.15rem; }
 .diagram-lab-decision-key { display: block; margin-top: .2rem; font-size: .72rem; font-weight: 400; color: var(--ds-color-text-muted); overflow-wrap: anywhere; }
 .diagram-lab-decision-note { display: block; max-width: 66ch; margin-top: .3rem; font-size: .78rem; font-weight: 400; line-height: 1.5; }
+
+/* A campaign answer is readable before its diagnostic tables and comparisons. */
+.diagram-campaign-result-summary { display: grid; gap: var(--ds-space-3); padding: var(--ds-space-4); border: 1px solid var(--ds-color-border); border-radius: var(--ds-radius-md); background: var(--ds-color-surface-subtle); scroll-margin-top: 1rem; }
+.diagram-campaign-result-summary:focus-visible { outline: 2px solid var(--ds-color-brand-700); outline-offset: 3px; }
+.diagram-campaign-result-summary .eyebrow, .diagram-campaign-result-summary h4, .diagram-campaign-result-summary p { margin: 0; }
+.diagram-campaign-result-summary h4 { font-size: 1.2rem; line-height: 1.4; }
+.diagram-campaign-result-summary p { line-height: 1.5; }
+.diagram-campaign-result-summary > p:last-of-type { color: var(--ds-color-text-muted); font-size: .89rem; }
+.diagram-campaign-passage { font-weight: 650; }
+.diagram-campaign-scores { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(180px,100%), 1fr)); gap: var(--ds-space-2); }
+.diagram-campaign-scores > div { display: grid; gap: var(--ds-space-1); padding: var(--ds-space-3); border: 1px solid var(--ds-color-border); border-radius: var(--ds-radius-sm); background: var(--ds-color-surface); }
+.diagram-campaign-scores span { color: var(--ds-color-text-muted); font-size: .82rem; }
+.diagram-campaign-scores strong { font-size: 1.35rem; font-variant-numeric: tabular-nums; }
+.diagram-campaign-scores small { color: var(--ds-color-text-muted); font-size: .8rem; overflow-wrap: anywhere; }
+.diagram-lab-compare > summary { cursor: pointer; font-weight: 650; }
+.diagram-lab-compare[open] > summary { margin-bottom: var(--ds-space-3); }
