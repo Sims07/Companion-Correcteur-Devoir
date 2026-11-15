@@ -54,6 +54,31 @@ describe('scientific benchmark 9-axis radar', () => {
     expect(candidate.complete).toBe(false);
     expect(rankDiagramLabRadar([candidate], RADAR_PRESETS.scientific)[0]?.weightedScore).toBeNull();
   });
+  it('explains missing native graph timings without fabricating a 9th scored axis', () => {
+    const entries = complete(3);
+    const graph = structuredClone(entries[3]!);
+    const report = graph.report as unknown as { cases: Array<{
+      experiments: Array<{ providerDurationMs?: number | null; durationMs: number }>;
+    }> };
+    for (const testCase of report.cases) {
+      for (const run of testCase.experiments) {
+        delete run.providerDurationMs;
+        // A sleeping browser can report hours; this must never become native Ollama time.
+        run.durationMs = 37_000_000;
+      }
+    }
+    const candidate = buildDiagramLabRadar([...entries.slice(0, 3), graph], 'model')[0]!;
+    expect(candidate.axes.speed.value).toBeNull();
+    expect(candidate.axes.speed.reason).toMatch(/33\/51 passages mesurés/);
+    expect(candidate.axes.speed.reason).toMatch(/Graphe des relations/);
+    expect(candidate.axes.speed.reason).toMatch(/Durée navigateur exclue/);
+    expect(candidate.measured).toBe(8);
+    expect(candidate.complete).toBe(false);
+    expect(rankDiagramLabRadar([candidate], RADAR_PRESETS.scientific)[0]?.weightedScore).toBeNull();
+    // New reports containing providerDurationMs are scoreable on the same data.
+    expect(buildDiagramLabRadar(entries, 'model')[0]?.axes.speed.value).toBe(50);
+  });
+
   it('builds an honest weighted score after three independent repetitions per case', () => {
     const candidate = buildDiagramLabRadar(complete(3))[0]!;
     expect(candidate.axes.stability.value).toBe(100);
