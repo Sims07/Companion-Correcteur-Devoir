@@ -1,4 +1,9 @@
 import { radarMethodDecision } from '../../domain/radarMethodDecision.ts';
+import {
+  activeTimelinePoints, biologyMethodLabels, EMPTY_RADAR_EXCLUSIONS, methodIsActive,
+  timelineMethodId, type RadarMethodDomain, type RadarMethodExclusions,
+} from '../../domain/radarMethodExclusions.ts';
+import { scienceMethods } from '../../domain/radarTimeline.ts';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { TimelinePoint } from '../../domain/radarTimeline.ts';
 import { MethodRadarComparison } from './MethodRadarComparison.tsx';
@@ -74,16 +79,30 @@ function ScoreChart({ points, current, axis, select }: {
 interface Props {
   points: TimelinePoint[]; model: string; domainLabel: string; children: ReactNode;
   onBack: () => void; onExport: () => void; selectMethod: (p: TimelinePoint) => void;
+  domain?: RadarMethodDomain;
+  exclusions?: RadarMethodExclusions;
+  onToggleMethod?: (id: string) => void;
+  methodSelectionDisabled?: boolean;
 }
 
-export function RadarTimeline({points, model, domainLabel, children, onBack, onExport, selectMethod}:Props) {
+export function RadarTimeline({
+  points, model, domainLabel, children, onBack, onExport, selectMethod,
+  domain = 'diagrams', exclusions = EMPTY_RADAR_EXCLUSIONS, onToggleMethod,
+  methodSelectionDisabled = false,
+}:Props) {
   const [selected, setSelected] = useState('');
   const [filter, setFilter] = useState<string | null>(null);
   const [overlay, setOverlay] = useState(false);
   const [axis, setAxis] = useState('');
-  const sorted = [...points].sort((a,b) => b.date.localeCompare(a.date));
+  const sorted = activeTimelinePoints(points, domain, exclusions).sort((a,b) => b.date.localeCompare(a.date));
+  const archived = [...points].sort((a,b) => b.date.localeCompare(a.date));
   const methods = [...new Set(sorted.map(p => p.label))];
-  const activeFilter = filter ?? methods[0] ?? '';
+  const allMethods = [...new Set(archived.map(p => p.label))];
+  const catalogue = domain === 'diagrams'
+    ? Object.entries(scienceMethods).map(([id, method]) => ({id, label: method.label}))
+    : Object.entries(biologyMethodLabels).map(([id, label]) => ({id, label}));
+  const activeFilter = filter === '' || (filter && methods.includes(filter))
+    ? filter : methods[0] ?? '';
   const filtered = sorted.filter(p => !activeFilter || p.label === activeFilter);
   const decision = radarMethodDecision(sorted);
   const current = filtered.find(p => p.id === selected) ?? filtered[0];
@@ -93,7 +112,22 @@ export function RadarTimeline({points, model, domainLabel, children, onBack, onE
     <header><div><h2>Laboratoire des méthodes</h2><p>{model} · {domainLabel}</p></div>
 </header>
 
+    <section className="lab-method-visibility" aria-label="Méthodes actives et exclues">
+      <h3>Inclure ou exclure les méthodes</h3>
+      <p>Décochez une méthode pour la retirer des prochains lancements, des radars, des tendances et des recommandations.
+        Ce réglage s’applique à tous les LLM de ce type de radar. Les anciens résultats restent dans l’historique ;
+        vous pouvez réactiver chaque méthode à tout moment.</p>
+      <div className="lab-method-options">{catalogue.map(method => {
+        const active = methodIsActive(exclusions, domain, method.id);
+        return <label key={method.id} data-excluded={!active}>
+          <input type="checkbox" checked={active} disabled={methodSelectionDisabled || !onToggleMethod}
+            onChange={() => onToggleMethod?.(method.id)} aria-label={'Inclure ' + method.label}/>
+          <span>{method.label}</span><small>{active ? 'Active' : 'Exclue'}</small>
+        </label>;
+      })}</div>
+    </section>
     {!points.length ? <p>Aucun essai enregistré pour ce modèle.</p> : <>
+      {sorted.length ? <>
       <section aria-label="Choix de méthode"><h3>{decision.title}</h3><p>{decision.detail}</p>
         {decision.winner && (decision.winner.scienceMethod || decision.winner.biologyMethod) &&
           <Button variant="secondary" onClick={() => selectMethod(decision.winner!)}>Choisir la recommandation pour le prochain essai</Button>}
@@ -112,10 +146,23 @@ export function RadarTimeline({points, model, domainLabel, children, onBack, onE
         setFilter(point.label);
         setSelected(point.id);
       }}/>}/>
+      </> : <p role="status">Toutes les méthodes évaluées sont exclues. Réactivez-en une pour retrouver les comparaisons et les tendances.</p>}
       <details><summary>Détail des essais et historique</summary><Button variant="secondary" disabled={!points.length} onClick={onExport}>Exporter l’historique des méthodes</Button><section><h3>Résultats par méthode</h3><div className="lab-scroll"><table><caption>Dernier essai de chaque méthode</caption>
         <thead><tr><th>Méthode utilisée</th><th>Essais</th><th>Dernier test</th><th>Date</th><th>Indice /100</th><th>Couverture</th></tr></thead>
-        <tbody>{methods.map(m => { const rows = sorted.filter(p => p.label === m); const p = rows[0]!;
-          return <tr key={m}><th><button onClick={() => { setFilter(m); setSelected(p.id); }}>{m}</button></th><td>{rows.length}</td><td>{p.protocolLabel ?? 'Non renseigné'}</td><td>{date(p.date)}</td><td>{format(p.score)}</td><td>{coverage(p)}</td></tr>;
+        <tbody>{allMethods.map(m => { const rows = archived.filter(p => p.label === m); const p = rows[0]!;
+          const active = methodIsActive(exclusions, domain, timelineMethodId(domain, p));
+          return <tr key={m} data-excluded={!active}>
+            <th scope="row">{active
+              ? <button onClick={() => { setFilter(m); setSelected(p.id); }}>{m}</button>
+              : <>{m} <small>· Exclue</small></>}</th>
+            <td>{rows.length}{!active && <details><summary>Consulter les anciennes mesures</summary><ul>
+              {rows.map(row => <li key={row.id}><time dateTime={row.date}>{date(row.date)}</time>
+                {' · '}{format(row.score)}/100 · {coverage(row)}
+                <ul>{Object.entries(row.axes).map(([axis, value]) =>
+                  <li key={axis}>{axis} : {format(value)}/100</li>)}</ul></li>)}
+            </ul></details>}</td>
+            <td>{p.protocolLabel ?? 'Non renseigné'}</td><td>{date(p.date)}</td>
+            <td>{format(p.score)}</td><td>{coverage(p)}</td></tr>;
         })}</tbody></table></div></section>
       {current && <section><h3>Historique des campagnes</h3>
         <label>Essai sélectionné<select value={current.id} onChange={e => setSelected(e.target.value)}>{options(filtered)}</select></label>

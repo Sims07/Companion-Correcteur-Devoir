@@ -2,10 +2,14 @@ import { BIOLOGY_RADAR_AXES, type BiologyRadarObservation } from './biologyTeach
 import type { DiagramLabArchiveEntry } from './diagramLabHistory.ts';
 import { RADAR_AXES, type RadarWeights } from './diagramLabRadar.ts';
 import type { TimelinePoint } from './radarTimeline.ts';
+import {
+  EMPTY_RADAR_EXCLUSIONS, methodIsActive, timelineMethodId, type RadarMethodExclusions,
+} from './radarMethodExclusions.ts';
 
 export function buildRadarTimelineExport(domain: 'biology' | 'diagrams', model: string,
   points: readonly TimelinePoint[], entries: readonly DiagramLabArchiveEntry[],
-  history: readonly BiologyRadarObservation[], weights: RadarWeights, exportedAt: string) {
+  history: readonly BiologyRadarObservation[], weights: RadarWeights, exportedAt: string,
+  exclusions: RadarMethodExclusions = EMPTY_RADAR_EXCLUSIONS) {
   const trials = points.filter(p => p.model === model).sort((a, b) => a.date.localeCompare(b.date));
   const ids = new Set(trials.map(p => p.id));
   const campaigns = domain === 'diagrams' ? entries.flatMap(entry => {
@@ -26,10 +30,12 @@ export function buildRadarTimelineExport(domain: 'biology' | 'diagrams', model: 
   }) : undefined;
   return {
     format: 'companion-radar-method-history', version: 1, exportedAt, domain, model,
+    excludedMethods: exclusions[domain],
     scoreScale: 100, axes: domain === 'diagrams' ? RADAR_AXES : BIOLOGY_RADAR_AXES,
     trials: trials.map(point => {
       const measured = Object.values(point.axes).filter(value => value != null).length;
-      return {...point, scoreType: point.score == null ? 'unmeasured' :
+      return {...point, excludedFromActiveComparison: !methodIsActive(exclusions, domain, timelineMethodId(domain, point)),
+        scoreType: point.score == null ? 'unmeasured' :
         measured === Object.keys(point.axes).length ? 'global' : 'partial',
         scoreOrigin: point.reconstructed ? 'reconstructed' : 'recorded'};
     }),
