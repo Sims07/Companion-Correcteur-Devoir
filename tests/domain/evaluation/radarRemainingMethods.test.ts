@@ -84,7 +84,7 @@ describe('remaining radar methods', () => {
     expect(remainingScienceMethods([broken, ...full.slice(1)], 'qwen:4b')).toContain('pixel-v1');
   });
 
-  it('skips a biology method only after the active profile has five measured axes', () => {
+  it('skips a biology method only after the active profile has all measured axes', () => {
     const rows = ['A','B','C','D','E','F','G'].map(id => observation('contract', id));
     expect(remainingBiologyMethods(rows, 'qwen:4b', 'profile-a')).toEqual(['standard']);
     expect(remainingBiologyMethods(rows, 'qwen:4b', 'other-profile')).toEqual(['contract', 'standard']);
