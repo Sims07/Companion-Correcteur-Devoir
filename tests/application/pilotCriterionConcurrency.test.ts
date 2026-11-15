@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { PILOT_CASES, PILOT_RUBRIC } from '../../src/domain/evaluation/pilotEvaluationProtocol.ts';
-import type { RubricCriterion } from '../../src/domain/correction/rubric.ts';
-import { PILOT_CONCURRENCY_LEVELS, runPilotCriterionConcurrency } from '../../src/application/pilotCriterionConcurrency.ts';
+import { PILOT_CASES, PILOT_RUBRIC } from '../../src/evaluation/domain/pilotEvaluationProtocol.ts';
+import type { RubricCriterion } from '../../src/correction/domain/rubric.ts';
+import { PILOT_CONCURRENCY_LEVELS, runPilotCriterionConcurrency } from '../../src/evaluation/application/pilotCriterionConcurrency.ts';
 
 function measure(criterion: RubricCriterion, caseId: 'A' | 'B' | 'C' = 'C') {
   const reference = PILOT_CASES.find((item) => item.id === caseId)!;

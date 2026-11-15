@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import type { ComponentProps } from 'react';
-import { PilotEvaluationPanel } from '../../../src/ui/components/PilotEvaluationPanel.tsx';
+import { PilotEvaluationPanel } from '../../../src/evaluation/ui/components/PilotEvaluationPanel.tsx';
 
 const props = {
   enabled: false,

@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
-import { radarCriterionLeaders } from '../src/domain/evaluation/radarCriterionLeaders.ts';
-import type { TimelinePoint } from '../src/domain/evaluation/radarTimeline.ts';
+import { radarCriterionLeaders } from '../src/evaluation/domain/radarCriterionLeaders.ts';
+import type { TimelinePoint } from '../src/evaluation/domain/radarTimeline.ts';
 
 const method = (label: string, score: number | null): TimelinePoint => ({
   label, id:label, date:'2026-11-14', model:'q', prompts:[], score:null, axes:{Flèches:score},

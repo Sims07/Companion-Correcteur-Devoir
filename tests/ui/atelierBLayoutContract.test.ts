@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { TeacherWorkspaceNavigation } from '../../src/ui/components/TeacherWorkspaceNavigation.tsx';
+import { TeacherWorkspaceNavigation } from '../../src/correction/ui/components/TeacherWorkspaceNavigation.tsx';
 
 const navigation = () => renderToStaticMarkup(createElement(TeacherWorkspaceNavigation, {
   assignmentTitle: 'Partiel de biologie cellulaire',
@@ -49,7 +49,7 @@ describe('Atelier B : organisation réelle du poste enseignant', () => {
   });
 
   it('renders the same structure at wide and narrow widths without hiding the rail content', () => {
-    const layout = readFileSync('src/ui/atelierBLayout.css', 'utf8');
+    const layout = readFileSync('src/correction/ui/atelierBLayout.css', 'utf8');
     const entrypoint = readFileSync('src/main.tsx', 'utf8');
     expect(layout).toContain('grid-template-columns: 218px clamp(18px, 2.2vw, 34px) minmax(0, 1fr)');
     expect(layout).toContain('@media (max-width: 760px)');
@@ -57,7 +57,7 @@ describe('Atelier B : organisation réelle du poste enseignant', () => {
     expect(layout).toContain('.atelier-review-decision-heading');
     const flagged = layout.split('.teacher-flow-shell .review-main-column .review-card.is-flagged {')[1]?.split('}')[0] ?? '';
     expect(flagged).toContain('border-left: 3px solid var(--ds-color-warning)');
-    expect(entrypoint.indexOf('./ui/atelierBLayout.css')).toBeGreaterThan(entrypoint.indexOf('./ui/correctionAtelier.css'));
+    expect(entrypoint.indexOf('./correction/ui/atelierBLayout.css')).toBeGreaterThan(entrypoint.indexOf('./correction/ui/correctionAtelier.css'));
     expect(layout).toContain('focus-visible');
     expect(layout).toContain('/* Atelier B reference: a quiet, single-row reading header, never a bordered card. */');
     expect(layout).toMatch(/\.teacher-flow-shell \.copy-review-header \{[\s\S]*?border: 0;/);
@@ -69,7 +69,7 @@ describe('Atelier B : organisation réelle du poste enseignant', () => {
   });
 
   it('keeps grade and comment edits optional, not removed from correction', () => {
-    const app = readFileSync('src/ui/App.tsx', 'utf8');
+    const app = readFileSync('src/shell/ui/App.tsx', 'utf8');
     expect(app).toContain('className="review-quick-edit"');
     expect(app).toContain('Ajuster la note ou ajouter un commentaire');
     expect(app).toContain('normalizeGradeScore(Number(event.target.value))');

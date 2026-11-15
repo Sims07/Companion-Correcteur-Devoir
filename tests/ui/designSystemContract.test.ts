@@ -2,14 +2,14 @@ import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { Field } from '../../src/ui/design-system/components/Field.tsx';
-import { TextInput } from '../../src/ui/design-system/components/TextInput.tsx';
+import { Field } from '../../src/shared/ui/design-system/components/Field.tsx';
+import { TextInput } from '../../src/shared/ui/design-system/components/TextInput.tsx';
 
 const read = (path: string) => readFileSync(path, 'utf8');
 
 describe('design system foundations', () => {
   it('defines a single documented token scale for color, spacing and shape', () => {
-    const tokens = read('src/ui/design-system/tokens.css');
+    const tokens = read('src/shared/ui/design-system/tokens.css');
     expect(tokens).toContain('--ds-color-brand-700');
     expect(tokens).toContain('--ds-space-4: 16px');
     expect(tokens).toContain('--ds-radius-md');
@@ -17,7 +17,7 @@ describe('design system foundations', () => {
   });
 
   it('provides consistent keyboard focus and disabled states for shared and native controls', () => {
-    const controls = read('src/ui/design-system/controls.css');
+    const controls = read('src/shared/ui/design-system/controls.css');
     expect(controls).toContain('.ds-input:focus-visible');
     expect(controls).toContain('.design-system-select:focus-visible');
     expect(controls).toContain('select:not([multiple])');
@@ -29,7 +29,8 @@ describe('design system foundations', () => {
   it('shares the exact application CSS cascade with Storybook, including the tools IA', () => {
     const app = read('src/main.tsx');
     const preview = read('.storybook/preview.ts');
-    const imports = (source: string) => [...source.matchAll(/import ['"](?:\.\/ui\/|\.\.\/src\/ui\/)([^'"]+\.css)['"];/g)].map((match) => match[1]);
+    const imports = (source: string) => [...source.matchAll(/import ['"](?:\.\/|\.\.\/src\/)([^'"]+\.css)['"];/g)].map((match) => match[1]);
+    expect(imports(app)).toContain('correction/ui/teacherAtelier.css');
     expect(imports(preview)).toEqual(imports(app));
     expect(preview).toContain("order: ['Fondations', 'Composants', 'Parcours enseignant', 'Outils IA']");
   });
@@ -39,8 +40,8 @@ describe('design system foundations', () => {
     expect(workflow).toContain('npm run build-storybook -- --output-dir dist/storybook');
     expect(workflow).toContain('test -s dist/index.html && test -s dist/storybook/index.html');
     expect(workflow).toContain('path: dist');
-    const teacher = read('src/ui/CorrectionOverview.stories.tsx');
-    const states = read('src/ui/design-system/foundations/AtelierBStates.stories.tsx');
+    const teacher = read('src/correction/ui/CorrectionOverview.stories.tsx');
+    const states = read('src/correction/ui/stories/AtelierBStates.stories.tsx');
     expect(teacher).toContain('<CorrectionOverview');
     expect(teacher).toContain("status: 'processing'");
     expect(teacher).toContain("status: 'failed'");
@@ -71,9 +72,9 @@ describe('design system foundations', () => {
   });
 
   it('keeps native form semantics in shared input components', () => {
-    expect(read('src/ui/design-system/components/TextInput.tsx')).toContain('InputHTMLAttributes');
-    expect(read('src/ui/design-system/components/TextArea.tsx')).toContain('TextareaHTMLAttributes');
-    expect(read('src/ui/design-system/components/Checkbox.tsx')).toContain('type="checkbox"');
-    expect(read('src/ui/design-system/components/Button.tsx')).toContain("type = 'button'");
+    expect(read('src/shared/ui/design-system/components/TextInput.tsx')).toContain('InputHTMLAttributes');
+    expect(read('src/shared/ui/design-system/components/TextArea.tsx')).toContain('TextareaHTMLAttributes');
+    expect(read('src/shared/ui/design-system/components/Checkbox.tsx')).toContain('type="checkbox"');
+    expect(read('src/shared/ui/design-system/components/Button.tsx')).toContain("type = 'button'");
   });
 });

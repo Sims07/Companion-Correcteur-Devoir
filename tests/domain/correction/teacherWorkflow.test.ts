@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { duplicateAssignmentProfile, previewReusableCriteria, reuseSelectedCriteria } from '../../../src/domain/correction/teacherWorkflow.ts';
-import type { Rubric } from '../../../src/domain/correction/rubric.ts';
+import { duplicateAssignmentProfile, previewReusableCriteria, reuseSelectedCriteria } from '../../../src/correction/domain/teacherWorkflow.ts';
+import type { Rubric } from '../../../src/correction/domain/rubric.ts';
 
 const source: Rubric = { title: 'Mitose', criteria: [
   { id: 'a', title: 'Phases', description: 'Énumérer les phases', maxPoints: 4, subcriteria: [

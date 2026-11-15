@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { canCompareModelEvaluationRecords, getModelEvaluationStage, runModelEvaluation } from '../../../src/domain/evaluation/modelEvaluation.ts';
-import type { ModelEvaluationConfiguration, ModelEvaluationRecord } from '../../../src/domain/evaluation/modelEvaluation.ts';
+import { canCompareModelEvaluationRecords, getModelEvaluationStage, runModelEvaluation } from '../../../src/evaluation/domain/modelEvaluation.ts';
+import type { ModelEvaluationConfiguration, ModelEvaluationRecord } from '../../../src/evaluation/domain/modelEvaluation.ts';
 
 const config = (id: string): ModelEvaluationConfiguration => ({
   id, name: id, endpoint: 'http://localhost:11434', visionModel: 'vision', analysisModel: 'analysis', thinking: false,

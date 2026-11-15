@@ -1,6 +1,6 @@
 import { createRoot } from 'react-dom/client';
-import { createBackgroundCorrection, toBackgroundJobOverview } from '../../../src/domain/correction/backgroundCorrection.ts';
-import { ActiveCopyProcessingWorkspace } from '../../../src/ui/components/ActiveCopyProcessingWorkspace.tsx';
+import { createBackgroundCorrection, toBackgroundJobOverview } from '../../../src/correction/domain/backgroundCorrection.ts';
+import { ActiveCopyProcessingWorkspace } from '../../../src/correction/ui/components/ActiveCopyProcessingWorkspace.tsx';
 
 /**
  * Playwright-only fixture; Vite serves this TSX module to the test browser.

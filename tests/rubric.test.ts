@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getRubricSubcriteria, validateRubric, type Rubric } from '../src/domain/correction/rubric.ts';
+import { getRubricSubcriteria, validateRubric, type Rubric } from '../src/correction/domain/rubric.ts';
 
 const validRubric: Rubric = {
   title: 'Biologie cellulaire',

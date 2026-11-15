@@ -4,8 +4,8 @@ import { describe, expect, it } from 'vitest';
 const source = (path: string) => readFileSync(new URL(path, import.meta.url), 'utf8');
 
 describe('teacher and AI diagnostic interface modes', () => {
-  const app = () => source('../src/ui/App.tsx');
-  const teacherNavigation = () => source('../src/ui/components/TeacherWorkspaceNavigation.tsx');
+  const app = () => source('../src/shell/ui/App.tsx');
+  const teacherNavigation = () => source('../src/correction/ui/components/TeacherWorkspaceNavigation.tsx');
 
   it('shows optional teacher-facing annotation suggestions linked to the source page without region localization', () => {
     const text = app();
@@ -101,8 +101,8 @@ describe('teacher and AI diagnostic interface modes', () => {
   it('offers a sequential independent evaluation for saved model configurations', () => {
     const text = app();
     expect(text).toContain('Configurations à évaluer');
-    expect(source('../src/ui/components/EvaluationProfilesDialog.tsx')).toContain('Configurations à exécuter');
-    expect(source('../src/ui/components/EvaluationProfilesDialog.tsx')).toContain('Sélectionnez jusqu’à trois configurations');
+    expect(source('../src/evaluation/ui/components/EvaluationProfilesDialog.tsx')).toContain('Configurations à exécuter');
+    expect(source('../src/evaluation/ui/components/EvaluationProfilesDialog.tsx')).toContain('Sélectionnez jusqu’à trois configurations');
     expect(text).toContain('selectedProfiles.length < 1');
     expect(text).toContain('selectedEvaluationProfileIds.length < 1');
     expect(text).toContain('Comparer les modèles Vision');
@@ -135,8 +135,8 @@ describe('teacher and AI diagnostic interface modes', () => {
 
   it('moves saved model configuration management into an accessible dialog', () => {
     const text = app();
-    const styles = source('../src/ui/modelEvaluationWorkspace.css');
-    const dialog = source('../src/ui/components/EvaluationProfilesDialog.tsx');
+    const styles = source('../src/evaluation/ui/modelEvaluationWorkspace.css');
+    const dialog = source('../src/evaluation/ui/components/EvaluationProfilesDialog.tsx');
     expect(text).toContain('className="evaluation-model-brief"');
     expect(text).toContain('<EvaluationProfilesDialog');
     expect(text).not.toContain('className="evaluation-profile-options"');
@@ -146,12 +146,12 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(dialog).toContain('maxSelection = 3');
     expect(dialog).toContain('onManageDeletion');
     expect(styles).toContain('.evaluation-model-brief-manage.ds-button');
-    expect(source('../src/ui/components/EvaluationProfilesDialog.css')).toContain('@media (max-width: 540px)');
+    expect(source('../src/evaluation/ui/components/EvaluationProfilesDialog.css')).toContain('@media (max-width: 540px)');
   });
 
   it('shows which saved configuration is active and which phase a long evaluation is running', () => {
     const text = app();
-    const styles = source('../src/ui/styles.css');
+    const styles = source('../src/shared/ui/styles.css');
     expect(text).toContain('SUIVI DE L’EXPÉRIENCE');
     expect(text).toContain('evaluation-configuration-steps');
     expect(text).toContain('En cours maintenant');
@@ -175,7 +175,7 @@ describe('teacher and AI diagnostic interface modes', () => {
   it('replaces the legacy Debug workspace with the live network inspector', () => {
     const text = app();
     const bootstrap = source('../src/main.tsx');
-    const navigation = source('../src/ui/DeveloperToolsNavigation.tsx');
+    const navigation = source('../src/shell/ui/DeveloperToolsNavigation.tsx');
     expect(text).toContain('>Évaluer</button>');
     expect(text).toContain('aria-label="Évaluer les modèles"');
     expect(navigation).toContain('Inspecteur réseau');
@@ -240,7 +240,7 @@ describe('teacher and AI diagnostic interface modes', () => {
 
   it('exposes named model preloading only for the OpenAI-compatible server', () => {
     const text = app();
-    const panel = source('../src/ui/components/ModelPreloadPanel.tsx');
+    const panel = source('../src/shared/ui/components/ModelPreloadPanel.tsx');
     expect(text).toContain('{apiCompatible && <ModelPreloadPanel endpoint={endpoint} apiKey={apiKey} busy={busy} loadModel={loadOnDemandModel} />}');
     expect(text).not.toContain('handleLoadSaluki');
     expect(panel).toContain('Précharger un modèle');
@@ -313,7 +313,7 @@ describe('teacher and AI diagnostic interface modes', () => {
   });
 
   it('presents saved teacher decisions in plain language instead of technical local-memory terminology', () => {
-    const text = source('../src/ui/LocalMemoryCompanion.tsx');
+    const text = source('../src/correction/ui/LocalMemoryCompanion.tsx');
     expect(text).toContain('Règles de correction');
     expect(text).toContain('DÉCISIONS DE L’ENSEIGNANT');
     expect(text).toContain('Ici, vous indiquez à l’assistant comment appliquer votre correction.');
@@ -323,7 +323,7 @@ describe('teacher and AI diagnostic interface modes', () => {
   });
 
   it('explains the distinction between feedback for a correction and reusable rubric rules', () => {
-    const text = source('../src/ui/LocalMemoryCompanion.tsx');
+    const text = source('../src/correction/ui/LocalMemoryCompanion.tsx');
     expect(text).toContain('Correction active');
     expect(text).toContain('Barème utilisé');
     expect(text).toContain('Réutiliser cette décision avec le barème');
@@ -362,7 +362,7 @@ describe('teacher and AI diagnostic interface modes', () => {
   });
   it('shows a comparative analysis summary beyond raw model responses', () => {
     const text = app();
-    const styles = source('../src/ui/styles.css');
+    const styles = source('../src/shared/ui/styles.css');
     expect(text).toContain('Analyse comparative des configurations');
     expect(text).toContain('Écart entre les notes');
     expect(text).toContain('Note moyenne');
@@ -398,7 +398,7 @@ describe('teacher and AI diagnostic interface modes', () => {
   });
 
   it('uses readable typography and responsive layout for the evaluation workspace', () => {
-    const styles = source('../src/ui/styles.css');
+    const styles = source('../src/shared/ui/styles.css');
     expect(styles).toContain('.evaluation-page-header');
     expect(styles).toContain('.evaluation-config-fields');
     expect(styles).toContain('.evaluation-run-actions');

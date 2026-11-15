@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { awaitOrAbort } from '../../src/domain/awaitOrAbort.ts';
+import { awaitOrAbort } from '../../src/shared/domain/awaitOrAbort.ts';
 
 describe('awaitOrAbort', () => {
   it('does not start a cancelled operation', async () => {

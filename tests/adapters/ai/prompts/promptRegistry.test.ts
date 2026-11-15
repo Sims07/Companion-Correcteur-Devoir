@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { PROMPT_REVISIONS, promptTrace } from '../../../../src/adapters/ai/prompts/promptRegistry.ts';
+import { PROMPT_REVISIONS, promptTrace } from '../../../../src/shared/adapters/ai/prompts/promptRegistry.ts';
 
 describe('stable prompt metadata', () => {
   it('tracks distinct prompts for local decision, native System One and vision diagrams', () => {
@@ -21,7 +21,7 @@ describe('stable prompt metadata', () => {
   });
 
   it('shows the prompt identity in the technical observability workspace only', () => {
-    const view = readFileSync(new URL('../../../../src/ui/ObservabilityDashboard.tsx', import.meta.url), 'utf8');
+    const view = readFileSync(new URL('../../../../src/shell/ui/ObservabilityDashboard.tsx', import.meta.url), 'utf8');
     expect(view).toContain('Prompt utilisé');
     expect(view).toContain('span.promptId');
     expect(view).toContain('span.promptVersion');

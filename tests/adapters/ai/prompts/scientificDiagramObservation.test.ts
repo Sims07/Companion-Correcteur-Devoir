@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { buildDirectDiagramPrompt } from '../../../../src/adapters/ai/prompts/directDiagramPrompt.ts';
-import { buildScientificDiagramPrompt, buildConciseScientificDiagramPrompt, buildScientificDiagramRepairPrompt } from '../../../../src/adapters/ai/prompts/scientificDiagramPrompts.ts';
-import { prepareSystemOneRubric } from '../../../../src/domain/correction/systemOneDecision.ts';
-import { SCIENTIFIC_DIAGRAM_OBSERVATION_RULES } from '../../../../src/domain/correction/scientificDiagramObservation.ts';
-import type { ScientificDiagramAnalysisRequest } from '../../../../src/ports/scientificDiagramAnalysis.ts';
+import { buildDirectDiagramPrompt } from '../../../../src/correction/adapters/ai/prompts/directDiagramPrompt.ts';
+import { buildScientificDiagramPrompt, buildConciseScientificDiagramPrompt, buildScientificDiagramRepairPrompt } from '../../../../src/correction/adapters/ai/prompts/scientificDiagramPrompts.ts';
+import { prepareSystemOneRubric } from '../../../../src/correction/domain/systemOneDecision.ts';
+import { SCIENTIFIC_DIAGRAM_OBSERVATION_RULES } from '../../../../src/correction/domain/scientificDiagramObservation.ts';
+import type { ScientificDiagramAnalysisRequest } from '../../../../src/correction/ports/scientificDiagramAnalysis.ts';
 
 const request: ScientificDiagramAnalysisRequest = {
   images: [{ mimeType: 'image/png', base64: 'pixels' }], question: 'Consigne témoin',

@@ -2,8 +2,8 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { BlindGraphRunDetails } from '../../src/ui/components/BlindGraphRunDetails.tsx';
-import type { BlindVisualObservationRun } from '../../src/domain/evaluation/scientificDiagramBlindGraph.ts';
+import { BlindGraphRunDetails } from '../../src/evaluation/ui/components/BlindGraphRunDetails.tsx';
+import type { BlindVisualObservationRun } from '../../src/evaluation/domain/scientificDiagramBlindGraph.ts';
 
 const run: BlindVisualObservationRun = {
   caseId: 'S0', repetition: 1, profileId: 'local', profileName: 'Qwen', model: 'qwen', durationMs: 1200,
@@ -12,7 +12,7 @@ const run: BlindVisualObservationRun = {
   relationDetails: { 'relations::transcription': { choice: 'uncertain', reason: 'unclear-tip' } },
   diagnostic: { rawResponse: '<script>alert(1)</script>', rawResponseTruncated: false, doneReason: 'length', outputTokens: 768 },
 };
-function render(value = run, gold: Record<string, import('../../src/domain/evaluation/scientificDiagramSensitivity.ts').DiagramSensitivityChoice> = { 'relations::transcription': 'present' }) {
+function render(value = run, gold: Record<string, import('../../src/evaluation/domain/scientificDiagramSensitivity.ts').DiagramSensitivityChoice> = { 'relations::transcription': 'present' }) {
   const container = document.createElement('div');
   container.innerHTML = renderToStaticMarkup(createElement(BlindGraphRunDetails, { run: value, gold }));
   return container;

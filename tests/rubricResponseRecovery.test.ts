@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { recoverRubricResponse } from '../src/adapters/ai/rubricResponseRecovery.ts';
+import { recoverRubricResponse } from '../src/correction/adapters/ai/rubricResponseRecovery.ts';
 
 describe('recoverRubricResponse', () => {
   it('repairs trailing commas, keeps valid criteria and preserves negative penalties', () => {

@@ -3,9 +3,9 @@ import {
   BLIND_VISUAL_OBSERVATION_PROMPT, BLIND_VISUAL_OBSERVATION_ISOLATED_PROMPT, blindVisualObservationPrompt,
   buildBlindVisualObservationReport, compareBlindVisualGraph,
   parseObservedVisualGraph, explainBlindVisualGraph, canObserveBlindGraph, blindGraphVisionModel, blindGraphProfileIssue, type ObservedVisualGraph,
-} from '../../../src/domain/evaluation/scientificDiagramBlindGraph.ts';
-import { DIAGRAM_SENSITIVITY_TARGETS as T } from '../../../src/domain/evaluation/scientificDiagramSensitivity.ts';
-import { defaultAiModelConfiguration, type AiModelProfile } from '../../../src/domain/aiModelProfiles.ts';
+} from '../../../src/evaluation/domain/scientificDiagramBlindGraph.ts';
+import { DIAGRAM_SENSITIVITY_TARGETS as T } from '../../../src/evaluation/domain/scientificDiagramSensitivity.ts';
+import { defaultAiModelConfiguration, type AiModelProfile } from '../../../src/shared/domain/aiModelProfiles.ts';
 
 const graph = (): ObservedVisualGraph => ({
   labels: ['Cellule', 'Noyau', 'ADN', 'ARN', 'Protéine'],

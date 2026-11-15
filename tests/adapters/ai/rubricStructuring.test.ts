@@ -3,7 +3,7 @@ import {
   buildRubricStructuringPrompt,
   formatRubricTranscriptionChunk,
   splitRubricTranscriptions,
-} from '../../../src/adapters/ai/rubricStructuring.ts';
+} from '../../../src/correction/adapters/ai/rubricStructuring.ts';
 
 describe('rubric structuring chunks', () => {
   it('splits long transcriptions while preserving every character and page order', () => {

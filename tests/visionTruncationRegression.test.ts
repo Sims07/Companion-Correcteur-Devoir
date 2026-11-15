@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createOpenAiScientificDiagramAnalyzer } from '../src/adapters/ai/openAiScientificDiagramAnalyzer.ts';
-import { parseScientificDiagramAnalysis, recoverTruncatedScientificDiagramAnalysis } from '../src/domain/correction/scientificDiagram.ts';
-import { mergeScientificDiagramCriteria } from '../src/domain/correction/scientificRubricRouting.ts';
-import type { Rubric } from '../src/domain/correction/rubric.ts';
+import { createOpenAiScientificDiagramAnalyzer } from '../src/correction/adapters/ai/openAiScientificDiagramAnalyzer.ts';
+import { parseScientificDiagramAnalysis, recoverTruncatedScientificDiagramAnalysis } from '../src/correction/domain/scientificDiagram.ts';
+import { mergeScientificDiagramCriteria } from '../src/correction/domain/scientificRubricRouting.ts';
+import type { Rubric } from '../src/correction/domain/rubric.ts';
 
 const rubric: Rubric = { title: 'Mitose / 10', criteria: [
   { id: 'quality', title: 'Qualité du dessin', description: 'Contours lisibles', maxPoints: 4, analysisMode: 'scientific-diagram' },

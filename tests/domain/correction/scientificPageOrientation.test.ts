@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { accumulateClockwiseRotation, getConfidentDiagramRotation } from '../../../src/domain/correction/scientificPageOrientation.ts';
-import type { ScientificPageClassification } from '../../../src/domain/correction/scientificPageClassification.ts';
+import { accumulateClockwiseRotation, getConfidentDiagramRotation } from '../../../src/correction/domain/scientificPageOrientation.ts';
+import type { ScientificPageClassification } from '../../../src/correction/domain/scientificPageClassification.ts';
 
 const diagram: ScientificPageClassification = {
   pageNumber: 1,

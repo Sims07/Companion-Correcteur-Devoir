@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import { unloadPilotOllamaModels } from '../../../src/adapters/ai/pilotOllamaMemory.ts';
-import type { ModelEvaluationConfiguration } from '../../../src/domain/evaluation/modelEvaluation.ts';
-import { getNetworkRequestMetadata } from '../../../src/ports/networkRequestMetadata.ts';
+import { unloadPilotOllamaModels } from '../../../src/evaluation/adapters/ai/pilotOllamaMemory.ts';
+import type { ModelEvaluationConfiguration } from '../../../src/evaluation/domain/modelEvaluation.ts';
+import { getNetworkRequestMetadata } from '../../../src/shared/ports/networkRequestMetadata.ts';
 
 const config = (overrides: Partial<ModelEvaluationConfiguration> = {}): ModelEvaluationConfiguration => ({
   id: 'qwen', name: 'Pilote Qwen', endpoint: 'http://localhost:11434',

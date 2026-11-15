@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildIncrementalCriterionPrompt } from '../src/adapters/ai/gradingPrompts.ts';
+import { buildIncrementalCriterionPrompt } from '../src/correction/adapters/ai/gradingPrompts.ts';
 
 const criterion = {
   id: 'cell-division',

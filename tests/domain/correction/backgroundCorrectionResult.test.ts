@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { getBackgroundCorrectionResult } from '../../../src/domain/correction/backgroundCorrectionResult.ts';
-import type { BackgroundCorrectionJob } from '../../../src/domain/correction/backgroundCorrection.ts';
+import { getBackgroundCorrectionResult } from '../../../src/correction/domain/backgroundCorrectionResult.ts';
+import type { BackgroundCorrectionJob } from '../../../src/correction/domain/backgroundCorrection.ts';
 
 const rubric = {
   title: 'Biologie',

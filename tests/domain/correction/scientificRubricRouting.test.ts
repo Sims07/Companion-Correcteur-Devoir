@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { mergeScientificDiagramCriteria, partitionScientificRubric, shouldRunTeacherScientificDiagramWorkflow } from '../../../src/domain/correction/scientificRubricRouting.ts';
-import type { GradingProposal } from '../../../src/domain/correction/grading.ts';
-import type { Rubric } from '../../../src/domain/correction/rubric.ts';
-import type { ScientificDiagramAnalysis } from '../../../src/domain/correction/scientificDiagram.ts';
+import { mergeScientificDiagramCriteria, partitionScientificRubric, shouldRunTeacherScientificDiagramWorkflow } from '../../../src/correction/domain/scientificRubricRouting.ts';
+import type { GradingProposal } from '../../../src/correction/domain/grading.ts';
+import type { Rubric } from '../../../src/correction/domain/rubric.ts';
+import type { ScientificDiagramAnalysis } from '../../../src/correction/domain/scientificDiagram.ts';
 
 const rubric: Rubric = {
   title: 'Biologie cellulaire',

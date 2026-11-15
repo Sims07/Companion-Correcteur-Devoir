@@ -1,18 +1,18 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
-const stylesheet = readFileSync(new URL('../src/ui/styles.css', import.meta.url), 'utf8');
-const correctionFlowStylesheet = readFileSync(new URL('../src/ui/correctionFlow.css', import.meta.url), 'utf8');
-const modelSelectStylesheet = readFileSync(new URL('../src/ui/modelSelect.css', import.meta.url), 'utf8');
-const designSystemControls = readFileSync(new URL('../src/ui/design-system/controls.css', import.meta.url), 'utf8');
-const memoryStylesheet = readFileSync(new URL('../src/ui/localMemory.css', import.meta.url), 'utf8');
-const memoryComponent = readFileSync(new URL('../src/ui/LocalMemoryCompanion.tsx', import.meta.url), 'utf8');
+const stylesheet = readFileSync(new URL('../src/shared/ui/styles.css', import.meta.url), 'utf8');
+const correctionFlowStylesheet = readFileSync(new URL('../src/correction/ui/correctionFlow.css', import.meta.url), 'utf8');
+const modelSelectStylesheet = readFileSync(new URL('../src/shared/ui/modelSelect.css', import.meta.url), 'utf8');
+const designSystemControls = readFileSync(new URL('../src/shared/ui/design-system/controls.css', import.meta.url), 'utf8');
+const memoryStylesheet = readFileSync(new URL('../src/correction/ui/localMemory.css', import.meta.url), 'utf8');
+const memoryComponent = readFileSync(new URL('../src/correction/ui/LocalMemoryCompanion.tsx', import.meta.url), 'utf8');
 const mainEntry = readFileSync(new URL('../src/main.tsx', import.meta.url), 'utf8');
-const appComponent = readFileSync(new URL('../src/ui/App.tsx', import.meta.url), 'utf8');
-const observabilityComponent = readFileSync(new URL('../src/ui/ObservabilityDashboard.tsx', import.meta.url), 'utf8');
-const observabilityStyles = readFileSync(new URL('../src/ui/observability.css', import.meta.url), 'utf8');
-const copyIntakeComponent = readFileSync(new URL('../src/ui/components/TeacherCopyIntake.tsx', import.meta.url), 'utf8');
-const dropdownComponent = readFileSync(new URL('../src/ui/components/DesignSystemSelect.tsx', import.meta.url), 'utf8');
+const appComponent = readFileSync(new URL('../src/shell/ui/App.tsx', import.meta.url), 'utf8');
+const observabilityComponent = readFileSync(new URL('../src/shell/ui/ObservabilityDashboard.tsx', import.meta.url), 'utf8');
+const observabilityStyles = readFileSync(new URL('../src/shared/ui/observability.css', import.meta.url), 'utf8');
+const copyIntakeComponent = readFileSync(new URL('../src/correction/ui/components/TeacherCopyIntake.tsx', import.meta.url), 'utf8');
+const dropdownComponent = readFileSync(new URL('../src/shared/ui/components/DesignSystemSelect.tsx', import.meta.url), 'utf8');
 
 describe('UI design system', () => {
   it('shows every criterion beside the original copy and labels the evolving score as provisional', () => {
@@ -125,9 +125,9 @@ describe('UI design system', () => {
   });
 
   it('styles Ollama model selectors through the shared design-system control contract', () => {
-    expect(mainEntry).toContain("import './ui/modelSelect.css';");
-    expect(mainEntry).toContain("import './ui/design-system/tokens.css';");
-    expect(mainEntry).toContain("import './ui/design-system/controls.css';");
+    expect(mainEntry).toContain("import './shared/ui/modelSelect.css';");
+    expect(mainEntry).toContain("import './shared/ui/design-system/tokens.css';");
+    expect(mainEntry).toContain("import './shared/ui/design-system/controls.css';");
     expect(appComponent).toContain('id="diagnostic-strategy"');
     expect(appComponent).toContain('value={diagnosticStrategy}');
     expect(modelSelectStylesheet).not.toContain('.ollama-panel select {');

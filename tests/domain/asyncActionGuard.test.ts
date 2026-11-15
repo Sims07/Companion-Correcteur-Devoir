@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createAsyncActionGuard } from '../../src/domain/asyncActionGuard.ts';
+import { createAsyncActionGuard } from '../../src/shared/domain/asyncActionGuard.ts';
 
 describe('createAsyncActionGuard', () => {
   it('ignores repeated invocations while the first asynchronous action is pending', async () => {

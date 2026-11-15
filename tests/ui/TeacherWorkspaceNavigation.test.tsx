@@ -1,7 +1,7 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import { TeacherWorkspaceNavigation } from '../../src/ui/components/TeacherWorkspaceNavigation.tsx';
+import { TeacherWorkspaceNavigation } from '../../src/correction/ui/components/TeacherWorkspaceNavigation.tsx';
 
 const callbacks = {
   onBackToAssignments: vi.fn(),

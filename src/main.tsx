@@ -1,45 +1,47 @@
 import './instrumentation.ts';
 import './pwa/registerServiceWorker.ts';
-import { prepareQuestionContracts } from './adapters/ai/contractPreparation.ts';
+import { prepareQuestionContracts } from './correction/adapters/ai/contractPreparation.ts';
+import { createEvaluationVisionService } from './evaluation/application/evaluationVisionService.ts';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import { App } from './ui/App.tsx';
-import { LocalMemoryCompanion } from './ui/LocalMemoryCompanion.tsx';
-import { installLocalMemoryFetchBridge } from './adapters/ai/localMemoryFetchBridge.ts';
-import { currentFetch } from './adapters/ai/currentFetch.ts';
-import { loadOnDemandModel } from './adapters/ai/modelLoadClient.ts';
-import { unloadPilotOllamaModels } from './adapters/ai/pilotOllamaMemory.ts';
-import { IndexedDbBackgroundCorrectionRepository, IndexedDbLocalCorrectionRepository, IndexedDbModelEvaluationRepository } from './adapters/storage/indexedDbMemory.ts';
-import { IndexedDbStorageDiagnosticsRepository } from './adapters/storage/indexedDbStorageDiagnostics.ts';
-import { IndexedDbDiagramLabArchiveRepository } from './adapters/storage/diagramLabArchive.ts';
-import { createStorageDiagnosticsService } from './application/storageDiagnosticsService.ts';
-import { createLocalCorrectionService } from './application/localCorrectionService.ts';
-import { createModelEvaluationService } from './application/modelEvaluationService.ts';
-import { createBackgroundCorrectionService } from './application/backgroundCorrectionService.ts';
-import { createCorrectionWorkspaceService } from './application/correctionWorkspaceService.ts';
-import { createScientificDiagramAnalysisService } from './application/scientificDiagramAnalysisService.ts';
-import { createOpenAiScientificDiagramAnalyzer } from './adapters/ai/openAiScientificDiagramAnalyzer.ts';
-import { checkOllamaReady, createOllamaProvider, importRubricImageWithOllama, listOllamaModels, prewarmOllamaModel, unloadOllamaModel } from './adapters/ai/ollamaProvider.ts';
-import { detectOllamaDiagramThinkSetting } from './adapters/ai/ollamaThinkingCapabilities.ts';
-import { extractBlindVisualGraph } from './adapters/ai/blindDiagramGraphClient.ts';
-import { extractVisualRelationGraphV2 } from './adapters/ai/relationGraphV2Client.ts';
-import { eraseTeacherAnnotationColor, prepareLocalFiles, rotateLocalImage } from './adapters/files/localFiles.ts';
-import { importRubricFile } from './adapters/files/rubricImport.ts';
-import './ui/styles.css';
-import './ui/correctionFlow.css';
-import './ui/annotationInk.css';
-import './ui/modelSelect.css';
-import './ui/observability.css';
-import './ui/design-system/tokens.css';
-import './ui/design-system/controls.css';
-import './ui/design-system/application-theme.css';
-import './ui/teacherAtelier.css';
-import './ui/correctionAtelier.css';
-import './ui/atelierBLayout.css';
-import './ui/atelierBRubric.css';
-import './ui/aiToolsAtelier.css';
-import './ui/modelEvaluationWorkspace.css';
-import './ui/atelierBProcessing.css';
+import { App } from './shell/ui/App.tsx';
+import { LocalMemoryCompanion } from './correction/ui/LocalMemoryCompanion.tsx';
+import { installLocalMemoryFetchBridge } from './correction/adapters/ai/localMemoryFetchBridge.ts';
+import { currentFetch } from './shared/adapters/ai/currentFetch.ts';
+import { loadOnDemandModel } from './shared/adapters/ai/modelLoadClient.ts';
+import { unloadPilotOllamaModels } from './evaluation/adapters/ai/pilotOllamaMemory.ts';
+import { IndexedDbBackgroundCorrectionRepository, IndexedDbLocalCorrectionRepository } from './correction/adapters/storage/correctionRepository.ts';
+import { IndexedDbModelEvaluationRepository } from './evaluation/adapters/storage/evaluationRepository.ts';
+import { IndexedDbStorageDiagnosticsRepository } from './shared/adapters/storage/indexedDbStorageDiagnostics.ts';
+import { IndexedDbDiagramLabArchiveRepository } from './evaluation/adapters/storage/diagramLabArchive.ts';
+import { createStorageDiagnosticsService } from './shared/application/storageDiagnosticsService.ts';
+import { createLocalCorrectionService } from './correction/application/localCorrectionService.ts';
+import { createModelEvaluationService } from './evaluation/application/modelEvaluationService.ts';
+import { createBackgroundCorrectionService } from './correction/application/backgroundCorrectionService.ts';
+import { createCorrectionWorkspaceService } from './correction/application/correctionWorkspaceService.ts';
+import { createScientificDiagramAnalysisService } from './correction/application/scientificDiagramAnalysisService.ts';
+import { createOpenAiScientificDiagramAnalyzer } from './correction/adapters/ai/openAiScientificDiagramAnalyzer.ts';
+import { checkOllamaReady, createOllamaProvider, importRubricImageWithOllama, listOllamaModels, prewarmOllamaModel, unloadOllamaModel } from './correction/adapters/ai/ollamaProvider.ts';
+import { detectOllamaDiagramThinkSetting } from './evaluation/adapters/ai/ollamaThinkingCapabilities.ts';
+import { extractBlindVisualGraph } from './evaluation/adapters/ai/blindDiagramGraphClient.ts';
+import { extractVisualRelationGraphV2 } from './evaluation/adapters/ai/relationGraphV2Client.ts';
+import { eraseTeacherAnnotationColor, prepareLocalFiles, rotateLocalImage } from './correction/adapters/files/localFiles.ts';
+import { importRubricFile } from './correction/adapters/files/rubricImport.ts';
+import './shared/ui/styles.css';
+import './correction/ui/correctionFlow.css';
+import './correction/ui/annotationInk.css';
+import './shared/ui/modelSelect.css';
+import './shared/ui/observability.css';
+import './shared/ui/design-system/tokens.css';
+import './shared/ui/design-system/controls.css';
+import './shared/ui/design-system/application-theme.css';
+import './correction/ui/teacherAtelier.css';
+import './correction/ui/correctionAtelier.css';
+import './correction/ui/atelierBLayout.css';
+import './correction/ui/atelierBRubric.css';
+import './shared/ui/aiToolsAtelier.css';
+import './evaluation/ui/modelEvaluationWorkspace.css';
+import './correction/ui/atelierBProcessing.css';
 
 const localCorrectionRepository = new IndexedDbLocalCorrectionRepository();
 const localCorrectionService = createLocalCorrectionService(localCorrectionRepository);
@@ -51,13 +53,19 @@ const scientificDiagramAnalysisService = createScientificDiagramAnalysisService(
 const backgroundCorrectionService = createBackgroundCorrectionService(new IndexedDbBackgroundCorrectionRepository(), { checkReady: (settings, signal) => checkOllamaReady(settings, currentFetch, signal), prewarmModel: (settings, model, signal) => prewarmOllamaModel(settings, model, currentFetch, signal), unloadModel: unloadOllamaModel, listModels: listOllamaModels, createProvider: createOllamaProvider, importRubricImage: (images, settings, onProgress, signal) => importRubricImageWithOllama(images, settings, currentFetch, onProgress, signal) }, scientificDiagramAnalysisService);
 installLocalMemoryFetchBridge(localCorrectionRepository);
 const correctionWorkspaceService = createCorrectionWorkspaceService(
-  { prepareQuestionContracts, checkReady: (settings, signal) => checkOllamaReady(settings, currentFetch, signal), detectDiagramThinking: (endpoint, model, requireOff) => detectOllamaDiagramThinkSetting(endpoint, model, currentFetch, requireOff), extractBlindDiagramGraph: (endpoint, model, image, signal, onDiagnostic, provider, zoomUncertainArrows) => extractBlindVisualGraph({ endpoint, model, image, signal, onDiagnostic, ...provider, zoomUncertainArrows }), extractBlindDiagramGraphV2: (endpoint, model, image, signal, provider) => extractVisualRelationGraphV2({endpoint,model,image,signal,...provider}), prewarmModel: (settings, model, signal) => prewarmOllamaModel(settings, model, currentFetch, signal), listModels: listOllamaModels, createProvider: createOllamaProvider, importRubricImage: (images, settings, onProgress, signal) => importRubricImageWithOllama(images, settings, currentFetch, onProgress, signal) },
+  { prepareQuestionContracts, checkReady: (settings, signal) => checkOllamaReady(settings, currentFetch, signal), prewarmModel: (settings, model, signal) => prewarmOllamaModel(settings, model, currentFetch, signal), listModels: listOllamaModels, createProvider: createOllamaProvider, importRubricImage: (images, settings, onProgress, signal) => importRubricImageWithOllama(images, settings, currentFetch, onProgress, signal) },
   { prepareFiles: prepareLocalFiles, rotateImage: rotateLocalImage, eraseTeacherAnnotationColor, importRubric: importRubricFile },
 );
 
+const evaluationVision = createEvaluationVisionService({
+  detectDiagramThinking: (endpoint, model, requireOff) => detectOllamaDiagramThinkSetting(endpoint, model, currentFetch, requireOff),
+  extractBlindDiagramGraph: (endpoint, model, image, signal, onDiagnostic, provider, zoomUncertainArrows) => extractBlindVisualGraph({ endpoint, model, image, signal, onDiagnostic, ...provider, zoomUncertainArrows }),
+  extractBlindDiagramGraphV2: (endpoint, model, image, signal, provider) => extractVisualRelationGraphV2({endpoint,model,image,signal,...provider}),
+});
+
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <App service={correctionWorkspaceService} archiveService={localCorrectionService} evaluationService={modelEvaluationService} diagramLabArchive={diagramLabArchive} storageDiagnosticsService={storageDiagnosticsService} backgroundCorrectionService={backgroundCorrectionService} diagramAnalysisService={scientificDiagramAnalysisService} loadOnDemandModel={loadOnDemandModel} releasePilotModels={unloadPilotOllamaModels} />
+    <App evaluationVision={evaluationVision} service={correctionWorkspaceService} archiveService={localCorrectionService} evaluationService={modelEvaluationService} diagramLabArchive={diagramLabArchive} storageDiagnosticsService={storageDiagnosticsService} backgroundCorrectionService={backgroundCorrectionService} diagramAnalysisService={scientificDiagramAnalysisService} loadOnDemandModel={loadOnDemandModel} releasePilotModels={unloadPilotOllamaModels} />
     <LocalMemoryCompanion service={localCorrectionService} />
   </React.StrictMode>,
 );

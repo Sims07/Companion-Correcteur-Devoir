@@ -2,8 +2,8 @@
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { BackgroundJobSummary } from '../../src/domain/correction/backgroundCorrection.ts';
-import { CorrectionOverview } from '../../src/ui/CorrectionOverview.tsx';
+import type { BackgroundJobSummary } from '../../src/correction/domain/backgroundCorrection.ts';
+import { CorrectionOverview } from '../../src/correction/ui/CorrectionOverview.tsx';
 
 const failedJob: BackgroundJobSummary = {
   id: 'failed-copy',

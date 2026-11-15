@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { defaultAiModelConfiguration } from '../../src/domain/aiModelProfiles.ts';
+import { defaultAiModelConfiguration } from '../../src/shared/domain/aiModelProfiles.ts';
 
 test('a biology evaluation launched from the radar replaces the previous custom test screen', async ({ page }) => {
   await page.goto('/');

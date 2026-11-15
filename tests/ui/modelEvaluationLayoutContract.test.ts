@@ -3,14 +3,14 @@ import { describe, expect, it } from 'vitest';
 
 describe('Model evaluation workspace layout contract', () => {
   const main = readFileSync('src/main.tsx', 'utf8');
-  const legacy = readFileSync('src/ui/styles.css', 'utf8');
-  const layout = readFileSync('src/ui/modelEvaluationWorkspace.css', 'utf8');
-  const app = readFileSync('src/ui/App.tsx', 'utf8');
+  const legacy = readFileSync('src/shared/ui/styles.css', 'utf8');
+  const layout = readFileSync('src/evaluation/ui/modelEvaluationWorkspace.css', 'utf8');
+  const app = readFileSync('src/shell/ui/App.tsx', 'utf8');
 
   it('loads one dedicated layout after legacy styles and removes the floating sidebar', () => {
-    expect(main).toContain("import './ui/modelEvaluationWorkspace.css';");
-    expect(main.indexOf("import './ui/modelEvaluationWorkspace.css';"))
-      .toBeGreaterThan(main.indexOf("import './ui/aiToolsAtelier.css';"));
+    expect(main).toContain("import './evaluation/ui/modelEvaluationWorkspace.css';");
+    expect(main.indexOf("import './evaluation/ui/modelEvaluationWorkspace.css';"))
+      .toBeGreaterThan(main.indexOf("import './shared/ui/aiToolsAtelier.css';"));
     expect(legacy).not.toMatch(/\.evaluation-step-nav\s*\{float:left/);
     expect(legacy).not.toMatch(/\.evaluation-config-workspace,\.evaluation-results-workspace\s*\{margin-left:248px/);
     expect(layout).toContain('.evaluation-workspace-shell .evaluation-step-nav');
@@ -56,7 +56,7 @@ describe('Model evaluation workspace layout contract', () => {
   });
 
   it('distinguishes running evaluation stages from brand selection, failures and completed work', () => {
-    const tokens = readFileSync('src/ui/design-system/tokens.css', 'utf8');
+    const tokens = readFileSync('src/shared/ui/design-system/tokens.css', 'utf8');
     expect(tokens).toContain('--ds-color-progress:');
     expect(tokens).toContain('--ds-color-progress-surface:');
     expect(tokens).toContain('--ds-color-progress-border:');

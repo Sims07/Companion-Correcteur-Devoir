@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import { CopyPageViewer } from '../../src/ui/components/CopyPageViewer.tsx';
+import { CopyPageViewer } from '../../src/correction/ui/components/CopyPageViewer.tsx';
 
 const pages = [
   { mimeType: 'image/png', base64: 'cGFnZTE=', fileName: 'copie.pdf · page 1' },

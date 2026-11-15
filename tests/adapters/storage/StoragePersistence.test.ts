@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { requestPersistentStorage } from '../../../src/adapters/storage/storagePersistence.ts';
+import { requestPersistentStorage } from '../../../src/shared/adapters/storage/storagePersistence.ts';
 
 describe('browser storage persistence request', () => {
   it('reports granted persistence without inspecting or modifying stored data', async () => {

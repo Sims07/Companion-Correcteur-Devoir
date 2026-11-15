@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { FilePicker } from '../../../src/ui/components/FilePicker.tsx';
+import { FilePicker } from '../../../src/shared/ui/components/FilePicker.tsx';
 
 describe('FilePicker', () => {
   it('renders a clear drop zone, accepted formats and an accessible browse action', () => {

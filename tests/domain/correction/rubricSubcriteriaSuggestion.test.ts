@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { appendSuggestedSubcriteria, suggestSubcriteriaFromDescription } from '../../../src/domain/correction/rubricSubcriteriaSuggestion.ts';
-import { validateRubric, type RubricCriterion } from '../../../src/domain/correction/rubric.ts';
+import { appendSuggestedSubcriteria, suggestSubcriteriaFromDescription } from '../../../src/correction/domain/rubricSubcriteriaSuggestion.ts';
+import { validateRubric, type RubricCriterion } from '../../../src/correction/domain/rubric.ts';
 
 const criterion = (description: string, maxPoints = 5): RubricCriterion => ({
   id: 'photosynthesis', title: 'Photosynthèse', description, maxPoints,

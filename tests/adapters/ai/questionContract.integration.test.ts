@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createOllamaProvider } from '../../../src/adapters/ai/ollamaProvider.ts';
-import type { RubricCriterion } from '../../../src/domain/correction/rubric.ts';
+import { createOllamaProvider } from '../../../src/correction/adapters/ai/ollamaProvider.ts';
+import type { RubricCriterion } from '../../../src/correction/domain/rubric.ts';
 
 const criteria: RubricCriterion[] = ['1', '2'].map(id => ({
   id: 'c' + id, title: 'Critère ' + id, description: 'Évaluer la relation', maxPoints: 1,

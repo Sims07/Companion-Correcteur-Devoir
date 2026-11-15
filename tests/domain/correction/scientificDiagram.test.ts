@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { parseScientificDiagramAnalysis, recoverTruncatedScientificDiagramAnalysis, shouldRunScientificDiagramAnalysis } from '../../../src/domain/correction/scientificDiagram.ts';
-import type { Rubric } from '../../../src/domain/correction/rubric.ts';
+import { parseScientificDiagramAnalysis, recoverTruncatedScientificDiagramAnalysis, shouldRunScientificDiagramAnalysis } from '../../../src/correction/domain/scientificDiagram.ts';
+import type { Rubric } from '../../../src/correction/domain/rubric.ts';
 
 const rubric: Rubric = { title: 'Schéma', criteria: [{ id: 'labels', title: 'Légendes', description: '', maxPoints: 2 }] };
 const valid = { diagrams: [{ id: 'd1', pageNumber: 1, diagramType: 'Cellule', summary: 'Cellule végétale', bounds: { x: 0.1, y: 0.2, width: 0.5, height: 0.4 }, criteria: [{ criterionId: 'labels', points: 1.5, evidence: 'Deux légendes correctes', confidence: 0.8, requiresTeacherReview: false }], uncertainties: [] }], overallUncertainties: [] };

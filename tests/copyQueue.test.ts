@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { appendQueuedCopy, takeNextQueuedCopy, type QueuedCopy } from '../src/domain/correction/copyQueue.ts';
+import { appendQueuedCopy, takeNextQueuedCopy, type QueuedCopy } from '../src/correction/domain/copyQueue.ts';
 
 const copy = (id: string): QueuedCopy => ({
   id,

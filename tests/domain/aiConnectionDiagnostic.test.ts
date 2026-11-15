@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { describeAiConnectionFailure } from '../../src/domain/aiConnectionDiagnostic.ts';
+import { describeAiConnectionFailure } from '../../src/shared/domain/aiConnectionDiagnostic.ts';
 
 describe('AI connection feedback from HTTPS PWA', () => {
   it('explains a blocked local Ollama request with actions for Safari and Chrome/Edge', () => {

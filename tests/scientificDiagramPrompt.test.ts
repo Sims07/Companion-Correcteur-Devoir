@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { buildScientificDiagramPrompt } from '../src/adapters/ai/openAiScientificDiagramAnalyzer.ts';
-import { buildConciseScientificDiagramPrompt } from '../src/adapters/ai/prompts/scientificDiagramPrompts.ts';
-import type { ScientificDiagramAnalysisRequest } from '../src/ports/scientificDiagramAnalysis.ts';
+import { buildScientificDiagramPrompt } from '../src/correction/adapters/ai/openAiScientificDiagramAnalyzer.ts';
+import { buildConciseScientificDiagramPrompt } from '../src/correction/adapters/ai/prompts/scientificDiagramPrompts.ts';
+import type { ScientificDiagramAnalysisRequest } from '../src/correction/ports/scientificDiagramAnalysis.ts';
 
 describe('scientific diagram prompt and professor marks', () => {
   it('uses only teacher-defined subcriteria and does not request a fixed quality grid', () => {

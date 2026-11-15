@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { EvaluationProfilesDialog } from '../../src/ui/components/EvaluationProfilesDialog.tsx';
+import { EvaluationProfilesDialog } from '../../src/evaluation/ui/components/EvaluationProfilesDialog.tsx';
 
 const configuration = {
   endpoint: 'http://localhost:11434', apiCompatible: false, apiKey: '',

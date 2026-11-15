@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { appReleaseUrl, compareAppVersions, shortAppRevision } from '../src/domain/appBuildVersion.ts';
+import { appReleaseUrl, compareAppVersions, shortAppRevision } from '../src/shared/domain/appBuildVersion.ts';
 
 const installed = { version: '0.3.0', revision: 'a'.repeat(40) };
 

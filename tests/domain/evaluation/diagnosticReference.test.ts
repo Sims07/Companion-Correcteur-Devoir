@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { compareWithDiagnosticReference, validateDiagnosticReference, type ReferenceCriterionScore } from '../../../src/domain/evaluation/diagnosticReference.ts';
-import type { Rubric } from '../../../src/domain/correction/rubric.ts';
+import { compareWithDiagnosticReference, validateDiagnosticReference, type ReferenceCriterionScore } from '../../../src/evaluation/domain/diagnosticReference.ts';
+import type { Rubric } from '../../../src/correction/domain/rubric.ts';
 
 const rubric: Rubric = {
   title: 'Biologie',

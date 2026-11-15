@@ -1,10 +1,10 @@
 import { expect, test } from '@playwright/test';
-import { buildBlindVisualObservationReport } from '../../src/domain/evaluation/scientificDiagramBlindGraph.ts';
-import { DIAGRAM_SENSITIVITY_CASES } from '../../src/domain/evaluation/scientificDiagramSensitivity.ts';
-import { summarizeDiagramLabReport } from '../../src/domain/evaluation/diagramLabHistory.ts';
-import { defaultAiModelConfiguration } from '../../src/domain/aiModelProfiles.ts';
-import { buildDiagramLabRadar } from '../../src/domain/evaluation/diagramLabRadar.ts';
-import { SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET } from '../../src/domain/evaluation/scientificDiagramFixtures.ts';
+import { buildBlindVisualObservationReport } from '../../src/evaluation/domain/scientificDiagramBlindGraph.ts';
+import { DIAGRAM_SENSITIVITY_CASES } from '../../src/evaluation/domain/scientificDiagramSensitivity.ts';
+import { summarizeDiagramLabReport } from '../../src/evaluation/domain/diagramLabHistory.ts';
+import { defaultAiModelConfiguration } from '../../src/shared/domain/aiModelProfiles.ts';
+import { buildDiagramLabRadar } from '../../src/evaluation/domain/diagramLabRadar.ts';
+import { SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET } from '../../src/evaluation/domain/scientificDiagramFixtures.ts';
 
 const report = buildBlindVisualObservationReport(DIAGRAM_SENSITIVITY_CASES.map((item) => ({
   caseId: item.id, profileId: 'radar-prof', profileName: 'Vision à compléter',

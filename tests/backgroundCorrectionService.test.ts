@@ -1,13 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createBackgroundCorrection, toBackgroundJobOverview } from '../src/domain/correction/backgroundCorrection.ts';
-import { createBackgroundCorrectionService } from '../src/application/backgroundCorrectionService.ts';
-import { createScientificDiagramAnalysisService } from '../src/application/scientificDiagramAnalysisService.ts';
-import { SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC } from '../src/domain/correction/scientificDiagramRubric.ts';
-import type { BackgroundCorrectionJob } from '../src/domain/correction/backgroundCorrection.ts';
-import type { BackgroundCorrectionRepository } from '../src/ports/backgroundCorrectionRepository.ts';
-import type { GradingProvider, GradingRequest, OllamaSettings } from '../src/ports/aiProvider.ts';
-import type { ScientificDiagramAnalyzer } from '../src/ports/scientificDiagramAnalysis.ts';
-import type { CorrectionWorkspaceService } from '../src/application/correctionWorkspaceService.ts';
+import { createBackgroundCorrection, toBackgroundJobOverview } from '../src/correction/domain/backgroundCorrection.ts';
+import { createBackgroundCorrectionService } from '../src/correction/application/backgroundCorrectionService.ts';
+import { createScientificDiagramAnalysisService } from '../src/correction/application/scientificDiagramAnalysisService.ts';
+import { SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC } from '../src/correction/domain/scientificDiagramRubric.ts';
+import type { BackgroundCorrectionJob } from '../src/correction/domain/backgroundCorrection.ts';
+import type { BackgroundCorrectionRepository } from '../src/correction/ports/backgroundCorrectionRepository.ts';
+import type { GradingProvider, GradingRequest, OllamaSettings } from '../src/correction/ports/aiProvider.ts';
+import type { ScientificDiagramAnalyzer } from '../src/correction/ports/scientificDiagramAnalysis.ts';
+import type { CorrectionWorkspaceService } from '../src/correction/application/correctionWorkspaceService.ts';
 
 function fixture() {
   const job = createBackgroundCorrection({

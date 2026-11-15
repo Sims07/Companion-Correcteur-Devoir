@@ -2,7 +2,7 @@
 import { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { AiModelRoleFields } from '../../src/ui/components/AiModelRoleFields.tsx';
+import { AiModelRoleFields } from '../../src/shared/ui/components/AiModelRoleFields.tsx';
 
 (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
 const containers: Array<{ root: ReturnType<typeof createRoot>; node: HTMLDivElement }> = [];

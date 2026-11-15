@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createOllamaProvider } from '../../../src/adapters/ai/ollamaProvider.ts';
-import { parseGradingProposal } from '../../../src/domain/correction/grading.ts';
-import { questionGroups } from '../../../src/domain/correction/questionContract.ts';
+import { createOllamaProvider } from '../../../src/correction/adapters/ai/ollamaProvider.ts';
+import { parseGradingProposal } from '../../../src/correction/domain/grading.ts';
+import { questionGroups } from '../../../src/correction/domain/questionContract.ts';
 import {
   QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_STRESS_CASES, QUESTION_CONTRACT_QUESTION, questionContractRubric,
-} from '../../../src/domain/evaluation/questionContractPilot.ts';
-import { prepareSystemOneRubric, scoreSystemOneRubric, type SystemOneBatchPrepared } from '../../../src/domain/correction/systemOneDecision.ts';
+} from '../../../src/evaluation/domain/questionContractPilot.ts';
+import { prepareSystemOneRubric, scoreSystemOneRubric, type SystemOneBatchPrepared } from '../../../src/correction/domain/systemOneDecision.ts';
 
 const rubric = questionContractRubric('contract');
 const reversed = QUESTION_CONTRACT_CASES.find(({ id }) => id === 'B')!;

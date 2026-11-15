@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { RubricCriterion } from '../../../src/domain/correction/rubric.ts';
-import { PILOT_RUBRIC } from '../../../src/domain/evaluation/pilotEvaluationProtocol.ts';
-import { reconcileIncrementalScore } from '../../../src/domain/correction/incrementalGradingReconciliation.ts';
+import type { RubricCriterion } from '../../../src/correction/domain/rubric.ts';
+import { PILOT_RUBRIC } from '../../../src/evaluation/domain/pilotEvaluationProtocol.ts';
+import { reconcileIncrementalScore } from '../../../src/correction/domain/incrementalGradingReconciliation.ts';
 
 const criterion = PILOT_RUBRIC.criteria[0]!;
 const answered = (first: number, second: number, declared = first + second) => ({

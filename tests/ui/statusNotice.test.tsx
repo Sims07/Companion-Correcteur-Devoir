@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { StatusNotice, type StatusTone } from '../../src/ui/design-system/components/StatusNotice.tsx';
+import { StatusNotice, type StatusTone } from '../../src/shared/ui/design-system/components/StatusNotice.tsx';
 
 describe('StatusNotice', () => {
   const checks: Array<{ tone: StatusTone; role: string; message: string }> = [

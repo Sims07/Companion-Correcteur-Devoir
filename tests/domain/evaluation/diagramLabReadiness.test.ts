@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { summarizeDiagramLabReadiness } from '../../../src/domain/evaluation/diagramLabReadiness.ts';
+import { summarizeDiagramLabReadiness } from '../../../src/evaluation/domain/diagramLabReadiness.ts';
 
 describe('scientific diagram radar readiness', () => {
   it('does not call an incomplete candidate classable even if all campaigns exist', () => {

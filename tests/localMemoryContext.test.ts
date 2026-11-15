@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildLocalMemoryContext, createTeacherMemoryEntry } from '../src/domain/correction/localMemoryContext.ts';
+import { buildLocalMemoryContext, createTeacherMemoryEntry } from '../src/correction/domain/localMemoryContext.ts';
 
 const base = {
   correctionId: 'correction-1',

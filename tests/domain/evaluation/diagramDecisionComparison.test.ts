@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { assessDiagramDecision } from '../../../src/domain/evaluation/diagramDecisionComparison.ts';
+import { assessDiagramDecision } from '../../../src/evaluation/domain/diagramDecisionComparison.ts';
 
 describe('assessDiagramDecision', () => {
   it('accepts only exact agreement with the reference, including expected absence', () => {

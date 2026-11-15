@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultAiModelConfiguration, parseAiModelConfiguration, parseAiModelProfiles, removeAiModelProfile, removeAiModelProfiles, upsertAiModelProfile, type AiModelProfile } from '../../src/domain/aiModelProfiles.ts';
+import { defaultAiModelConfiguration, parseAiModelConfiguration, parseAiModelProfiles, removeAiModelProfile, removeAiModelProfiles, upsertAiModelProfile, type AiModelProfile } from '../../src/shared/domain/aiModelProfiles.ts';
 
 const profile: AiModelProfile = {
   id: 'profile-1', name: 'Biologie comparaison', mode: 'compare',

@@ -21,8 +21,8 @@ const getToken = (css: string, key: string): string => {
 };
 
 describe('Atelier pédagogique visual identity', () => {
-  const tokens = read('src/ui/design-system/tokens.css');
-  const theme = read('src/ui/design-system/application-theme.css');
+  const tokens = read('src/shared/ui/design-system/tokens.css');
+  const theme = read('src/shared/ui/design-system/application-theme.css');
 
   it('uses the professor-selected warm paper and terracotta palette', () => {
     expect(getToken(tokens, 'ds-color-surface-subtle')).toBe('#fbf8f2');
@@ -47,6 +47,6 @@ describe('Atelier pédagogique visual identity', () => {
     expect(theme).toContain('.teacher-step.active');
     expect(theme).toContain('font-family: var(--ds-font-editorial)');
     expect(theme).toContain('@media (prefers-reduced-motion: reduce)');
-    expect(read('src/ui/design-system/controls.css')).toContain('var(--ds-focus-ring)');
+    expect(read('src/shared/ui/design-system/controls.css')).toContain('var(--ds-focus-ring)');
   });
 });

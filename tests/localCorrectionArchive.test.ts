@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { deleteLocalCorrection, getLocalCorrection, listLocalCorrectionSummaries, listLocalCorrections, saveLocalCorrection } from '../src/adapters/storage/indexedDbMemory.ts';
-import type { LocalCorrection } from '../src/domain/correction/localCorrection.ts';
+import { deleteLocalCorrection, getLocalCorrection, listLocalCorrectionSummaries, listLocalCorrections, saveLocalCorrection } from '../src/correction/adapters/storage/correctionRepository.ts';
+import type { LocalCorrection } from '../src/correction/domain/localCorrection.ts';
 
 const correction: LocalCorrection = {
   id: 'archive-integration-1',

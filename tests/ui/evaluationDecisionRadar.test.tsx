@@ -2,8 +2,8 @@
 import { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { describe, expect, it, vi } from 'vitest';
-import { defaultAiModelConfiguration, type AiModelProfile } from '../../src/domain/aiModelProfiles.ts';
-import { EvaluationRadarHome } from '../../src/ui/components/EvaluationRadarHome.tsx';
+import { defaultAiModelConfiguration, type AiModelProfile } from '../../src/shared/domain/aiModelProfiles.ts';
+import { EvaluationRadarHome } from '../../src/evaluation/ui/components/EvaluationRadarHome.tsx';
 
 const profiles: AiModelProfile[] = ['d1:3b', 'tev1:4b'].map((model) => ({
   id: 'decision-' + model, name: model, mode: 'single', updatedAt: '2026-11-12T09:00:00Z',

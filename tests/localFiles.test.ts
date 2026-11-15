@@ -10,7 +10,7 @@ vi.mock('pdfjs-dist', () => ({
   getDocument: (...args: unknown[]) => getDocumentMock(...args),
 }));
 
-import { eraseTeacherAnnotationColor, prepareLocalFiles, rotateLocalImage } from '../src/adapters/files/localFiles.ts';
+import { eraseTeacherAnnotationColor, prepareLocalFiles, rotateLocalImage } from '../src/correction/adapters/files/localFiles.ts';
 
 describe('prepareLocalFiles', () => {
   beforeEach(() => {

@@ -1,0 +1,376 @@
+import { evaluationPromptReferences } from './evaluationPromptReferences.ts';
+import type { AiModelProfile } from '../../shared/domain/aiModelProfiles.ts';
+import type { ModelEvaluationRecord, ModelEvaluationResultSnapshot } from './modelEvaluation.ts';
+import { getRubricSubcriteria, type Rubric, isNativeDecisionModel, isVisualDecisionModel } from '../../correction/domain/contract.ts';
+import { extractSystemOneDecisions, type VisualChoice } from './visualDecisionEvaluation.ts';
+import { isSupportedPilotProfile, isLoopbackPilotEndpoint } from './pilotEvaluationProtocol.ts';
+
+export const SCIENTIFIC_DIAGRAM_PROTOCOL_ID = 'scientific-diagram-observable-v1';
+
+export type DiagramTeacherDecision = 'present' | 'absent' | 'partial';
+export type DiagramGold = Record<string, DiagramTeacherDecision>;
+export type DiagramProtocolRun = { repetition: number; record: ModelEvaluationRecord };
+export type DiagramProtocolCount = 1 | 3 | 5;
+export type DiagramMethod = 'graph-first-v1' | 'graph-first-v2' | 'vision-then-analysis' | 'direct-image-generative' | 'direct-image-generative-thinking' | 'direct-image-systemone';
+export type DiagramMethodSelection = DiagramMethod | 'compare' | 'compare-thinking';
+
+export const diagramMethodLabels: Record<DiagramMethod, string> = {
+  'graph-first-v1': 'Image → graphe → correction · v1',
+  'graph-first-v2': 'Image → relations légendes/structures → correction · v2',
+  'vision-then-analysis': 'Vision puis analyse',
+  'direct-image-generative': 'Image → génératif direct',
+  'direct-image-generative-thinking': 'Image → génératif direct (Think ON)',
+  'direct-image-systemone': 'System One image directe',
+};
+
+/** The scientific laboratory selects routes independently of the teacher workflow.
+ * Only genuinely supported routes are offered: TEV1 has no native System One image API. */
+export function availableDiagramMethods(profile: AiModelProfile): DiagramMethod[] {
+  const config = profile.configuration;
+  if (!isSupportedPilotProfile(profile) || !config.analysisModel.trim()) return [];
+  if (config.apiCompatible && config.correctionMethod !== 'generative') return [];
+  const methods: DiagramMethod[] = [];
+  if (config.visionModel.trim() && (config.apiCompatible || !isNativeDecisionModel(config.visionModel))) {
+    methods.push('vision-then-analysis');
+  }
+  if (config.correctionMethod === 'generative') methods.push('direct-image-generative');
+  if (!config.apiCompatible && (config.correctionMethod === 'decision' || config.correctionMethod === 'visual-decision')
+      && isVisualDecisionModel(config.analysisModel)) methods.push('direct-image-systemone');
+  return methods;
+}
+
+/** Selection is based on provider and route, never on a model-name list.
+ * Per-model thinking and vision capabilities are checked against Ollama
+ * /api/show when the test starts, before grading any image. */
+export function supportsDiagramThinking(profile: AiModelProfile): boolean {
+  const config = profile.configuration;
+  return !config.apiCompatible
+    && isLoopbackPilotEndpoint(config.endpoint)
+    && config.correctionMethod === 'generative'
+    && Boolean(config.analysisModel.trim());
+}
+
+export function selectDiagramMethods(profile: AiModelProfile, selection: DiagramMethodSelection): DiagramMethod[] {
+  const methods = availableDiagramMethods(profile);
+  if (selection === 'graph-first-v1' || selection === 'graph-first-v2') return methods.includes('direct-image-generative') ? [selection] : [];
+  if (selection === 'compare') return methods;
+  if (selection === 'compare-thinking') return methods.includes('direct-image-generative') && supportsDiagramThinking(profile)
+    ? ['direct-image-generative', 'direct-image-generative-thinking'] : [];
+  if (selection === 'direct-image-generative-thinking') return supportsDiagramThinking(profile)
+    && methods.includes('direct-image-generative') ? [selection] : [];
+  return methods.filter((method) => method === selection);
+}
+
+export function diagramMethodIssue(profile: AiModelProfile, selection: DiagramMethodSelection): string | null {
+  if (!isSupportedPilotProfile(profile)) return 'Adresse de serveur invalide : ' + profile.name;
+  if (!profile.configuration.analysisModel.trim()) return 'Modèle d’analyse manquant : ' + profile.name;
+  if ((selection === 'graph-first-v1' || selection === 'graph-first-v2') && profile.configuration.correctionMethod !== 'generative') return 'La lecture du graphe et sa correction nécessitent un modèle génératif avec vision.';
+  if (selection === 'vision-then-analysis' && !profile.configuration.apiCompatible
+    && isNativeDecisionModel(profile.configuration.visionModel)) {
+    return 'Modèle décisionnel utilisé en Vision : « ' + profile.configuration.visionModel
+      + ' » ne prend pas en charge le chat (/api/chat). Choisissez un modèle Vision génératif pour lire les images, puis D1 pour les décisions System One.';
+  }
+  if (selectDiagramMethods(profile, selection).length) return null;
+  // Preserve the actionable incompatibility explanation if an obsolete or
+  // misconfigured profile explicitly requests image-based System One.
+  if (profile.configuration.correctionMethod === 'visual-decision'
+    && !isVisualDecisionModel(profile.configuration.analysisModel)) {
+    return /^tev1(?::|$)/i.test(profile.configuration.analysisModel)
+      ? 'TEV1 ne prend pas en charge les images via System One. Choisissez Vision puis TEV1 texte ou un modèle visuel compatible.'
+      : 'Ce modèle ne peut pas recevoir directement le schéma via System One : ' + profile.name;
+  }
+  if (selection === 'compare-thinking' || selection === 'direct-image-generative-thinking') {
+    return 'Le test Think nécessite un modèle d’analyse génératif sur Ollama local (pas une API distante). Les capacités Think sont vérifiées auprès d’Ollama au lancement : ' + profile.name;
+  }
+  return selection === 'direct-image-generative'
+    ? 'Le parcours génératif direct exige une configuration générative et un modèle acceptant les images : ' + profile.name
+    : selection === 'direct-image-systemone'
+      ? 'Le parcours System One image exige un modèle Ollama décisionnel compatible avec les images (pas TEV1) : ' + profile.name
+      : selection === 'vision-then-analysis'
+        ? 'Le parcours en deux étapes exige un modèle Vision et une analyse compatibles : ' + profile.name
+        : 'Aucun parcours de schéma disponible pour la configuration : ' + profile.name;
+}
+
+
+export function diagramTargetKey(criterionId: string, subcriterionId: string): string {
+  return criterionId + '::' + subcriterionId;
+}
+
+export function diagramProtocolProfileIssue(profile: AiModelProfile): string | null {
+  if (!isSupportedPilotProfile(profile)) return 'Adresse de serveur invalide : ' + profile.name;
+  const config = profile.configuration;
+  if (!config.analysisModel.trim()) return 'Modèle d’analyse manquant : ' + profile.name;
+  if ((config.correctionMethod === 'decision' || config.correctionMethod === 'visual-decision') && config.apiCompatible) {
+    return 'System One ne passe pas par l’API Chat compatible OpenAI : ' + profile.name;
+  }
+  if (config.correctionMethod === 'visual-decision' && !isVisualDecisionModel(config.analysisModel)) {
+    return /^tev1(?::|$)/i.test(config.analysisModel)
+      ? 'TEV1 ne prend pas en charge les images via System One. Pour un appel direct, choisissez Clef-Flash ; sinon utilisez Vision puis TEV1.'
+      : 'Décision directe sur image indisponible pour « ' + config.analysisModel + ' ». Choisissez un modèle compatible, par exemple Clef-Flash.';
+  }
+  if (!usesDirectDiagramVision(profile) && !config.visionModel.trim()) {
+    return 'Modèle Vision manquant pour le parcours en deux étapes : ' + profile.name;
+  }
+  return null;
+}
+
+export function usesDirectDiagramVision(profile: AiModelProfile): boolean {
+  return !profile.configuration.apiCompatible
+    && (profile.configuration.correctionMethod === 'decision'
+      || profile.configuration.correctionMethod === 'visual-decision')
+    && isVisualDecisionModel(profile.configuration.analysisModel);
+}
+
+/** Reports from arbitrary copies must never expose model-authored evidence text.
+ * Only the bundled synthetic A/B/C/D/E exercise opts into a short, screened
+ * excerpt: it helps distinguish hallucinated morphology from a missed pointer.
+ * This is a diagnostic, not independent proof that a visual statement is true. */
+function syntheticDiagramEvidence(value: string | undefined): string | null {
+  const excerpt = typeof value === 'string' ? value.replace(/\s+/g, ' ').trim() : '';
+  if (!excerpt || /https?:\/\/|www\.|@|PRIVATE_|api[_ -]?key|bearer\s|base64|sk-[a-z0-9]{8,}/i.test(excerpt)) return null;
+  return excerpt.slice(0, 180);
+}
+
+export interface DiagramObservationExportOptions {
+  /** Only enable for the fixed synthetic fixtures; never on uploaded teacher copies. */
+  syntheticFixtureEvidence?: boolean;
+}
+
+export function diagramObservations(result: ModelEvaluationResultSnapshot, rubric: Rubric, options: DiagramObservationExportOptions = {}) {
+  const source = result.directVisualDecision ? 'image' : 'text';
+  const native = new Map(extractSystemOneDecisions(result, rubric, source).map((observation) =>
+    [diagramTargetKey(observation.criterionId, observation.targetId), observation]));
+  return rubric.criteria.flatMap((criterion) => getRubricSubcriteria(criterion).map((sub) => {
+    const key = diagramTargetKey(criterion.id, sub.id);
+    const observed = native.get(key);
+    const proposal = result.proposal?.criteria.find((item) => item.criterionId === criterion.id);
+    const assessment = proposal?.subcriteria?.find((item) => item.subcriterionId === sub.id);
+    const validAssessment = result.status === 'success' && proposal
+      && proposal.assessmentStatus !== 'not-evaluated' && assessment
+      && assessment.assessmentStatus !== 'not-evaluated' && Number.isFinite(assessment.points)
+      && assessment.points >= 0 && assessment.points <= sub.maxPoints;
+    let choice: VisualChoice = 'uncertain';
+    let decisionSource: 'native-image' | 'native-text' | 'scored-proposal' | 'none' = 'none';
+    if (result.status === 'success') {
+      if (observed) {
+        // The native decision is observable independently from score validity.
+        // In particular, missing literal evidence must not erase TEV1 choices.
+        choice = observed.choice;
+        decisionSource = source === 'image' ? 'native-image' : 'native-text';
+      } else if (validAssessment && assessment) {
+        choice = assessment.points === 0 ? 'absent'
+          : Math.abs(assessment.points - sub.maxPoints) < 0.0001 ? 'present' : 'partial';
+        decisionSource = 'scored-proposal';
+      }
+    }
+    // Never infer an awarded point value from a System One decision: native
+    // choices and numeric grades are distinct measurements.
+    const evidence = validAssessment && assessment ? assessment.evidence : undefined;
+    const evidenceState = !validAssessment ? 'unavailable' as const
+      : assessment?.evidenceStatus === 'needs-review' ? 'needs-review' as const
+        : typeof evidence === 'string' && evidence.trim() ? 'provided' as const : 'missing' as const;
+    const safeExcerpt = options.syntheticFixtureEvidence ? syntheticDiagramEvidence(evidence) : null;
+    return {
+      key, criterion: criterion.title, title: sub.title, choice, decisionSource,
+      probability: decisionSource === 'native-image' || decisionSource === 'native-text'
+        ? observed?.probability ?? null : null,
+      maxPoints: sub.maxPoints,
+      awardedPoints: validAssessment && assessment ? assessment.points : null,
+      evidenceState,
+      modelConfidence: validAssessment ? proposal?.confidence ?? null : null,
+      teacherReviewRequested: Boolean(proposal?.questionForTeacher || assessment?.questionForTeacher
+        || proposal?.assessmentStatus === 'not-evaluated' || assessment?.assessmentStatus === 'not-evaluated'),
+      ...(safeExcerpt ? { syntheticEvidenceExcerpt: safeExcerpt } : {}),
+    };
+  }));
+}
+
+/** Only export a fixed failure category: original errors may contain URLs,
+ * identifiers, network payloads or credentials from a provider exception. */
+export type DiagramFailureCategory = 'model-unavailable' | 'connection' | 'system-one-unavailable'
+  | 'unsupported-chat' | 'generation-limit' | 'invalid-or-incomplete-output' | 'timeout' | 'other';
+
+/** The diagnostic export contains ONLY a predefined category, never the
+ * exception text itself (which could contain a private endpoint or token).
+ * Ambiguous errors stay ambiguous: do not mislabel them as model mistakes. */
+export function diagramFailureCategory(error?: string): DiagramFailureCategory | null {
+  if (!error) return null;
+  if (/n.est pas install.|not installed|unknown model|model not found|ollama pull/i.test(error)) return 'model-unavailable';
+  if (/injoignable|failed to fetch|networkerror|econnrefused|cors|connection refused/i.test(error)) return 'connection';
+  if (/does not support chat|ne prend pas en charge le chat|modèle décisionnel utilisé en vision/i.test(error)) return 'unsupported-chat';
+  if (/system one|systemone/i.test(error)) return 'system-one-unavailable';
+  if (/done_reason=length|limite de g.n.ration|maximum output tokens|num_predict/i.test(error)) return 'generation-limit';
+  if (/\[diagram-output:/.test(error)) return 'invalid-or-incomplete-output';
+  if (/r.ponse tronqu.e|json invalide|json tronqu.|objet json|sous-crit.re manquant|sous-crit.res manquants|r.ponse.*incompl.te|proposition.*invalide|doit contenir.*crit.re|ne contient pas tous les sous-crit.res/i.test(error)) return 'invalid-or-incomplete-output';
+  if (/timeout|timed out|d.lai d.pass.|trop de temps|d.lai d.attente/i.test(error)) return 'timeout';
+  return 'other';
+}
+
+/** Only aggregated, allowlisted model-call metadata is exported. Never include
+ * traces, prompts, image data, provider errors or request/response payloads.
+ * This allows diagnosing expensive JSON repair loops from a pasted report. */
+export function diagramAnalysisDiagnostics(
+  result: Pick<ModelEvaluationResultSnapshot, 'diagnosticRuns' | 'error'>,
+) {
+  const calls = (result.diagnosticRuns ?? []).filter((run) => run.kind === 'model' && run.stage === 'analysis');
+  const budget = calls.map((run) => run.requestMetadata?.options.generationTokenLimit ?? run.generationTokenLimit)
+    .find((value) => typeof value === 'number' && Number.isFinite(value) && value > 0 && value <= 65536);
+  const generated = calls.filter((run) => typeof run.generatedTokens === 'number'
+    && Number.isFinite(run.generatedTokens) && run.generatedTokens >= 0);
+  // Only parser-authored, allowlisted markers are exported; raw model
+  // responses and untrusted exception text must not enter reports.
+  const invalidPoints = [...(result.error ?? '').matchAll(
+    /\[diagram-point:([a-zA-Z0-9_-]{1,64})\/([a-zA-Z0-9_-]{1,64}):([0-9]+(?:\.[0-9]+)?):(-?[0-9]+(?:\.[0-9]+)?|null|string|boolean|object|undefined|out-of-range)\]/g,
+  )].slice(0, 20).map((match) => ({
+    path: match[1] + (match[2] === '-' ? '' : '.subcriteria.' + match[2]) + '.points',
+    maximum: Number(match[3]),
+    received: /^-?[0-9]+(?:\.[0-9]+)?$/.test(match[4]!) ? Number(match[4]) : match[4],
+  }));
+  // Per-call, allowlisted counters explain slow analyses and JSON repairs,
+  // without leaking prompts, endpoints, provider exceptions or model output.
+  const measured = (value: unknown, ceiling: number): number | null =>
+    typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= ceiling
+      ? Math.round(value) : null;
+  const analysisCallTraces = calls.map((call) => ({
+    role: call.promptId === 'grading.full-repair' || call.promptId === 'grading.incremental-repair'
+      || call.promptId === 'diagram.direct-repair' ? 'repair' as const : 'primary' as const,
+    provider: call.requestMetadata?.provider === 'ollama' || call.requestMetadata?.provider === 'openai-compatible'
+      ? call.requestMetadata.provider : null,
+    imageCount: measured(call.requestMetadata?.imageCount, 100),
+    elapsedMs: measured(call.elapsedMs, 24 * 3600 * 1000),
+    contextTokens: measured(call.requestMetadata?.options.contextTokens ?? call.contextTokens, 1000000),
+    outputLimit: measured(call.requestMetadata?.options.generationTokenLimit ?? call.generationTokenLimit, 65536),
+    promptTokens: measured(call.promptTokens, 1000000),
+    generatedTokens: measured(call.generatedTokens, 1000000),
+    doneReason: call.doneReason === 'length' ? 'length' as const
+      : call.doneReason === 'stop' ? 'stop' as const : 'unknown' as const,
+    thinkingObserved: typeof call.thinkingPresent === 'boolean' ? call.thinkingPresent : null,
+  }));
+  return {
+    ...(invalidPoints.length ? { invalidPoints } : {}),
+    analysisCalls: calls.length,
+    analysisCallTraces,
+    repairCalls: calls.filter((run) => run.promptId === 'grading.full-repair' || run.promptId === 'grading.incremental-repair' || run.promptId === 'diagram.direct-repair').length,
+    generationLimitHits: calls.filter((run) => run.doneReason === 'length').length,
+    generationBudgetTokens: budget ?? null,
+    generatedTokens: generated.length
+      ? Math.round(generated.reduce((sum, run) => sum + (run.generatedTokens ?? 0), 0)) : null,
+    ...(result.error?.match(/\[diagram-output:(invalid-json|invalid-shape|missing-id|unknown-id|missing-evidence|invalid-points|invalid-confidence|generation-limit)\]/)
+      ? { outputFailure: result.error.match(/\[diagram-output:(invalid-json|invalid-shape|missing-id|unknown-id|missing-evidence|invalid-points|invalid-confidence|generation-limit)\]/)![1] } : {}),
+  };
+}
+
+/** A report only contains authored rubric, decisions and timings. No images,
+ * copied responses, API endpoints, credentials, prompts or raw model messages. */
+export function buildScientificDiagramProtocolReport(
+  runs: readonly DiagramProtocolRun[], rubric: Rubric, gold: DiagramGold,
+  plannedRepetitions: DiagramProtocolCount, createdAt: string, imageCount: number,
+  observationOptions: DiagramObservationExportOptions = {},
+) {
+  const totalTargets = rubric.criteria.reduce((sum, criterion) => sum + getRubricSubcriteria(criterion).length, 0);
+  const experiments = runs.flatMap(({ repetition, record }) => record.results.map((result) => ({
+    repetition, profileId: result.profileId, profileName: result.profileName,
+    model: record.configurations.find((entry) => entry.id === result.profileId)?.analysisModel ?? '',
+    method: record.graphFirst ? (record.graphVersion === 'v2' ? 'graph-first-v2' as const : 'graph-first-v1' as const) : result.directVisualDecision ? 'direct-image-systemone' as const
+      : record.configurations.find((entry) => entry.id === result.profileId)?.directGenerativeVision
+        ? (record.configurations.find((entry) => entry.id === result.profileId)?.thinking
+          ? 'direct-image-generative-thinking' as const : 'direct-image-generative' as const)
+        : 'vision-then-analysis' as const,
+    // The V2 graph may contain literal text copied from an arbitrary student's
+    // uploaded drawing. Export it only for the bundled synthetic fixtures.
+    ...(result.graphEvidence && (result.graphEvidence.version !== 'graph-first-v2' || observationOptions.syntheticFixtureEvidence)
+      ? { graphEvidence: result.graphEvidence } : {}),
+    thinkingRequested: record.configurations.find((entry) => entry.id === result.profileId)?.thinking ?? null,
+    thinkingSetting: (() => {
+      const configuration = record.configurations.find((entry) => entry.id === result.profileId);
+      return configuration?.thinkingLevel ?? configuration?.thinking ?? null;
+    })(),
+    // Only observable separate Ollama thinking chunks count as evidence that
+    // the provider actually emitted reasoning; do not export the text itself.
+    thinkingObserved: (() => {
+      const calls = result.diagnosticRuns?.filter((call) => call.kind === 'model' && call.stage === 'analysis') ?? [];
+      return !calls.some((call) => call.thinkingPresent !== undefined) ? null
+        : calls.some((call) => call.thinkingPresent === true);
+    })(),
+    status: result.status,
+    failureCategory: result.status !== 'success' ? diagramFailureCategory(result.error) : null,
+    error: result.error
+      ? result.readingMs === 0 && result.analysisMs === 0
+        ? 'Échec avant traitement du schéma : vérifiez la configuration ou les modèles dans l’observabilité locale.'
+        : 'Échec durant le traitement : détails dans l’observabilité locale.'
+      : null,
+    durationMs: result.elapsedMs, readingMs: result.readingMs, analysisMs: result.analysisMs,
+    tokens: result.tokens, score: result.score,
+    ...(result.diagnosticRuns?.length ? { prompts: evaluationPromptReferences(result.diagnosticRuns) } : {}),
+    diagnostics: diagramAnalysisDiagnostics(result),
+    scoreStatus: result.status !== 'success' ? 'execution-failed' as const
+      : result.score !== null ? 'scored' as const
+      : result.proposal ? 'teacher-review-required' as const : 'invalid-or-incomplete-proposal' as const,
+    observations: diagramObservations(result, rubric, observationOptions),
+  })));
+  const profiles = [...new Map(experiments.map((experiment) => [
+    experiment.profileId + '::' + experiment.method,
+    { profileId: experiment.profileId, method: experiment.method },
+  ])).values()];
+  const summaries = profiles.map(({ profileId, method }) => {
+    const items = experiments.filter((item) => item.profileId === profileId && item.method === method).sort((a, b) => a.repetition - b.repetition);
+    const ids = items[0]?.observations.map((item) => item.key) ?? [];
+    const decisions = ids.map((key) => {
+      const choices = items.map((item) => item.observations.find((entry) => entry.key === key)?.choice ?? 'uncertain');
+      const resolved = choices.filter((choice) => choice !== 'uncertain');
+      const known = gold[key] ?? null;
+      return {
+        key, reference: known, choices,
+        stable: plannedRepetitions > 1 && items.length === plannedRepetitions
+          && choices.every((choice) => choice === choices[0]),
+        // A single run cannot establish repetition, even if its answer matches
+        // the reference. Use null (unmeasured) instead of a misleading true.
+        stableAndResolved: plannedRepetitions > 1
+          ? items.length === plannedRepetitions && resolved.length === items.length && new Set(choices).size === 1
+          : null,
+        correctEveryTime: plannedRepetitions > 1
+          ? Boolean(known) && items.length === plannedRepetitions && choices.every((choice) => choice === known)
+          : null,
+      };
+    });
+    const labelled = decisions.filter((item) => item.reference !== null);
+    const totalLabelledObservations = labelled.length * items.length;
+    const correct = labelled.reduce((sum, decision) => sum +
+      decision.choices.filter((choice) => choice === decision.reference).length, 0);
+    const resolved = decisions.reduce((sum, decision) => sum +
+      decision.choices.filter((choice) => choice !== 'uncertain').length, 0);
+    const complete = items.length === plannedRepetitions && items.every((item) => item.status === 'success');
+    const anyResolved = resolved > 0;
+    return {
+      profileId, profileName: items[0]?.profileName ?? profileId, model: items[0]?.model ?? '',
+      method,
+      runsCompleted: items.length, plannedRepetitions,
+      successfulRuns: items.filter((item) => item.status === 'success').length,
+      scoredRuns: items.filter((item) => item.scoreStatus === 'scored').length,
+      unscoredRuns: items.filter((item) =>
+        item.scoreStatus === 'teacher-review-required'
+        || item.scoreStatus === 'invalid-or-incomplete-proposal').length,
+      failedRuns: items.filter((item) => item.scoreStatus === 'execution-failed').length,
+      resolvedDecisions: resolved, totalDecisions: items.length * ids.length,
+      complete,
+      meanDurationMs: items.length ? Math.round(items.reduce((sum, item) => sum + item.durationMs, 0) / items.length) : null,
+      labelledTargets: labelled.length, totalTargets,
+      // Zero recovered answers is a technical/no-coverage state, NOT evidence
+      // that the model is wrong on every rubric item.
+      accuracyPercent: totalLabelledObservations && anyResolved
+        ? Math.round(1000 * correct / totalLabelledObservations) / 10 : null,
+      coveragePercent: items.length && ids.length ? Math.round(1000 * resolved / (items.length * ids.length)) / 10 : null,
+      stableResolvedTargets: complete && plannedRepetitions > 1 ? decisions.filter((item) => item.stableAndResolved).length : null,
+      correctEveryTime: complete && plannedRepetitions > 1 && labelled.length ? decisions.filter((item) => item.correctEveryTime).length : null,
+      decisions,
+    };
+  });
+  return {
+    format: 'companion-scientific-diagram-protocol' as const, version: 1,
+    protocolId: SCIENTIFIC_DIAGRAM_PROTOCOL_ID, createdAt, plannedRepetitions,
+    localOnly: runs.every(({ record }) => record.configurations.every((configuration) => isLoopbackPilotEndpoint(configuration.endpoint))),
+    rubric: structuredClone(rubric), imageCount, gold: structuredClone(gold),
+    limitations: 'Un seul schéma et la même image par répétition. À une répétition, aucune stabilité ni justesse « à chaque fois » ne peut être mesurée. Aucune décision récupérée signifie « justesse non mesurée », pas 0 % d’exactitude. Une réponse indécidable pénalise la justesse stricte dès lors que des décisions sont récupérées, mais ne prouve pas une erreur de fond. Les diagnostics de génération indiquent seulement le nombre d’appels, les réparations et les plafonds déclarés : ils ne prouvent pas pourquoi le modèle a échoué. Les choix System One sur transcription (TEV1) sont provisoires : mise en page, centrage et traits exigent la photographie. Une note nulle (null) indique un besoin de revue, jamais un zéro attribué. Répétabilité ne prouve pas exactitude. Les probabilités ne sont pas calibrées.',
+    summaries, experiments,
+  };
+}

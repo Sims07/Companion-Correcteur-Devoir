@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 const { readXlsxFileMock } = vi.hoisted(() => ({ readXlsxFileMock: vi.fn() }));
 vi.mock('read-excel-file/browser', () => ({ readSheet: (...args: unknown[]) => readXlsxFileMock(...args) }));
-import { importRubricFile } from '../src/adapters/files/rubricImport.ts';
+import { importRubricFile } from '../src/correction/adapters/files/rubricImport.ts';
 describe('importRubricFile', () => {
   it('imports a JSON rubric locally', async () => {
     const file = new File([JSON.stringify({ title: 'Biologie cellulaire', criteria: [{ title: 'Mitose', maxPoints: 4, description: 'Étapes exactes' }] })], 'bareme.json', { type: 'application/json' });

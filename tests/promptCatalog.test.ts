@@ -1,12 +1,12 @@
-import { MODEL_READINESS_PROBE_PROMPT } from '../src/adapters/ai/prompts/modelProbePrompt.ts';
+import { MODEL_READINESS_PROBE_PROMPT } from '../src/shared/adapters/ai/prompts/modelProbePrompt.ts';
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { buildTranscriptionPrompt, buildStudentIdentityPrompt, buildTeacherAnnotationPrompt, buildSubjectReferencePrompt, buildStudentIdentityFallbackPrompt, buildTeacherAnnotationRepairPrompt, buildRubricPageTranscriptionPrompt } from '../src/adapters/ai/prompts/visionPrompts.ts';
-import { buildFullGradingPrompt } from '../src/adapters/ai/prompts/fullGradingPrompt.ts';
-import { buildArbitrationPrompt, buildArbitrationRepairPrompt, buildIncrementalGradingRepairPrompt, buildGradingRepairPrompt, buildCriterionDecisionRepairPrompt } from '../src/adapters/ai/prompts/repairPrompts.ts';
-import { classificationPrompt, buildScientificDiagramPrompt, buildConciseScientificDiagramPrompt, buildScientificDiagramRepairPrompt } from '../src/adapters/ai/prompts/scientificDiagramPrompts.ts';
-import type { GradingRequest } from '../src/ports/aiProvider.ts';
-import type { ScientificDiagramAnalysisRequest } from '../src/ports/scientificDiagramAnalysis.ts';
+import { buildTranscriptionPrompt, buildStudentIdentityPrompt, buildTeacherAnnotationPrompt, buildSubjectReferencePrompt, buildStudentIdentityFallbackPrompt, buildTeacherAnnotationRepairPrompt, buildRubricPageTranscriptionPrompt } from '../src/correction/adapters/ai/prompts/visionPrompts.ts';
+import { buildFullGradingPrompt } from '../src/correction/adapters/ai/prompts/fullGradingPrompt.ts';
+import { buildArbitrationPrompt, buildArbitrationRepairPrompt, buildIncrementalGradingRepairPrompt, buildGradingRepairPrompt, buildCriterionDecisionRepairPrompt } from '../src/correction/adapters/ai/prompts/repairPrompts.ts';
+import { classificationPrompt, buildScientificDiagramPrompt, buildConciseScientificDiagramPrompt, buildScientificDiagramRepairPrompt } from '../src/correction/adapters/ai/prompts/scientificDiagramPrompts.ts';
+import type { GradingRequest } from '../src/correction/ports/aiProvider.ts';
+import type { ScientificDiagramAnalysisRequest } from '../src/correction/ports/scientificDiagramAnalysis.ts';
 
 describe('catalogue des prompts', () => {
   it('préserve les consignes de lecture, identification et annotations', () => {
@@ -56,8 +56,8 @@ describe('catalogue des prompts', () => {
   });
 
   it('empêche le retour des longues consignes dans les adaptateurs de transport', () => {
-    const provider = readFileSync(new URL('../src/adapters/ai/ollamaProvider.ts', import.meta.url), 'utf8');
-    const diagrams = readFileSync(new URL('../src/adapters/ai/openAiScientificDiagramAnalyzer.ts', import.meta.url), 'utf8');
+    const provider = readFileSync(new URL('../src/correction/adapters/ai/ollamaProvider.ts', import.meta.url), 'utf8');
+    const diagrams = readFileSync(new URL('../src/correction/adapters/ai/openAiScientificDiagramAnalyzer.ts', import.meta.url), 'utf8');
     expect(provider).not.toContain('RÔLE ET LIMITE : tu es un assistant de correction');
     expect(provider).not.toContain('RÔLE : identifie l’étudiant indiqué');
     expect(provider).not.toContain('RÔLE : tu es un lecteur fidèle de barèmes');

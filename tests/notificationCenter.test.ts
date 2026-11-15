@@ -2,8 +2,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { NotificationCenter } from '../src/ui/components/NotificationCenter.tsx';
-import { pushAppNotification, readAppNotifications } from '../src/domain/appNotifications.ts';
+import { NotificationCenter } from '../src/shared/ui/components/NotificationCenter.tsx';
+import { pushAppNotification, readAppNotifications } from '../src/shared/domain/appNotifications.ts';
 
 describe('global notification center', () => {
   let host: HTMLDivElement;

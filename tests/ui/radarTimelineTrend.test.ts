@@ -2,8 +2,8 @@
 import { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { expect, it, vi } from 'vitest';
-import type { TimelinePoint } from '../../src/domain/evaluation/radarTimeline.ts';
-import { RadarTimeline } from '../../src/ui/components/RadarTimeline.tsx';
+import type { TimelinePoint } from '../../src/evaluation/domain/radarTimeline.ts';
+import { RadarTimeline } from '../../src/evaluation/ui/components/RadarTimeline.tsx';
 
 it('connects consecutive scores, marks protocol changes and breaks the line at a missing score', async () => {
   const scores = [0, 60, 80, null, 30];

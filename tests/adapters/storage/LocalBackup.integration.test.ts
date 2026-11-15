@@ -1,10 +1,10 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { openDatabase } from '../../../src/adapters/storage/indexedDbMemory.ts';
+import { openDatabase } from '../../../src/shared/adapters/storage/indexedDbMemory.ts';
 import {
   createLocalBackup, parseLocalBackup, restoreLocalBackup, summarizeLocalBackup, validateLocalBackup,
   type LocalBackup,
-} from '../../../src/adapters/storage/localBackup.ts';
+} from '../../../src/shared/adapters/storage/localBackup.ts';
 
 class MemoryStorage {
   private values = new Map<string, string>();
@@ -188,7 +188,7 @@ describe('portable local backup (localhost to PWA)', () => {
     expect((await restoreLocalBackup(saved, 'merge', settings)).settingsImported).toBe(1);
     const imported = JSON.parse(settings.getItem(key)!);
     expect(imported).toHaveLength(14);
-    const { buildBiologyRadar } = await import('../../../src/domain/evaluation/biologyTeacherRadar.ts');
+    const { buildBiologyRadar } = await import('../../../src/evaluation/domain/biologyTeacherRadar.ts');
     const radars = buildBiologyRadar(imported, 'contract');
     expect(radars).toHaveLength(2);
     expect(radars.map((r) => r.score)).toEqual([100, 100]);

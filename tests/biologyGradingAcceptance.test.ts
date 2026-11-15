@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { parseGradingProposal, toReviewedCriteria, type CriterionProposal } from '../src/domain/correction/grading.ts';
-import { mergeScientificDiagramCriteria } from '../src/domain/correction/scientificRubricRouting.ts';
-import type { Rubric } from '../src/domain/correction/rubric.ts';
-import type { ScientificDiagramAnalysis } from '../src/domain/correction/scientificDiagram.ts';
-import { getReviewFocus } from '../src/domain/correction/reviewInsights.ts';
-import { getBackgroundCorrectionResult } from '../src/domain/correction/backgroundCorrectionResult.ts';
-import { sumGradeScores } from '../src/domain/scorePrecision.ts';
+import { parseGradingProposal, toReviewedCriteria, type CriterionProposal } from '../src/correction/domain/grading.ts';
+import { mergeScientificDiagramCriteria } from '../src/correction/domain/scientificRubricRouting.ts';
+import type { Rubric } from '../src/correction/domain/rubric.ts';
+import type { ScientificDiagramAnalysis } from '../src/correction/domain/scientificDiagram.ts';
+import { getReviewFocus } from '../src/correction/domain/reviewInsights.ts';
+import { getBackgroundCorrectionResult } from '../src/correction/domain/backgroundCorrectionResult.ts';
+import { sumGradeScores } from '../src/shared/domain/scorePrecision.ts';
 
 /**
  * Synthetic, anonymous biology scenarios. These exercise the deterministic

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { describeRadarBattery, radarBatteryEngine } from '../../../src/domain/evaluation/radarBatteryExecution.ts';
-import { trialSteps } from '../../../src/domain/evaluation/radarTimeline.ts';
-import type { RadarMissingTestRequest } from '../../../src/domain/evaluation/diagramLabRadarLaunch.ts';
+import { describeRadarBattery, radarBatteryEngine } from '../../../src/evaluation/domain/radarBatteryExecution.ts';
+import { trialSteps } from '../../../src/evaluation/domain/radarTimeline.ts';
+import type { RadarMissingTestRequest } from '../../../src/evaluation/domain/diagramLabRadarLaunch.ts';
 
 describe('radar battery execution labels', () => {
   const request: Pick<RadarMissingTestRequest, 'trial' | 'steps'> = {

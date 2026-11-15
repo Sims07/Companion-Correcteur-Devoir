@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
-const appSource = () => readFileSync(new URL('../src/ui/App.tsx', import.meta.url), 'utf8');
+const appSource = () => readFileSync(new URL('../src/shell/ui/App.tsx', import.meta.url), 'utf8');
 
 describe('correction launch feedback', () => {
   it('shows the progress state before waiting for background corrections to finish', () => {

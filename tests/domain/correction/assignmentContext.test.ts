@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildAssignmentContext } from '../../../src/domain/correction/assignmentContext.ts';
+import { buildAssignmentContext } from '../../../src/correction/domain/assignmentContext.ts';
 
 describe('buildAssignmentContext', () => {
   it('includes assignment name, objectives, education level and exercise question for the model', () => {

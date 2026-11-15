@@ -2,9 +2,9 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 describe('Scientific and biology protocol navigation', () => {
-  const diagram = readFileSync('src/ui/components/ScientificDiagramProtocolPanel.tsx', 'utf8');
-  const biology = readFileSync('src/ui/components/PilotEvaluationPanel.tsx', 'utf8');
-  const app = readFileSync('src/ui/App.tsx', 'utf8');
+  const diagram = readFileSync('src/evaluation/ui/components/ScientificDiagramProtocolPanel.tsx', 'utf8');
+  const biology = readFileSync('src/evaluation/ui/components/PilotEvaluationPanel.tsx', 'utf8');
+  const app = readFileSync('src/shell/ui/App.tsx', 'utf8');
 
   it('preserves every diagram battery, makes its run controls precede previews and identifies the current run', () => {
     for (const id of ["'reference'", "'arrows'", "'semantic'", "'graph'"]) expect(diagram).toContain(id);

@@ -4,8 +4,8 @@ import { describe, expect, it } from 'vitest';
 const read = (path: string) => readFileSync(path, 'utf8');
 
 describe('Atelier B : invariants du poste de correction pendant l’analyse', () => {
-  const app = read('src/ui/App.tsx');
-  const css = read('src/ui/atelierBProcessing.css');
+  const app = read('src/shell/ui/App.tsx');
+  const css = read('src/correction/ui/atelierBProcessing.css');
 
   it('uses one dedicated processing workspace rather than two stacked progress panels', () => {
     expect(app).toContain('<ActiveCopyProcessingWorkspace job={activeBackgroundJob} pages={images}');
@@ -32,8 +32,8 @@ describe('Atelier B : invariants du poste de correction pendant l’analyse', ()
   });
 
   it('uses informational tokens for active stages and criteria, while completed work stays green', () => {
-    const tokens = read('src/ui/design-system/tokens.css');
-    const source = read('src/ui/correctionAtelier.css');
+    const tokens = read('src/shared/ui/design-system/tokens.css');
+    const source = read('src/correction/ui/correctionAtelier.css');
     for (const token of ['--ds-color-progress:', '--ds-color-progress-surface:', '--ds-color-progress-border:']) {
       expect(tokens).toContain(token);
     }
@@ -58,8 +58,8 @@ describe('Atelier B : invariants du poste de correction pendant l’analyse', ()
   it('loads Atelier B overrides after all older flows and in Storybook', () => {
     const main = read('src/main.tsx');
     const storybook = read('.storybook/preview.ts');
-    expect(main.indexOf("import './ui/atelierBProcessing.css'")).toBeGreaterThan(main.indexOf("import './ui/atelierBRubric.css'"));
-    expect(storybook).toContain("import '../src/ui/atelierBProcessing.css'");
+    expect(main.indexOf("import './correction/ui/atelierBProcessing.css'")).toBeGreaterThan(main.indexOf("import './correction/ui/atelierBRubric.css'"));
+    expect(storybook).toContain("import '../src/correction/ui/atelierBProcessing.css'");
     expect(css).toContain('@media (prefers-reduced-motion: reduce)');
   });
 });

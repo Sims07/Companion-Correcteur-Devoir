@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatTeacherAnnotations, isDeletionOnlyTranscription, parseTeacherAnnotationDetection, parseTeacherAnnotations, removeConfirmedTeacherAnnotation } from '../../../src/domain/correction/teacherAnnotations.ts';
+import { formatTeacherAnnotations, isDeletionOnlyTranscription, parseTeacherAnnotationDetection, parseTeacherAnnotations, removeConfirmedTeacherAnnotation } from '../../../src/correction/domain/teacherAnnotations.ts';
 
 describe('teacher annotation extraction contract', () => {
   it('keeps comments and already awarded points distinct', () => {

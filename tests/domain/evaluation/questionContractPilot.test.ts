@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import type { GradingProposal } from '../../../src/domain/correction/grading.ts';
-import type { ModelEvaluationRecord, ModelEvaluationResultSnapshot } from '../../../src/domain/evaluation/modelEvaluation.ts';
-import { questionAnswer, questionGroups } from '../../../src/domain/correction/questionContract.ts';
-import { rubricEvaluationSignature, validateRubric } from '../../../src/domain/correction/rubric.ts';
+import type { GradingProposal } from '../../../src/correction/domain/grading.ts';
+import type { ModelEvaluationRecord, ModelEvaluationResultSnapshot } from '../../../src/evaluation/domain/modelEvaluation.ts';
+import { questionAnswer, questionGroups } from '../../../src/correction/domain/questionContract.ts';
+import { rubricEvaluationSignature, validateRubric } from '../../../src/correction/domain/rubric.ts';
 import {
   QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_PROTOCOL_ID, QUESTION_CONTRACT_QUESTION,
   buildQuestionContractReport, questionContractRubric,
-} from '../../../src/domain/evaluation/questionContractPilot.ts';
+} from '../../../src/evaluation/domain/questionContractPilot.ts';
 
 function resultFor(caseId: 'A' | 'B' | 'C', awarded?: Record<string, number>): ModelEvaluationResultSnapshot {
   const testCase = QUESTION_CONTRACT_CASES.find((item) => item.id === caseId)!;

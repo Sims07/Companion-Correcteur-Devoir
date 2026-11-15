@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { parseGradingProposal } from '../../../src/domain/correction/grading.ts';
-import { normalizeEvidenceText } from '../../../src/domain/correction/gradingEvidenceAudit.ts';
-import { PILOT_CASES, PILOT_RUBRIC } from '../../../src/domain/evaluation/pilotEvaluationProtocol.ts';
-import { questionContractRubric, QUESTION_CONTRACT_STRESS_CASES, QUESTION_CONTRACT_CASES } from '../../../src/domain/evaluation/questionContractPilot.ts';
-import type { RubricCriterion } from '../../../src/domain/correction/rubric.ts';
+import { parseGradingProposal } from '../../../src/correction/domain/grading.ts';
+import { normalizeEvidenceText } from '../../../src/correction/domain/gradingEvidenceAudit.ts';
+import { PILOT_CASES, PILOT_RUBRIC } from '../../../src/evaluation/domain/pilotEvaluationProtocol.ts';
+import { questionContractRubric, QUESTION_CONTRACT_STRESS_CASES, QUESTION_CONTRACT_CASES } from '../../../src/evaluation/domain/questionContractPilot.ts';
+import type { RubricCriterion } from '../../../src/correction/domain/rubric.ts';
 
 const criterion = (id: string) => PILOT_RUBRIC.criteria.find((entry) => entry.id === id)!;
 

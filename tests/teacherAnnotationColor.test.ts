@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { eraseTeacherInkPixels, sampleTeacherPaperColor, type TeacherAnnotationInkColor } from '../src/domain/correction/teacherAnnotationColor.ts';
+import { eraseTeacherInkPixels, sampleTeacherPaperColor, type TeacherAnnotationInkColor } from '../src/correction/domain/teacherAnnotationColor.ts';
 
 function rgba(red: number, green: number, blue: number): Uint8ClampedArray {
   return new Uint8ClampedArray([red, green, blue, 255]);

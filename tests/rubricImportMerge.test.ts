@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { previewRubricImport, parseRubricImport, resolveRubricImport } from '../src/domain/correction/rubricImport.ts';
-import { RUBRIC_EXPORT_FORMAT, RUBRIC_EXPORT_VERSION, type RubricExportV1 } from '../src/domain/correction/rubricExport.ts';
-import type { Rubric } from '../src/domain/correction/rubric.ts';
+import { previewRubricImport, parseRubricImport, resolveRubricImport } from '../src/correction/domain/rubricImport.ts';
+import { RUBRIC_EXPORT_FORMAT, RUBRIC_EXPORT_VERSION, type RubricExportV1 } from '../src/correction/domain/rubricExport.ts';
+import type { Rubric } from '../src/correction/domain/rubric.ts';
 const incoming: RubricExportV1 = { format: RUBRIC_EXPORT_FORMAT, version: RUBRIC_EXPORT_VERSION, rubricTitle: 'Barème source', criteria: [
  { id: 'shared', title: 'Connaissances', description: 'Description différente', maxPoints: 3, analysisMode: 'scientific-diagram', subcriteria: [{ id: 'shared-sub', title: 'Membrane', description: 'Contour', maxPoints: 3 }] },
  { id: 'new', title: 'Cycle cellulaire', description: 'Étapes', maxPoints: 2 },

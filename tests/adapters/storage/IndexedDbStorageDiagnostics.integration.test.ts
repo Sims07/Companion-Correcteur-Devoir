@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { openDatabase } from '../../../src/adapters/storage/indexedDbMemory.ts';
-import { IndexedDbStorageDiagnosticsRepository, inspectIndexedDbStores } from '../../../src/adapters/storage/indexedDbStorageDiagnostics.ts';
+import { openDatabase } from '../../../src/shared/adapters/storage/indexedDbMemory.ts';
+import { IndexedDbStorageDiagnosticsRepository, inspectIndexedDbStores } from '../../../src/shared/adapters/storage/indexedDbStorageDiagnostics.ts';
 
 afterEach(() => vi.unstubAllGlobals());
 

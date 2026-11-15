@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   findLiteralStudentEvidence, prepareSystemOneRubric, scoreSystemOneRubric,
   separateStudentAnswer, scoreSystemOneCriterion, prepareSystemOneCriterion,
-} from '../../src/domain/correction/systemOneDecision.ts';
-import type { RubricCriterion } from '../../src/domain/correction/rubric.ts';
+} from '../../src/correction/domain/systemOneDecision.ts';
+import type { RubricCriterion } from '../../src/correction/domain/rubric.ts';
 
 const criterion = (id: string, title: string, description = 'Identifier le phénomène'): RubricCriterion => ({
   id, title, description, maxPoints: 5,

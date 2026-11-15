@@ -1,8 +1,8 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import type { BiologyRadarObservation } from '../../../src/domain/evaluation/biologyTeacherRadar.ts';
-import type { DiagramLabArchiveEntry } from '../../../src/domain/evaluation/diagramLabHistory.ts';
-import { EvaluationCampaigns } from '../../../src/ui/components/EvaluationCampaigns.tsx';
+import type { BiologyRadarObservation } from '../../../src/evaluation/domain/biologyTeacherRadar.ts';
+import type { DiagramLabArchiveEntry } from '../../../src/evaluation/domain/diagramLabHistory.ts';
+import { EvaluationCampaigns } from '../../../src/evaluation/ui/components/EvaluationCampaigns.tsx';
 
 const observation = (caseId: string, score: number | null): BiologyRadarObservation => ({
   id: caseId, campaignId: 'campaign-1', profileId: 'gemma', profile: 'Gemma e4b',

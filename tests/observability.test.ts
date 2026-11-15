@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildObservabilityModelMetrics, buildObservabilitySummary, extractObservabilityPromptMessages, getObservabilityStage, toModelEvaluationObservabilityTraces, toDiagramLabObservabilityTraces, toBlindGraphObservabilityTrace, type ObservabilityTrace } from '../src/domain/observability.ts';
+import { buildObservabilityModelMetrics, buildObservabilitySummary, extractObservabilityPromptMessages, getObservabilityStage, toModelEvaluationObservabilityTraces, toDiagramLabObservabilityTraces, toBlindGraphObservabilityTrace, type ObservabilityTrace } from '../src/shell/domain/observability.ts';
 
 const traces: ObservabilityTrace[] = [
   {

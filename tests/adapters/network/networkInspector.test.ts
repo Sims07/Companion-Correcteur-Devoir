@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { sanitizeHeaders, sanitizeRequestBody } from '../../../src/adapters/network/networkInspector.ts';
+import { sanitizeHeaders, sanitizeRequestBody } from '../../../src/shared/adapters/network/networkInspector.ts';
 
 describe('network inspector sanitization', () => {
   it('masks API keys, tokens and image payloads without hiding useful prompt text', () => {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { AiModelProfile } from '../../../src/domain/aiModelProfiles.ts';
-import type { ModelEvaluationRecord, ModelEvaluationResultSnapshot } from '../../../src/domain/evaluation/modelEvaluation.ts';
-import { defaultAiModelConfiguration } from '../../../src/domain/aiModelProfiles.ts';
+import type { AiModelProfile } from '../../../src/shared/domain/aiModelProfiles.ts';
+import type { ModelEvaluationRecord, ModelEvaluationResultSnapshot } from '../../../src/evaluation/domain/modelEvaluation.ts';
+import { defaultAiModelConfiguration } from '../../../src/shared/domain/aiModelProfiles.ts';
 import {
   buildScientificDiagramProtocolReport,
   availableDiagramMethods,
@@ -13,8 +13,8 @@ import {
   diagramProtocolProfileIssue,
   diagramTargetKey,
   usesDirectDiagramVision,
-} from '../../../src/domain/evaluation/scientificDiagramProtocol.ts';
-import { SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC } from '../../../src/domain/correction/scientificDiagramRubric.ts';
+} from '../../../src/evaluation/domain/scientificDiagramProtocol.ts';
+import { SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC } from '../../../src/correction/domain/scientificDiagramRubric.ts';
 
 const profile = (analysisModel: string, method: 'generative' | 'decision' | 'visual-decision' = 'decision'): AiModelProfile => ({
   id: 'candidate', name: 'Candidat', mode: 'single', updatedAt: '2026-11-07T00:00:00Z',

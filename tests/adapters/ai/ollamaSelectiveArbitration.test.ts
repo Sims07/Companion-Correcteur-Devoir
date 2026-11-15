@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createOllamaProvider } from '../../../src/adapters/ai/ollamaProvider.ts';
-import type { GradingRequest, OllamaSettings } from '../../../src/ports/aiProvider.ts';
+import { createOllamaProvider } from '../../../src/correction/adapters/ai/ollamaProvider.ts';
+import type { GradingRequest, OllamaSettings } from '../../../src/correction/ports/aiProvider.ts';
 
 const rubric = JSON.stringify({
   title: 'Biologie',

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   approximateValueBytes, formatStorageBytes, storageOccupancyPercent, storageStoreLabel,
-} from '../../src/domain/storageDiagnostics.ts';
+} from '../../src/shared/domain/storageDiagnostics.ts';
 
 describe('local storage diagnostic measurements', () => {
   it('computes a bounded percentage only with a valid browser estimate', () => {

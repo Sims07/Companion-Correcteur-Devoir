@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { buildDiagnosticScore } from '../../../src/domain/evaluation/diagnosticScore.ts';
-import type { GradingProposal } from '../../../src/domain/correction/grading.ts';
-import type { Rubric } from '../../../src/domain/correction/rubric.ts';
+import { buildDiagnosticScore } from '../../../src/evaluation/domain/diagnosticScore.ts';
+import type { GradingProposal } from '../../../src/correction/domain/grading.ts';
+import type { Rubric } from '../../../src/correction/domain/rubric.ts';
 
 const rubric: Rubric = {
   title: 'Biologie',

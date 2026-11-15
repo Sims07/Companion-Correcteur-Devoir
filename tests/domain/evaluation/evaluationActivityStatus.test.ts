@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveEvaluationActivityOutcome } from '../../../src/domain/evaluation/evaluationActivityStatus.ts';
+import { resolveEvaluationActivityOutcome } from '../../../src/evaluation/domain/evaluationActivityStatus.ts';
 
 const base = { journey: 'diagrams' as const, interrupted: false, pilotMemoryError: null, pilotMessage: '', outcome: 3 };
 

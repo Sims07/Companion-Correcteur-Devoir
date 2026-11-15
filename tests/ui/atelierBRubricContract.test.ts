@@ -4,8 +4,8 @@ import { describe, expect, it } from 'vitest';
 const read = (path: string) => readFileSync(path, 'utf8');
 
 describe('Atelier B rubric composition', () => {
-  const app = read('src/ui/App.tsx');
-  const css = read('src/ui/atelierBRubric.css');
+  const app = read('src/shell/ui/App.tsx');
+  const css = read('src/correction/ui/atelierBRubric.css');
 
   it('renders live rubric totals and validation state in a separate summary', () => {
     expect(app).toContain('className="atelier-rubric-synthesis"');
@@ -47,7 +47,7 @@ describe('Atelier B rubric composition', () => {
     expect(css).toContain('focus-visible');
     expect(css).toContain('prefers-reduced-motion');
     expect(css).toContain('body:has(.atelier-rubric-grid:not(.is-diagnostic)) .memory-fab');
-    expect(read('src/main.tsx')).toContain("import './ui/atelierBRubric.css'");
+    expect(read('src/main.tsx')).toContain("import './correction/ui/atelierBRubric.css'");
   });
 
   it('preserves optional reuse of source criteria without changing linked assignments', () => {

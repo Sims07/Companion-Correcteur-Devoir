@@ -2,7 +2,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ModelPreloadPanel } from '../../../src/ui/components/ModelPreloadPanel.tsx';
+import { ModelPreloadPanel } from '../../../src/shared/ui/components/ModelPreloadPanel.tsx';
 
 describe('ModelPreloadPanel', () => {
   let root: Root | null = null;

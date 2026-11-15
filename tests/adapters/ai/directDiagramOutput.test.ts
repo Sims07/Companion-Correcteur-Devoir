@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { directDiagramSchema, parseDirectDiagramOutput, findSingleInvalidDiagramPoint, applyDirectDiagramPointRepair } from '../../../src/adapters/ai/directDiagramOutput.ts';
-import { createOllamaProvider } from '../../../src/adapters/ai/ollamaProvider.ts';
-import { diagramAnalysisDiagnostics, diagramFailureCategory } from '../../../src/domain/evaluation/scientificDiagramProtocol.ts';
-import { SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC } from '../../../src/domain/evaluation/scientificDiagramFixtures.ts';
+import { directDiagramSchema, parseDirectDiagramOutput, findSingleInvalidDiagramPoint, applyDirectDiagramPointRepair } from '../../../src/correction/adapters/ai/directDiagramOutput.ts';
+import { createOllamaProvider } from '../../../src/correction/adapters/ai/ollamaProvider.ts';
+import { diagramAnalysisDiagnostics, diagramFailureCategory } from '../../../src/evaluation/domain/scientificDiagramProtocol.ts';
+import { SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC } from '../../../src/evaluation/domain/scientificDiagramFixtures.ts';
 
 const criteria = [{ id: 'title', title: 'Titre', description: '', maxPoints: 1,
   subcriteria: [{ id: 'position', title: 'Position', description: '', maxPoints: 0.66 },

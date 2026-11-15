@@ -86,13 +86,9 @@ Depuis l’éditeur d’un barème, l’enseignant peut exporter un ou plusieurs
 
 Voir [`docs/architecture.md`](docs/architecture.md) pour les couches, les flux, les règles de dépendance et la stratégie de tests.
 
-- `src/domain` : règles métier, barème, propositions de notation, mémoire locale et archives.
-- `src/ports` : contrats des fournisseurs IA et de persistance.
-- `src/application` : orchestration des cas d'usage et services.
-- `src/adapters/ai` : intégration avec Ollama et ajout du contexte local aux requêtes de correction.
-- `src/adapters/files` : préparation locale des photos/PDF et import de barèmes.
-- `src/adapters/storage` : persistance IndexedDB.
-- `src/ui` : préparation, diagnostic, correction, révision et validation enseignante.
+- `src/correction/` regroupe les règles de notation, les cas d’usage, les ports, les adaptateurs et les écrans du parcours enseignant.
+- `src/evaluation/` regroupe les protocoles, les campagnes, leurs images de référence, la persistance et les radars.
+- `src/shared/` contient les fondations communes. `src/shell/` assemble les parcours et leurs échanges dans la PWA.
 - `tests` : tests unitaires, d'intégration, de contrat UI et parcours Playwright.
 
 La décision finale appartient toujours à l'enseignant.
@@ -101,9 +97,9 @@ La décision finale appartient toujours à l'enseignant.
 
 The shared UI foundations are documented in [`docs/design-system.md`](docs/design-system.md). The interactive component reference is available through Storybook (`npm run storybook` locally; `npm run build-storybook` to build it).
 
-- Design tokens live in `src/ui/design-system/tokens.css`.
-- Shared control styles live in `src/ui/design-system/controls.css`.
-- Reusable React primitives are exported from `src/ui/design-system/index.ts`.
+- Design tokens live in `src/shared/ui/design-system/tokens.css`.
+- Shared control styles live in `src/shared/ui/design-system/controls.css`.
+- Reusable React primitives are exported from `src/shared/ui/design-system/index.ts`.
 - Feature styles own layout and domain composition; they must not fork the appearance of shared controls.
 - Contract tests run as part of `npm test`.
 

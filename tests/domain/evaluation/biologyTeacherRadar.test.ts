@@ -4,7 +4,7 @@ import {
   BIOLOGY_RADAR_AXES, buildBiologyRadar, loadBiologyRadarHistory,
   mergeBiologyRadarHistory, saveBiologyRadarHistory,
   type BiologyRadarObservation,
-} from '../../../src/domain/evaluation/biologyTeacherRadar.ts';
+} from '../../../src/evaluation/domain/biologyTeacherRadar.ts';
 
 const expected: Record<string, number[]> = {
   A: [1,1,1,1,1,1,1,1,1,1],
@@ -161,7 +161,7 @@ describe('local biology radar history', () => {
 });
 
 it('keeps earlier campaigns beyond 1200 observations and separates standard and enriched scores', async () => {
-  const { biologyPoints } = await import('../../../src/domain/evaluation/radarTimeline.ts');
+  const { biologyPoints } = await import('../../../src/evaluation/domain/radarTimeline.ts');
   const old = observation('A', {id: 'old'});
   const later = Array.from({length: 1200}, (_, i) => observation('C', {id: String(i)}));
   expect(mergeBiologyRadarHistory([old], later)).toHaveLength(1201);

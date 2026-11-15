@@ -4,12 +4,12 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const network = vi.hoisted(() => ({ records: [] as { state: string }[] }));
-vi.mock('../../src/adapters/network/networkInspector.ts', () => ({
+vi.mock('../../src/shared/adapters/network/networkInspector.ts', () => ({
   loadNetworkHistory: () => network.records,
   networkInspectorEvent: 'developer-tools-network-event',
 }));
 
-import { DeveloperToolsNavigation, type DeveloperTool } from '../../src/ui/DeveloperToolsNavigation.tsx';
+import { DeveloperToolsNavigation, type DeveloperTool } from '../../src/shell/ui/DeveloperToolsNavigation.tsx';
 
 describe('DeveloperToolsNavigation', () => {
   let root: Root | null = null;

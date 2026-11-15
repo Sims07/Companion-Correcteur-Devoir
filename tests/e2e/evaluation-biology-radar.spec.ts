@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { defaultAiModelConfiguration } from '../../src/domain/aiModelProfiles.ts';
+import { defaultAiModelConfiguration } from '../../src/shared/domain/aiModelProfiles.ts';
 
 test('evaluation opens on both radars and keeps the chosen LLM across tests and reload', async ({ page }) => {
   await page.goto('/');

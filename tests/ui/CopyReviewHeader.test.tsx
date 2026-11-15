@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import { CopyReviewHeader } from '../../src/ui/components/CopyReviewHeader.tsx';
+import { CopyReviewHeader } from '../../src/correction/ui/components/CopyReviewHeader.tsx';
 
 const callbacks = { onStudentLabelChange: vi.fn(), onPrevious: vi.fn(), onNext: vi.fn() };
 

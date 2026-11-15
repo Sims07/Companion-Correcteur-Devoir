@@ -31,40 +31,22 @@ Composition root : src/main.tsx
 
 Le domaine ne dépend d'aucune autre couche. L'application dépend du domaine et des ports. Les adaptateurs implémentent les ports et peuvent dépendre du domaine. L'UI appelle les services applicatifs et ne doit pas connaître les adaptateurs concrets. `src/main.tsx` est le **composition root** qui assemble les implémentations.
 
-## Couches et responsabilités
+## Contextes métier
 
-### Domaine — `src/domain/`
-
-Contient les concepts et règles métier : barème, proposition de notation, critères révisés, archives locales, mémoire de décisions, empreinte du barème et classement des retours pertinents. Le domaine ne doit importer ni React, ni IndexedDB, ni `window`/`document`, ni Ollama, ni les adaptateurs. Les règles métier doivent rester déterministes et testables sans navigateur lorsque c'est possible.
-
-Les deux contextes métier partagent le même déploiement et la même base locale.
-
-| Contexte | Propriétaire des règles |
+| Racine | Responsabilités |
 | --- | --- |
-| `src/domain/correction/` | Devoirs, barèmes, copies, preuves, propositions, annotations et validation par l’enseignant. Le barème initial d’un dessin scientifique appartient à la correction. |
-| `src/domain/evaluation/` | Références expérimentales, protocoles, campagnes, résultats par méthode, comparaisons et radars. Une campagne peut observer une proposition de correction. |
+| `src/correction/` | Devoirs, barèmes, copies, propositions justifiées, annotations et décision de l’enseignant. |
+| `src/evaluation/` | Protocoles, images de référence dans `assets/pilot/`, campagnes, comparaisons et radars. |
+| `src/shared/` | Fondations communes dont la configuration IA, la lecture de pixels, le design system et l’ouverture de la base IndexedDB. |
+| `src/shell/` | Navigation, assemblage des parcours, observabilité transversale et livraison des événements entre contextes. |
 
-Le contrat publié de Correction (`correction/contract.ts`) expose les types de barème et de proposition, la validation et les opérations de lecture utilisées par Évaluation. À la réception d’une sortie IA, `readEvaluationGradingResult` conserve les preuves et produit une note comparable lorsque tous les critères sont évalués. Le résultat d’une lecture Vision seule ou d’une sortie inexploitable porte une note `null`. Un zéro justifié est conservé. Les archives contiennent le barème de l’essai et la proposition observée ; une archive sans étape explicite se relit comme un essai intégré.
+Chaque contexte possède son `domain/`, ses cas d’usage dans `application/`, ses contrats dans `ports/`, ses implémentations dans `adapters/` et ses composants dans `ui/`. Les dépôts de correction et d’évaluation ouvrent la même base locale et conservent son schéma et ses clés.
 
-La correction est le contexte amont. Le laboratoire peut consommer ses règles de notation et comparer les résultats à ses propres références. Le test d’architecture parcourt les dépendances transitives de la correction, y compris les imports de types. Les services techniques utilisés par plusieurs parcours (configuration IA, calcul décimal, observabilité) conservent leur emplacement à la racine du domaine.
-
-### Ports — `src/ports/`
-
-Définit les contrats requis par le cœur, sans implémentation technique. `aiProvider.ts` décrit les capacités IA (lecture visuelle, analyse, diagnostic) ; `localCorrectionRepository.ts` décrit les opérations de persistance des corrections et de la mémoire. Les contrats ne doivent pas exposer de types IndexedDB.
-
-### Application — `src/application/`
-
-Contient les cas d'usage et l'orchestration. `localCorrectionService.ts` valide les commandes de persistance et délègue au port de stockage. `correctionWorkspaceService.ts` orchestre les opérations de préparation/import, l'accès au fournisseur IA et les fichiers. Les cas d'usage ne doivent pas importer de code de `src/adapters/`, React ou des APIs du navigateur. Les invariants métier appartiennent au domaine, pas aux composants UI.
-
-### Adaptateurs — `src/adapters/`
-
-- `storage/indexedDbMemory.ts` implémente le port `LocalCorrectionRepository` au moyen d'IndexedDB. Il conserve les archives de correction et les entrées de mémoire locale.
-- `ai/` contient l'adaptateur Ollama et l'intégration du contexte de mémoire à la frontière des requêtes. Le contexte local est ajouté aux prompts d'analyse de correction, pas à la transcription visuelle.
-- `files/` prépare localement les photos et les PDF et importe les barèmes depuis les formats pris en charge.
+Lors d’un essai de notation, Correction interprète la réponse du modèle et publie `correction.proposal-produced` avec la proposition et ses preuves, ou `correction.response-ungradable`. Le shell livre l’événement en mémoire au seul essai concerné. Évaluation calcule la note comparable. Une lecture Vision seule, une proposition incomplète ou une sortie inexploitable donnent une note absente. Une note justifiée de zéro reste zéro. Les lectures de barèmes et de types passent par le contrat publié de Correction. Les tests d’architecture contrôlent les imports entre contextes.
 
 La mémoire est un rappel local léger fondé sur le recouvrement de termes, pas un moteur vectoriel, un fine-tuning ou un entraînement automatique. Les retours sont associés à une correction et à l'empreinte du barème. Ils peuvent être recherchés dans le périmètre pertinent, mais ne modifient pas silencieusement le barème courant. Les règles ne doivent être réutilisées comme règles de barème que si l'enseignant les a explicitement promues.
 
-### Observabilité locale — `src/domain/observability.ts` et `src/ui/ObservabilityDashboard.tsx`
+### Observabilité locale — `src/shell/domain/observability.ts` et `src/shell/ui/ObservabilityDashboard.tsx`
 
 Les métriques agrègent deux sources locales : les traces du parcours de correction et les évaluations de modèles enregistrées dans IndexedDB. Chaque résultat de profil d'une campagne d'évaluation devient une trace distincte, avec ses modèles Vision/Analyse, ses durées, son statut, sa note proposée et les compteurs de tokens disponibles. Les campagnes Vision seule et Analyse seule ne renseignent que l'étape réellement exécutée. Les valeurs absentes restent distinctes de zéro. L'interface présente une vue d'ensemble commune, des graphiques de durée et de répartition Vision/Analyse, les modèles les plus sollicités et un explorateur distinguant corrections et évaluations. Chaque appel détaillé expose à la demande le texte exact envoyé au modèle, les paramètres Ollama non sensibles (streaming, thinking, format, nombre d'images, contexte et budget de génération) et la réponse brute, y compris lorsqu'elle est tronquée. Les octets Base64 des images et les secrets d'endpoint ne sont jamais conservés dans les détails de trace. Les prompts et réponses peuvent contenir des informations pédagogiques ou issues des copies : ils sont conservés dans le stockage local du navigateur et doivent être traités comme des données sensibles. Les réponses partielles des campagnes d'évaluation sont conservées même lorsque l'exécution échoue. L'historique agrégé est limité aux 100 dernières exécutions.
 
@@ -72,9 +54,9 @@ Les métriques agrègent deux sources locales : les traces du parcours de correc
 
 Les règles de conception pérennes du parcours de correction sont décrites dans [`correction-experience.md`](./correction-experience.md). Elles sont prioritaires pour toute évolution de la correction : lecture par exceptions, justifications repliées, preuves minimales et confirmation humaine explicite des seuls critères fiables sans déduction. Le but mesurable est de réduire le temps de lecture et de décision du professeur, pas de maximiser le volume d'explications.
 
-### Interface — `src/ui/`
+### Interfaces des contextes et du shell
 
-Les composants React présentent l'état et traduisent les interactions en appels applicatifs. Ils ne doivent pas importer directement `src/adapters/`, construire de requêtes IndexedDB ou devenir le lieu des règles métier.
+Les composants React présentent l'état et traduisent les interactions en appels applicatifs. Ils ne doivent pas importer directement les adaptateurs concrets, construire de requêtes IndexedDB ou devenir le lieu des règles métier.
 
 L'espace de révision présente deux zones complémentaires :
 - **Copie de référence** : pages originales archivées et transcription reconnue, consultable dans une section repliable.

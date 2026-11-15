@@ -2,9 +2,9 @@
 import { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { defaultAiModelConfiguration } from '../../src/domain/aiModelProfiles.ts';
-import type { BiologyRadarObservation } from '../../src/domain/evaluation/biologyTeacherRadar.ts';
-import { BiologyTeacherRadar } from '../../src/ui/components/BiologyTeacherRadar.tsx';
+import { defaultAiModelConfiguration } from '../../src/shared/domain/aiModelProfiles.ts';
+import type { BiologyRadarObservation } from '../../src/evaluation/domain/biologyTeacherRadar.ts';
+import { BiologyTeacherRadar } from '../../src/evaluation/ui/components/BiologyTeacherRadar.tsx';
 
 const profiles = [{ id: 'qwen', name: 'Qwen', mode: 'single' as const,
   configuration: { ...defaultAiModelConfiguration, analysisModel: 'qwen:4b',
@@ -126,7 +126,7 @@ describe('biology teacher radar UI', () => {
 });
 
 it('the dashboard runs only missing traps and links the reference copies for the chosen LLM', async () => {
-  const { EvaluationRadarHome } = await import('../../src/ui/components/EvaluationRadarHome.tsx');
+  const { EvaluationRadarHome } = await import('../../src/evaluation/ui/components/EvaluationRadarHome.tsx');
   const rootNode = document.createElement('div');
   const root = createRoot(rootNode);
   const runBiology = vi.fn();

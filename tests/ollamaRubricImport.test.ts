@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { importRubricImageWithOllama } from '../src/adapters/ai/ollamaProvider.ts';
+import { importRubricImageWithOllama } from '../src/correction/adapters/ai/ollamaProvider.ts';
 const validRubric = { title: 'Barème de biologie', criteria: [
   { title: 'Question 1 — Photosynthèse', description: 'Réactifs et produits', maxPoints: 5 },
   { title: 'Question 2 — Membrane plasmique', description: 'Diffusion et transport actif', maxPoints: 5 },

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { initialAssignmentRubric, assignmentKindLabel } from '../../../src/domain/correction/assignmentKind.ts';
-import { validateRubric } from '../../../src/domain/correction/rubric.ts';
+import { initialAssignmentRubric, assignmentKindLabel } from '../../../src/correction/domain/assignmentKind.ts';
+import { validateRubric } from '../../../src/correction/domain/rubric.ts';
 
 describe('scientific diagram is a regular local assignment', () => {
   it('creates an independent 8-point rubric with 15 visual expectations', () => {

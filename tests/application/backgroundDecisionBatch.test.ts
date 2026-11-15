@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createBackgroundCorrectionService } from '../../src/application/backgroundCorrectionService.ts';
-import { createBackgroundCorrection } from '../../src/domain/correction/backgroundCorrection.ts';
-import type { BackgroundCorrectionJob } from '../../src/domain/correction/backgroundCorrection.ts';
-import type { BackgroundCorrectionRepository } from '../../src/ports/backgroundCorrectionRepository.ts';
-import type { OllamaGateway } from '../../src/ports/correctionWorkspace.ts';
-import type { GradingRequest, OllamaSettings } from '../../src/ports/aiProvider.ts';
-import type { RubricCriterion } from '../../src/domain/correction/rubric.ts';
+import { createBackgroundCorrectionService } from '../../src/correction/application/backgroundCorrectionService.ts';
+import { createBackgroundCorrection } from '../../src/correction/domain/backgroundCorrection.ts';
+import type { BackgroundCorrectionJob } from '../../src/correction/domain/backgroundCorrection.ts';
+import type { BackgroundCorrectionRepository } from '../../src/correction/ports/backgroundCorrectionRepository.ts';
+import type { OllamaGateway } from '../../src/correction/ports/correctionWorkspace.ts';
+import type { GradingRequest, OllamaSettings } from '../../src/correction/ports/aiProvider.ts';
+import type { RubricCriterion } from '../../src/correction/domain/rubric.ts';
 
 const criteria: RubricCriterion[] = [
   { id: 'c1', title: 'Observation', description: 'Identifier la membrane', maxPoints: 1 },

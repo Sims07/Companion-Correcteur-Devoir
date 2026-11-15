@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { createBackgroundCorrection } from '../../../src/domain/correction/backgroundCorrection.ts';
-import { getNewlyAvailableReviewJob } from '../../../src/domain/correction/backgroundCorrectionReviewNavigation.ts';
+import { createBackgroundCorrection } from '../../../src/correction/domain/backgroundCorrection.ts';
+import { getNewlyAvailableReviewJob } from '../../../src/correction/domain/backgroundCorrectionReviewNavigation.ts';
 
 const baseJob = createBackgroundCorrection({
   id: 'copy-current', assignmentId: 'biology', label: 'Copie 1', question: 'Mitose',

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import { buildStudentIdentityPrompt, buildTranscriptionPrompt, checkOllamaReady, createOllamaProvider, importRubricImageWithOllama, listOllamaModels } from '../src/adapters/ai/ollamaProvider.ts';
-import type { GradingRequest } from '../src/ports/aiProvider.ts';
-import { parseStudentIdentityResponse } from '../src/domain/correction/studentIdentity.ts';
+import { buildStudentIdentityPrompt, buildTranscriptionPrompt, checkOllamaReady, createOllamaProvider, importRubricImageWithOllama, listOllamaModels } from '../src/correction/adapters/ai/ollamaProvider.ts';
+import type { GradingRequest } from '../src/correction/ports/aiProvider.ts';
+import { parseStudentIdentityResponse } from '../src/correction/domain/studentIdentity.ts';
 
 describe('model-aware transcription prompts', () => {
   it('uses Text Recognition for dedicated OCR models and detailed safeguards for general vision models', () => {

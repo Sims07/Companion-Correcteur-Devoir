@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { listOllamaModels } from '../../../src/adapters/ai/ollamaProvider.ts';
+import { listOllamaModels } from '../../../src/correction/adapters/ai/ollamaProvider.ts';
 
 afterEach(() => vi.useRealTimers());
 

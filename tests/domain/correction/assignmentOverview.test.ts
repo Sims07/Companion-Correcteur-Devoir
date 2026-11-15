@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getArchivedCorrectionsForAssignment, getAssignmentOverview, type AssignmentOverviewProfile } from '../../../src/domain/correction/assignmentOverview.ts';
+import { getArchivedCorrectionsForAssignment, getAssignmentOverview, type AssignmentOverviewProfile } from '../../../src/correction/domain/assignmentOverview.ts';
 
 const readyAssignment: AssignmentOverviewProfile = {
   id: 'cell-biology',
