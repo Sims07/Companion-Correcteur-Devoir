@@ -81,7 +81,7 @@ describe('biology teacher radar UI', () => {
     await act(async () => root.render(createElement(BiologyTeacherRadar, {
       history: [], profiles, busy: false, onEvaluate: vi.fn(), onShowTests: vi.fn(),
     })));
-    expect(mount.textContent).toContain('0 / 5');
+    expect(mount.textContent).toContain('0 / 6');
     expect(mount.textContent).toContain('—');
     await act(async () => root.unmount());
     mount.remove();
