@@ -43,6 +43,11 @@ test('method laboratory displays a full-width illustrated panel for every strate
       })),
   }));
   expect(mobileLayout.scroll, JSON.stringify(mobileLayout)).toBeLessThanOrEqual(mobileLayout.viewport);
+  const auditDimensions = await lab.locator('.radar-method-audit-scroll').evaluate(element => ({
+    viewport: element.clientWidth, table: element.scrollWidth,
+  }));
+  expect(auditDimensions.table).toBeGreaterThan(auditDimensions.viewport);
+
   await tabs.first().focus();
   await page.keyboard.press('ArrowRight');
   await expect(panel).toHaveAttribute('data-selected-method', 'leaders-v1');
