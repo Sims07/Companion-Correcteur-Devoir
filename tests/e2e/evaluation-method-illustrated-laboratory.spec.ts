@@ -13,7 +13,7 @@ test('method laboratory displays a full-width illustrated panel for every strate
   const lab = page.getByRole('region', { name: 'Laboratoire des méthodes' });
   const tabs = lab.getByRole('tablist', { name: 'Méthodes expliquées' }).getByRole('tab');
   const panel = lab.getByRole('tabpanel');
-  await expect(tabs).toHaveCount(5);
+  await expect(tabs).toHaveCount(10);
   await expect(panel).toHaveAttribute('data-selected-method', 'pixel-v1');
   await expect(panel.getByRole('img', { name: /Pointe de flèche candidate/ })).toBeVisible();
   await expect(panel.getByRole('heading', { name: 'Principe scientifique' })).toBeVisible();
@@ -27,6 +27,11 @@ test('method laboratory displays a full-width illustrated panel for every strate
   await expect(panel.locator('[data-illustration="guided"]')).toBeVisible();
   await tabs.nth(4).click();
   await expect(panel.locator('[data-illustration="graph-first"]')).toBeVisible();
+  await tabs.nth(7).click();
+  await expect(panel).toHaveAttribute('data-selected-method', 'direct-image-generative');
+  await expect(panel.locator('[data-illustration="direct-grading"]')).toBeVisible();
+  await tabs.nth(9).click();
+  await expect(panel.locator('[data-illustration="systemone-grading"]')).toBeVisible();
 
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(panel).toBeVisible();
