@@ -30,8 +30,19 @@ test('method laboratory displays a full-width illustrated panel for every strate
 
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(panel).toBeVisible();
-  expect(await page.evaluate(() =>
-    document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  const mobileLayout = await page.evaluate(() => ({
+    viewport: document.documentElement.clientWidth,
+    scroll: document.documentElement.scrollWidth,
+    overflowingElements: [...document.querySelectorAll<HTMLElement>('body *')]
+      .filter(element => element.getBoundingClientRect().right > window.innerWidth + 1 &&
+        element.getBoundingClientRect().width > 0)
+      .slice(0, 15).map(element => ({
+        tag: element.tagName, className: typeof element.className === 'string' ? element.className : '',
+        width: Math.round(element.getBoundingClientRect().width),
+        right: Math.round(element.getBoundingClientRect().right),
+      })),
+  }));
+  expect(mobileLayout.scroll, JSON.stringify(mobileLayout)).toBeLessThanOrEqual(mobileLayout.viewport);
   await tabs.first().focus();
   await page.keyboard.press('ArrowRight');
   await expect(panel).toHaveAttribute('data-selected-method', 'leaders-v1');
