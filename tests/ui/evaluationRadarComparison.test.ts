@@ -211,7 +211,7 @@ it('launches every remaining scientific strategy as independent, sequentially ex
   await act(async () => open.click());
   const launch = [...node.querySelectorAll<HTMLButtonElement>('.method-lab button')]
     .find(button => button.textContent?.startsWith('Évaluer toutes les méthodes restantes'))!;
-  expect(launch.textContent).toContain('(5)');
+  expect(launch.textContent).toContain('(6)');
   const methodSelect = node.querySelector<HTMLSelectElement>('.lab-launch select')!;
   await act(async () => {
     methodSelect.value = 'guided-v1';
@@ -224,8 +224,8 @@ it('launches every remaining scientific strategy as independent, sequentially ex
   expect(runScienceBatch).toHaveBeenCalledOnce();
   const requests = runScienceBatch.mock.calls[0]![0];
   expect(requests.map((request: {trial: {method: string}}) => request.trial.method))
-    .toEqual(['graph-first-v1', 'leaders-v1', 'pixel-v1', 'direct-v1', 'guided-v1']);
-  expect(new Set(requests.map((request: {trial: {id: string}}) => request.trial.id)).size).toBe(5);
+    .toEqual(['image-direct-v1', 'graph-first-v1', 'leaders-v1', 'pixel-v1', 'direct-v1', 'guided-v1']);
+  expect(new Set(requests.map((request: {trial: {id: string}}) => request.trial.id)).size).toBe(6);
   expect(requests.every((request: {modelId: string; steps: unknown[]}) =>
     request.modelId === models[0] && request.steps.length === 4)).toBe(true);
   await act(async () => root.unmount());
@@ -267,7 +267,7 @@ it('starts every remaining scientific method sequentially as separate four-batte
   const open = [...section.querySelectorAll('button')].find(button => button.textContent === 'Analyse des méthodes')!;
   await act(async () => (open as HTMLButtonElement).click());
   const button = [...node.querySelectorAll<HTMLButtonElement>('.method-lab button')]
-    .find(button => button.textContent === 'Évaluer toutes les méthodes restantes (5)')!;
+    .find(button => button.textContent === 'Évaluer toutes les méthodes restantes (6)')!;
   expect(button).toBeTruthy();
   expect(button.disabled).toBe(false);
   await act(async () => button.click());
@@ -276,8 +276,8 @@ it('starts every remaining scientific method sequentially as separate four-batte
     trial: {id: string; method: string}; steps: Array<{protocol: string}>;
     profileId: string; modelId?: string;
   }>;
-  expect(requests).toHaveLength(5);
-  expect(new Set(requests.map(request => request.trial.id)).size).toBe(5);
+  expect(requests).toHaveLength(6);
+  expect(new Set(requests.map(request => request.trial.id)).size).toBe(6);
   expect(requests.map(request => request.trial.method)).toEqual(
     Object.keys((await import('../../src/evaluation/domain/radarTimeline.ts')).scienceMethods));
   for (const request of requests) {
@@ -360,7 +360,7 @@ it('keeps four successive scientific methods as four independently selectable ra
 });
 
 
-it('audits all five scientific methods and schedules only pending method trials from one button', async () => {
+it('audits all six scientific methods and schedules only pending method trials from one button', async () => {
   const node = document.createElement('div');
   document.body.append(node);
   const root = createRoot(node);
@@ -374,25 +374,25 @@ it('audits all five scientific methods and schedules only pending method trials 
   const analyse = [...node.querySelectorAll<HTMLButtonElement>('button')].find(button =>
     button.textContent?.trim() === 'Analyse des méthodes')!;
   await act(async () => analyse.click());
-  const audit = node.querySelector('section[aria-label="État des cinq méthodes scientifiques"]')!;
+  const audit = node.querySelector('section[aria-label="État des 6 méthodes scientifiques"]')!;
   expect(audit).toBeTruthy();
-  expect(audit.querySelectorAll('tbody tr')).toHaveLength(5);
+  expect(audit.querySelectorAll('tbody tr')).toHaveLength(6);
   expect(audit.textContent).toContain('Non testé');
   expect(audit.textContent).toContain('/9');
   const launch = [...node.querySelectorAll<HTMLButtonElement>('button')].find(button =>
-    button.textContent?.includes('Évaluer toutes les méthodes restantes (5)'))!;
+    button.textContent?.includes('Évaluer toutes les méthodes restantes (6)'))!;
   expect(launch.disabled).toBe(false);
   await act(async () => launch.click());
   const requests = runScienceBatch.mock.calls[0]![0] as Array<{
     trial: {id:string; method:string}; steps: Array<{protocol:string}>;
   }>;
-  expect(requests).toHaveLength(5);
-  expect(new Set(requests.map(item => item.trial.method)).size).toBe(5);
+  expect(requests).toHaveLength(6);
+  expect(new Set(requests.map(item => item.trial.method)).size).toBe(6);
   expect(requests.every(item => item.steps.length === 4)).toBe(true);
   const targeted = audit.querySelector<HTMLButtonElement>('tbody tr button')!;
   await act(async () => targeted.click());
   expect(runScience).toHaveBeenCalledWith(expect.objectContaining({
-    trial: expect.objectContaining({method: 'graph-first-v1'}),
+    trial: expect.objectContaining({method: 'image-direct-v1'}),
     steps: expect.arrayContaining([expect.objectContaining({protocol: 'graph'})]),
   }));
   await act(async () => root.unmount());

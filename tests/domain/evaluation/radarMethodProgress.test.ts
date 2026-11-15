@@ -122,6 +122,13 @@ describe('scientific-method progress and targeted recovery', () => {
     expect(progress.successful).toBe(23);
   });
 
+  it('offers the direct-image baseline among the methods to run, with no archived graph assumed', () => {
+    const progress = scienceMethodProgress([], model).find(item => item.method === 'image-direct-v1')!;
+    expect(progress.complete).toBe(false);
+    expect(progress.steps.map(step => step.protocol)).toEqual(['reference', 'arrows', 'semantic', 'graph']);
+    expect(progress.steps.slice(0, 3).every(step => step.method === 'direct-image-generative')).toBe(true);
+    expect(progress.steps[3]).toMatchObject({ graphVariant: 'baseline', method: 'compare' });
+  });
   it('offers one four-family trial for a never evaluated method', () => {
     const progress = scienceMethodProgress([], model).find(item => item.method === 'direct-v1')!;
     expect(progress.trial).toBeNull();

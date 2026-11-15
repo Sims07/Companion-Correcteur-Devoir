@@ -82,7 +82,7 @@ it('removes an excluded scientific method from comparison and recommendation but
   } finally { await act(async () => root.unmount()); }
 });
 
-it('keeps excluded scientific strategies out of the five-method sequential batch and individual relaunch', async () => {
+it('keeps excluded scientific strategies out of the six-method sequential batch and individual relaunch', async () => {
   const node = document.createElement('div');
   const root = createRoot(node);
   const batch = vi.fn();
@@ -98,20 +98,23 @@ it('keeps excluded scientific strategies out of the five-method sequential batch
     const include = node.querySelector<HTMLInputElement>(
       'input[aria-label="Inclure '+scienceMethods['pixel-v1'].label+'"]',
     )!;
-    expect(all().textContent).toContain('(5)');
+    expect(all().textContent).toContain('(6)');
     await act(async () => include.click());
-    expect(all().textContent).toContain('(4)');
+    expect(all().textContent).toContain('(5)');
     expect(node.querySelector<HTMLSelectElement>('.lab-launch select')?.value).not.toBe('pixel-v1');
     await act(async () => all().click());
     expect(batch).toHaveBeenCalledTimes(1);
     const requests = batch.mock.calls[0]![0] as Array<{trial: {method: string}}>;
-    expect(requests).toHaveLength(4);
+    expect(requests).toHaveLength(5);
+    expect(requests.map(row => row.trial.method)).toContain('image-direct-v1');
     expect(requests.map(row => row.trial.method)).not.toContain('pixel-v1');
     const runOne = [...node.querySelectorAll<HTMLButtonElement>('button')]
       .find(item => item.textContent?.trim() === 'Évaluer avec cette méthode')!;
     await act(async () => runOne.click());
     expect(single).toHaveBeenCalledTimes(1);
-    expect(single.mock.calls[0]![0].trial.method).not.toBe('pixel-v1');
+    expect(single.mock.calls[0]![0].trial.method).toBe('image-direct-v1');
+    expect(single.mock.calls[0]![0].steps.slice(0, 3).every((step: {method: string}) =>
+      step.method === 'direct-image-generative')).toBe(true);
   } finally { await act(async () => root.unmount()); }
 });
 

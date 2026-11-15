@@ -13,19 +13,21 @@ test('method laboratory displays a full-width illustrated panel for every strate
   const lab = page.getByRole('region', { name: 'Laboratoire des méthodes' });
   const tabs = lab.getByRole('tablist', { name: 'Méthodes expliquées' }).getByRole('tab');
   const panel = lab.getByRole('tabpanel');
-  await expect(tabs).toHaveCount(5);
-  await expect(panel).toHaveAttribute('data-selected-method', 'pixel-v1');
-  await expect(panel.getByRole('img', { name: /Pointe de flèche candidate/ })).toBeVisible();
+  await expect(tabs).toHaveCount(6);
+  await expect(panel).toHaveAttribute('data-selected-method', 'image-direct-v1');
+  await expect(panel.getByRole('img', { name: /Schéma scientifique et barème fournis directement/ })).toBeVisible();
   await expect(panel.getByRole('heading', { name: 'Principe scientifique' })).toBeVisible();
 
   await tabs.nth(1).click();
-  await expect(panel).toHaveAttribute('data-selected-method', 'leaders-v1');
-  await expect(panel.locator('[data-illustration="long-shafts"]')).toBeVisible();
+  await expect(panel).toHaveAttribute('data-selected-method', 'pixel-v1');
+  await expect(panel.locator('[data-illustration="small-tips"]')).toBeVisible();
   await tabs.nth(2).click();
-  await expect(panel.locator('[data-illustration="direct-graph"]')).toBeVisible();
+  await expect(panel.locator('[data-illustration="long-shafts"]')).toBeVisible();
   await tabs.nth(3).click();
-  await expect(panel.locator('[data-illustration="guided"]')).toBeVisible();
+  await expect(panel.locator('[data-illustration="direct-graph"]')).toBeVisible();
   await tabs.nth(4).click();
+  await expect(panel.locator('[data-illustration="guided"]')).toBeVisible();
+  await tabs.nth(5).click();
   await expect(panel.locator('[data-illustration="graph-first"]')).toBeVisible();
 
   await page.setViewportSize({ width: 390, height: 844 });
@@ -50,7 +52,7 @@ test('method laboratory displays a full-width illustrated panel for every strate
 
   await tabs.first().focus();
   await page.keyboard.press('ArrowRight');
-  await expect(panel).toHaveAttribute('data-selected-method', 'leaders-v1');
+  await expect(panel).toHaveAttribute('data-selected-method', 'pixel-v1');
 
   await lab.getByRole('button', { name: 'Retour aux radars' }).click();
   // The mobile dashboard presents its articles as display:contents. Navigate

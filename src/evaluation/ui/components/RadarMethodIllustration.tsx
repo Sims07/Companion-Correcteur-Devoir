@@ -3,6 +3,7 @@ import type { MethodGuideIllustration } from '../../domain/radarMethodGuideCatal
 /** Deliberately SVG rather than a raster screenshot: vector scenes stay sharp,
  * responsive and explain the actual observation protocol (not a model verdict). */
 const titles: Record<MethodGuideIllustration, string> = {
+  'direct-correction': 'Schéma scientifique et barème fournis directement au LLM multimodal, qui produit les critères, justifications et note',
   'small-tips': 'Pointe de flèche candidate repérée au bout du trait ADN vers ARN, puis vérification par Vision',
   'long-shafts': 'Hampe fine et longue suivie jusqu’à une tête possible, avec exemple de faux signal',
   'direct-graph': 'Transformation du dessin visible en nœuds et relations déclarés par le modèle Vision',
@@ -136,6 +137,25 @@ function Guided() {
     <Tag x={166} y={383} width={429} label="Examiner chaque trait sans recopier le sens du précédent" tone="purple"/>
   </>;
 }
+function DirectCorrection() {
+  return <>
+    <rect x="39" y="107" width="211" height="232" rx="21" fill="#eff6ff" stroke="#a5c5ed" strokeWidth="2"/>
+    <Tag x={60} y={124} width={169} label="Image du schéma" tone="blue"/>
+    <Node x={62} y={211} width={74} label="ADN"/>
+    <Node x={155} y={211} width={73} label="ARN" tone="violet"/>
+    <path d="M138 236 H150" stroke="#263d59" strokeWidth="3" markerEnd="url(#lab-guide-arrow)"/>
+    <Tag x={61} y={283} width={167} label="Barème fourni" tone="green"/>
+    <rect x="310" y="160" width="176" height="120" rx="22" fill="#f0e5ff" stroke="#8f6ac0" strokeWidth="2.5"/>
+    <text x="398" y="211" textAnchor="middle" fontSize="23" fontWeight="700" fill="#53358c">LLM</text>
+    <text x="398" y="238" textAnchor="middle" fontSize="15" fill="#53358c">multimodal</text>
+    <path d="M256 222 H302 M493 222 H526" stroke="#5e61a7" strokeWidth="4" markerEnd="url(#lab-guide-arrow-purple)"/>
+    <rect x="535" y="107" width="190" height="232" rx="20" fill="#eaf7f0" stroke="#74b594" strokeWidth="2"/>
+    <Tag x={554} y={124} width={152} label="Correction" tone="green"/>
+    {['Critère 1  ✓', 'Critère 2  ✕', 'Note : …/10'].map((label, i) =>
+      <text key={label} x="555" y={201 + i * 43} fontSize="18" fill="#2a5d4b" fontWeight="600">{label}</text>)}
+    <Tag x={210} y={384} width={350} label="Sans OCR ni extraction de graphe" tone="amber"/>
+  </>;
+}
 function GraphFirst() {
   const stages = [
     {x:46, title:'Image', subtitle:'Pixels du dessin', tone:'blue' as const},
@@ -229,6 +249,7 @@ export function RadarMethodIllustration({ kind }: { kind: MethodGuideIllustratio
     {kind === 'direct-graph' && <DirectGraph/>}
     {kind === 'guided' && <Guided/>}
     {kind === 'graph-first' && <GraphFirst/>}
+    {kind === 'direct-correction' && <DirectCorrection/>}
     {kind === 'question-contracts' && <Contracts/>}
     {kind === 'standard-rubric' && <Standard/>}
     {kind === 'historical-pilot' && <Pilot/>}
@@ -250,6 +271,13 @@ export function RadarMethodThumbnail({ kind }: { kind: MethodGuideIllustration }
       <circle cx="40" cy="23" r="9" fill="#cdb5f1" stroke="#7852b0" strokeWidth="2"/>
       <circle cx="23" cy="55" r="9" fill="#bcd8fc" stroke="#3772bd" strokeWidth="2"/>
       <circle cx="59" cy="55" r="9" fill="#bcd8fc" stroke="#3772bd" strokeWidth="2"/>
+    </>}
+    {kind === 'direct-correction' && <>
+      <rect x="11" y="16" width="23" height="42" rx="5" fill="#d8e9ff" stroke="#3772bd" strokeWidth="2"/>
+      <path d="M16 28 H29 M16 35 H29 M16 42 H25" stroke="#3772bd" strokeWidth="2"/>
+      <path d="M37 37 H46 M43 33 L47 37 L43 41" stroke="#7254ae" strokeWidth="2.5" fill="none"/>
+      <rect x="50" y="19" width="22" height="35" rx="5" fill="#e0f4e9" stroke="#328968" strokeWidth="2"/>
+      <path d="M55 35 L60 41 L68 29" stroke="#328968" strokeWidth="3" fill="none"/>
     </>}
     {(kind === 'guided' || kind === 'question-contracts' || kind === 'standard-rubric') && <>
       {[23,40,57].map((y,i)=><g key={y}>
