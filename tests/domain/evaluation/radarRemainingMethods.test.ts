@@ -58,7 +58,7 @@ describe('remaining radar methods', () => {
     expect(remainingScienceMethods(history, 'qwen:4b')).toEqual(
       (Object.keys(scienceMethods) as ScienceMethod[]).filter(m => m !== 'leaders-v1'));
     expect(remainingScienceMethods(history, 'other:4b')).not.toContain('guided-v1');
-    expect(remainingScienceMethods(history, 'never-tested')).toHaveLength(5);
+    expect(remainingScienceMethods(history, 'never-tested')).toHaveLength(Object.keys(scienceMethods).length);
   });
 
   it('treats interrupted or incomplete batteries as remaining, including three-pass references', () => {
