@@ -77,7 +77,7 @@ describe('observed method names, distinct from launch strategies', () => {
     expect(initial).toEqual({ diagrams: ['pixel-v1', legacy], biology: [variant] });
     expect(saveRadarMethodExclusions(initial)).toBe(true);
     expect(loadRadarMethodExclusions()).toEqual(initial);
-    expect(parseRadarMethodExclusions({ diagrams: ['historique:', 'historique:bad\\nname'],
+    expect(parseRadarMethodExclusions({ diagrams: ['historique:', 'historique:bad' + String.fromCharCode(10) + 'name'],
       biology: ['variante:', 'other', variant] })).toEqual({ diagrams: [], biology: [variant] });
     expect(timelineMethodId('diagrams', { label: 'Image → génératif direct' } as TimelinePoint)).toBe(legacy);
   });
