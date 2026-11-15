@@ -77,7 +77,7 @@ export function EvaluationRadarHome({
   const seriesColors = Object.fromEntries([selected, ...compared].map((name, index) =>
     [name, RADAR_COMPARISON_COLORS[index % RADAR_COMPARISON_COLORS.length]!]));
   const measuredFor = (name: string) =>
-    (science.find((candidate) => candidate.id === name)?.measured ?? 0) / 8 +
+    (science.find((candidate) => candidate.id === name)?.measured ?? 0) / 9 +
     Math.max(0, ...biology.filter((candidate) => candidate.name === name)
       .map((candidate) => candidate.measured / 5));
   const [lab, setLab] = useState<RadarDomain | null>(initialLab);
@@ -281,7 +281,7 @@ export function EvaluationRadarHome({
         {(['diagrams', 'biology'] as const).map((domain) => {
           const scientific = domain === 'diagrams';
           const count = (scientific ? sci : bio)?.measured ?? 0;
-          const total = scientific ? 8 : 5;
+          const total = scientific ? 9 : 5;
           const value = scientific
             ? sci && observedRadarScore(sci, weights)
             : (bio?.score ?? bio?.partialScore);

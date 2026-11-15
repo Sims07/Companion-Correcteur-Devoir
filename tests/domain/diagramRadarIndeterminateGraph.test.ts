@@ -92,3 +92,24 @@ describe('finished but unmeasurable graph relation axis', () => {
     expect(planMissingRadarAxis(candidate, 'relations', 'model', [entry])).toBeNull();
   });
 });
+
+
+describe('usable graph evidence must survive later indeterminate readings', () => {
+  it('keeps the last measurable relation score and its provenance without borrowing another method', () => {
+    const earlier = summarizeDiagramLabReport(buildBlindVisualObservationReport(
+      DIAGRAM_SENSITIVITY_CASES.map(item => ({
+        caseId: item.id, profileId: 'profile-q', profileName: 'Qwen 3.5 4B',
+        model, repetition: 1, status: 'success' as const, durationMs: 22_000,
+        observations: { ...item.gold }, zoom: false, arrowCount: 2, containmentCount: 1,
+      })), 1, '2026-11-14T12:00:00Z', 'pixel-arrows'), 'finished');
+    const newer = completedIndeterminateGraph('2026-11-15T11:27:49Z');
+    const candidate = buildDiagramLabRadar([earlier, newer], 'model')[0]!;
+    expect(candidate.axes.relations.value).toBe(100);
+    expect(candidate.axes.relations.evidence[0]?.reportId).toBe(earlier.id);
+    expect(candidate.axes.coverage.evidence.find(item => item.protocol === 'graph')?.reportId).toBe(newer.id);
+    expect(diagnoseGraphRadarMeasurement([earlier, newer], model)).toMatchObject({
+      kind: 'measured', reportId: earlier.id,
+    });
+    expect(buildDiagramLabRadar([newer], 'model')[0]!.axes.relations.value).toBeNull();
+  });
+});

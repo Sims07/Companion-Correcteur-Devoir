@@ -87,6 +87,8 @@ interface CandidateDraft {
   updatedAt: string;
   batteries: Map<DiagramLabProtocol, Battery>;
   stabilityBatteries: Map<DiagramLabProtocol, Battery>;
+  /** Most recent graph with measurable mutations, independently from latest completeness. */
+  relationsBattery?: Battery;
 }
 interface Fraction {
   n: number;
@@ -283,7 +285,7 @@ function stabilityFraction(battery: Battery): Fraction | null {
   return examined ? { n: stable, d: examined, label: 'Relations répétées à l’identique et déterminées' } : null;
 }
 
-function makeCandidateAxes(batteries: Map<DiagramLabProtocol, Battery>, stabilityBatteries: Map<DiagramLabProtocol, Battery>): Record<RadarAxisId, RadarAxisScore> {
+function makeCandidateAxes(batteries: Map<DiagramLabProtocol, Battery>, stabilityBatteries: Map<DiagramLabProtocol, Battery>, relationsBattery?: Battery): Record<RadarAxisId, RadarAxisScore> {
   const reference = batteries.get('reference') ?? null;
   const arrows = batteries.get('arrows') ?? null;
   const semantic = batteries.get('semantic') ?? null;
@@ -291,6 +293,8 @@ function makeCandidateAxes(batteries: Map<DiagramLabProtocol, Battery>, stabilit
   const valid = [reference, arrows, semantic, graph].filter((value): value is Battery => value !== null);
   const sem = semantic ? sensitivityFractions(semantic.readings) : null;
   const gr = graph ? sensitivityFractions(graph.readings) : null;
+  const measurableGraph = relationsBattery ?? graph;
+  const relationFractions = measurableGraph ? sensitivityFractions(measurableGraph.readings) : null;
   const graphics = fromFraction(reference, 'Accord avec A/B/C', reference ? goldAccuracy(reference) : null, 'A/B/C non exécutés ou sans décision exploitable.');
   const arrowScore = fromFraction(arrows, 'Correspondance sur D/E', arrows ? goldAccuracy(arrows, SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET) : null, 'Paire D/E non complète ou sans décision sur les flèches.');
   // Aggregate labelled decisions, not per-drawing or per-campaign percentages.
@@ -309,13 +313,13 @@ function makeCandidateAxes(batteries: Map<DiagramLabProtocol, Battery>, stabilit
           fraction.n, fraction.d)) }
     : empty('Aucune décision exploitable sur une batterie complète A/B/C ou D/E.');
   const biology = fromFraction(semantic, 'Détection des mutations S1/S2/S3', sem?.mutation ?? null, 'S0–S5 incomplets ou aucune paire témoin/erreur observable.');
-  const graphValue = gr && gr.mutation.d > 0 && gr.correct.d > 0
-    ? limited((100 * gr.mutation.n / gr.mutation.d + 100 * gr.correct.n / gr.correct.d) / 2)
+  const graphValue = relationFractions && relationFractions.mutation.d > 0 && relationFractions.correct.d > 0
+    ? limited((100 * relationFractions.mutation.n / relationFractions.mutation.d + 100 * relationFractions.correct.n / relationFractions.correct.d) / 2)
     : null;
-  const relations: RadarAxisScore = graph && gr && graphValue !== null
+  const relations: RadarAxisScore = measurableGraph && relationFractions && graphValue !== null
     ? { value: graphValue, reason: '50 % détection des mutations + 50 % conservation des relations correctes.',
-        evidence: [evidence(graph, gr.mutation.label, gr.mutation.n, gr.mutation.d),
-          evidence(graph, gr.correct.label, gr.correct.n, gr.correct.d)] }
+        evidence: [evidence(measurableGraph, relationFractions.mutation.label, relationFractions.mutation.n, relationFractions.mutation.d),
+          evidence(measurableGraph, relationFractions.correct.label, relationFractions.correct.n, relationFractions.correct.d)] }
     : empty('Extraction de graphe S0–S5 manquante ou non mesurable.');
   const robustness = sem && gr && semantic && graph &&
     sem.rejection.d > 0 && sem.controls.d > 0 && gr.rejection.d > 0 && gr.controls.d > 0
@@ -423,6 +427,14 @@ export function buildDiagramLabRadar(
         if (row.model) candidate.models.add(row.model);
       }
       if (full.length) {
+        if (entry.protocol === 'graph' && !candidate.relationsBattery) {
+          const first = full[0]!;
+          const homogeneous = full.filter((run) => run.method === first.method && run.variant === first.variant);
+          const fractions = sensitivityFractions(homogeneous);
+          if (fractions.mutation.d > 0 && fractions.correct.d > 0) {
+            candidate.relationsBattery = { entry, readings: homogeneous };
+          }
+        }
         if (!candidate.batteries.has(entry.protocol)) candidate.batteries.set(entry.protocol, { entry, readings: full });
         if (entry.plannedRepetitions >= 3 && !candidate.stabilityBatteries.has(entry.protocol)) {
           candidate.stabilityBatteries.set(entry.protocol, { entry, readings: full });
@@ -447,7 +459,7 @@ export function buildDiagramLabRadar(
     }
   }
   return [...candidates.values()].map((candidate) => {
-    const axes = makeCandidateAxes(candidate.batteries, candidate.stabilityBatteries);
+    const axes = makeCandidateAxes(candidate.batteries, candidate.stabilityBatteries, candidate.relationsBattery);
     const measured = RADAR_AXES.filter((axis) => axes[axis.id].value !== null).length;
     return {
       id: candidate.id, profileId: candidate.profileId,
@@ -477,6 +489,7 @@ export function diagnoseGraphRadarMeasurement(
     entry.report.format === 'companion-scientific-diagram-blind-graph-report')
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   let latest: { entry: DiagramLabArchiveEntry; rows: Reading[] } | null = null;
+  let measured: DiagramLabArchiveEntry | null = null;
   let completedSecondReading = false;
   for (const entry of sorted) {
     const modelRows = flatten(entry).filter((run) => run.model.trim() === modelId);
@@ -485,14 +498,15 @@ export function diagnoseGraphRadarMeasurement(
         modelRows.filter((run) => run.profileId === profileId), 'graph', entry.plannedRepetitions);
       if (!complete.length) continue;
       if (complete.some((run) => run.method === 'blind-graph-zoom')) completedSecondReading = true;
-      if (!latest) {
-        // Compare only one homogeneous (method + prompt variant) series.
-        const first = complete[0]!;
-        latest = { entry, rows: complete.filter((run) =>
-          run.method === first.method && run.variant === first.variant) };
-      }
+      // Compare one homogeneous (method + prompt variant) series per archive.
+      const first = complete[0]!;
+      const rows = complete.filter((run) => run.method === first.method && run.variant === first.variant);
+      if (!latest) latest = { entry, rows };
+      const fractions = sensitivityFractions(rows);
+      if (!measured && fractions.mutation.d > 0 && fractions.correct.d > 0) measured = entry;
     }
   }
+  if (measured) return { kind: 'measured', message: 'Relations mesurables.', reportId: measured.id };
   if (!latest) return { kind: 'not-run', message: 'Aucune batterie de graphe complète enregistrée.' };
 
   const { entry, rows } = latest;
