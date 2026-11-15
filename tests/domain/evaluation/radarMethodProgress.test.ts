@@ -164,7 +164,7 @@ it('compares different strategies on identical cases and weights, including afte
   const other = all('pixel-v1', 'other');
   const point = (records: DiagramLabArchiveEntry[]) => sciencePoints(records, RADAR_PRESETS.scientific)[0]!;
   const reference = point(first);
-  expect(reference.caseCounts?.['Sens des flèches']).toBe(2);
+  expect(reference.caseCounts?.['Correspondance des légendes']).toBe(2);
   expect(point(other).comparisonBasis).toBe(reference.comparisonBasis);
   other.push(campaign('graph', 'pixel-v1', 'other', {date:'2026-11-15T12:00:00Z', zoom:true}));
   expect(point(other).comparisonBasis).toBe(reference.comparisonBasis);
