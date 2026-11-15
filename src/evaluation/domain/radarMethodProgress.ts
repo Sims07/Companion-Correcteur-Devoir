@@ -69,10 +69,30 @@ export function scienceMethodProgress(entries: readonly DiagramLabArchiveEntry[]
     if (missing.includes('robustness') && !missing.includes('biology') && !missing.includes('relations')) {
       needed.add('semantic'); needed.add('graph');
     }
-    if (missing.includes('coverage') || missing.includes('speed')) {
-      // Only retry previously missing batteries; a populated but unusable performance
-      // measure requires an explicit diagnostic, not an arbitrary expensive replay.
+    if (missing.includes('coverage') && !best) {
+      for (const protocol of protocols) needed.add(protocol);
+    }
+    if (missing.includes('speed')) {
       if (!best) for (const protocol of protocols) needed.add(protocol);
+      else {
+        // Use exact evidence selected by the radar, not every historical attempt.
+        // Re-run only complete batteries whose native Ollama durations were not
+        // archived (particularly old independent graph extractions).
+        for (const source of candidate?.axes.coverage.evidence ?? []) {
+          const entry = best.group.find(row => row.id === source.reportId);
+          if (!entry || entry.protocol === 'personal') continue;
+          const runs = modelRuns(entry, model);
+          // OpenAI-compatible APIs do not expose Ollama total_duration:
+          // repeating them would never satisfy this native-only axis.
+          const compatibleGraph = entry.report.format === 'companion-scientific-diagram-blind-graph-report' &&
+            runs.length > 0 && runs.every(run => 'provider' in run && run.provider === 'openai-compatible');
+          if (compatibleGraph) continue;
+          if (runs.some(run => {
+            const value = 'providerDurationMs' in run ? run.providerDurationMs : null;
+            return typeof value !== 'number' || !Number.isFinite(value) || value < 0;
+          })) needed.add(entry.protocol);
+        }
+      }
     }
     const graphDiagnosis = best ? diagnoseGraphRadarMeasurement(best.group, model) : null;
     const graphBlocked = needed.has('graph') &&
