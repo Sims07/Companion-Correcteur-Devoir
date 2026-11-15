@@ -5,7 +5,8 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { defaultAiModelConfiguration } from '../../src/shared/domain/aiModelProfiles.ts';
 import { EvaluationRadarHome } from '../../src/evaluation/ui/components/EvaluationRadarHome.tsx';
 import { RadarTimeline } from '../../src/evaluation/ui/components/RadarTimeline.tsx';
-import { scienceMethods, type TimelinePoint } from '../../src/evaluation/domain/radarTimeline.ts';
+import { biologyRunMethodLabel, scienceMethods, type TimelinePoint } from '../../src/evaluation/domain/radarTimeline.ts';
+import { observedRadarMethodId, toggleRadarMethodExclusion } from '../../src/evaluation/domain/radarMethodExclusions.ts';
 import type { BiologyRadarObservation } from '../../src/evaluation/domain/biologyTeacherRadar.ts';
 
 afterEach(() => window.localStorage.removeItem('companion:radar-method-exclusions:v1'));
@@ -141,5 +142,71 @@ it('switches the trend back to an active method if its currently selected method
     expect(node.querySelector<HTMLSelectElement>('.lab-controls select')?.value)
       .toBe(scienceMethods['direct-v1'].label);
     expect(node.querySelectorAll('.trend-point')).toHaveLength(1);
+  } finally { await act(async () => root.unmount()); }
+});
+
+it('names every exclusion exactly like its observed gallery radar, including pre-trial methods', async () => {
+  const points: TimelinePoint[] = [
+    { id:'legacy', label:'Image → génératif direct', model:'qwen:4b', date:'2026-11-14T09:00:00Z',
+      prompts:[], score:70, axes:{Flèches:70}, comparisonBasis:'same' },
+    { id:'trial', label:scienceMethods['pixel-v1'].label, scienceMethod:'pixel-v1',
+      model:'qwen:4b', date:'2026-11-15T09:00:00Z',
+      prompts:[], score:85, axes:{Flèches:85}, comparisonBasis:'same' },
+  ];
+  const node = document.createElement('div');
+  const root = createRoot(node);
+  let exclusions = {diagrams:[] as string[],biology:[] as string[]};
+  const render = () => act(async () => root.render(createElement(RadarTimeline, {
+    model:'qwen:4b', points, domain:'diagrams', domainLabel:'Schémas scientifiques',
+    exclusions, onToggleMethod: id => { exclusions = toggleRadarMethodExclusion(exclusions, 'diagrams', id); },
+    onBack:vi.fn(), onExport:vi.fn(), selectMethod:vi.fn(), children:null,
+  })));
+  try {
+    await render();
+    const cardNames = [...node.querySelectorAll('.lab-radar-gallery-card strong')]
+      .map(item => item.textContent);
+    const checkboxNames = [...node.querySelectorAll('.lab-method-visibility > .lab-method-options label span')]
+      .map(item => item.textContent);
+    expect(checkboxNames).toEqual(cardNames);
+    const include = node.querySelector<HTMLInputElement>('input[aria-label="Inclure Image → génératif direct"]')!;
+    await act(async () => include.click());
+    expect(exclusions.diagrams).toContain(observedRadarMethodId('diagrams', 'Image → génératif direct'));
+    await render();
+    expect([...node.querySelectorAll('.lab-radar-gallery-card strong')].map(item => item.textContent))
+      .toEqual([scienceMethods['pixel-v1'].label]);
+    expect(node.querySelector('tr[data-excluded="true"]')?.textContent).toContain('Image → génératif direct');
+    await act(async () => node.querySelector<HTMLInputElement>(
+      'input[aria-label="Inclure Image → génératif direct"]')!.click());
+    await render();
+    expect(node.querySelectorAll('.lab-radar-gallery-card')).toHaveLength(2);
+  } finally { await act(async () => root.unmount()); }
+});
+
+it('excludes a named biological variant from both the gallery and automatic future batches', async () => {
+  const node = document.createElement('div');
+  const root = createRoot(node);
+  const batch = vi.fn();
+  const decision: BiologyRadarObservation = {
+    ...history[0]!, id:'decision-a', method:'decision',
+  };
+  const props = { entries:[], history:[history[0]!, decision], profiles:[profile], model:'qwen:4b',
+    choose:vi.fn(), busy:false, manage:vi.fn(), details:vi.fn(), campaigns:vi.fn(),
+    runScience:vi.fn(), runBiology:vi.fn(), runBiologyBatch:batch, initialLab:'biology' as const };
+  const label = biologyRunMethodLabel('contract', 'generative', 'ollama');
+  try {
+    await act(async () => root.render(createElement(EvaluationRadarHome, props)));
+    const cardNames = [...node.querySelectorAll('.lab-radar-gallery-card strong')]
+      .map(item => item.textContent);
+    expect(cardNames).toContain(label);
+    expect(node.querySelector<HTMLInputElement>('input[aria-label="Inclure '+label+'"]')).not.toBeNull();
+    await act(async () => node.querySelector<HTMLInputElement>('input[aria-label="Inclure '+label+'"]')!.click());
+    expect([...node.querySelectorAll('.lab-radar-gallery-card strong')].map(item => item.textContent))
+      .not.toContain(label);
+    expect(node.querySelector('.lab-method-visibility')?.textContent).toContain(label);
+    const batchButton = [...node.querySelectorAll<HTMLButtonElement>('button')].find(
+      button => button.textContent?.includes('Évaluer toutes les méthodes restantes'))!;
+    expect(batchButton.textContent).toContain('(1)');
+    await act(async () => batchButton.click());
+    expect(batch).toHaveBeenCalledWith('profile-1', ['standard']);
   } finally { await act(async () => root.unmount()); }
 });
