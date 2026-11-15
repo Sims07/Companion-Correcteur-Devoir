@@ -14,6 +14,31 @@ const request: ScientificDiagramAnalysisRequest = {
 };
 
 describe('scientific observation contract across grading routes', () => {
+  it('validates microscopy legend leaders by their actual endpoints without requiring arrowheads', () => {
+    expect(SCIENTIFIC_DIAGRAM_OBSERVATION_RULES).toContain('dessin scientifique d’observation au microscope');
+    expect(SCIENTIFIC_DIAGRAM_OBSERVATION_RULES).toContain('simple trait, SANS pointe de flèche nécessaire');
+    expect(SCIENTIFIC_DIAGRAM_OBSERVATION_RULES).toContain('suis-le physiquement jusqu’à son extrémité');
+    expect(SCIENTIFIC_DIAGRAM_OBSERVATION_RULES).toContain('reliée à une mauvaise structure est incorrecte');
+    expect(SCIENTIFIC_DIAGRAM_OBSERVATION_RULES).toContain('uniquement si le schéma comporte réellement des flèches directionnelles');
+
+    const direct = { question: request.question, rubric: JSON.stringify(request.rubric), images: request.images };
+    const prompt = buildDirectDiagramPrompt(direct);
+    expect(prompt).toContain('Un trait de rappel n’a PAS besoin de pointe de flèche ni de direction');
+    expect(prompt).toContain('structure existe ailleurs');
+    expect(prompt).toContain('légende → cible observée');
+    for (const variant of [
+      buildDirectDiagramPrompt(direct, 'missing-id'),
+      buildScientificDiagramPrompt(request),
+      buildScientificDiagramRepairPrompt(request, 'invalid-json', '{}'),
+      buildConciseScientificDiagramPrompt(request),
+      prepareSystemOneRubric({ criteria: request.rubric.criteria, question: request.question,
+        transcription: 'Dessin observé', visualEvidence: true }).state,
+    ]) {
+      expect(variant).toContain('SANS pointe de flèche nécessaire');
+      expect(variant).toContain('structure réellement touchée');
+    }
+  });
+
   it('explains legend column alignment without confusing it with horizontal writing or other diagrams', () => {
     expect(SCIENTIFIC_DIAGRAM_OBSERVATION_RULES).toContain('seulement si le barème exige « alignées en colonne »');
     expect(SCIENTIFIC_DIAGRAM_OBSERVATION_RULES).toContain('les uns sous les autres');
