@@ -228,7 +228,7 @@ export function EvaluationRadarHome({
             <option key={id} value={id} disabled={!activeBioMethodAllowed(id)}>{biologyMethodLabels[id]}{!activeBioMethodAllowed(id) ? ' (exclue)' : ''}</option>)}
         </select>}
       </label>
-      {scientific && <p className="radar-method-help">« Évaluer avec cette méthode » utilise le choix ci-dessus. « Évaluer toutes les méthodes restantes » lance séparément les méthodes non exclues, dans l'ordre de la file, quel que soit le choix affiché. La stratégie de chaque campagne peut différer du moteur exécuté pour une batterie : le suivi indique les deux informations.</p>}
+      {scientific && <p className="radar-method-help">« Évaluer avec cette méthode » utilise le choix ci-dessus. « Évaluer toutes les méthodes restantes » lance séparément les méthodes non exclues, dans l'ordre de la file, quel que soit le choix affiché. La stratégie de chaque campagne peut différer du moteur exécuté pour une batterie : le suivi indique les deux informations. « Comparer Think OFF / ON » dans Tests lance deux parcours déjà disponibles séparément ici, et non une troisième méthode.</p>}
       <p className="radar-method-guide-link"><a href="#method-science-guide">Lire les fiches scientifiques des méthodes{scientific ? ' (petites pointes, longs traits…)' : ''}</a></p>
       <div className="radar-method-launch-actions">
         <Button disabled={busy || !(scientific ? activeScienceMethod && canLaunchScience(fullPlan) : profile && activeBioMethod)}
@@ -241,7 +241,7 @@ export function EvaluationRadarHome({
             else if (profile) runBiologyBatch?.(profile.id, missingBiology);
           }}>Évaluer toutes les méthodes restantes ({scientific ? scienceBatchPlans.length : missingBiology.length})</Button>
       </div>
-      {scientific && <section className="radar-method-audit" aria-label="État des cinq méthodes scientifiques">
+      {scientific && <section className="radar-method-audit" aria-label={'État des ' + scientificProgress.length + ' méthodes scientifiques'}>
         <h3>Bilan de complétude par méthode</h3>
         <p>Une campagne terminée n'est pas forcément un radar complet. Les relances ciblées
           conservent le même essai et ne refont pas les batteries déjà exploitables.</p>
