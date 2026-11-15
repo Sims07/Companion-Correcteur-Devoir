@@ -31,3 +31,19 @@ it('identifies changes of prompt version or model and omits raw request data', (
   expect(evaluationPromptReferences([call, call, { ...call, promptVersion: 3 }, { model: 'other' }]))
     .toEqual([2, 3].map(promptVersion => ({ model: 'reader', promptId: 'read', promptVersion })));
 });
+
+it('exports only active method scores while retaining excluded raw observations for audit', () => {
+  const row: BiologyRadarObservation = {
+    id: 'old-contract', profileId: 'p', profile: 'p', model: 'contract-model',
+    provider: 'ollama', method: 'generative', protocol: 'contract',
+    caseId: 'A', recordedAt: '2026-11-15T10:00:00Z', status: 'success',
+    score: 8, referenceScore: 8, decisions: [],
+  };
+  const history = [row, { ...row, id: 'new-standard', model: 'standard-model', protocol: 'standard' as const }];
+  const excluded = { diagrams: [] as ('pixel-v1')[], biology: ['contract' as const] };
+  const report = buildRadarAnalysisExport([], history, RADAR_PRESETS.balanced, row.recordedAt, excluded);
+  expect(report.excludedMethods).toEqual(excluded);
+  expect(report.biology.dashboardProtocol).toBe('standard');
+  expect(report.biology.candidates.map(candidate => candidate.name)).toEqual(['standard-model']);
+  expect(report.biology.observations).toEqual(history);
+});
