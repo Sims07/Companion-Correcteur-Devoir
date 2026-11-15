@@ -149,8 +149,8 @@ describe('Évaluation des modèles — comparaison graphique de l’historique',
     expect(appSource).toContain('Comparaison des modèles Vision');
     expect(appSource).toContain('Comparaison des modèles d’analyse');
     expect(appSource).toContain('Comparaison du parcours complet');
-    expect(appSource).toContain("title: 'Temps de lecture'");
-    expect(appSource).toContain("title: 'Temps d’analyse'");
+    expect(appSource).toContain("title: 'Temps de lecture · Ollama'");
+    expect(appSource).toContain("title: 'Temps d’analyse · Ollama'");
     expect(appSource).toContain("title: 'Tokens de lecture'");
     expect(appSource).toContain("title: 'Tokens d’analyse'");
     expect(appSource).toContain("title: 'Note proposée'");
