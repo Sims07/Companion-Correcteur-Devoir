@@ -164,3 +164,20 @@ it('compares different strategies on identical cases and weights, including afte
   other.forEach(entry => { entry.trial!.weights = RADAR_PRESETS.balanced; });
   expect(point(other).comparisonBasis).not.toBe(reference.comparisonBasis);
 });
+
+it('explains why historical calls without native timing cannot measure performance', () => {
+  const records = all('leaders-v1', 'historical');
+  for (const entry of records) {
+    if (!('cases' in entry.report)) continue;
+    for (const item of entry.report.cases) {
+      for (const run of item.experiments) {
+        if ('providerDurationMs' in run) delete run.providerDurationMs;
+      }
+    }
+  }
+  const progress = scienceMethodProgress(records, model).find(item => item.method === 'leaders-v1')!;
+  expect(progress.successful).toBe(23);
+  expect(progress.missing).toEqual(['speed']);
+  expect(progress.reason).toContain('Temps Ollama natif');
+  expect(progress.steps).toEqual([]);
+});

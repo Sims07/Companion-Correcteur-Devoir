@@ -95,6 +95,7 @@ export function scienceMethodProgress(entries: readonly DiagramLabArchiveEntry[]
         failed ? failed + ' essai(s) en échec.' : '',
         interrupted ? 'Une ancienne campagne est restée en cours et doit être reprise.' : '',
         missing.length ? 'Axes manquants : ' + missing.map(axis => axisNames[axis]).join(', ') + '.' : '',
+        best && missing.includes('speed') ? candidate?.axes.speed.reason : '',
         missing.includes('relations') && graphDiagnosis && graphDiagnosis.kind !== 'not-run' ? graphDiagnosis.message : '',
         !steps.length && missing.length && !graphBlocked ? 'Aucune relance automatique utile : consulter les diagnostics.' : '',
       ].filter(Boolean).join(' ') || 'Aucune campagne enregistrée.';

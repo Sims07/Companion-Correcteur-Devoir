@@ -70,8 +70,11 @@ export function MethodRadarComparison({sorted, axes, gallery}: {sorted:TimelineP
           else if (result.lead != null) comparison = '+' + number(result.lead) + ' pts sur la deuxième';
           return <li key={axis}><div className="criterion-leader-heading">
             <h5>{axis}</h5>{result.score != null && <strong>{number(result.score)} <small>/100</small></strong>}
-          </div>{result.leaders.map(method => <div className="criterion-leader-name" key={method}>{method}{representatives.find(p => p.label === method)?.caseCounts?.[axis] != null &&
-              ' · ' + representatives.find(p => p.label === method)!.caseCounts![axis] + ' cas dans les batteries sources'}</div>)}
+          </div>{result.leaders.map(method => {
+            const count = representatives.find(point => point.label === method)?.caseCounts?.[axis];
+            return <div className="criterion-leader-name" key={method}>{method}
+              {count != null && ' · ' + count + ' cas dans les batteries sources'}</div>;
+          })}
           <small>{comparison}{result.count > 1 && ' · ' + result.count + ' méthodes mesurées'}</small></li>;
         })}</ul>
       </section>
