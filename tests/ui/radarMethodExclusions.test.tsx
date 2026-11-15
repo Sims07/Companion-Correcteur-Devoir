@@ -80,3 +80,36 @@ it('removes an excluded scientific method from comparison and recommendation but
     expect(node.querySelectorAll('.trend-point')).toHaveLength(1);
   } finally { await act(async () => root.unmount()); }
 });
+
+it('keeps excluded scientific strategies out of the five-method sequential batch and individual relaunch', async () => {
+  const node = document.createElement('div');
+  const root = createRoot(node);
+  const batch = vi.fn();
+  const single = vi.fn();
+  try {
+    await act(async () => root.render(createElement(EvaluationRadarHome, {
+      entries: [], history: [], profiles: [profile], model: 'qwen:4b',
+      choose: vi.fn(), busy: false, manage: vi.fn(), details: vi.fn(), campaigns: vi.fn(),
+      runScience: single, runBiology: vi.fn(), runScienceBatch: batch, initialLab: 'diagrams',
+    })));
+    const all = () => [...node.querySelectorAll<HTMLButtonElement>('button')]
+      .find(item => item.textContent?.includes('Évaluer toutes les méthodes restantes'))!;
+    const include = node.querySelector<HTMLInputElement>(
+      'input[aria-label="Inclure '+scienceMethods['pixel-v1'].label+'"]',
+    )!;
+    expect(all().textContent).toContain('(5)');
+    await act(async () => include.click());
+    expect(all().textContent).toContain('(4)');
+    expect(node.querySelector<HTMLSelectElement>('.lab-launch select')?.value).not.toBe('pixel-v1');
+    await act(async () => all().click());
+    expect(batch).toHaveBeenCalledTimes(1);
+    const requests = batch.mock.calls[0]![0] as Array<{trial: {method: string}}>;
+    expect(requests).toHaveLength(4);
+    expect(requests.map(row => row.trial.method)).not.toContain('pixel-v1');
+    const runOne = [...node.querySelectorAll<HTMLButtonElement>('button')]
+      .find(item => item.textContent?.trim() === 'Évaluer avec cette méthode')!;
+    await act(async () => runOne.click());
+    expect(single).toHaveBeenCalledTimes(1);
+    expect(single.mock.calls[0]![0].trial.method).not.toBe('pixel-v1');
+  } finally { await act(async () => root.unmount()); }
+});
