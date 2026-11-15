@@ -7,6 +7,7 @@ import { buildDiagramLabRadar, observedRadarScore, RADAR_AXES, type RadarWeights
 import type { RadarTestStep } from './diagramLabRadarLaunch.ts';
 
 export const scienceMethods = {
+  'image-direct-v1': { label: 'Image → LLM → correction directe · référence', graphVariant: 'baseline', promptMode: 'standard' },
   'graph-first-v1': { label: 'Image → graphe → correction · v1', graphVariant: 'isolated-arrows-outside', promptMode: 'standard' },
   'leaders-v1': { label: 'Graphe · détecteur des longs traits (#438)', graphVariant: 'pixel-leaders-v1', promptMode: 'standard' },
   'pixel-v1': { label: 'Graphe · détecteur des petites pointes (#439)', graphVariant: 'pixel-arrows', promptMode: 'standard' },
@@ -46,7 +47,9 @@ export interface TimelinePoint {
 export function trialSteps(method: ScienceMethod): RadarTestStep[] {
   const { promptMode, graphVariant } = scienceMethods[method];
   return (['reference', 'arrows', 'semantic', 'graph'] as const).map(protocol => ({
-    protocol, repetitions: protocol === 'reference' ? 3 : 1, method: method === 'graph-first-v1' && protocol !== 'graph' ? 'graph-first-v1' : 'compare',
+    protocol, repetitions: protocol === 'reference' ? 3 : 1, method: protocol === 'graph' ? 'compare'
+      : method === 'graph-first-v1' ? 'graph-first-v1'
+        : method === 'image-direct-v1' ? 'direct-image-generative' : 'compare',
     promptMode, graphVariant, zoom: false,
   }));
 }

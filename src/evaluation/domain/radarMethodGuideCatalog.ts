@@ -8,7 +8,7 @@ import {
 
 export type MethodGuideIllustration =
   | 'small-tips' | 'long-shafts' | 'direct-graph' | 'guided' | 'graph-first'
-  | 'question-contracts' | 'standard-rubric' | 'historical-pilot';
+  | 'question-contracts' | 'standard-rubric' | 'historical-pilot' | 'direct-correction';
 
 export interface MethodGuidePresentation {
   title: string;
@@ -26,6 +26,13 @@ export interface MethodGuideEntry extends MethodGuidePresentation {
 
 /** Display data is separate from the scientific facts and references canonical method IDs. */
 export const SCIENCE_METHOD_PRESENTATION: Record<ScienceMethod, MethodGuidePresentation> = {
+  'image-direct-v1': {
+    title: 'Correction directe sur image · référence',
+    summary: 'Le LLM reçoit directement le schéma et le barème pour produire la correction.',
+    illustration: 'direct-correction',
+    visualFocus: 'Du schéma à la note, sans graphe intermédiaire',
+    visualCaption: 'Image et barème entrent dans le même modèle multimodal. Il rend les décisions et la note ; aucun graphe ni détecteur ne précède la correction.',
+  },
   'pixel-v1': {
     title: 'Détecteur des petites pointes',
     summary: 'Recherche des pointes discrètes dans les pixels avant vérification par Vision.',
@@ -88,7 +95,7 @@ export const BIOLOGY_METHOD_PRESENTATION: Record<BiologyMethodId, MethodGuidePre
 };
 
 const scienceOrder: readonly ScienceMethod[] =
-  ['pixel-v1', 'leaders-v1', 'direct-v1', 'guided-v1', 'graph-first-v1'];
+  ['image-direct-v1', 'pixel-v1', 'leaders-v1', 'direct-v1', 'guided-v1', 'graph-first-v1'];
 
 /** Includes excluded methods and strategies with no archived score. */
 export function radarMethodGuideEntries(domain: RadarMethodDomain): MethodGuideEntry[] {
