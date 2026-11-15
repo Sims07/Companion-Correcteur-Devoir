@@ -4,7 +4,6 @@ import { scienceMethods, trialSteps, type RadarTrial, type ScienceMethod } from 
 import type { RadarTestStep } from './diagramLabRadarLaunch.ts';
 
 const protocols = ['reference', 'arrows', 'semantic', 'graph'] as const;
-const caseCounts: Record<typeof protocols[number], number> = { reference: 3, arrows: 2, semantic: 6, graph: 6 };
 const axisNames = Object.fromEntries(RADAR_AXES.map(axis => [axis.id, axis.label])) as Record<RadarAxisId, string>;
 
 export interface ScienceMethodProgress {
