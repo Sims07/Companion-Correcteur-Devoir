@@ -197,6 +197,13 @@
   max-width: 560px;
 }
 .evaluation-workspace-shell .diagram-protocol-panel .diagram-lab-method > details { flex: 0 0 auto; }
+.evaluation-workspace-shell .diagram-protocol-panel .diagram-lab-auto-engine > strong { font-size: .78rem; }
+.evaluation-workspace-shell .diagram-protocol-panel .diagram-lab-auto-engine > span { font-weight: 600; }
+.evaluation-workspace-shell .diagram-protocol-panel .diagram-lab-auto-engine > p {
+  flex: 1 0 100%;
+  margin: 0;
+}
+
 .evaluation-workspace-shell .diagram-radar-return-note {
   display: flex;
   flex-wrap: wrap;
