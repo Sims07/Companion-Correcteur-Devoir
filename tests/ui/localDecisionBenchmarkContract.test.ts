@@ -5,8 +5,8 @@ const read = (relative: string) => readFileSync(new URL(relative, import.meta.ur
 
 describe('local benchmark remains part of the technical observability experience', () => {
   it('shows complete teacher-reference comparisons, not provisional zeros', () => {
-    const observability = read('../../src/ui/ObservabilityDashboard.tsx');
-    const app = read('../../src/ui/App.tsx');
+    const observability = read('../../src/shell/ui/ObservabilityDashboard.tsx');
+    const app = read('../../src/shell/ui/App.tsx');
     expect(observability).toContain('Fiabilité face aux corrections de référence');
     expect(observability).toContain('Les notes « non évaluées » ne sont jamais comptées comme zéro.');
     expect(observability).toContain('benchmarkRows.map');

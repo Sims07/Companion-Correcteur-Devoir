@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { BackgroundCorrectionJob } from '../../../src/domain/correction/backgroundCorrection.ts';
-import type { LocalCorrection } from '../../../src/domain/correction/localCorrection.ts';
-import { getBackgroundCorrectionReviewNavigation, getCopyNavigation } from '../../../src/domain/correction/backgroundCorrectionReviewNavigation.ts';
+import type { BackgroundCorrectionJob } from '../../../src/correction/domain/backgroundCorrection.ts';
+import type { LocalCorrection } from '../../../src/correction/domain/localCorrection.ts';
+import { getBackgroundCorrectionReviewNavigation, getCopyNavigation } from '../../../src/correction/domain/backgroundCorrectionReviewNavigation.ts';
 
 function job(id: string, status: BackgroundCorrectionJob['status'], createdAt: string, assignmentId = 'assignment-1'): BackgroundCorrectionJob {
   return {

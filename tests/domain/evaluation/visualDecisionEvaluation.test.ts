@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { compareVisualDecisions, extractSystemOneDecisions, extractVisualDecisions, summarizeModelEvaluationScores } from '../../../src/domain/evaluation/visualDecisionEvaluation.ts';
-import type { ModelEvaluationResultSnapshot } from '../../../src/domain/evaluation/modelEvaluation.ts';
-import type { Rubric } from '../../../src/domain/correction/rubric.ts';
+import { compareVisualDecisions, extractSystemOneDecisions, extractVisualDecisions, summarizeModelEvaluationScores } from '../../../src/evaluation/domain/visualDecisionEvaluation.ts';
+import type { ModelEvaluationResultSnapshot } from '../../../src/evaluation/domain/modelEvaluation.ts';
+import type { Rubric } from '../../../src/correction/domain/rubric.ts';
 
 const rubric: Rubric = { title: 'Mitose', criteria: [
   { id: 'quality', title: 'Dessin', description: '', maxPoints: 2, subcriteria: [

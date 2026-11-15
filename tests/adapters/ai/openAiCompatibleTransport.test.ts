@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createOpenAiCompatibleFetch } from '../../../src/adapters/ai/openAiCompatibleTransport.ts';
+import { createOpenAiCompatibleFetch } from '../../../src/shared/adapters/ai/openAiCompatibleTransport.ts';
 
 describe('OpenAI-compatible chat transport', () => {
   it('sends bearer authentication and translates Ollama text requests', async () => {

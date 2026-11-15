@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import { importRubricImageWithOllama } from '../../../src/adapters/ai/ollamaProvider.ts';
-import type { ImageInput } from '../../../src/ports/aiProvider.ts';
-import type { RubricImportProgress } from '../../../src/ports/correctionWorkspace.ts';
+import { importRubricImageWithOllama } from '../../../src/correction/adapters/ai/ollamaProvider.ts';
+import type { ImageInput } from '../../../src/correction/ports/aiProvider.ts';
+import type { RubricImportProgress } from '../../../src/correction/ports/correctionWorkspace.ts';
 
 const image = (fileName: string): ImageInput => ({
   base64: 'aGVsbG8=',

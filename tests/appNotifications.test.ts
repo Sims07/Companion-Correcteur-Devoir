@@ -4,7 +4,7 @@ import {
   NOTIFICATIONS_CHANGED, NOTIFICATION_RETENTION_DAYS,
   clearAllAppNotifications, clearReadAppNotifications, markAllAppNotificationsRead,
   markAppNotificationRead, pushAppNotification, readAppNotifications, removeAppNotification,
-} from '../src/domain/appNotifications.ts';
+} from '../src/shared/domain/appNotifications.ts';
 
 describe('local notifications', () => {
   beforeEach(() => localStorage.clear());

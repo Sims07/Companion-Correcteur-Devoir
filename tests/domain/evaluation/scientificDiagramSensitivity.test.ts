@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { validateRubric } from '../../../src/domain/correction/rubric.ts';
+import { validateRubric } from '../../../src/correction/domain/rubric.ts';
 import {
   DIAGRAM_SENSITIVITY_CASES, DIAGRAM_SENSITIVITY_CASE_IDS, DIAGRAM_SENSITIVITY_RUBRIC,
   DIAGRAM_SENSITIVITY_TARGETS, scientificDiagramSensitivitySvg, scientificDiagramSensitivityPreviewUrl,
   summarizeDiagramSensitivity, diagramSensitivityContext, type DiagramSensitivityReading,
-} from '../../../src/domain/evaluation/scientificDiagramSensitivity.ts';
+} from '../../../src/evaluation/domain/scientificDiagramSensitivity.ts';
 
 const keys = DIAGRAM_SENSITIVITY_TARGETS;
 const allPresent = (): Record<string, 'present'> => ({

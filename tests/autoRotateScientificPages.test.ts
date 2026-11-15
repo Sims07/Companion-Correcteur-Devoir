@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import { autoRotateScientificPages } from '../src/application/autoRotateScientificPages.ts';
-import type { ImageInput } from '../src/domain/imageInput.ts';
-import type { ScientificPageClassification } from '../src/domain/correction/scientificPageClassification.ts';
+import { autoRotateScientificPages } from '../src/correction/application/autoRotateScientificPages.ts';
+import type { ImageInput } from '../src/shared/domain/imageInput.ts';
+import type { ScientificPageClassification } from '../src/correction/domain/scientificPageClassification.ts';
 
 const source: ImageInput = { base64: 'original', mimeType: 'image/png', fileName: 'schema.png' };
 const rotated: ImageInput = { base64: 'rotated', mimeType: 'image/png', fileName: 'schema.png' };

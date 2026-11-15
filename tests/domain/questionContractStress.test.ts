@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { questionAnswer, questionGroups } from '../../src/domain/correction/questionContract.ts';
+import { questionAnswer, questionGroups } from '../../src/correction/domain/questionContract.ts';
 import {
   QUESTION_CONTRACT_STRESS_CASES, QUESTION_CONTRACT_CASES,
   questionContractRubric, QUESTION_CONTRACT_QUESTION,
-} from '../../src/domain/evaluation/questionContractPilot.ts';
-import { questionContractRepeatabilitySteps, buildQuestionContractRepeatabilityReport } from '../../src/domain/evaluation/questionContractRepeatability.ts';
+} from '../../src/evaluation/domain/questionContractPilot.ts';
+import { questionContractRepeatabilitySteps, buildQuestionContractRepeatabilityReport } from '../../src/evaluation/domain/questionContractRepeatability.ts';
 
 describe('variant B decision stress suite — independent teacher-reference fixtures', () => {
   it('retains baseline A/B/C and adds four independent cases only in stress mode', () => {

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createModelEvaluationService } from '../../src/application/modelEvaluationService.ts';
-import type { ModelEvaluationRepository } from '../../src/ports/modelEvaluationRepository.ts';
-import type { ModelEvaluationRecord } from '../../src/domain/evaluation/modelEvaluation.ts';
+import { createModelEvaluationService } from '../../src/evaluation/application/modelEvaluationService.ts';
+import type { ModelEvaluationRepository } from '../../src/evaluation/ports/modelEvaluationRepository.ts';
+import type { ModelEvaluationRecord } from '../../src/evaluation/domain/modelEvaluation.ts';
 
 const record: ModelEvaluationRecord = {
   id: 'evaluation-1', completedAt: '2026-10-29T10:00:00.000Z', assignmentId: 'biology-1',

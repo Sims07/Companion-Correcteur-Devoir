@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeGradeScore, sumGradeScores } from '../src/domain/scorePrecision.ts';
+import { normalizeGradeScore, sumGradeScores } from '../src/shared/domain/scorePrecision.ts';
 
 describe('grade score precision', () => {
   it('removes floating-point residue from a score before it reaches the teacher UI', () => {

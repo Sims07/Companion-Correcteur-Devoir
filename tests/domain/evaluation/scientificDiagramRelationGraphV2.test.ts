@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   parseObservedRelationGraphV2, auditRelationGraphV2, DIAGRAM_RELATIONS_V2_PROMPT,
   type ObservedRelationGraphV2,
-} from '../../../src/domain/evaluation/scientificDiagramRelationGraphV2.ts';
-import { fixtureRelationExpectationsV2 } from '../../../src/domain/evaluation/scientificDiagramFixtures.ts';
+} from '../../../src/evaluation/domain/scientificDiagramRelationGraphV2.ts';
+import { fixtureRelationExpectationsV2 } from '../../../src/evaluation/domain/scientificDiagramFixtures.ts';
 
 export function relationGraphExample(swapped = false): ObservedRelationGraphV2 {
   const labels = [

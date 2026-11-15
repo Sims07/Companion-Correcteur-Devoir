@@ -2,9 +2,9 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 describe('persistent evaluation activity deep links', () => {
-  const app = readFileSync('src/ui/App.tsx', 'utf8');
-  const scientific = readFileSync('src/ui/components/ScientificDiagramProtocolPanel.tsx', 'utf8');
-  const biology = readFileSync('src/ui/components/PilotEvaluationPanel.tsx', 'utf8');
+  const app = readFileSync('src/shell/ui/App.tsx', 'utf8');
+  const scientific = readFileSync('src/evaluation/ui/components/ScientificDiagramProtocolPanel.tsx', 'utf8');
+  const biology = readFileSync('src/evaluation/ui/components/PilotEvaluationPanel.tsx', 'utf8');
 
   it('keeps a compact in-page locator separate from the actual evaluation content', () => {
     expect(app).toContain('aria-label="Dernière expérience lancée"');
@@ -52,7 +52,7 @@ describe('persistent evaluation activity deep links', () => {
 
 describe('scientific diagram observability wiring', () => {
   it('sends all diagram runs and graph observations to local observability history', () => {
-    const app = readFileSync('src/ui/App.tsx', 'utf8');
+    const app = readFileSync('src/shell/ui/App.tsx', 'utf8');
     expect(app).toContain('toDiagramLabObservabilityTraces(savedRecord');
     expect(app).toContain('toBlindGraphObservabilityTrace(run');
     expect(app).toContain('retainDiagramObservability(');

@@ -2,11 +2,11 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, describe, expect, it } from 'vitest';
-import type { DiagramLabArchiveEntry, DiagramLabProtocol } from '../../../src/domain/evaluation/diagramLabHistory.ts';
-import { DIAGRAM_SENSITIVITY_CASES } from '../../../src/domain/evaluation/scientificDiagramSensitivity.ts';
-import { SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET } from '../../../src/domain/evaluation/scientificDiagramFixtures.ts';
-import { buildDiagramLabRadar, observedRadarScore, RADAR_PRESETS, rankDiagramLabRadar } from '../../../src/domain/evaluation/diagramLabRadar.ts';
-import { ScientificDiagramRadar, restoredWeights } from '../../../src/ui/components/ScientificDiagramRadar.tsx';
+import type { DiagramLabArchiveEntry, DiagramLabProtocol } from '../../../src/evaluation/domain/diagramLabHistory.ts';
+import { DIAGRAM_SENSITIVITY_CASES } from '../../../src/evaluation/domain/scientificDiagramSensitivity.ts';
+import { SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET } from '../../../src/evaluation/domain/scientificDiagramFixtures.ts';
+import { buildDiagramLabRadar, observedRadarScore, RADAR_PRESETS, rankDiagramLabRadar } from '../../../src/evaluation/domain/diagramLabRadar.ts';
+import { ScientificDiagramRadar, restoredWeights } from '../../../src/evaluation/ui/components/ScientificDiagramRadar.tsx';
 
 function sample(protocol: Exclude<DiagramLabProtocol, 'personal'>, repetitions: number): DiagramLabArchiveEntry {
   const fixture = protocol === 'reference' || protocol === 'arrows';

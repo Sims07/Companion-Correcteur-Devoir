@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { transcribeSubjectReference } from '../../src/application/transcribeSubjectReference.ts';
-import type { GradingProvider } from '../../src/ports/aiProvider.ts';
+import { transcribeSubjectReference } from '../../src/correction/application/transcribeSubjectReference.ts';
+import type { GradingProvider } from '../../src/correction/ports/aiProvider.ts';
 
 const images = [{ base64: 'c3VqZXQ=', mimeType: 'image/png', fileName: 'sujet-1.png' }];
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { aiModelRoles, correctionModelFor, defaultAiModelConfiguration, parseAiModelConfiguration, parseAiModelProfiles } from '../src/domain/aiModelProfiles.ts';
+import { aiModelRoles, correctionModelFor, defaultAiModelConfiguration, parseAiModelConfiguration, parseAiModelProfiles } from '../src/shared/domain/aiModelProfiles.ts';
 
 describe('independent AI model families', () => {
   it.each(['generative', 'decision', 'visual-decision'] as const)('migrates a legacy %s profile without guessing the other model family', method => {

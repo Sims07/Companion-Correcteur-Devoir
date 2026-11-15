@@ -2,9 +2,9 @@
 import { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { describe, expect, it, vi } from 'vitest';
-import { defaultAiModelConfiguration, type AiModelProfile } from '../../src/domain/aiModelProfiles.ts';
-import { buildBiologyRadar, type BiologyRadarObservation } from '../../src/domain/evaluation/biologyTeacherRadar.ts';
-import { EvaluationRadarHome } from '../../src/ui/components/EvaluationRadarHome.tsx';
+import { defaultAiModelConfiguration, type AiModelProfile } from '../../src/shared/domain/aiModelProfiles.ts';
+import { buildBiologyRadar, type BiologyRadarObservation } from '../../src/evaluation/domain/biologyTeacherRadar.ts';
+import { EvaluationRadarHome } from '../../src/evaluation/ui/components/EvaluationRadarHome.tsx';
 
 function profile(method: 'generative' | 'decision'): AiModelProfile {
   return {

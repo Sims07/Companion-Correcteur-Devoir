@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isAppVersionManifestRequest } from '../src/adapters/network/networkInspector.ts';
+import { isAppVersionManifestRequest } from '../src/shared/adapters/network/networkInspector.ts';
 
 describe('app version metadata and the network inspector', () => {
   it('does not record the same-origin version check, including cache-busting queries', () => {

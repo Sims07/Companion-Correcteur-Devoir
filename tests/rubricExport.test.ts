@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { createRubricExport, RUBRIC_EXPORT_FORMAT, RUBRIC_EXPORT_VERSION } from '../src/domain/correction/rubricExport.ts';
-import type { Rubric } from '../src/domain/correction/rubric.ts';
+import { createRubricExport, RUBRIC_EXPORT_FORMAT, RUBRIC_EXPORT_VERSION } from '../src/correction/domain/rubricExport.ts';
+import type { Rubric } from '../src/correction/domain/rubric.ts';
 const rubric: Rubric = { title: 'Biologie cellulaire', criteria: [
  { id: 'knowledge', title: 'Connaissances', description: 'Notions exactes', maxPoints: 2, analysisMode: 'text', subcriteria: [{ id: 'definition', title: 'Définition', description: 'Terme précis', maxPoints: 2 }] },
  { id: 'diagram', title: 'Schéma', description: 'Cellule', maxPoints: 3, analysisMode: 'scientific-diagram', subcriteria: [{ id: 'membrane', title: 'Membrane', description: 'Contour fermé', maxPoints: 2 }, { id: 'nucleus', title: 'Noyau', description: 'Position', maxPoints: 1 }] },

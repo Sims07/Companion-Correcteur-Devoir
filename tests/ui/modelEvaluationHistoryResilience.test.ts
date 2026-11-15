@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 describe('evaluation history session resilience', () => {
-  const app=readFileSync('src/ui/App.tsx','utf8');
+  const app=readFileSync('src/shell/ui/App.tsx','utf8');
   it('adds runs to session history if IndexedDB still fails after quota fallback', () => {
     expect(app).toContain('setSavedModelEvaluations((current) => [record, ...current.filter');
     expect(app).toContain('setSessionOnlyEvaluationIds((current) => current.includes(record.id)');

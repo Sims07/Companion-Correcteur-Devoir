@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { resolveAmbiguousPageClassification } from '../../../src/domain/correction/scientificPageClassification.ts';
-import { parseScientificPageClassifications, routeScientificPages } from '../../../src/domain/correction/scientificPageClassification.ts';
+import { resolveAmbiguousPageClassification } from '../../../src/correction/domain/scientificPageClassification.ts';
+import { parseScientificPageClassifications, routeScientificPages } from '../../../src/correction/domain/scientificPageClassification.ts';
 
 describe('scientific page classification', () => {
   it('accepts a complete ordered classification and preserves ambiguous pages', () => {

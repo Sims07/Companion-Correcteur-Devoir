@@ -2,7 +2,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { EvaluationIssueButton } from '../../../src/ui/components/EvaluationIssueButton.tsx';
+import { EvaluationIssueButton } from '../../../src/evaluation/ui/components/EvaluationIssueButton.tsx';
 
 describe('one-click evaluation error sharing', () => {
   let root: Root | null = null;

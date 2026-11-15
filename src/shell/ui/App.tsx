@@ -1,0 +1,5537 @@
+import { extractDiagramGraphEvidence, extractDiagramGraphEvidenceV2, graphGradingContext } from '../../evaluation/application/diagramGraphEvidence.ts';
+import { biologyPoints, campaignGroups, scienceMethods } from '../../evaluation/domain/radarTimeline.ts';
+import { EvaluationRadarHome, type RadarDomain } from '../../evaluation/ui/components/EvaluationRadarHome.tsx';
+import type { BiologyMethod } from '../../evaluation/domain/radarRemainingMethods.ts';
+import { RadarBatteryContext } from '../../evaluation/ui/components/RadarBatteryContext.tsx';
+import { describeRadarBattery, type RadarBatteryExecution } from '../../evaluation/domain/radarBatteryExecution.ts';
+import { restoredModelId } from '../../evaluation/ui/components/ScientificDiagramRadar.tsx';
+import { EvaluationCampaigns, type CampaignFilter } from '../../evaluation/ui/components/EvaluationCampaigns.tsx';
+import { EvaluationIssueButton } from '../../evaluation/ui/components/EvaluationIssueButton.tsx';
+import { countedUsableBiologyGrades, buildEvaluationIssueReport } from '../../evaluation/domain/evaluationIssueReport.ts';
+import { NotificationCenter } from '../../shared/ui/components/NotificationCenter.tsx';
+import { AppVersionBadge } from '../../shared/ui/components/AppVersionBadge.tsx';
+import { pushAppNotification, type AppNotification } from '../../shared/domain/appNotifications.ts';
+import { EvaluationJourneyPicker } from '../../evaluation/ui/components/EvaluationJourneyPicker.tsx';
+import { resolveEvaluationActivityOutcome, type EvaluationActivityStatus } from '../../evaluation/domain/evaluationActivityStatus.ts';
+import { awaitOrAbort } from '../../shared/domain/awaitOrAbort.ts';
+import { ContractPreparationPanel } from '../../correction/ui/components/ContractPreparationPanel.tsx';
+import { QuestionContractEditor, QuestionScopePreview } from '../../correction/ui/components/QuestionContractEditor.tsx';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { FilePicker } from '../../shared/ui/components/FilePicker.tsx';
+import type { ScientificDiagramAnalysisService } from '../../correction/application/scientificDiagramAnalysisService.ts';
+import { DesignSystemSelect } from '../../shared/ui/components/DesignSystemSelect.tsx';
+import { CopyReviewHeader } from '../../correction/ui/components/CopyReviewHeader.tsx';
+import { TeacherReviewAlert } from '../../correction/ui/components/TeacherReviewAlert.tsx';
+import { teacherReviewStatus } from '../../correction/domain/teacherReviewSummary.ts';
+import type { CorrectionWorkspaceService } from '../../correction/application/correctionWorkspaceService.ts';
+import { isModelEvaluationQuotaError, type ModelEvaluationService } from '../../evaluation/application/modelEvaluationService.ts';
+import type { StorageDiagnosticsService } from '../../shared/application/storageDiagnosticsService.ts';
+import { createAsyncActionGuard } from '../../shared/domain/asyncActionGuard.ts';
+import { normalizeGradeScore, parseGradingProposal, toReviewedCriteria, type GradingProposal, type ReviewedCriterion, type CriterionProposal } from '../../correction/domain/grading.ts';
+import { resolveReviewedSubcriterion, resolveManualCriterionOverride, type SubcriterionTeacherDecision } from '../../correction/domain/subcriterionReview.ts';
+import { validateReviewedCorrection } from '../../correction/domain/reviewFinalization.ts';
+import { calculateReportedTokensPerSecondForStage, canCompareModelEvaluationRecords, toModelEvaluationSummary, getModelEvaluationStage, runModelEvaluation, sumReportedTokensForStage, type ModelEvaluationProgress, type ModelEvaluationRecord, type ModelEvaluationResultSnapshot, type ModelEvaluationConfiguration } from '../../evaluation/domain/modelEvaluation.ts';
+import { getRubricSubcriteria, validateRubric, type Rubric, type RubricCriterion } from '../../correction/domain/rubric.ts';
+import { getTeacherEntryStep } from '../../correction/domain/teacherJourney.ts';
+import { shouldRunScientificDiagramAnalysis, type ScientificDiagramAnalysis } from '../../correction/domain/scientificDiagram.ts';
+import { resolveAmbiguousPageClassification, routeScientificPages, type ScientificPageClassification } from '../../correction/domain/scientificPageClassification.ts';
+import { accumulateClockwiseRotation, getConfidentDiagramRotation } from '../../correction/domain/scientificPageOrientation.ts';
+import { mergeScientificDiagramCriteria, partitionScientificRubric, shouldRunTeacherScientificDiagramWorkflow } from '../../correction/domain/scientificRubricRouting.ts';
+import { mergeDecisionScientificDiagramCriteria } from '../../correction/domain/scientificDiagramDecisions.ts';
+import type { CriterionAnalysisUpdate, DiagnosticModelResult, DiagnosticStrategy, GradingProgressEvent, ImageInput } from '../../correction/ports/aiProvider.ts';
+import { readEvaluationGradingResult } from '../application/evaluationGradingResult.ts';
+import { buildDiagnosticScore } from '../../evaluation/domain/diagnosticScore.ts';
+import { compareWithDiagnosticReference, validateDiagnosticReference, type ReferenceCriterionScore } from '../../evaluation/domain/diagnosticReference.ts';
+import { createDecisionMemoryEntries, fingerprintRubric, LOCAL_MEMORY_CORRECTION_ID_KEY, LOCAL_MEMORY_RUBRIC_FINGERPRINT_KEY, LOCAL_MEMORY_RUBRIC_UPDATED_EVENT, LOCAL_MEMORY_UPDATED_EVENT } from '../../correction/domain/localMemory.ts';
+import type { LocalCorrection, CorrectionArchiveSnapshot } from '../../correction/domain/localCorrection.ts';
+import { resolveIdentifiedCopyLabel, type StudentIdentity } from '../../correction/domain/studentIdentity.ts';
+import type { TeacherAnnotationInkColor } from '../../correction/domain/teacherAnnotationColor.ts';
+import { AnnotationInkColorPicker } from '../../correction/ui/components/AnnotationInkColorPicker.tsx';
+import type { RubricImportProgress } from '../../correction/ports/correctionWorkspace.ts';
+import type { LocalCorrectionService } from '../../correction/application/localCorrectionService.ts';
+import { compareDiagnosticProposals } from '../../evaluation/domain/diagnosticComparison.ts';
+import { getReviewAlertReasons, getReviewFocus, hasUnreadableCopySignal } from '../../correction/domain/reviewInsights.ts';
+import { sumGradeScores } from '../../shared/domain/scorePrecision.ts';
+import { transcribeSubjectReference } from '../../correction/application/transcribeSubjectReference.ts';
+import { createBackgroundCorrection, backgroundCorrectionStatusLabel, type BackgroundCorrectionJob, type BackgroundJobSummary } from '../../correction/domain/backgroundCorrection.ts';
+import { getBackgroundCorrectionResult } from '../../correction/domain/backgroundCorrectionResult.ts';
+import { getCopyNavigation, getNewlyAvailableReviewJob } from '../../correction/domain/backgroundCorrectionReviewNavigation.ts';
+import { prepareBatchCopies } from '../../correction/application/prepareBatchCopies.ts';
+import { autoRotateScientificPages } from '../../correction/application/autoRotateScientificPages.ts';
+import type { BackgroundCorrectionService } from '../../correction/application/backgroundCorrectionService.ts';
+import { aiModelRoles, correctionModelFor, defaultAiModelConfiguration, parseAiModelConfiguration, parseAiModelProfiles, removeAiModelProfiles, upsertAiModelProfile, type AiModelConfiguration, type AiModelProfile } from '../../shared/domain/aiModelProfiles.ts';
+import { AiModelRoleFields } from '../../shared/ui/components/AiModelRoleFields.tsx';
+import { AiProfileManager } from '../../shared/ui/components/AiProfileManager.tsx';
+import { EvaluationProfilesDialog } from '../../evaluation/ui/components/EvaluationProfilesDialog.tsx';
+import { ModelPreloadPanel } from '../../shared/ui/components/ModelPreloadPanel.tsx';
+import type { CorrectionMethod } from '../../shared/domain/correctionMethod.ts';
+import { buildAssignmentContext } from '../../correction/domain/assignmentContext.ts';
+import { getArchivedCorrectionsForAssignment } from '../../correction/domain/assignmentOverview.ts';
+import { defaultCopyOverviewFilter, toCopyOverviewStatus, type CopyOverviewFilter } from '../../correction/domain/copyOverview.ts';
+import type { TeacherAnnotationReviewCandidate, TeacherAnnotationReviewDecision } from '../../correction/domain/teacherAnnotations.ts';
+import { buildLocalDecisionBenchmark } from '../../evaluation/domain/localDecisionBenchmark.ts';
+import { compareVisualDecisions, extractVisualDecisions, summarizeModelEvaluationScores, visualChoiceLabels } from '../../evaluation/domain/visualDecisionEvaluation.ts';
+import { isNativeDecisionModel, isVisualDecisionModel } from '../../correction/domain/systemOneDecision.ts';
+import { PILOT_CASES, PILOT_PROTOCOL_ID, PILOT_QUESTION, PILOT_RUBRIC, PILOT_TITLE, buildPilotReport, isLocalPilotConfiguration, isLocalPilotProfile, isLoopbackPilotEndpoint, pilotSelectionIssue, selectPilotProfiles, type PilotCase, type PilotRun } from '../../evaluation/domain/pilotEvaluationProtocol.ts';
+import { PilotEvaluationPanel } from '../../evaluation/ui/components/PilotEvaluationPanel.tsx';
+import { BiologyTeacherRadar } from '../../evaluation/ui/components/BiologyTeacherRadar.tsx';
+import { describeAiConnectionFailure } from '../../shared/domain/aiConnectionDiagnostic.ts';
+import { biologyRadarObservations, loadBiologyRadarHistory, mergeBiologyRadarHistory, saveBiologyRadarHistory } from '../../evaluation/domain/biologyTeacherRadar.ts';
+import type { DiagramThinkSetting, EvaluationVisionGateway } from '../../evaluation/ports/evaluationVision.ts';
+import { ScientificDiagramProtocolPanel, downloadScientificDiagramJson, type DiagramProtocolRequest } from '../../evaluation/ui/components/ScientificDiagramProtocolPanel.tsx';
+import { ScientificDiagramLabHistory } from '../../evaluation/ui/components/ScientificDiagramLabHistory.tsx';
+import type { RadarMissingTestRequest } from '../../evaluation/domain/diagramLabRadarLaunch.ts';
+import { type DiagramLabReport, type DiagramLabArchiveEntry } from '../../evaluation/domain/diagramLabHistory.ts';
+import { createDiagramLabArchiveWriter } from '../../evaluation/application/diagramLabArchiveWriter.ts';
+import { radarEvaluationOutcome, RADAR_TEST_PROTOCOL_NAMES } from '../../evaluation/domain/diagramLabRadarLaunch.ts';
+import { shouldRetryInvalidDiagramRecord } from '../../evaluation/domain/diagramRunRecovery.ts';
+import type { DiagramLabArchiveRepository } from '../../evaluation/ports/diagramLabArchiveRepository.ts';
+import { initialAssignmentRubric, type AssignmentKind } from '../../correction/domain/assignmentKind.ts';
+import { buildDiagramReview } from '../../correction/domain/diagramTeacherReview.ts';
+import { directDiagramAssignmentIssue } from '../../correction/application/directScientificDiagramCorrection.ts';
+import { SCIENTIFIC_DIAGRAM_PROTOCOL_ID, buildScientificDiagramProtocolReport, diagramMethodIssue, diagramMethodLabels, selectDiagramMethods, usesDirectDiagramVision, type DiagramMethod, type DiagramMethodSelection, type DiagramProtocolCount } from '../../evaluation/domain/scientificDiagramProtocol.ts';
+import { SCIENTIFIC_DIAGRAM_FIXTURE_CONTEXT, SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC, buildScientificDiagramFixtureReport, type ScientificDiagramFixtureId, type ScientificDiagramFixtureRun } from '../../evaluation/domain/scientificDiagramFixtures.ts';
+import { DIAGRAM_SENSITIVITY_CASE_IDS, DIAGRAM_SENSITIVITY_CONTEXT, DIAGRAM_SENSITIVITY_RUBRIC, buildScientificDiagramSensitivityReport, type DiagramSensitivityCaseId, type DiagramSensitivityRun, type DiagramSensitivityPromptMode } from '../../evaluation/domain/scientificDiagramSensitivity.ts';
+import { buildBlindVisualObservationReport, compareBlindVisualGraph, explainBlindVisualGraph, blindGraphProfileIssue, blindGraphVisionModel, type DiagramGraphEvidence, type BlindGraphDiagnostic,
+  type BlindVisualObservationRun, type BlindGraphPromptVariant } from '../../evaluation/domain/scientificDiagramBlindGraph.ts';
+import { ALL_QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_PROTOCOL_ID, QUESTION_CONTRACT_QUESTION, QUESTION_CONTRACT_TITLE, buildQuestionContractReport, questionContractRubric, type QuestionContractRun, type QuestionContractVariant, type QuestionContractCase } from '../../evaluation/domain/questionContractPilot.ts';
+import { buildQuestionContractRepeatabilityReport, questionContractRepeatabilitySteps, type QuestionContractRepeatabilityRun, type RepeatabilityCount, type RepeatabilitySuite } from '../../evaluation/domain/questionContractRepeatability.ts';
+import { runPilotCriterionConcurrency, type PilotConcurrencyRun } from '../../evaluation/application/pilotCriterionConcurrency.ts';
+import type { PilotModelMemoryRelease } from '../../evaluation/ports/pilotModelMemory.ts';
+import { ObservabilityDashboard } from './ObservabilityDashboard.tsx';
+import { NetworkInspector } from './NetworkInspector.tsx';
+import { DeveloperToolsNavigation, type DeveloperTool } from './DeveloperToolsNavigation.tsx';
+import { AssignmentsHome } from '../../correction/ui/AssignmentsHome.tsx';
+import type { NewAssignmentDetails } from '../../correction/ui/components/AssignmentCreationPanel.tsx';
+import { RubricReusePanel } from '../../correction/ui/components/RubricReusePanel.tsx';
+import { duplicateAssignmentProfile } from '../../correction/domain/teacherWorkflow.ts';
+import '../../correction/ui/components/TeacherSetup.css';
+import { RubricExportPanel } from '../../correction/ui/components/RubricExportPanel.tsx';
+import { RubricImportPanel } from '../../correction/ui/components/RubricImportPanel.tsx';
+import { SubcriteriaSuggestionPanel } from '../../correction/ui/components/SubcriteriaSuggestionPanel.tsx';
+import { CorrectionOverview } from '../../correction/ui/CorrectionOverview.tsx';
+import { TeacherCopyIntake } from '../../correction/ui/components/TeacherCopyIntake.tsx';
+import { CopyPageViewer } from '../../correction/ui/components/CopyPageViewer.tsx';
+import { ZoomableImage } from '../../shared/ui/components/ZoomableImage.tsx';
+import { createQueuedCopyThumbnail } from '../../correction/ui/queuedCopyThumbnail.ts';
+import { ActiveCopyProcessingWorkspace } from '../../correction/ui/components/ActiveCopyProcessingWorkspace.tsx';
+import { TeacherWorkspaceNavigation } from '../../correction/ui/components/TeacherWorkspaceNavigation.tsx';
+import { Button, Checkbox, Dialog, StatusNotice, type StatusTone } from '../../shared/ui/design-system/index.ts';
+
+import { toModelEvaluationObservabilityTraces, toDiagramLabObservabilityTraces, toBlindGraphObservabilityTrace, type ObservabilityTrace } from '../domain/observability.ts';
+import { summarizeCriterionProgress } from '../../correction/domain/criterionProgress.ts';
+import { estimateRemainingCorrectionSeconds } from '../../correction/domain/correctionTimeEstimate.ts';
+import { createReviewTraceMetrics, markGroupConfirmedCriterionModified, type ReviewTraceMetrics } from '../../correction/domain/reviewMetrics.ts';
+
+type EvaluationStageMode = 'vision' | 'analysis' | 'integrated';
+type EvaluationActivity = {
+  title: string;
+  journey: 'custom' | 'diagrams' | 'biology';
+  targetId: string;
+  profiles: string;
+  campaignId?: string;
+  scenario?: 'contracts' | 'repeatability' | 'copies';
+  status: EvaluationActivityStatus;
+  error?: string;
+  radarBattery?: RadarBatteryExecution;
+};
+
+interface PilotRunOptions {
+  pilotCase: PilotCase | QuestionContractCase;
+  stage: 'vision' | 'analysis' | 'integrated';
+  profiles: AiModelProfile[];
+  caseImages: ImageInput[];
+  contractVariant?: QuestionContractVariant;
+  diagram?: { rubric: Rubric; question: string; method: DiagramMethod; caseId?: string; repetition?: number; imageCount?: number; thinkSetting?: DiagramThinkSetting };
+  retainModelAfterRun?: boolean;
+}
+
+const initialRubric: Rubric = {
+  title: 'Barème de biologie — exemple',
+  criteria: [
+    { id: 'knowledge', title: 'Connaissances scientifiques', description: 'Exactitude des notions et du vocabulaire.', maxPoints: 8 },
+    { id: 'reasoning', title: 'Raisonnement', description: 'Qualité de l’argumentation et des liens logiques.', maxPoints: 7 },
+    { id: 'clarity', title: 'Clarté de la réponse', description: 'Structure et lisibilité de la réponse.', maxPoints: 5 },
+  ],
+};
+
+const defaultQuestion = 'Évaluez la réponse manuscrite à la question de biologie. Justifiez chaque attribution de points à partir des éléments visibles de la copie.';
+
+type DiagnosticCriterionScore = { criterionId: string; title: string; points: number; maxPoints: number };
+
+type AssignmentProfile = {
+  id: string;
+  title: string;
+  description?: string;
+  educationLevel?: string;
+  rubric: Rubric;
+  question: string;
+  correctionMode: 'integrated' | 'separate';
+  hasScientificDiagrams?: boolean;
+  kind?: AssignmentKind;
+  annotationInkColor?: TeacherAnnotationInkColor;
+};
+
+type AssignmentDraft = {
+  images: ImageInput[];
+  originalImages: ImageInput[];
+  transcription: string | null;
+  subjectImages: ImageInput[];
+  subjectTranscription: string | null;
+  proposal: GradingProposal | null;
+  review: ReviewedCriterion[];
+  teacherQuestions: string;
+  studentLabel: string;
+  studentIdentity: StudentIdentity | null;
+  currentCorrectionId: string | null;
+  isFinalized: boolean;
+  reviewMessage: string;
+  detectTeacherAnnotations: boolean;
+  teacherAnnotations?: string;
+  scientificDiagramAnalysis: ScientificDiagramAnalysis | null;
+  scientificPageClassifications: ScientificPageClassification[] | null;
+  manualRotationAngles?: Record<number, number>;
+  annotationInkColor?: TeacherAnnotationInkColor;
+  annotationInkColorApplied?: boolean;
+};
+
+const aiModelConfigurationKey = 'companion-correcteur:ollama-configuration:v1';
+const aiModelProfilesKey = 'companion-correcteur:ollama-profiles:v1';
+const evaluationSelectionKey = 'companion-correcteur:evaluation-selected-profiles:v1';
+
+function readAiModelConfiguration(): AiModelConfiguration {
+  try { return parseAiModelConfiguration(window.localStorage.getItem(aiModelConfigurationKey)); }
+  catch { return defaultAiModelConfiguration; }
+}
+
+function readAiModelProfiles(): AiModelProfile[] {
+  try { return parseAiModelProfiles(window.localStorage.getItem(aiModelProfilesKey)); }
+  catch { return []; }
+}
+
+/** Restore only IDs that still exist; never persist a second copy of credentials. */
+function readSelectedEvaluationProfileIds(): string[] {
+  try {
+    const stored: unknown = JSON.parse(window.localStorage.getItem(evaluationSelectionKey) || '[]');
+    if (!Array.isArray(stored)) return [];
+    const available = new Set(readAiModelProfiles().map((profile) => profile.id));
+    return stored.filter((id): id is string => typeof id === 'string' && available.has(id)).slice(0, 3);
+  } catch { return []; }
+}
+
+const assignmentProfilesKey = 'companion-correcteur:assignments:v1';
+const activeAssignmentKey = 'companion-correcteur:active-assignment:v1';
+
+function readActiveAssignmentProfile(): AssignmentProfile {
+  const profiles = readAssignmentProfiles();
+  try {
+    const savedId = window.localStorage.getItem(activeAssignmentKey);
+    const savedProfile = profiles.find((profile) => profile.id === savedId);
+    if (savedProfile) return savedProfile;
+  } catch { /* Use the first available assignment if local storage is unavailable. */ }
+  return profiles[0];
+}
+
+function readAssignmentProfiles(): AssignmentProfile[] {
+  try {
+    const saved = window.localStorage.getItem(assignmentProfilesKey);
+    if (saved) {
+      const parsed: unknown = JSON.parse(saved);
+      if (Array.isArray(parsed)) {
+        const valid = parsed.filter((item): item is AssignmentProfile =>
+          typeof item?.id === 'string' && typeof item?.title === 'string' &&
+          typeof item?.question === 'string' &&
+          (item?.correctionMode === 'integrated' || item?.correctionMode === 'separate') &&
+          typeof item?.rubric?.title === 'string' && Array.isArray(item?.rubric?.criteria)
+        );
+        if (valid.length) return valid;
+      }
+    }
+  } catch { /* Fall back to the single-devoir preference from earlier versions. */ }
+  return [{
+    id: 'assignment-default',
+    title: readAssignmentTitle(),
+    rubric: initialRubric,
+    question: defaultQuestion,
+    correctionMode: 'integrated',
+  }];
+}
+
+type TimingRecord = {
+  id: string;
+  completedAt: string;
+  visionModel: string;
+  analysisModel: string;
+  thinking: boolean;
+  correctionMode: 'integrated' | 'separate';
+  /** Captured strategy; older histories without it are excluded from benchmark statistics. */
+  correctionMethod?: CorrectionMethod;
+  pageCount: number;
+  readingSeconds: number | null;
+  analysisSeconds: number | null;
+  totalSeconds: number;
+  outcome: 'success' | 'error';
+  source?: 'rubric-import' | 'scientific-diagram';
+  modelScore: number | null;
+  criterionScores: DiagnosticCriterionScore[];
+  criterionCount?: number;
+  assignmentId?: string;
+  assignmentTitle?: string;
+  rubricSnapshot?: Rubric;
+  diagnosticStrategy?: DiagnosticStrategy;
+  diagnosticRuns?: DiagnosticModelResult[];
+  evaluationProfileName?: string;
+  executionError?: string;
+  reviewMetrics?: ReviewTraceMetrics;
+  referenceScores?: ReferenceCriterionScore[];
+};
+
+const timingHistoryKey = 'companion-correcteur:timing-history:v1';
+const assignmentTitleKey = 'companion-correcteur:assignment-title:v1';
+const timingHistoryLimit = 100;
+
+type DiagnosticUsageGroup = {
+  model: string;
+  stage: 'reading' | 'analysis' | 'arbitration';
+  calls: number;
+  measuredCalls: number;
+  elapsedMs: number;
+  promptTokens: number;
+  generatedTokens: number;
+  totalTokens: number;
+  generationMs: number;
+  loadMs: number;
+};
+
+function groupDiagnosticUsage(runs: DiagnosticModelResult[] = []): DiagnosticUsageGroup[] {
+  const groups = new Map<string, DiagnosticUsageGroup>();
+  for (const run of runs) {
+    const stage = run.stage ?? (run.kind === 'vision' ? 'reading' : run.kind === 'arbitrator' ? 'arbitration' : 'analysis');
+    const key = `${stage}::${run.model}`;
+    const group = groups.get(key) ?? {
+      model: run.model, stage, calls: 0, measuredCalls: 0, elapsedMs: 0,
+      promptTokens: 0, generatedTokens: 0, totalTokens: 0, generationMs: 0, loadMs: 0,
+    };
+    group.calls += run.requestCount ?? 1;
+    group.elapsedMs += run.elapsedMs;
+    if (run.promptTokens !== undefined || run.generatedTokens !== undefined) group.measuredCalls += run.requestCount ?? 1;
+    group.promptTokens += run.promptTokens ?? 0;
+    group.generatedTokens += run.generatedTokens ?? 0;
+    group.totalTokens += run.totalTokens ?? 0;
+    group.generationMs += run.generationMs ?? 0;
+    group.loadMs += run.loadMs ?? 0;
+    groups.set(key, group);
+  }
+  return [...groups.values()];
+}
+
+function formatTokenCount(value: number | undefined): string {
+  return value === undefined ? 'Non fourni' : new Intl.NumberFormat('fr-FR').format(value);
+}
+
+function diagnosticStageLabel(stage: DiagnosticUsageGroup['stage']): string {
+  return stage === 'reading' ? 'Lecture / transcription' : stage === 'arbitration' ? 'Arbitrage' : 'Analyse';
+}
+
+function readAssignmentTitle(): string {
+  try { return window.localStorage.getItem(assignmentTitleKey) || 'Devoir de biologie'; }
+  catch { return 'Devoir de biologie'; }
+}
+
+function readTimingHistory(): TimingRecord[] {
+  try {
+    const saved = window.localStorage.getItem(timingHistoryKey);
+    if (!saved) return [];
+    const parsed: unknown = JSON.parse(saved);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((item): item is TimingRecord =>
+      typeof item === 'object' && item !== null &&
+      typeof item.id === 'string' && typeof item.completedAt === 'string' &&
+      typeof item.visionModel === 'string' && typeof item.analysisModel === 'string' &&
+      typeof item.totalSeconds === 'number' &&
+      (item.readingSeconds === null || typeof item.readingSeconds === 'number') &&
+      (item.analysisSeconds === null || typeof item.analysisSeconds === 'number') &&
+      (item.outcome === 'success' || item.outcome === 'error')
+    ).map((item) => ({ ...item, modelScore: typeof item.modelScore === 'number' ? item.modelScore : null, criterionScores: Array.isArray(item.criterionScores) ? item.criterionScores.filter((criterion): criterion is DiagnosticCriterionScore => typeof criterion?.criterionId === 'string' && typeof criterion.title === 'string' && typeof criterion.points === 'number' && typeof criterion.maxPoints === 'number') : [] })).slice(0, timingHistoryLimit);
+  } catch {
+    return [];
+  }
+}
+
+function formatElapsed(seconds: number): string {
+  const minutes = Math.floor(seconds / 60).toString().padStart(2, '0');
+  const remainingSeconds = (seconds % 60).toString().padStart(2, '0');
+  return `${minutes}:${remainingSeconds}`;
+}
+
+function safeDiagnosticProposal(raw: string, rubric: Rubric): GradingProposal | null {
+  try { return parseGradingProposal(raw, rubric); } catch { return null; }
+}
+
+function rubricAsJson(rubric: Rubric): string {
+  return JSON.stringify(rubric, null, 2);
+}
+
+function getLocalMemoryCorrectionId(): string | null {
+  try {
+    const existing = window.localStorage.getItem(LOCAL_MEMORY_CORRECTION_ID_KEY);
+    if (existing) return existing;
+    const id = `correction-${crypto.randomUUID()}`;
+    window.localStorage.setItem(LOCAL_MEMORY_CORRECTION_ID_KEY, id);
+    return id;
+  } catch {
+    return null;
+  }
+}
+
+const inactiveDiagramLabArchive: DiagramLabArchiveRepository = {
+  save: async () => undefined,
+  list: async () => [],
+};
+
+export function App({ evaluationVision = {}, service, archiveService, evaluationService, backgroundCorrectionService, diagramAnalysisService, diagramLabArchive, loadOnDemandModel, storageDiagnosticsService, releasePilotModels }: { evaluationVision?: EvaluationVisionGateway; service: CorrectionWorkspaceService; archiveService: LocalCorrectionService; evaluationService: ModelEvaluationService; backgroundCorrectionService?: BackgroundCorrectionService; diagramAnalysisService: ScientificDiagramAnalysisService; diagramLabArchive?: DiagramLabArchiveRepository; storageDiagnosticsService?: StorageDiagnosticsService; loadOnDemandModel: (settings: { endpoint: string; apiKey: string; model: string }) => Promise<void>; releasePilotModels?: PilotModelMemoryRelease }) {
+  const diagramArchive = diagramLabArchive ?? inactiveDiagramLabArchive;
+  const backgroundService: BackgroundCorrectionService = backgroundCorrectionService ?? {
+    enqueue: async () => undefined,
+    updateImages: async () => undefined,
+    listJobs: async () => [],
+    listJobSummaries: async () => [],
+    prewarm: async () => undefined,
+    pauseAndWait: async (_modelToKeepWarm?: string) => undefined,
+    stopAndWait: async () => undefined,
+    resume: () => undefined,
+    processPending: async () => undefined,
+    subscribe: () => () => undefined,
+    subscribeSummaries: () => () => undefined,
+    markForReview: async () => undefined,
+    saveReviewDraft: async () => undefined,
+    markCompleted: async () => undefined,
+    remove: async () => undefined,
+    retry: async () => undefined,
+    setAutomatic: async () => undefined,
+  };
+  const [assignmentProfiles, setAssignmentProfiles] = useState<AssignmentProfile[]>(readAssignmentProfiles);
+  const [activeAssignmentId, setActiveAssignmentId] = useState(() => readActiveAssignmentProfile().id);
+  const [assignmentKind, setAssignmentKind] = useState<AssignmentKind>(() => readActiveAssignmentProfile().kind ?? 'standard');
+  const isScientificDiagramAssignment = assignmentKind === 'scientific-diagram';
+  const [showAssignmentsHome, setShowAssignmentsHome] = useState(true);
+  const [pendingRemoval, setPendingRemoval] = useState<{ kind: 'assignment'; profile: AssignmentProfile } | { kind: 'copy'; job: BackgroundCorrectionJob } | null>(null);
+  const [copyOverviewFilter, setCopyOverviewFilter] = useState<CopyOverviewFilter>('all');
+  const [showCopyIntake, setShowCopyIntake] = useState(false);
+  const [copyOverviewNotice, setCopyOverviewNotice] = useState('');
+  const [copyOverviewFilterTouched, setCopyOverviewFilterTouched] = useState(false);
+  const [assignmentDrafts, setAssignmentDrafts] = useState<Record<string, AssignmentDraft>>({});
+  const [assignmentTitle, setAssignmentTitle] = useState(() => readActiveAssignmentProfile().title);
+  const [assignmentDescription, setAssignmentDescription] = useState(() => readActiveAssignmentProfile().description ?? '');
+  const [educationLevel, setEducationLevel] = useState(() => readActiveAssignmentProfile().educationLevel ?? '');
+  const [teacherStep, setTeacherStep] = useState<'details' | 'rubric' | 'overview' | 'copy' | 'progress' | 'review'>(() => getTeacherEntryStep(readActiveAssignmentProfile().rubric) === 'copies' ? 'overview' : 'rubric');
+  const [showAiSettings, setShowAiSettings] = useState(false);
+  const [rubric, setRubric] = useState<Rubric>(() => readActiveAssignmentProfile().rubric);
+  const [expandedCriterionId, setExpandedCriterionId] = useState<string | null>(null);
+  const [rubricImportMessage, setRubricImportMessage] = useState('');
+  const [rubricImportTone, setRubricImportTone] = useState<StatusTone>('success');
+  const [rubricImportFileName, setRubricImportFileName] = useState('');
+  const [rubricImportProgress, setRubricImportProgress] = useState<RubricImportProgress | null>(null);
+  const [rubricImportEvents, setRubricImportEvents] = useState<string[]>([]);
+  const [rubricImportVisionResponse, setRubricImportVisionResponse] = useState('');
+  const [rubricImportAnalysisResponse, setRubricImportAnalysisResponse] = useState('');
+  const [rubricImageImporting, setRubricImageImporting] = useState(false);
+  const rubricImportAbortController = useRef<AbortController | null>(null);
+  const activeCorrectionAbortController = useRef<AbortController | null>(null);
+  const rubricImportDiagnosticRuns = useRef<DiagnosticModelResult[]>([]);
+  const [rubricFileImporting, setRubricFileImporting] = useState(false);
+  const [question, setQuestion] = useState(() => readActiveAssignmentProfile().question);
+  const [endpoint, setEndpoint] = useState(() => readAiModelConfiguration().endpoint);
+  const [apiCompatible, setApiCompatible] = useState(() => readAiModelConfiguration().apiCompatible);
+  const [apiKey, setApiKey] = useState(() => readAiModelConfiguration().apiKey);
+  const [visionModel, setVisionModel] = useState(() => readAiModelConfiguration().visionModel);
+  const [transcriptionTokenLimit, setTranscriptionTokenLimit] = useState(() => readAiModelConfiguration().transcriptionTokenLimit);
+  const [transcriptionPromptMode, setTranscriptionPromptMode] = useState<'auto' | 'ocr' | 'general'>(() => readAiModelConfiguration().transcriptionPromptMode);
+  const [transcriptionRepeatPenalty, setTranscriptionRepeatPenalty] = useState(() => readAiModelConfiguration().transcriptionRepeatPenalty);
+  const [transcriptionPenaltyParameter, setTranscriptionPenaltyParameter] = useState<'none' | 'frequency_penalty' | 'repeat_penalty'>(() => readAiModelConfiguration().transcriptionPenaltyParameter);
+  const [transcriptionFrequencyPenalty, setTranscriptionFrequencyPenalty] = useState(() => readAiModelConfiguration().transcriptionFrequencyPenalty);
+  const [generativeModel, setGenerativeModel] = useState(() => aiModelRoles(readAiModelConfiguration()).generativeModel);
+  const [decisionModel, setDecisionModel] = useState(() => aiModelRoles(readAiModelConfiguration()).decisionModel);
+  const [correctionMethod, setCorrectionMethod] = useState<CorrectionMethod>(() => readAiModelConfiguration().correctionMethod);
+  const analysisModel = correctionModelFor(correctionMethod, { generativeModel, decisionModel });
+  function changeGenerativeModel(model: string) {
+    setGenerativeModel(model);
+    if (!visionModel || visionModel === generativeModel) { setVisionModel(model); setTranscription(null); }
+  }
+  function setAnalysisModel(model: string) {
+    if (correctionMethod === 'generative') changeGenerativeModel(model);
+    else setDecisionModel(model);
+  }
+  const [secondAnalysisModel, setSecondAnalysisModel] = useState(() => readAiModelConfiguration().secondAnalysisModel);
+  const [arbitratorModel, setArbitratorModel] = useState(() => readAiModelConfiguration().arbitratorModel);
+  const [diagnosticStrategy, setDiagnosticStrategy] = useState<DiagnosticStrategy>(() => readAiModelConfiguration().diagnosticStrategy);
+  const [analysisThinking, setAnalysisThinking] = useState(() => readAiModelConfiguration().analysisThinking);
+  const [criterionByCriterion, setCriterionByCriterion] = useState(() => readAiModelConfiguration().criterionByCriterion);
+  const [aiModelProfiles, setAiModelProfiles] = useState<AiModelProfile[]>(readAiModelProfiles);
+  const [aiModelProfileName, setAiModelProfileName] = useState('');
+  const [selectedAiModelProfileId, setSelectedAiModelProfileId] = useState('');
+  const [aiModelProfileMessage, setAiModelProfileMessage] = useState('');
+  const [aiModelProfileTone, setAiModelProfileTone] = useState<StatusTone>('info');
+  const [pendingAiProfileRemoval, setPendingAiProfileRemoval] = useState<AiModelProfile | null>(null);
+  const [managingAiProfiles, setManagingAiProfiles] = useState(false);
+  const [managingEvaluationProfiles, setManagingEvaluationProfiles] = useState(false);
+  const [diagnosticRuns, setDiagnosticRuns] = useState<DiagnosticModelResult[]>([]);
+  const [selectedEvaluationProfileIds, setSelectedEvaluationProfileIds] = useState<string[]>(readSelectedEvaluationProfileIds);
+  useEffect(() => {
+    try { window.localStorage.setItem(evaluationSelectionKey, JSON.stringify(selectedEvaluationProfileIds)); }
+    catch { /* The selection remains usable in this browser session. */ }
+  }, [selectedEvaluationProfileIds]);
+  const [selectedEvaluationHistoryIds, setSelectedEvaluationHistoryIds] = useState<string[]>([]);
+  const [evaluationHistoryStageFilter, setEvaluationHistoryStageFilter] = useState<EvaluationStageMode | 'all'>('all');
+  const [evaluationEditorOpen, setEvaluationEditorOpen] = useState(false);
+  const [evaluationBiologyScenario, setEvaluationBiologyScenario] = useState<'contracts' | 'repeatability' | 'copies'>('contracts');
+  const [dashboardModel, setDashboardModel] = useState(restoredModelId);
+  const [campaignFilter, setCampaignFilter] = useState<CampaignFilter>({});
+  const [reportId, setReportId] = useState<string>();
+  const biologyCampaign = useRef<string | undefined>(undefined);
+  function selectDashboardModel(model: string) {
+    setDashboardModel(model);
+    const profile = aiModelProfiles.find(p => p.configuration.analysisModel === model) ?? aiModelProfiles.find(p => p.configuration.visionModel === model);
+    setSelectedEvaluationProfileIds(profile ? [profile.id] : []);
+    try { localStorage.setItem('companion:scientific-lab-radar-model:v1', model); } catch { /* Session selection remains available. */ }
+  }
+  function showCampaigns(filter: CampaignFilter) {
+    setCampaignFilter(filter);
+    setEvaluationWorkspaceStep('campaigns');
+  }
+  const [biologyRadarOpen, setBiologyRadarOpen] = useState(false);
+  const [evaluationJourney, setEvaluationJourney] = useState<'custom' | 'diagrams' | 'biology'>(() => {
+    try { const saved = localStorage.getItem('companion:evaluation-test-family'); return saved === 'biology' || saved === 'custom' ? saved : 'diagrams'; } catch { return 'diagrams'; }
+  });
+  const [diagramLabView, setDiagramLabView] = useState<'protocols' | 'history' | 'radar'>('protocols');
+  const [radarAutoRequest, setRadarAutoRequest] = useState<RadarMissingTestRequest | null>(null);
+  const radarAutoSequence = useRef(0);
+  const [radarAutoBusy, setRadarAutoBusy] = useState(false);
+  const [radarBattery, setRadarBattery] = useState<RadarBatteryExecution | null>(null);
+  const radarBatteryRef = useRef<RadarBatteryExecution | null>(null);
+  const scienceMethodQueue = useRef<{ remaining: Array<Omit<RadarMissingTestRequest, 'id'>>; total: number; failures: number } | null>(null);
+  const biologyMethodBatchRunning = useRef(false);
+  const methodBatchStopped = useRef(false);
+  const [methodBatchProgress, setMethodBatchProgress] = useState<{
+    domain: RadarDomain; current: number; total: number; label: string;
+  } | null>(null);
+  const [methodBatchReturnLab, setMethodBatchReturnLab] = useState<RadarDomain | null>(null);
+  const [evaluationWorkspaceStep, setEvaluationWorkspaceStep] = useState<'configuration' | 'execution' | 'results' | 'history' | 'dashboard' | 'campaigns'>('dashboard');
+  // Reopen the comparison once after a batch, not on every future dashboard visit.
+  useEffect(() => {
+    if (evaluationWorkspaceStep === 'dashboard' && methodBatchReturnLab) setMethodBatchReturnLab(null);
+  }, [evaluationWorkspaceStep, methodBatchReturnLab]);
+  const radarOpen = evaluationWorkspaceStep === 'configuration' && (evaluationJourney === 'biology' ? biologyRadarOpen : evaluationJourney === 'diagrams' && diagramLabView === 'radar');
+
+  const dashboardOpen = radarOpen || evaluationWorkspaceStep === 'dashboard';
+  const campaignsOpen = evaluationWorkspaceStep === 'campaigns' || evaluationWorkspaceStep === 'history' ||
+    (evaluationWorkspaceStep === 'configuration' && evaluationJourney === 'diagrams' && diagramLabView === 'history');
+
+  function openCandidateRadar(kind: 'diagrams' | 'biology') {
+
+    setEvaluationWorkspaceStep('configuration');
+    setEvaluationJourney(kind);
+    setBiologyRadarOpen(kind === 'biology');
+    setDiagramLabView(kind === 'diagrams' ? 'radar' : 'protocols');
+  }
+
+  const [evaluationActivity, setEvaluationActivity] = useState<EvaluationActivity | null>(null);
+  const [evaluationJumpTarget, setEvaluationJumpTarget] = useState<string | null>(null);
+  const [evaluationStageMode, setEvaluationStageMode] = useState<EvaluationStageMode>('integrated');
+  const [evaluationVisualDirect, setEvaluationVisualDirect] = useState(false);
+  const [pilotEnabled, setPilotEnabled] = useState(false);
+  const [pilotRuns, setPilotRuns] = useState<PilotRun[]>([]);
+  const [pilotContractRuns, setPilotContractRuns] = useState<QuestionContractRun[]>([]);
+  const [pilotRepeatabilityRuns, setPilotRepeatabilityRuns] = useState<QuestionContractRepeatabilityRun[]>([]);
+  const [pilotRepeatabilityPlanned, setPilotRepeatabilityPlanned] = useState<RepeatabilityCount>(3);
+  const [pilotRepeatabilitySuite, setPilotRepeatabilitySuite] = useState<RepeatabilitySuite>('baseline');
+  const [pilotRepeatabilityProgress, setPilotRepeatabilityProgress] = useState<{ completed: number; total: number } | null>(null);
+  const [pilotConcurrencyRuns, setPilotConcurrencyRuns] = useState<PilotConcurrencyRun[]>([]);
+  const [biologyRadarHistory, setBiologyRadarHistory] = useState(loadBiologyRadarHistory);
+  useEffect(() => {
+    const campaignByDate = new Map([...pilotRuns, ...pilotContractRuns, ...pilotRepeatabilityRuns].map(({ record }) => [record.completedAt, record.campaignId]));
+    const observations = biologyRadarObservations(pilotRuns, pilotContractRuns, pilotRepeatabilityRuns,
+      pilotRepeatabilityPlanned, pilotRepeatabilitySuite);
+    if (!observations.length) return;
+    setBiologyRadarHistory((existing) => {
+      const ids = new Set(existing.map((observation) => observation.id));
+      const additions = observations.filter((observation) => !ids.has(observation.id)).map(o => ({ ...o, campaignId: campaignByDate.get(o.recordedAt) }));
+      if (!additions.length) return existing;
+      const merged = mergeBiologyRadarHistory(existing, additions);
+      for (const group of campaignGroups(additions, row => row.campaignId ?? row.id)) {
+        const first = group[0]!;
+        const rows = merged.filter(row => first.campaignId ? row.campaignId === first.campaignId : row.id === first.id);
+        for (const point of biologyPoints(rows)) {
+          const owner = group.find(row => row.recordedAt === point.date && row.model === point.model &&
+            point.id === [row.campaignId ?? row.id, row.protocol, [row.provider, row.method, row.model].join('::')].join('|'));
+          if (owner) Object.assign(owner, { timeline: point });
+        }
+      }
+      return merged;
+    });
+  }, [pilotRuns, pilotContractRuns, pilotRepeatabilityRuns, pilotRepeatabilityPlanned, pilotRepeatabilitySuite]);
+  useEffect(() => {
+    if (!saveBiologyRadarHistory(biologyRadarHistory)) setError('Historique biologique non sauvegardé. Exportez les résultats du radar avant de quitter.');
+  }, [biologyRadarHistory]);
+  const [pilotImages, setPilotImages] = useState<Record<string, ImageInput[]>>({});
+  const [pilotBusy, setPilotBusy] = useState(false);
+  const [pilotUploadingCase, setPilotUploadingCase] = useState<string | null>(null);
+  const [pilotCurrentCase, setPilotCurrentCase] = useState<string | null>(null);
+  const [pilotMessage, setPilotMessageState] = useState('');
+  const pilotMessageRef = useRef('');
+  function setPilotMessage(message: string) {
+    pilotMessageRef.current = message;
+    setPilotMessageState(message);
+  }
+  const [diagramProtocolProgress, setDiagramProtocolProgress] = useState('');
+  // Keep reports outside the conditionally mounted configuration workspace.
+  // Switching to the network inspector must not discard a completed or partial benchmark.
+  const [diagramProtocolReport, setDiagramProtocolReport] = useState<ReturnType<typeof buildScientificDiagramProtocolReport> | null>(null);
+  const [diagramFixtureReport, setDiagramFixtureReport] = useState<ReturnType<typeof buildScientificDiagramFixtureReport> | null>(null);
+  const [diagramSensitivityReport, setDiagramSensitivityReport] = useState<ReturnType<typeof buildScientificDiagramSensitivityReport> | null>(null);
+  const [diagramBlindGraphReport, setDiagramBlindGraphReport] = useState<ReturnType<typeof buildBlindVisualObservationReport> | null>(null);
+  const [dashboardEntries, setDashboardEntries] = useState<DiagramLabArchiveEntry[]>([]);
+  const [diagramHistoryRevision, setDiagramHistoryRevision] = useState(0);
+  const [diagramHistoryError, setDiagramHistoryError] = useState('');
+  const diagramArchiveWriter = useMemo(() => createDiagramLabArchiveWriter(diagramArchive), [diagramArchive]);
+  const radarTrial = useRef<NonNullable<RadarMissingTestRequest['trial']> | null>(null);
+  const activeDiagramReportRef = useRef<'fixture' | 'sensitivity' | 'graph' | 'personal' | null>(null);
+  // Intermediate updates remain visible in the local archive, but a completed
+  // battery is also saved explicitly before the next automatic battery starts.
+  // The writer serializes calls and prevents late partial effects from
+  // downgrading a finished report.
+  useEffect(() => {
+    const pending: Array<{ kind: 'fixture' | 'sensitivity' | 'graph' | 'personal'; report: DiagramLabReport }> = [];
+    if (diagramFixtureReport) pending.push({ kind: 'fixture', report: diagramFixtureReport });
+    if (diagramSensitivityReport) pending.push({ kind: 'sensitivity', report: diagramSensitivityReport });
+    if (diagramBlindGraphReport) pending.push({ kind: 'graph', report: diagramBlindGraphReport });
+    if (diagramProtocolReport) pending.push({ kind: 'personal', report: diagramProtocolReport });
+    if (!pending.length) return;
+    void Promise.all(pending.map(({ kind, report }) =>
+      diagramArchiveWriter.save(report, pilotBusy && activeDiagramReportRef.current === kind ? 'running' : 'finished')))
+      .then(() => {
+        setDiagramHistoryError('');
+        setDiagramHistoryRevision((value) => value + 1);
+      })
+      .catch((cause) => setDiagramHistoryError(cause instanceof Error ? cause.message : String(cause)));
+  }, [diagramFixtureReport, diagramSensitivityReport, diagramBlindGraphReport, diagramProtocolReport, pilotBusy, diagramArchiveWriter]);
+
+  async function persistFinishedDiagramReport(report: DiagramLabReport) {
+    try {
+      await diagramArchiveWriter.save(report, 'finished');
+      setDiagramHistoryError('');
+      setDiagramHistoryRevision((value) => value + 1);
+    } catch (cause) {
+      setDiagramHistoryError(cause instanceof Error ? cause.message : String(cause));
+      throw cause;
+    }
+  }
+  const blindGraphAbortRef = useRef<AbortController | null>(null);
+  const pilotStopRef = useRef(false);
+  const pilotMemoryErrorRef = useRef<string | null>(null);
+  const [modelEvaluationResults, setModelEvaluationResults] = useState<ModelEvaluationResultSnapshot[]>([]);
+  const [savedModelEvaluations, setSavedModelEvaluations] = useState<ModelEvaluationRecord[]>([]);
+  const [sessionOnlyEvaluationIds, setSessionOnlyEvaluationIds] = useState<string[]>([]);
+  const [suggestedEvaluationComparisonIds, setSuggestedEvaluationComparisonIds] = useState<string[] | null>(null);
+  const [evaluationProgress, setEvaluationProgress] = useState<ModelEvaluationProgress | null>(null);
+  const [evaluationStage, setEvaluationStage] = useState<'idle' | 'preparing' | 'reading' | 'grading' | 'parsing' | 'saving' | 'completed'>('idle');
+  const [evaluationArchiveStatus, setEvaluationArchiveStatus] = useState<'idle' | 'saving' | 'saved' | 'without-images' | 'failed'>('idle');
+  const [evaluationArchiveError, setEvaluationArchiveError] = useState('');
+  const [pendingEvaluationArchive, setPendingEvaluationArchive] = useState<ModelEvaluationRecord | null>(null);
+  const selectedEvaluationProfiles = selectPilotProfiles(aiModelProfiles, selectedEvaluationProfileIds);
+  const visibleEvaluationHistoryRecords = savedModelEvaluations.filter((record) => evaluationHistoryStageFilter === 'all' || getModelEvaluationStage(record) === evaluationHistoryStageFilter);
+  const selectedEvaluationHistoryRecords = visibleEvaluationHistoryRecords.filter((record) => selectedEvaluationHistoryIds.includes(record.id));
+  const evaluationCancelledRef = useRef(false);
+  const evaluationAbortController = useRef<AbortController | null>(null);
+  useEffect(() => { void (evaluationService.listSummaries?.() ?? evaluationService.list()).then(setSavedModelEvaluations).catch(() => setError('Impossible de lire l’historique local des évaluations.')); }, [evaluationService]);
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const [correctionMode, setCorrectionMode] = useState<'integrated' | 'separate'>(() => readActiveAssignmentProfile().correctionMode);
+  const [hasScientificDiagrams, setHasScientificDiagrams] = useState(() => readActiveAssignmentProfile().hasScientificDiagrams ?? false);
+  const [scientificDiagramAnalysis, setScientificDiagramAnalysis] = useState<ScientificDiagramAnalysis | null>(null);
+  const [pageClassifications, setPageClassifications] = useState<ScientificPageClassification[] | null>(null);
+  const [rotationSuggestions, setRotationSuggestions] = useState<Record<number, { degrees: 90 | 180 | 270; preview: ImageInput }>>({});
+  const [autoRotateScientificDiagrams, setAutoRotateScientificDiagrams] = useState(() => { try { return window.localStorage.getItem('companion-correcteur:auto-rotate-diagrams:v1') === 'true'; } catch { return false; } });
+  const [manualRotationAngles, setManualRotationAngles] = useState<Record<number, number>>({});
+  const [scientificDiagramError, setScientificDiagramError] = useState('');
+  const [subjectImages, setSubjectImages] = useState<ImageInput[]>([]);
+  const [subjectTranscription, setSubjectTranscription] = useState<string | null>(null);
+  const [images, setImages] = useState<ImageInput[]>([]);
+  const [copyViewerPage, setCopyViewerPage] = useState<number | null>(null);
+  const [queuedViewer, setQueuedViewer] = useState<{ jobId: string; pageIndex: number } | null>(null);
+  const [originalImages, setOriginalImages] = useState<ImageInput[]>([]);
+  const [backgroundJobs, setBackgroundJobs] = useState<BackgroundCorrectionJob[]>([]);
+  const [selectedSeriesPreviewJob, setSelectedSeriesPreviewJob] = useState<BackgroundCorrectionJob | null>(null);
+  const [queuedViewerFullJob, setQueuedViewerFullJob] = useState<BackgroundCorrectionJob | null>(null);
+  const [interfaceMode, setInterfaceMode] = useState<'teacher' | 'diagnostic' | 'debug' | 'observability'>('teacher');
+  useEffect(() => {
+    if (interfaceMode !== 'diagnostic' || !['dashboard', 'campaigns'].includes(evaluationWorkspaceStep)) return;
+    let active = true;
+    void diagramArchive.list().then(rows => { if (active) setDashboardEntries(rows); })
+      .catch(cause => { if (active) setDiagramHistoryError(String(cause)); });
+    return () => { active = false; };
+  }, [interfaceMode, evaluationWorkspaceStep, diagramArchive, diagramHistoryRevision]);
+
+  useEffect(() => {
+    if (interfaceMode !== 'diagnostic' || !evaluationJumpTarget) return;
+    const frame = window.requestAnimationFrame(() => {
+      const fallbackId = evaluationJourney === 'diagrams'
+        ? 'evaluation-diagram-workspace' : evaluationJourney === 'biology'
+          ? 'evaluation-biology-workspace' : 'evaluation-results';
+      const target = document.getElementById(evaluationJumpTarget)
+        ?? document.getElementById(evaluationJumpTarget.replace(/-results$/, '-launch'))
+        ?? document.getElementById(fallbackId);
+      if (target) {
+        let ancestor: HTMLElement | null = target;
+        while (ancestor) {
+          if (ancestor instanceof HTMLDetailsElement) ancestor.open = true;
+          ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      setEvaluationJumpTarget(null);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [interfaceMode, evaluationJumpTarget, evaluationWorkspaceStep, evaluationJourney, evaluationBiologyScenario]);
+
+  const [detailsThumbnailsOpen, setDetailsThumbnailsOpen] = useState(false);
+  const [detailThumbnails, setDetailThumbnails] = useState<Record<string, Array<ImageInput | null>>>({});
+  const previewLoadSequence = useRef(0);
+  const queuedViewerLoadSequence = useRef(0);
+  const queuedViewerJob = queuedViewer
+    ? queuedViewerFullJob?.id === queuedViewer.jobId ? queuedViewerFullJob
+      : selectedSeriesPreviewJob?.id === queuedViewer.jobId ? selectedSeriesPreviewJob
+      : backgroundJobs.find((job) => job.id === queuedViewer.jobId && job.assignmentId === activeAssignmentId && !job.imagesDeferred)
+    : undefined;
+  const [allBackgroundJobs, setAllBackgroundJobs] = useState<BackgroundJobSummary[]>([]);
+  // Track transitions only after the first snapshot: reopening the app must not
+  // produce a notification for every already completed copy.
+  const previousBackgroundStatuses = useRef<Map<string, string> | null>(null);
+  useEffect(() => {
+    const previous = previousBackgroundStatuses.current;
+    const next = new Map(allBackgroundJobs.map((job) => [job.id, job.status]));
+    previousBackgroundStatuses.current = next;
+    if (!previous) return;
+    for (const job of allBackgroundJobs) {
+      const oldStatus = previous.get(job.id);
+      if (!oldStatus || oldStatus === job.status) continue;
+      if (job.status === 'ready' || job.status === 'needs-review' || job.status === 'failed') {
+        pushAppNotification({
+          title: job.status === 'failed' ? 'Correction à reprendre' : 'Copie prête à vérifier',
+          message: job.label + (job.status === 'failed' ? ' · Le traitement a échoué.' : ' · La correction est disponible pour relecture.'),
+          kind: job.status === 'failed' ? 'error' : job.status === 'needs-review' ? 'warning' : 'success',
+          target: 'correction',
+        });
+      }
+    }
+  }, [allBackgroundJobs]);
+
+  const [selectedSeriesPreviewId, setSelectedSeriesPreviewId] = useState<string | null>(null);
+  const [currentBackgroundJobId, setCurrentBackgroundJobId] = useState<string | null>(null);
+  const [backgroundCopyLabel, setBackgroundCopyLabel] = useState('');
+  const [seriesPickerVersion, setSeriesPickerVersion] = useState(0);
+  const [isPreparingSeriesCopies, setIsPreparingSeriesCopies] = useState(false);
+  const [isStartingSeriesCorrections, setIsStartingSeriesCorrections] = useState(false);
+  const [rotatingQueuedPage, setRotatingQueuedPage] = useState<string | null>(null);
+  const isStartingSeriesCorrectionsRef = useRef(false);
+  const [seriesGroupingMode, setSeriesGroupingMode] = useState<'each-file' | 'group-files'>('each-file');
+  const [correctionSessionMode, setCorrectionSessionMode] = useState<'individual' | 'series'>('individual');
+  const [backgroundCopyDetectTeacherAnnotations, setBackgroundCopyDetectTeacherAnnotations] = useState(false);
+  const [autoBackgroundCorrection, setAutoBackgroundCorrection] = useState(() => { try { return window.localStorage.getItem('companion-correcteur:auto-background-correction:v1') !== 'false'; } catch { return true; } });
+  // The queue only needs page counts, scores and statuses until a copy is opened.
+  async function loadQueueOverviews(assignmentId?: string) {
+    return backgroundService.listJobOverviews?.(assignmentId) ?? backgroundService.listJobs(assignmentId);
+  }
+  async function loadFullQueuedJob(id: string): Promise<BackgroundCorrectionJob | null> {
+    return backgroundService.getJob
+      ? backgroundService.getJob(id)
+      : (await backgroundService.listJobs(activeAssignmentId)).find((job) => job.id === id) ?? null;
+  }
+
+  useEffect(() => (backgroundService.subscribeOverviews ?? backgroundService.subscribe)((jobs) => {
+    setBackgroundJobs(jobs.filter((job) => job.assignmentId === activeAssignmentId));
+  }), [backgroundCorrectionService, activeAssignmentId]);
+
+  const expandedDetailJobIds = backgroundJobs.filter((job) =>
+    job.assignmentId === activeAssignmentId && job.status !== 'completed'
+  ).map((job) => job.id).join('|');
+
+  useEffect(() => {
+    if (interfaceMode !== 'teacher' || teacherStep !== 'overview' || showAssignmentsHome) {
+      setDetailsThumbnailsOpen(false);
+    }
+  }, [interfaceMode, teacherStep, showAssignmentsHome]);
+
+  useEffect(() => {
+    const active = detailsThumbnailsOpen && interfaceMode === 'teacher' && teacherStep === 'overview' && !showAssignmentsHome;
+    if (!active) {
+      setDetailThumbnails({});
+      return;
+    }
+    let cancelled = false;
+    // A collapsed list stores no thumbnails; an expanded list stores only
+    // bounded previews. Fetch each source job separately and release its pages.
+    void (async () => {
+      for (const jobId of expandedDetailJobIds.split('|').filter(Boolean)) {
+        if (cancelled) return;
+        try {
+          const full = await loadFullQueuedJob(jobId);
+          if (!full || cancelled) continue;
+          const thumbnails: Array<ImageInput | null> = [];
+          for (const image of full.images) {
+            thumbnails.push(await createQueuedCopyThumbnail(image));
+            if (cancelled) return;
+          }
+          setDetailThumbnails((current) => ({ ...current, [jobId]: thumbnails }));
+        } catch {
+          // Page viewers still open the original, even if a thumbnail fails.
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [detailsThumbnailsOpen, activeAssignmentId, expandedDetailJobIds, teacherStep, interfaceMode, showAssignmentsHome]);
+  useEffect(() => backgroundService.subscribeSummaries((jobs) => setAllBackgroundJobs(jobs)), [backgroundCorrectionService]);
+  useEffect(() => {
+    let active = true;
+    void backgroundService.listJobSummaries().then((jobs) => { if (active) setAllBackgroundJobs(jobs); });
+    return () => { active = false; };
+  }, [backgroundCorrectionService]);
+  useEffect(() => {
+    let active = true;
+    void loadQueueOverviews(activeAssignmentId).then((jobs) => { if (active) setBackgroundJobs(jobs); });
+    return () => { active = false; };
+  }, [backgroundCorrectionService, activeAssignmentId]);
+  useEffect(() => {
+    let active = true;
+    const settings = { endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, correctionMethod, autoBackgroundCorrection };
+    void loadQueueOverviews().then(async (jobs) => {
+      if (!active || !autoBackgroundCorrection || !jobs.some((job) => job.status === 'pending' || job.status === 'processing')) return;
+      if (active) await backgroundService.processPending(settings, activeAssignmentId);
+    }).catch(() => { /* A later explicit retry will expose any configuration problem. */ });
+    return () => { active = false; };
+  }, []);
+  const [transcription, setTranscription] = useState<string | null>(null);
+  const [teacherAnnotations, setTeacherAnnotations] = useState('');
+  const [pendingTeacherAnnotationReview, setPendingTeacherAnnotationReview] = useState<TeacherAnnotationReviewCandidate[]>([]);
+  const [teacherAnnotationReviewDecisions, setTeacherAnnotationReviewDecisions] = useState<Record<string, boolean>>({});
+  const teacherAnnotationReviewResolver = useRef<((decisions: TeacherAnnotationReviewDecision[]) => void) | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isStoppingOperation, setIsStoppingOperation] = useState(false);
+  const [analysisStage, setAnalysisStage] = useState<'checking' | 'reading' | 'grading'>('checking');
+  const [criterionProgressMessage, setCriterionProgressMessage] = useState('');
+  const [pageProgress, setPageProgress] = useState<Record<number, 'started' | 'completed' | 'doubtful'>>({});
+  const [criterionProgressPosition, setCriterionProgressPosition] = useState<{ index: number; total: number } | null>(null);
+  const [lastModelLoadDurationMs, setLastModelLoadDurationMs] = useState<number | null>(null);
+  const [modelResponseStarted, setModelResponseStarted] = useState(false);
+  const initialDocumentTitle = useRef(document.title);
+  const [criterionStatuses, setCriterionStatuses] = useState<Record<string, CriterionAnalysisUpdate['status']>>({});
+  const [activeCriterionId, setActiveCriterionId] = useState<string | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [readingElapsedMs, setReadingElapsedMs] = useState<number | null>(null);
+  const [analysisElapsedMs, setAnalysisElapsedMs] = useState<number | null>(null);
+  const [timingHistory, setTimingHistory] = useState<TimingRecord[]>(readTimingHistory);
+  const diagnosticHistoryReady = useRef(false);
+  const completedPageCount = Object.values(pageProgress).filter((status) => status === 'completed' || status === 'doubtful').length;
+  const completedCriterionCount = Object.values(criterionStatuses).filter((status) => status === 'completed').length;
+  const estimatedRemainingSeconds = useMemo(() => estimateRemainingCorrectionSeconds(timingHistory, {
+    visionModel,
+    analysisModel,
+    pageCount: images.length + (correctionMode === 'separate' ? subjectImages.length : 0),
+    completedPages: completedPageCount + (correctionMode === 'separate' && subjectTranscription ? subjectImages.length : 0),
+    criterionCount: criterionProgressPosition?.total ?? rubric.criteria.length,
+    completedCriteria: completedCriterionCount,
+    elapsedSeconds,
+    correctionMode,
+  }), [timingHistory, visionModel, analysisModel, images.length, correctionMode, subjectImages.length, completedPageCount, subjectTranscription, rubric.criteria.length, completedCriterionCount, criterionProgressPosition?.total, elapsedSeconds]);
+  useEffect(() => {
+    let active = true;
+    void evaluationService.listDiagnosticHistory().then((records) => records as TimingRecord[]).then(async (stored) => {
+      if (!active) return;
+      const history = stored.length > 0 ? stored : readTimingHistory();
+      if (stored.length === 0 && history.length > 0) await evaluationService.saveDiagnosticHistory(history);
+      if (!active) return;
+      setTimingHistory(history);
+      try { window.localStorage.removeItem(timingHistoryKey); } catch { /* IndexedDB remains the source of truth after migration. */ }
+      diagnosticHistoryReady.current = true;
+    }).catch(() => {
+      if (active) diagnosticHistoryReady.current = true;
+    });
+    return () => { active = false; };
+  }, []);
+  useEffect(() => {
+    if (!diagnosticHistoryReady.current) return;
+    void evaluationService.saveDiagnosticHistory(timingHistory).catch(() => { /* Keep the current session usable if IndexedDB is unavailable. */ });
+  }, [timingHistory]);
+  const observabilityRecords = useMemo(() => [...timingHistory, ...toModelEvaluationObservabilityTraces(savedModelEvaluations)].sort((left, right) => right.completedAt.localeCompare(left.completedAt)).slice(0, timingHistoryLimit), [timingHistory, savedModelEvaluations]);
+  function retainDiagramObservability(traces: ObservabilityTrace[]) {
+    if (!traces.length) return;
+    // Only the image-redacted request and response traces are stored locally.
+    // The laboratory's original photos remain excluded from model-evaluation archives.
+    setTimingHistory((current) => [
+      ...traces.map((trace): TimingRecord => ({
+        ...trace,
+        source: 'scientific-diagram',
+        thinking: false,
+        correctionMode: 'integrated',
+        criterionScores: [],
+        diagnosticRuns: (trace.diagnosticRuns ?? []) as DiagnosticModelResult[],
+      })),
+      ...current,
+    ].slice(0, timingHistoryLimit));
+  }
+  const [currentTimingRecordId, setCurrentTimingRecordId] = useState<string | null>(null);
+  const [referenceScoreInputs, setReferenceScoreInputs] = useState<Record<string, string>>({});
+  const [referenceMessage, setReferenceMessage] = useState('');
+  const [selectedComparisonIds, setSelectedComparisonIds] = useState<string[]>([]);
+  const [streamedOutput, setStreamedOutput] = useState('');
+  const [connectionMessage, setConnectionMessage] = useState('');
+  const [connectionTone, setConnectionTone] = useState<StatusTone>('success');
+  const [error, setError] = useState('');
+  const [proposal, setProposal] = useState<GradingProposal | null>(null);
+  useEffect(() => {
+    const completed = Object.values(criterionStatuses).filter((status) => status === 'completed').length;
+    document.title = isAnalyzing ? analysisStage === 'grading' ? `(${completed}/${rubric.criteria.length}) Correction…` : 'Correction en cours…' : proposal ? '✓ Correction prête' : initialDocumentTitle.current;
+  }, [isAnalyzing, analysisStage, criterionStatuses, rubric.criteria.length, proposal]);
+  useEffect(() => () => { document.title = initialDocumentTitle.current; }, []);
+  const [studentLabel, setStudentLabel] = useState('');
+  const [studentIdentity, setStudentIdentity] = useState<StudentIdentity | null>(null);
+  const [detectTeacherAnnotations, setDetectTeacherAnnotations] = useState(false);
+  const [annotationInkColor, setAnnotationInkColor] = useState<TeacherAnnotationInkColor>('none');
+  const [annotationInkColorPreview, setAnnotationInkColorPreview] = useState<ImageInput | null>(null);
+  const [annotationInkColorApplied, setAnnotationInkColorApplied] = useState(true);
+  const [annotationInkColorBusy, setAnnotationInkColorBusy] = useState(false);
+  const [currentCorrectionId, setCurrentCorrectionId] = useState<string | null>(null);
+  const finalizeReviewAction = useRef(createAsyncActionGuard());
+  const [archivedCorrections, setArchivedCorrections] = useState<LocalCorrection[]>([]);
+  const archivedCorrectionsForActiveAssignment = useMemo(
+    () => getArchivedCorrectionsForAssignment(assignmentProfiles, archivedCorrections, activeAssignmentId),
+    [assignmentProfiles, archivedCorrections, activeAssignmentId],
+  );
+  const [review, setReview] = useState<ReviewedCriterion[]>([]);
+  const [showOnlyFlagged, setShowOnlyFlagged] = useState(true);
+  const [focusedEvidencePage, setFocusedEvidencePage] = useState<number | null>(null);
+  const [teacherQuestions, setTeacherQuestions] = useState('');
+  const [reviewMessage, setReviewMessage] = useState('');
+  const [isFinalized, setIsFinalized] = useState(false);
+
+  const [networkInitialFilter, setNetworkInitialFilter] = useState<'all' | 'error'>('all');
+  const validation = useMemo(() => validateRubric(rubric), [rubric]);
+  const diagramIssue = isScientificDiagramAssignment
+    ? directDiagramAssignmentIssue(rubric, { endpoint, analysisModel, correctionMethod })
+    : null;
+  const criterionProgress = useMemo(() => summarizeCriterionProgress(rubric.criteria, review.map((item) => ({ criterionId: item.criterionId, points: item.teacherPoints }))), [rubric.criteria, review]);
+  const reviewedTotal = criterionProgress.provisionalPoints;
+  const unassessedCount = review.filter((item) => item.assessmentStatus === 'not-evaluated').length;
+  const currentCopyId = currentBackgroundJobId ?? currentCorrectionId ?? (images.length > 0 ? 'current-copy' : null);
+  const currentDraftNavigationItem = images.length > 0 && !currentBackgroundJobId && !currentCorrectionId
+    ? {
+      id: 'current-copy',
+      label: studentLabel || images[0]?.fileName || 'Copie en cours',
+      status: isAnalyzing ? 'Analyse en cours' as const : proposal ? 'À vérifier' as const : 'À reprendre' as const,
+      score: proposal ? reviewedTotal.toLocaleString('fr-FR') + ' / ' + validation.maximumPoints.toLocaleString('fr-FR') : null,
+    }
+    : null;
+  const copyNavigation = getCopyNavigation(activeAssignmentId, currentCopyId, backgroundJobs, archivedCorrectionsForActiveAssignment, currentDraftNavigationItem);
+  const activeBackgroundJob = backgroundJobs.find((job) => job.id === currentBackgroundJobId) ?? null;
+  const previousActiveCopyRef = useRef<{ id: string; label: string; identityKey: string } | null>(null);
+  const activeIdentityKey = JSON.stringify(activeBackgroundJob?.studentIdentity ?? null);
+  useEffect(() => {
+    const previous = previousActiveCopyRef.current;
+    if (activeBackgroundJob && previous?.id === activeBackgroundJob.id) {
+      // A queued copy can be identified while its review screen is already open.
+      // Preserve any manually edited field instead of overwriting the teacher.
+      if (previous.label !== activeBackgroundJob.label) {
+        setStudentLabel((current) => current === previous.label ? activeBackgroundJob.label : current);
+      }
+      if (previous.identityKey !== activeIdentityKey) {
+        setStudentIdentity(activeBackgroundJob.studentIdentity ?? null);
+      }
+    }
+    previousActiveCopyRef.current = activeBackgroundJob
+      ? { id: activeBackgroundJob.id, label: activeBackgroundJob.label, identityKey: activeIdentityKey }
+      : null;
+  }, [activeBackgroundJob?.id, activeBackgroundJob?.label, activeIdentityKey]);
+
+  const newlyAvailableReviewJob = getNewlyAvailableReviewJob(activeAssignmentId, currentBackgroundJobId, proposal !== null, backgroundJobs);
+  useEffect(() => {
+    if (!newlyAvailableReviewJob || isFinalized || teacherStep !== 'review') return;
+    let active = true;
+    const applyReadyCopy = (ready: BackgroundCorrectionJob) => {
+      if (!active || !ready.proposal) return;
+      // Refresh only the first result. Preserve teacher edits once loaded.
+      setProposal(structuredClone(ready.proposal));
+      setReview(structuredClone(ready.reviewDraft ?? toReviewedCriteria(ready.proposal)));
+      setTeacherQuestions(ready.teacherQuestionsDraft ?? ready.proposal.questionsForTeacher.join('\n'));
+      setTranscription(ready.transcription);
+      setImages(structuredClone(ready.images));
+      setOriginalImages(structuredClone(ready.originalImages));
+      setScientificDiagramAnalysis(ready.scientificDiagramAnalysis ?? null);
+      setPageClassifications(ready.scientificPageClassifications ?? null);
+      setReviewMessage('Correction prête. Examinez les propositions signalées avant validation.');
+    };
+    if (newlyAvailableReviewJob.imagesDeferred) {
+      void loadFullQueuedJob(newlyAvailableReviewJob.id).then((full) => {
+        if (full) applyReadyCopy(full);
+      }).catch(() => { if (active) setError('Impossible de charger les pages de cette copie terminée.'); });
+    } else {
+      applyReadyCopy(newlyAvailableReviewJob);
+    }
+    return () => { active = false; };
+  }, [newlyAvailableReviewJob, isFinalized, teacherStep]);
+
+  const reviewPosition = copyNavigation.currentPosition ?? (copyNavigation.totalCopies > 0 ? 1 : 0);
+  const reviewTotalCopies = copyNavigation.totalCopies;
+  useEffect(() => {
+    if (copyOverviewFilterTouched) return;
+    const statuses = [
+      ...allBackgroundJobs.filter((job) => job.assignmentId === activeAssignmentId && job.status !== 'completed').map((job) => toCopyOverviewStatus(job.status)),
+      ...archivedCorrectionsForActiveAssignment.filter((correction) => Boolean(correction.snapshot)).map(() => 'completed' as const),
+      ...(images.length > 0 && !isFinalized && !currentBackgroundJobId
+        ? [isAnalyzing ? 'processing' as const : proposal ? 'to-review' as const : 'to-do' as const]
+        : []),
+    ];
+    setCopyOverviewFilter(defaultCopyOverviewFilter(statuses));
+  }, [activeAssignmentId, allBackgroundJobs, archivedCorrectionsForActiveAssignment, copyOverviewFilterTouched, currentBackgroundJobId, images.length, isAnalyzing, isFinalized, proposal]);
+
+  const reviewFocus = useMemo(() => getReviewFocus(review, rubric.criteria), [review, rubric.criteria]);
+  const flaggedCriteriaIds = useMemo(() => new Set(reviewFocus.flaggedCriteriaIds), [reviewFocus]);
+  const reliableCriteriaCount = reviewFocus.reliableCriteriaIds.length;
+  const shouldFocusExceptions = showOnlyFlagged && review.length === rubric.criteria.length;
+  const orderedReviewCriteria = useMemo(() => [
+    ...rubric.criteria.filter((criterion) => flaggedCriteriaIds.has(criterion.id)),
+    ...rubric.criteria.filter((criterion) => !flaggedCriteriaIds.has(criterion.id)),
+  ], [rubric.criteria, flaggedCriteriaIds]);
+  const unreadableCopySignal = hasUnreadableCopySignal(transcription, images.length > 0);
+  useEffect(() => { setShowOnlyFlagged(!isFinalized); }, [isFinalized]);
+  const subjectReady = isScientificDiagramAssignment || correctionMode === 'integrated' || subjectImages.length > 0 || Boolean(subjectTranscription);
+  const gradingModelsReady = Boolean(analysisModel.trim()
+    && (isScientificDiagramAssignment ? correctionMethod === 'generative' : (correctionMethod === 'visual-decision' || visionModel.trim())));
+  const setupChecks = [
+    { label: 'Barème vérifié', detail: validation.valid ? `${validation.maximumPoints} points répartis sur ${rubric.criteria.length} critères` : 'Corrigez les points ou les critères signalés', ready: validation.valid },
+    { label: 'Sujet prêt', detail: correctionMode === 'integrated' ? 'Questions intégrées aux pages de la copie' : subjectReady ? `${subjectImages.length} page(s) du sujet importée(s)` : 'Importez le sujet de référence', ready: subjectReady },
+    { label: 'Copie importée', detail: images.length ? `${images.length} page(s) · une seule copie à la fois` : 'Ajoutez les pages d’un étudiant', ready: images.length > 0 },
+    { label: 'IA configurée', detail: gradingModelsReady
+      ? correctionMethod === 'visual-decision' ? `Lecture et décisions sur images : ${analysisModel}`
+        : `Lecture : ${visionModel} · analyse : ${analysisModel}`
+      : 'Choisissez les modèles IA', ready: gradingModelsReady },
+  ];
+
+  useEffect(() => {
+    const configuration: AiModelConfiguration = { generativeModel, decisionModel, endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, criterionByCriterion, correctionMethod };
+    try { window.localStorage.setItem(aiModelConfigurationKey, JSON.stringify(configuration)); }
+    catch { /* The current settings remain usable for this session if storage is unavailable. */ }
+  }, [generativeModel, decisionModel, endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, criterionByCriterion, correctionMethod]);
+
+  function applyAiModelProfile(profile: AiModelProfile) {
+    setEndpoint(profile.configuration.endpoint);
+    setApiCompatible(profile.configuration.apiCompatible);
+    setApiKey(profile.configuration.apiKey);
+    setVisionModel(profile.configuration.visionModel);
+    setTranscriptionTokenLimit(profile.configuration.transcriptionTokenLimit);
+    setTranscriptionPromptMode(profile.configuration.transcriptionPromptMode);
+    setTranscriptionRepeatPenalty(profile.configuration.transcriptionRepeatPenalty);
+    setTranscriptionPenaltyParameter(profile.configuration.transcriptionPenaltyParameter);
+    setTranscriptionFrequencyPenalty(profile.configuration.transcriptionFrequencyPenalty);
+    const roles = aiModelRoles(profile.configuration);
+    setGenerativeModel(roles.generativeModel);
+    setDecisionModel(roles.decisionModel);
+    setCorrectionMethod(profile.configuration.correctionMethod);
+    setSecondAnalysisModel(profile.configuration.secondAnalysisModel);
+    setArbitratorModel(profile.configuration.arbitratorModel);
+    setDiagnosticStrategy(profile.configuration.diagnosticStrategy);
+    setAnalysisThinking(profile.configuration.analysisThinking);
+    setCriterionByCriterion(profile.configuration.criterionByCriterion);
+    setSelectedAiModelProfileId(profile.id);
+    setAiModelProfileMessage('Profil « ' + profile.name + ' » chargé.');
+    setAiModelProfileTone('info');
+    setAvailableModels([]);
+    setConnectionMessage('');
+    setTranscription(null);
+  }
+
+  function createNewAiModelProfile() {
+    setSelectedAiModelProfileId('');
+    setAiModelProfileName('');
+    setAiModelProfileTone('info');
+    setAiModelProfileMessage('Nouvelle configuration : renseignez les modèles puis enregistrez.');
+    setEndpoint(defaultAiModelConfiguration.endpoint);
+    setVisionModel('');
+    setGenerativeModel('');
+    setDecisionModel('');
+    setSecondAnalysisModel('');
+    setArbitratorModel('');
+    setDiagnosticStrategy('single');
+    setCorrectionMethod(defaultAiModelConfiguration.correctionMethod);
+    setAnalysisThinking(false);
+    setCriterionByCriterion(true);
+    setAvailableModels([]);
+    setConnectionMessage('');
+  }
+
+  function saveAiModelProfile() {
+    const name = aiModelProfileName.trim();
+    if (!name) { setAiModelProfileTone('warning'); setAiModelProfileMessage('Donnez un nom à cette configuration avant de l’enregistrer.'); return; }
+    const configuration: AiModelConfiguration = { generativeModel, decisionModel, endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, criterionByCriterion, correctionMethod };
+    const profile: AiModelProfile = {
+      id: selectedAiModelProfileId || 'ai-profile-' + Date.now(),
+      name,
+      mode: diagnosticStrategy,
+      configuration,
+      updatedAt: new Date().toISOString(),
+    };
+    const next = upsertAiModelProfile(aiModelProfiles, profile);
+    setAiModelProfiles(next);
+    setSelectedAiModelProfileId(profile.id);
+    setAiModelProfileName(profile.name);
+    setAiModelProfileMessage('Profil « ' + profile.name + ' » enregistré.');
+    setAiModelProfileTone('success');
+    try {
+      window.localStorage.setItem(aiModelProfilesKey, JSON.stringify(next));
+      // Creating the first profile should make its experiment runnable directly.
+      setSelectedEvaluationProfileIds((current) => current.length ? current : [profile.id]);
+      if (interfaceMode === 'diagnostic') setEvaluationEditorOpen(false);
+    } catch { setAiModelProfileTone('error'); setAiModelProfileMessage('Le navigateur n’a pas pu enregistrer ce profil. Vérifiez son espace de stockage.'); }
+  }
+
+  function deleteAiModelProfiles(profileIds: readonly string[]): boolean {
+    if (busy || pilotBusy || profileIds.length === 0) return false;
+    const toRemove = new Set(profileIds);
+    const removed = aiModelProfiles.filter((profile) => toRemove.has(profile.id));
+    if (removed.length === 0) return false;
+    const next = removeAiModelProfiles(aiModelProfiles, profileIds);
+    try {
+      // One atomic localStorage write; keep React state unchanged if saving fails.
+      window.localStorage.setItem(aiModelProfilesKey, JSON.stringify(next));
+    } catch {
+      setAiModelProfileTone('error');
+      setAiModelProfileMessage('Impossible de supprimer les configurations : le stockage local est indisponible.');
+      return false;
+    }
+    setAiModelProfiles(next);
+    setSelectedEvaluationProfileIds((current) => current.filter((id) => !toRemove.has(id)));
+    if (toRemove.has(selectedAiModelProfileId)) {
+      // Active editor settings and evaluation archives are independent.
+      setSelectedAiModelProfileId('');
+      setAiModelProfileName('');
+    }
+    setAiModelProfileTone('success');
+    setAiModelProfileMessage(removed.length + ' configuration(s) supprimée(s) de cet appareil. '
+      + next.length + ' conservée(s). Les réglages actuels, les copies et l’historique restent inchangés.');
+    setPendingAiProfileRemoval(null);
+    return true;
+  }
+
+  function deleteAiModelProfile(profile: AiModelProfile) {
+    return deleteAiModelProfiles([profile.id]);
+  }
+
+  useEffect(() => {
+    const current: AssignmentProfile = { id: activeAssignmentId, title: assignmentTitle, description: assignmentDescription, educationLevel, rubric, question, correctionMode, hasScientificDiagrams, kind: assignmentKind };
+    setAssignmentProfiles((profiles) => {
+      const next = profiles.some((profile) => profile.id === activeAssignmentId)
+        ? profiles.map((profile) => profile.id === activeAssignmentId ? current : profile)
+        : [...profiles, current];
+      try {
+        window.localStorage.setItem(assignmentProfilesKey, JSON.stringify(next));
+        window.localStorage.setItem(activeAssignmentKey, activeAssignmentId);
+        window.localStorage.setItem(assignmentTitleKey, assignmentTitle);
+        window.localStorage.setItem(LOCAL_MEMORY_RUBRIC_FINGERPRINT_KEY, fingerprintRubric(rubric.title, rubricAsJson(rubric)));
+        window.dispatchEvent(new Event(LOCAL_MEMORY_RUBRIC_UPDATED_EVENT));
+      } catch { /* Keep the current assignment usable when browser storage is unavailable. */ }
+      return next;
+    });
+  }, [activeAssignmentId, assignmentTitle, assignmentDescription, educationLevel, rubric, question, correctionMode, hasScientificDiagrams, assignmentKind]);
+
+  useEffect(() => {
+    let active = true;
+    void (archiveService.listCorrectionSummaries?.() ?? archiveService.listCorrections()).then((items) => {
+      if (active) setArchivedCorrections(items.filter((item) => Boolean(item.snapshot)));
+    }).catch(() => {
+      if (active) setError('Impossible de lire les corrections enregistrées sur cet appareil.');
+    });
+    return () => { active = false; };
+  }, [archiveService]);
+
+  useEffect(() => {
+    if (!isAnalyzing) return;
+    const startedAt = Date.now();
+    setElapsedSeconds(0);
+    const timer = window.setInterval(() => {
+      setElapsedSeconds(Math.floor((Date.now() - startedAt) / 1000));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [isAnalyzing]);
+
+  function finishTeacherAnnotationReview() {
+    const decisions = pendingTeacherAnnotationReview.map((candidate) => ({
+      id: candidate.id,
+      confirmed: teacherAnnotationReviewDecisions[candidate.id] === true,
+    }));
+    const resolve = teacherAnnotationReviewResolver.current;
+    teacherAnnotationReviewResolver.current = null;
+    setPendingTeacherAnnotationReview([]);
+    setTeacherAnnotationReviewDecisions({});
+    resolve?.(decisions);
+  }
+
+  function updateCriterion(id: string, patch: Partial<RubricCriterion>) {
+    setRubric((current) => ({ ...current, criteria: current.criteria.map((criterion) => criterion.id === id ? { ...criterion, ...patch } : criterion) }));
+    setProposal(null);
+    setScientificDiagramAnalysis(null);
+    setReview([]);
+    setTeacherAnnotations('');
+  }
+
+  function addCriterion() {
+    const id = `criterion-${crypto.randomUUID()}`;
+    setExpandedCriterionId(id);
+    setRubric((current) => ({ ...current, criteria: [...current.criteria, { id, title: 'Nouveau critère', description: '', maxPoints: 1 }] }));
+    setScientificDiagramAnalysis(null);
+  }
+
+  async function importRubricFileFromInput(file: File | undefined) {
+    if (!file) return;
+    const extension = file.name.split('.').pop()?.toLowerCase();
+    if (extension === 'pdf') {
+      await importRubricImageFromInput(file);
+      return;
+    }
+    setError('');
+    setRubricImportMessage('');
+    setRubricImportFileName(file.name);
+    setRubricImportEvents([`Fichier sélectionné : ${file.name}`]);
+    setRubricImportVisionResponse('');
+    setRubricImportAnalysisResponse('');
+    setRubricImportProgress({ stage: 'preparing', message: 'Lecture du fichier local…' });
+    setRubricFileImporting(true);
+    try {
+      const imported = await service.importRubric(file);
+      const total = imported.rubric.criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0);
+      setRubric(imported.rubric);
+      setScientificDiagramAnalysis(null);
+      setProposal(null);
+      setReview([]);
+      setTeacherQuestions('');
+      const summary = `Barème extrait : ${imported.rubric.criteria.length} critère(s), ${total} point(s) au total. Les critères sont affichés ci-dessous pour vérification et modification.`;
+      setRubricImportProgress({ stage: 'complete', message: summary });
+      setRubricImportEvents((events) => [...events, 'Lecture locale terminée.', summary]);
+      setRubricImportTone(imported.warnings.length ? 'warning' : 'success');
+      setRubricImportMessage(imported.warnings.length ? imported.warnings.join(' ') : summary);
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : 'Impossible d’importer ce barème localement.';
+      setError(message);
+      setRubricImportProgress({ stage: 'error', message });
+      setRubricImportEvents((events) => [...events, `Échec : ${message}`]);
+    } finally {
+      setRubricFileImporting(false);
+    }
+  }
+
+  async function importRubricImageFromInput(file: File | undefined) {
+    if (!file) return;
+    setError('');
+    setRubricImportMessage('');
+    setRubricImportFileName(file.name);
+    setRubricImportEvents([`Fichier sélectionné : ${file.name}`]);
+    setRubricImportVisionResponse('');
+    setRubricImportAnalysisResponse('');
+    setRubricImportProgress({ stage: 'preparing', message: 'Préparation du fichier et conversion des pages en images dans le navigateur…' });
+    const abortController = new AbortController();
+    rubricImportAbortController.current = abortController;
+    rubricImportDiagnosticRuns.current = [];
+    const importStartedAt = Date.now();
+    let preparedPageCountForTrace = 0;
+    let rubricImportSucceeded = false;
+    setRubricImageImporting(true);
+    try {
+      if (!visionModel.trim()) throw new Error('Ouvrez les paramètres IA pour choisir un modèle de vision pour la lecture du barème.');
+      if (!generativeModel.trim()) throw new Error('Choisissez un modèle génératif dans les paramètres IA pour préparer le barème. Le modèle décisionnel est réservé à la correction.');
+      const prepared = await service.prepareFiles([file]);
+      preparedPageCountForTrace = prepared.length;
+      if (abortController.signal.aborted) throw new Error('Import du barème interrompu par l’enseignant.');
+      if (prepared.length === 0) throw new Error('Aucune page du barème n’a pu être préparée.');
+      const preparedMessage = `${prepared.length} page(s) préparée(s) en images. Envoi au modèle de vision « ${visionModel} »…`;
+      setRubricImportProgress({ stage: 'preparing', message: preparedMessage, page: 0, totalPages: prepared.length });
+      setRubricImportEvents((events) => [...events, preparedMessage]);
+      const imported = await service.importRubricImage(prepared, { endpoint, apiCompatible, apiKey, visionModel, analysisModel: generativeModel, thinking: analysisThinking }, (progress) => {
+        if (progress.diagnosticRun) rubricImportDiagnosticRuns.current.push(progress.diagnosticRun);
+        setRubricImportProgress(progress);
+        if (progress.rawResponse !== undefined && progress.rawResponseStage === 'vision') {
+          setRubricImportVisionResponse((current) => {
+            const pageLabel = `--- Page ${progress.page ?? 1} ---`;
+            const entry = `${pageLabel}\n${progress.rawResponse}`;
+            return current ? `${current}\n\n${entry}` : entry;
+          });
+        }
+        if (progress.rawResponse !== undefined && progress.rawResponseStage === 'analysis') {
+          setRubricImportAnalysisResponse(progress.rawResponse);
+        }
+        setRubricImportEvents((events) => events.at(-1) === progress.message ? events : [...events, progress.message]);
+      }, abortController.signal);
+      const total = imported.rubric.criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0);
+      setRubric(imported.rubric);
+      setScientificDiagramAnalysis(null);
+      setProposal(null);
+      setReview([]);
+      setTeacherQuestions('');
+      const summary = `Barème extrait : ${imported.rubric.criteria.length} critère(s), ${total} point(s) au total. Les critères sont affichés ci-dessous pour vérification et modification.`;
+      setRubricImportProgress({ stage: 'complete', message: summary, page: prepared.length, totalPages: prepared.length });
+      rubricImportSucceeded = true;
+      setRubricImportEvents((events) => [...events, summary]);
+      setRubricImportTone(imported.warnings.length ? 'warning' : 'success');
+      setRubricImportMessage(imported.warnings.join(' ') || summary);
+    } catch (cause) {
+      const cancelled = abortController.signal.aborted;
+      const message = cancelled ? 'Import interrompu. La lecture et l’extraction ont été arrêtées ; aucun nouveau barème n’a été appliqué.' : cause instanceof Error ? cause.message : 'Impossible d’extraire le barème avec le modèle de vision local.';
+      if (cancelled) { setRubricImportTone('warning'); setRubricImportMessage(message); } else setError(message);
+      setRubricImportProgress({ stage: cancelled ? 'cancelled' : 'error', message });
+      setRubricImportEvents((events) => [...events, cancelled ? message : `Échec : ${message}`]);
+    } finally {
+      const runs = rubricImportDiagnosticRuns.current;
+      if (runs.length > 0) {
+        const readingMs = runs.filter((run) => run.kind === 'vision').reduce((sum, run) => sum + run.elapsedMs, 0);
+        const analysisMs = runs.filter((run) => run.kind === 'model').reduce((sum, run) => sum + run.elapsedMs, 0);
+        const record: TimingRecord = {
+          id: `rubric-import-${crypto.randomUUID()}`,
+          completedAt: new Date().toISOString(),
+          visionModel,
+          analysisModel: generativeModel,
+          thinking: analysisThinking,
+          correctionMode,
+          pageCount: preparedPageCountForTrace,
+          readingSeconds: readingMs / 1000,
+          analysisSeconds: analysisMs / 1000,
+          totalSeconds: Math.max(0, Date.now() - importStartedAt) / 1000,
+          outcome: rubricImportSucceeded ? 'success' : 'error',
+          source: 'rubric-import',
+          modelScore: null,
+          criterionScores: [],
+          assignmentId: activeAssignmentId,
+          assignmentTitle: assignmentTitle.trim() || 'Devoir sans titre',
+          diagnosticStrategy: 'single',
+          diagnosticRuns: runs,
+        };
+        setTimingHistory((current) => {
+          const next = [record, ...current].slice(0, timingHistoryLimit);
+          return next;
+        });
+      }
+      rubricImportDiagnosticRuns.current = [];
+      if (rubricImportAbortController.current === abortController) rubricImportAbortController.current = null;
+      setRubricImageImporting(false);
+    }
+  }
+
+  async function importFiles(files: FileList | null) {
+    if (!files?.length) return;
+    setError('');
+    setReviewMessage('');
+    try {
+      const prepared = await service.prepareFiles(files);
+      if (visionModel.trim() && analysisModel.trim()) {
+        void backgroundService.prewarm({ endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking }).catch(() => { /* The teacher can still continue and retry model setup later. */ });
+      }
+      setAnnotationInkColorPreview(null);
+      setAnnotationInkColorApplied(annotationInkColor === 'none');
+      if (annotationInkColorApplied && annotationInkColor !== 'none') {
+        setImages([...originalImages, ...prepared]);
+        setManualRotationAngles({});
+      } else {
+        setImages((current) => [...current, ...prepared]);
+      }
+      setOriginalImages((current) => [...current, ...structuredClone(prepared)]);
+      setRotationSuggestions({});
+      setPageClassifications(null);
+      setScientificDiagramAnalysis(null);
+      setScientificDiagramError('');
+      setFocusedEvidencePage(null);
+      setTranscription(null);
+      setStudentIdentity(null);
+      setProposal(null);
+      setReview([]);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Échec de préparation des fichiers en local.');
+    }
+  }
+
+  async function rotateCopyPage(pageIndex: number, clockwiseDegrees: 90 | 180 | 270) {
+    const original = originalImages[pageIndex] ?? images[pageIndex];
+    if (!original || isAnalyzing) return;
+    try {
+      const nextAngle = accumulateClockwiseRotation(manualRotationAngles[pageIndex] ?? 0, clockwiseDegrees);
+      const rotated = nextAngle === 0 ? original : await service.rotateImage(original, nextAngle as 90 | 180 | 270);
+      const workingImage = annotationInkColor !== 'none' && annotationInkColorApplied
+        ? await service.eraseTeacherAnnotationColor(rotated, annotationInkColor)
+        : rotated;
+      setImages((current) => current.map((entry, index) => index === pageIndex ? workingImage : entry));
+      setManualRotationAngles((current) => ({ ...current, [pageIndex]: nextAngle }));
+      setAnnotationInkColorPreview(null);
+      setRotationSuggestions((current) => { const next = { ...current }; delete next[pageIndex]; return next; });
+      setManualRotationAngles((current) => ({ ...current, [pageIndex]: nextAngle }));
+      setRotationSuggestions((current) => { const next = { ...current }; delete next[pageIndex]; return next; });
+      setScientificDiagramAnalysis(null);
+      setScientificDiagramError('');
+      setTranscription(null);
+      setStudentIdentity(null);
+      setProposal(null);
+      setReview([]);
+      setTeacherQuestions('');
+      setIsFinalized(false);
+      setTeacherStep('copy');
+      setReviewMessage('Orientation modifiée depuis l’image originale. Les rotations successives ne dégradent plus la copie de travail.');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'La rotation locale de cette page a échoué.');
+    }
+  }
+
+  function removeCopyPage(pageIndex: number) {
+    setImages((current) => current.filter((_, index) => index !== pageIndex));
+    setAnnotationInkColorPreview(null);
+    setOriginalImages((current) => current.filter((_, index) => index !== pageIndex));
+    setManualRotationAngles((current) => Object.fromEntries(Object.entries(current)
+      .filter(([index]) => Number(index) !== pageIndex)
+      .map(([index, angle]) => [Number(index) > pageIndex ? Number(index) - 1 : Number(index), angle])));
+    setRotationSuggestions((current) => Object.fromEntries(Object.entries(current)
+      .filter(([index]) => Number(index) !== pageIndex)
+      .map(([index, suggestion]) => [Number(index) > pageIndex ? Number(index) - 1 : Number(index), suggestion])));
+    setPageClassifications(null);
+    setScientificDiagramAnalysis(null);
+    setTranscription(null);
+    setStudentIdentity(null);
+    setProposal(null);
+  }
+
+  async function importSubjectFiles(files: FileList | null) {
+    if (!files?.length) return;
+    setError('');
+    setReviewMessage('');
+    try {
+      const prepared = await service.prepareFiles(files);
+      setSubjectImages((current) => [...current, ...prepared]);
+      setSubjectTranscription(null);
+      setTranscription(null);
+      setProposal(null);
+      setReview([]);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Échec de préparation du sujet en local.');
+    }
+  }
+
+  async function connectOllama() {
+    setBusy(true);
+    setError('');
+    setConnectionTone('info');
+    setConnectionMessage('Test de connexion en cours… Vérification du serveur IA.');
+    try {
+      if (apiCompatible) {
+        await service.checkReady({ endpoint, apiCompatible, apiKey, visionModel, analysisModel });
+        setAvailableModels([]);
+        setConnectionTone('success');
+        setConnectionMessage('Connexion réussie · modèle compatible OpenAI vérifié. Les identifiants des modèles sont renseignés manuellement.');
+        return;
+      }
+      const models = await service.listModels(endpoint);
+      setAvailableModels(models.map((item) => item.name));
+      // Listing models must not assign an arbitrary family or replace the user's selection.
+      if (!secondAnalysisModel && models[1]) setSecondAnalysisModel(models[1].name);
+      if (!arbitratorModel && models[0]) setArbitratorModel(models[0].name);
+      setConnectionTone(models.length ? 'success' : 'warning');
+      setConnectionMessage(models.length ? `Connexion réussie · ${models.length} modèle(s) disponible(s). Choisissez votre modèle génératif et, si besoin, un modèle décisionnel.` : 'Connexion réussie, mais aucun modèle installé. Installez un modèle compatible avec les images et un modèle pour l’analyse.');
+    } catch (cause) {
+      setConnectionTone('error');
+      setConnectionMessage(describeAiConnectionFailure(cause, endpoint, window.location.protocol));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function gradeCopies(strategyOverride?: 'arbitrate-only') {
+    if (annotationInkColor !== 'none' && !annotationInkColorApplied) {
+      setError('Prévisualisez puis appliquez le retrait de la couleur des annotations avant de lancer la lecture et la correction.');
+      setTeacherStep('copy');
+      return;
+    }
+    const abortController = new AbortController();
+    activeCorrectionAbortController.current = abortController;
+    const runStartedAt = Date.now();
+    let readingStartedAt: number | null = null;
+    let readingDurationMs: number | null = null;
+    let analysisStartedAt: number | null = null;
+    let analysisDurationMs: number | null = null;
+    let outcome: TimingRecord['outcome'] = 'error';
+    let diagnosticProposal: GradingProposal | null = null;
+    const isFreshCorrection = strategyOverride !== 'arbitrate-only';
+    if (isFreshCorrection) {
+      setTranscription(null);
+      setSubjectTranscription(null);
+      setStudentIdentity(null);
+      setTeacherAnnotations('');
+      setPageClassifications(null);
+      setScientificDiagramAnalysis(null);
+      setScientificDiagramError('');
+      setRotationSuggestions({});
+    }
+    const partialCriteria: CriterionProposal[] = [];
+    const previousModelResults = strategyOverride === 'arbitrate-only' ? diagnosticRuns.filter((run) => run.kind === 'model') : [];
+    const diagnosticResultsForHistory: DiagnosticModelResult[] = [...previousModelResults];
+    const captureDiagramDiagnostic = (result: DiagnosticModelResult) => { diagnosticResultsForHistory.push(result); setDiagnosticRuns((current) => [...current, result]); };
+    let textImages = images;
+    let textPageNumbers = images.map((_, index) => index + 1);
+    let annotationRotationAngles = manualRotationAngles;
+    let diagramImages: ImageInput[] = [];
+    let diagramPageNumbers: number[] = [];
+    let diagramAnalysisResult = isFreshCorrection ? null : scientificDiagramAnalysis;
+    let effectiveSubjectTranscription: string | null = isFreshCorrection ? null : subjectTranscription;
+    let classificationWasJustCreated = false;
+    const rubricRouting = partitionScientificRubric(rubric);
+    // A direct image decision evaluates the entire rubric on the supplied pages,
+    // without splitting diagrams into a second AI pipeline.
+    const gradingRubric: Rubric = interfaceMode === 'teacher' && correctionMethod !== 'visual-decision'
+      ? { ...rubric, criteria: rubricRouting.textCriteria } : rubric;
+    const diagramRubric: Rubric = { ...rubric, criteria: rubricRouting.diagramCriteria };
+    setBusy(true);
+    if ((interfaceMode === 'diagnostic' || (interfaceMode as string) === 'debug') && strategyOverride !== 'arbitrate-only') {
+    }
+    if (interfaceMode === 'diagnostic' || (interfaceMode as string) === 'debug') { setCurrentTimingRecordId(null); setReferenceScoreInputs({}); setReferenceMessage(''); }
+    if (interfaceMode === 'teacher') { setShowAiSettings(false); setTeacherStep('progress'); }
+    setIsAnalyzing(true);
+    setReadingElapsedMs(null);
+    setAnalysisElapsedMs(null);
+    setAnalysisStage('checking');
+    setCriterionProgressMessage('Préparation de la correction…');
+    setCurrentTimingRecordId(null);
+    setModelResponseStarted(false);
+    setPageProgress({});
+    setCriterionProgressPosition(null);
+    setLastModelLoadDurationMs(null);
+    setCriterionStatuses({});
+    setActiveCriterionId(null);
+    setProposal(null);
+    setReview([]);
+    setStreamedOutput('');
+    setDiagnosticRuns(previousModelResults);
+    setError('');
+    setReviewMessage('');
+    setIsFinalized(false);
+    try {
+      // Show immediate feedback before waiting for background jobs to finish.
+      await backgroundService.pauseAndWait(strategyOverride === 'arbitrate-only' ? undefined : visionModel);
+      if (!validation.valid) throw new Error(validation.errors.join(' '));
+      if (!images.length) throw new Error('Importez au moins une photo ou un PDF de la copie.');
+      if (correctionMethod === 'visual-decision') {
+        if (apiCompatible) throw new Error('Vision + Décisionnel direct nécessite Ollama local et son API /v1/systemone.');
+        if (!isVisualDecisionModel(analysisModel)) throw new Error(/^tev1(?::|$)/i.test(analysisModel)
+          ? 'TEV1 ne prend pas en charge les photos via System One. Choisissez « Décisionnelle — Vision puis System One texte » ou un modèle visuel comme Clef-Flash.'
+          : 'Le modèle d’analyse ne prend pas en charge l’entrée image System One. Sélectionnez un modèle compatible comme Clef-Flash.');
+      }
+      if (!apiCompatible && strategyOverride !== 'arbitrate-only') {
+        const modelsToCheck = new Set<string>();
+        if (isFreshCorrection && correctionMethod !== 'visual-decision' && visionModel.trim()) modelsToCheck.add(visionModel.trim());
+        if (gradingRubric.criteria.length > 0 && analysisModel.trim()) modelsToCheck.add(analysisModel.trim());
+        for (const model of modelsToCheck) {
+          await service.checkReady({ endpoint, apiCompatible: false, model });
+        }
+      }
+      if (correctionMethod !== 'visual-decision' && shouldRunTeacherScientificDiagramWorkflow(interfaceMode) && diagramRubric.criteria.length > 0) {
+        if (correctionMode === 'separate' && !effectiveSubjectTranscription) {
+          if (!subjectImages.length) throw new Error('Importez le sujet de référence avant la notation des schémas.');
+          setCriterionProgressMessage('Lecture du sujet de référence avant la notation des schémas…');
+          const subjectReader = service.createProvider({
+            endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking,
+            transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty,
+            transcriptionPenaltyParameter, transcriptionFrequencyPenalty,
+          });
+          effectiveSubjectTranscription = await transcribeSubjectReference(
+            subjectReader, subjectImages, abortController.signal, captureDiagramDiagnostic,
+          );
+          setSubjectTranscription(effectiveSubjectTranscription);
+        }
+        try {
+          let classifications = isFreshCorrection ? null : pageClassifications;
+          if (!classifications || classifications.length !== images.length) {
+            setCriterionProgressMessage('Détection du type et de l’orientation des pages…');
+            classifications = await diagramAnalysisService.classifyPages({ images: textImages, model: visionModel, endpoint, apiKey, apiCompatible, onDiagnosticResult: captureDiagramDiagnostic, signal: abortController.signal });
+            classificationWasJustCreated = true;
+            const suggestions = await Promise.all(classifications.map(async (classification, index) => {
+              const degrees = getConfidentDiagramRotation(classification, manualRotationAngles[index] !== undefined);
+              const source = originalImages[index] ?? images[index];
+              if (!degrees || manualRotationAngles[index] !== undefined || !source) return null;
+              const rotated = await service.rotateImage(source, degrees);
+              const preview = annotationInkColor !== 'none' && annotationInkColorApplied
+                ? await service.eraseTeacherAnnotationColor(rotated, annotationInkColor)
+                : rotated;
+              return { index, degrees, preview };
+            }));
+            const pendingSuggestions = suggestions.filter((item): item is NonNullable<typeof item> => item !== null);
+            const acceptedAutomaticRotations: Record<number, ImageInput> = {};
+            const unverifiedSuggestions: Record<number, { degrees: 90 | 180 | 270; preview: ImageInput }> = {};
+            for (const suggestion of pendingSuggestions) {
+              if (autoRotateScientificDiagrams) {
+                try {
+                  const [verification] = await diagramAnalysisService.classifyPages({
+                    images: [suggestion.preview], model: visionModel, endpoint, apiKey, apiCompatible,
+                    onDiagnosticResult: captureDiagramDiagnostic, signal: abortController.signal,
+                  });
+                  if (verification?.kind === 'scientific-diagram' && verification.confidence >= 0.9 && verification.suggestedRotation === 0 && (verification.orientationConfidence ?? 0) >= 0.92) {
+                    acceptedAutomaticRotations[suggestion.index] = suggestion.preview;
+                    continue;
+                  }
+                } catch {
+                  if (abortController.signal.aborted) throw new DOMException('Traitement interrompu.', 'AbortError');
+                  // A failed second check cancels automation; the teacher can still inspect the suggestion.
+                }
+              }
+              unverifiedSuggestions[suggestion.index] = { degrees: suggestion.degrees, preview: suggestion.preview };
+            }
+            setRotationSuggestions(unverifiedSuggestions);
+            if (Object.keys(acceptedAutomaticRotations).length > 0) {
+              textImages = images.map((image, index) => acceptedAutomaticRotations[index] ?? image);
+              setImages((current) => current.map((image, index) => acceptedAutomaticRotations[index] ?? image));
+              const acceptedRotationAngles = Object.fromEntries(Object.keys(acceptedAutomaticRotations).map((key) => [Number(key), pendingSuggestions.find((item) => item.index === Number(key))?.degrees ?? 0]));
+              annotationRotationAngles = { ...annotationRotationAngles, ...acceptedRotationAngles };
+              setManualRotationAngles((current) => ({ ...current, ...acceptedRotationAngles }));
+              setReviewMessage('Rotation automatique appliquée après un second contrôle confirmant une orientation droite.');
+            } else {
+              textImages = images;
+            }
+            setPageClassifications(classifications);
+          }
+          const routing = routeScientificPages(classifications, textImages.length);
+          diagramPageNumbers = routing.diagramPageNumbers;
+          diagramImages = diagramPageNumbers.map((pageNumber) => textImages[pageNumber - 1]);
+          textPageNumbers = diagramRubric.criteria.length > 0 ? routing.textPageNumbers : textImages.map((_, index) => index + 1);
+          textImages = textPageNumbers.map((pageNumber) => textImages[pageNumber - 1]);
+          if (diagramImages.length > 0 && diagramRubric.criteria.length > 0 && shouldRunScientificDiagramAnalysis(diagramAnalysisResult)) {
+            setCriterionProgressMessage(`${diagramImages.length} page(s) de schéma détectée(s) · correction scientifique spécialisée…`);
+            setScientificDiagramError('');
+            try {
+              const diagramResult = await diagramAnalysisService.analyze({
+                images: diagramImages,
+                pageNumbers: diagramPageNumbers,
+                totalPageCount: images.length,
+                question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }),
+                ...(effectiveSubjectTranscription ? { subjectTranscription: effectiveSubjectTranscription } : {}),
+                rubric: diagramRubric,
+                model: visionModel,
+                endpoint,
+                apiKey,
+                apiCompatible,
+                onDiagnosticResult: captureDiagramDiagnostic,
+                signal: abortController.signal,
+              });
+              diagramAnalysisResult = diagramResult;
+              setScientificDiagramAnalysis(diagramResult);
+            } catch (cause) {
+              if (abortController.signal.aborted) throw cause;
+              const message = cause instanceof Error ? cause.message : 'La correction des schémas a échoué.';
+              setScientificDiagramError(message);
+              const manualFallback: ScientificDiagramAnalysis = {
+                diagrams: diagramPageNumbers.map((pageNumber, index) => ({ id: 'diagram-' + (index + 1), pageNumber, diagramType: 'schéma', summary: '', criteria: [], uncertainties: [] })),
+                criteria: [],
+                overallUncertainties: [],
+                warnings: ['Analyse des schémas indisponible : ' + message + '. Les critères graphiques sont à évaluer manuellement.'],
+              };
+              diagramAnalysisResult = manualFallback;
+              // Keep failed fallback local to this run: a null persisted analysis allows an explicit retry.
+            }
+          }
+          if (classificationWasJustCreated && diagramImages.length > 0 && transcription) setTranscription(null);
+        } catch (cause) {
+          if (abortController.signal.aborted) throw cause;
+          setPageClassifications(null);
+          setScientificDiagramError(cause instanceof Error ? cause.message : 'La détection des types de page a échoué. Le parcours textuel utilisera toutes les pages.');
+          textImages = images;
+        }
+      }
+      const shouldRunTextGrading = textImages.length > 0 && gradingRubric.criteria.length > 0;
+      if (shouldRunTextGrading && correctionMethod === 'visual-decision' && correctionMode === 'separate'
+        && !effectiveSubjectTranscription?.trim()) {
+        throw new Error('Vision + Décisionnel direct ne transcrit pas le sujet : utilisez un devoir intégré ou préparez séparément la transcription du sujet.');
+      }
+      if (shouldRunTextGrading && correctionMethod !== 'visual-decision' && correctionMode === 'separate' && !subjectImages.length && (isFreshCorrection || !subjectTranscription)) throw new Error('Importez le sujet de référence pour ce mode de correction.');
+      let textProposal: GradingProposal | null = null;
+      if (shouldRunTextGrading) {
+        const gradingTranscription = isFreshCorrection ? null : transcription;
+        const directGradingTranscription = correctionMethod === 'visual-decision' ? null : gradingTranscription;
+        let latestStudentTranscription: string | null = directGradingTranscription;
+        // Ollama model metadata was checked above without loading the models.
+        setAnalysisStage('reading');
+        if (!directGradingTranscription) setCriterionProgressMessage('Chargement du modèle de lecture, cela peut prendre quelques minutes…');
+        const provider = service.createProvider({ endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, thinking: analysisThinking, criterionByCriterion, correctionMethod, ...((interfaceMode === 'diagnostic' || (interfaceMode as string) === 'debug') ? { diagnosticStrategy: strategyOverride ?? diagnosticStrategy, secondAnalysisModel, arbitratorModel, ...(strategyOverride === 'arbitrate-only' ? { diagnosticFirstResult: previousModelResults[0]?.raw, diagnosticSecondResult: previousModelResults[1]?.raw } : {}) } : {}) });
+        const teacherAnnotationImages = detectTeacherAnnotations && correctionMethod !== 'visual-decision'
+          ? await Promise.all(textPageNumbers.map(async (pageNumber) => {
+            const pageIndex = pageNumber - 1;
+            const image = originalImages[pageIndex] ?? images[pageIndex];
+            const degrees = annotationRotationAngles[pageIndex] ?? 0;
+            return degrees === 0 ? image : service.rotateImage(image, degrees as 90 | 180 | 270);
+          }))
+          : undefined;
+        const raw = await provider.generate(
+          { question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }), rubric: rubricAsJson(gradingRubric), images: textImages, pageNumbers: textPageNumbers, totalPageCount: images.length, identifyStudent: correctionMethod !== 'visual-decision' && !directGradingTranscription, ...(correctionMethod !== 'visual-decision' && images[0] ? { identityImage: images[0] } : {}), ...(correctionMethod !== 'visual-decision' && teacherAnnotationImages ? { teacherAnnotationImages, teacherAnnotationPageNumbers: textPageNumbers } : {}), detectTeacherAnnotations: correctionMethod !== 'visual-decision' && detectTeacherAnnotations, ...(correctionMode === 'separate' ? { ...(correctionMethod !== 'visual-decision' ? { subjectImages } : {}), ...(effectiveSubjectTranscription ? { subjectTranscription: effectiveSubjectTranscription } : {}) } : {}), ...(directGradingTranscription ? { transcription: directGradingTranscription } : {}) },
+          (chunk) => { if (interfaceMode !== 'teacher') setStreamedOutput((current) => current + chunk); },
+          (stage) => {
+            const now = Date.now();
+            if (stage === 'reading' && readingStartedAt === null) readingStartedAt = now;
+            if (stage === 'grading') {
+              if (readingStartedAt !== null && readingDurationMs === null) { readingDurationMs = now - readingStartedAt; setReadingElapsedMs(readingDurationMs); }
+              analysisStartedAt = now;
+              setModelResponseStarted(false);
+              setLastModelLoadDurationMs(null);
+              setCriterionProgressMessage('Chargement du modèle d’analyse, cela peut prendre quelques minutes…');
+              setStreamedOutput('');
+              if (interfaceMode === 'teacher') {
+                setTeacherStep('review');
+                if ((criterionByCriterion || correctionMethod === 'decision') && gradingRubric.criteria[0]) setActiveCriterionId(gradingRubric.criteria[0].id);
+              }
+            }
+            setAnalysisStage(stage);
+          },
+          (extracted, kind) => {
+            if (kind === 'subject') setSubjectTranscription(extracted);
+            else if (kind === 'identity') {
+              try {
+                const identity = JSON.parse(extracted) as StudentIdentity;
+                setStudentIdentity(identity);
+                setStudentLabel((current) => resolveIdentifiedCopyLabel(current, identity, images[0]?.fileName));
+                if (identity.confidence === 'medium') setReviewMessage('Identité de l’étudiant détectée avec une incertitude : confirmez le nom ou le numéro avant de finaliser.');
+              } catch { setStudentIdentity(null); }
+            }
+            else if (kind === 'annotations') setTeacherAnnotations(extracted);
+            else if (kind === 'warning') setError(extracted);
+            else { latestStudentTranscription = extracted; setTranscription(extracted); }
+          },
+          (result) => { diagnosticResultsForHistory.push(result); setDiagnosticRuns((current) => [...current, result]); },
+          (update) => {
+            setCriterionStatuses((current) => ({ ...current, [update.criterionId]: update.status }));
+            if (update.status === 'completed') setActiveCriterionId(criterionByCriterion || correctionMethod === 'decision' ? gradingRubric.criteria[update.index]?.id ?? null : null);
+            else setActiveCriterionId(update.criterionId);
+            setCriterionProgressMessage(`Critère ${update.index}/${update.total} · ${update.status === 'retrying' ? 'nouvel essai' : update.status === 'failed' ? 'à vérifier' : update.status === 'completed' ? 'proposition reçue' : 'analyse en cours'}`);
+            if (update.status === 'completed' && update.proposal) {
+              const existingIndex = partialCriteria.findIndex((item) => item.criterionId === update.criterionId);
+              if (existingIndex >= 0) partialCriteria.splice(existingIndex, 1);
+              partialCriteria.push(update.proposal);
+              const orderedCriteria = [...partialCriteria].sort((left, right) => gradingRubric.criteria.findIndex((item) => item.id === left.criterionId) - gradingRubric.criteria.findIndex((item) => item.id === right.criterionId));
+              const partialProposal: GradingProposal = {
+                summary: 'Analyse en cours : les propositions sont affichées au fur et à mesure et restent à vérifier.',
+                criteria: orderedCriteria,
+                questionsForTeacher: orderedCriteria.flatMap((item) => item.questionForTeacher ? [item.questionForTeacher] : []),
+                finalScore: sumGradeScores(orderedCriteria.map((item) => item.points)),
+              };
+              setProposal(partialProposal);
+              setReview((current) => toReviewedCriteria(partialProposal).map((item) => current.find((existing) => existing.criterionId === item.criterionId) ?? item));
+              setTeacherQuestions(partialProposal.questionsForTeacher.join('\\n'));
+              if (interfaceMode === 'teacher') setTeacherStep('review');
+            }
+          },
+          (candidates) => new Promise<TeacherAnnotationReviewDecision[]>((resolve) => {
+            teacherAnnotationReviewResolver.current = resolve;
+            setTeacherAnnotationReviewDecisions(Object.fromEntries(candidates.map((candidate) => [candidate.id, false])));
+            setPendingTeacherAnnotationReview(candidates);
+          }),
+          (event: GradingProgressEvent) => {
+            if (event.type === 'phase') setAnalysisStage(event.phase === 'preparation' ? 'checking' : event.phase);
+            if (event.type === 'page') setPageProgress((current) => ({ ...current, [event.pageIndex]: event.status }));
+            if (event.type === 'criterion') setCriterionProgressPosition({ index: event.criterionIndex, total: event.criterionTotal });
+            if (event.type === 'model-load') setLastModelLoadDurationMs(event.durationMs);
+            if (event.type === 'first-token') {
+              setModelResponseStarted(true);
+              setCriterionProgressMessage(event.role === 'reading' ? `Lecture de la page ${event.pageIndex ?? 1}…` : 'Analyse en cours…');
+            }
+          },
+          abortController.signal,
+        );
+        if (analysisStartedAt !== null) { analysisDurationMs = Math.max(0, Date.now() - analysisStartedAt); setAnalysisElapsedMs(analysisDurationMs); }
+        textProposal = parseGradingProposal(raw, gradingRubric, correctionMethod === 'generative' ? latestStudentTranscription ?? undefined : undefined);
+      } else {
+        analysisStartedAt = Date.now();
+        setAnalysisStage('grading');
+        setTeacherStep('review');
+        setCriterionProgressMessage('Les critères graphiques sont évalués directement sur les schémas ; les critères textuels sans page rédigée restent à vérifier.');
+      }
+      const parsed = interfaceMode === 'teacher' && correctionMethod !== 'visual-decision'
+        ? (correctionMethod === 'decision'
+          ? mergeDecisionScientificDiagramCriteria(rubric, textProposal, diagramAnalysisResult)
+          : mergeScientificDiagramCriteria(rubric, textProposal, diagramAnalysisResult))
+        : textProposal;
+      if (!parsed) throw new Error('Aucune proposition de correction exploitable n’a été produite.');
+      diagnosticProposal = parsed;
+      setProposal(parsed);
+      setReview((current) => toReviewedCriteria(parsed).map((item) => current.find((existing) => existing.criterionId === item.criterionId) ?? item));
+      setTeacherQuestions(parsed.questionsForTeacher.join('\\n'));
+
+      setCriterionStatuses(Object.fromEntries(rubric.criteria.map((criterion) => [criterion.id, 'completed' as const])));
+      if (interfaceMode === 'teacher') setTeacherStep('review');
+      outcome = 'success';
+    } catch (cause) {
+      if (interfaceMode === 'teacher') setTeacherStep(textImages.length === 0 || partialCriteria.length > 0 || analysisStartedAt !== null ? 'review' : 'copy');
+      if (abortController.signal.aborted) setReviewMessage('Correction arrêtée. Les éléments déjà lus restent disponibles ; vous pouvez relancer la correction.');
+      else setError(cause instanceof Error ? cause.message : 'La correction a échoué.');
+    } finally {
+      const finishedAt = Date.now();
+      if (readingDurationMs !== null) setReadingElapsedMs(readingDurationMs);
+      if (analysisStartedAt !== null) setAnalysisElapsedMs(analysisDurationMs ?? Math.max(0, finishedAt - analysisStartedAt));
+      const diagnosticScore = diagnosticProposal ? buildDiagnosticScore(diagnosticProposal, rubric) : null;
+      const record: TimingRecord = {
+        id: String(finishedAt) + '-' + String(images.length),
+        completedAt: new Date(finishedAt).toISOString(),
+        visionModel,
+        analysisModel,
+        thinking: analysisThinking,
+        correctionMode,
+        correctionMethod,
+        pageCount: images.length + (correctionMode === 'separate' ? subjectImages.length : 0),
+        criterionCount: rubric.criteria.length,
+        readingSeconds: readingDurationMs === null ? (readingStartedAt === null ? null : Math.round((finishedAt - readingStartedAt) / 1000)) : Math.round(readingDurationMs / 1000),
+        analysisSeconds: analysisStartedAt === null ? null : Math.round((finishedAt - analysisStartedAt) / 1000),
+        totalSeconds: Math.round((finishedAt - runStartedAt) / 1000),
+        outcome,
+        modelScore: diagnosticScore?.modelScore ?? null,
+        criterionScores: diagnosticScore?.criterionScores ?? [],
+        assignmentId: activeAssignmentId,
+        assignmentTitle: assignmentTitle.trim() || 'Devoir sans titre',
+        rubricSnapshot: structuredClone(rubric),
+        diagnosticStrategy: interfaceMode === 'diagnostic' || (interfaceMode as string) === 'debug' ? (strategyOverride === 'arbitrate-only' ? 'arbitrate' : diagnosticStrategy) : 'single',
+        diagnosticRuns: diagnosticResultsForHistory,
+        reviewMetrics: createReviewTraceMetrics(diagnosticProposal ? toReviewedCriteria(diagnosticProposal) : [], rubric.criteria),
+      };
+      setCurrentTimingRecordId(record.id);
+      setTimingHistory((current) => {
+        const next = [record, ...current].slice(0, timingHistoryLimit);
+        return next;
+      });
+      setIsAnalyzing(false);
+      setBusy(false);
+      if (activeCorrectionAbortController.current === abortController) activeCorrectionAbortController.current = null;
+      if (!abortController.signal.aborted) backgroundService.resume(activeAssignmentId);
+    }
+  }
+
+  function openModelEvaluationHistoryRecord(record: ModelEvaluationRecord) {
+    if (record.imagesDeferred) {
+      // History contains the grades and image fingerprints; the original pages
+      // are read only when a teacher opens the stored experiment.
+      if (!evaluationService.get) {
+        setError('Impossible de charger les images de cet essai archivé.');
+        return;
+      }
+      void evaluationService.get(record.id).then((full) => {
+        if (full) openModelEvaluationHistoryRecord(full);
+        else setError('Cet essai archivé est introuvable sur cet appareil.');
+      }).catch(() => setError('Impossible de charger cet essai depuis le stockage local.'));
+      return;
+    }
+    setModelEvaluationResults(record.results);
+    setRubric(structuredClone(record.rubricSnapshot));
+    setImages(structuredClone(record.images));
+    setTranscription(record.referenceTranscription ?? record.results.find((result) => result.transcription)?.transcription ?? null);
+    setQuestion(record.question);
+    setAssignmentTitle(record.assignmentTitle);
+    setCorrectionMode(record.correctionMode);
+    setSubjectImages(structuredClone(record.subjectImages));
+    setSubjectTranscription(record.subjectTranscription);
+    setEvaluationStageMode(getModelEvaluationStage(record));
+    setEvaluationWorkspaceStep('results');
+    setSuggestedEvaluationComparisonIds(null);
+    setEvaluationArchiveStatus(sessionOnlyEvaluationIds.includes(record.id) ? 'failed' : record.originalImagesArchived === false ? 'without-images' : 'saved');
+    setPendingEvaluationArchive(sessionOnlyEvaluationIds.includes(record.id) ? record : null);
+    setEvaluationArchiveError(sessionOnlyEvaluationIds.includes(record.id) ? 'Cet essai n’a pas été sauvegardé : il disparaîtra au rechargement de la page.' : '');
+  }
+
+  async function persistModelEvaluationRecord(record: ModelEvaluationRecord) {
+    setEvaluationArchiveStatus('saving');
+    setEvaluationArchiveError('');
+    try {
+      const outcome = await evaluationService.save(record);
+      setSavedModelEvaluations((current) => [toModelEvaluationSummary(outcome.record), ...current.filter((item) => item.id !== outcome.record.id)].sort((left, right) => right.completedAt.localeCompare(left.completedAt)));
+      setSessionOnlyEvaluationIds((current) => current.filter((id) => id !== outcome.record.id));
+      setPendingEvaluationArchive(null);
+      setEvaluationArchiveStatus(outcome.imagesOmitted ? 'without-images' : 'saved');
+    } catch (cause) {
+      // Keep the completed run available for comparisons *in this session*.
+      // Do not pretend that it was successfully persisted.
+      setSavedModelEvaluations((current) => [record, ...current.filter((item) => item.id !== record.id)].sort((left, right) => right.completedAt.localeCompare(left.completedAt)));
+      setSessionOnlyEvaluationIds((current) => current.includes(record.id) ? current : [...current, record.id]);
+      setPendingEvaluationArchive(record);
+      setEvaluationArchiveStatus('failed');
+      const reason = cause instanceof Error ? (cause.name + (cause.message ? ' : ' + cause.message : '')) : String(cause);
+      setEvaluationArchiveError((isModelEvaluationQuotaError(cause)
+        ? 'Le stockage local est plein. Libérez de l’espace puis réessayez.'
+        : 'Le navigateur n’a pas pu enregistrer cet essai.') + ' Détail : ' + reason + '. Les résultats restent dans cette session, y compris dans Analyse & historique, mais seront perdus au rechargement.');
+    }
+  }
+
+  async function startModelEvaluation(options?: PilotRunOptions): Promise<ModelEvaluationRecord | undefined> {
+    const campaignId = options && !options.diagram ? biologyCampaign.current : undefined;
+    const runStage = options?.stage ?? evaluationStageMode;
+    const runRubric = options?.diagram?.rubric ?? (options?.contractVariant ? questionContractRubric(options.contractVariant) : options ? PILOT_RUBRIC : rubric);
+    const runValidation = validateRubric(runRubric);
+    const runTranscription = options ? options.pilotCase.transcription : transcription;
+    const runImages = options ? options.caseImages : images;
+    const runQuestion = options?.diagram?.question ?? (options?.contractVariant ? QUESTION_CONTRACT_QUESTION : options ? PILOT_QUESTION : question);
+    const runTitle = options?.diagram?.rubric.title ?? (options?.contractVariant ? QUESTION_CONTRACT_TITLE : options ? PILOT_TITLE : assignmentTitle);
+    const runDescription = options ? '' : assignmentDescription;
+    const runLevel = options ? 'Université' : educationLevel;
+    const runCorrectionMode = options ? 'integrated' as const : correctionMode;
+    const runSubjectImages = options ? [] : subjectImages;
+    const runSubjectTranscription = options ? null : subjectTranscription;
+    const diagramMethod = options?.diagram?.method;
+    const runVisualDirect = diagramMethod ? diagramMethod === 'direct-image-systemone' : (options ? false : evaluationVisualDirect);
+    const runAssignmentId = options?.diagram ? 'pilot-' + SCIENTIFIC_DIAGRAM_PROTOCOL_ID : options?.contractVariant ? 'pilot-' + QUESTION_CONTRACT_PROTOCOL_ID : options ? 'pilot-' + PILOT_PROTOCOL_ID : activeAssignmentId;
+    const selectedProfiles = options?.profiles ?? aiModelProfiles.filter((profile) => selectedEvaluationProfileIds.includes(profile.id)).slice(0, 3);
+    if (selectedProfiles.length < 1) { setError('Sélectionnez au moins une configuration enregistrée pour la tester.'); return; }
+    if (!runValidation.valid) { setError(runValidation.errors.join(' ')); return; }
+    if (runStage === 'analysis' && selectedProfiles.some((profile) => profile.configuration.correctionMethod === 'visual-decision')) {
+      setError('Vision + Décisionnel direct nécessite les photos : choisissez « Parcours complet » et non « Analyse seule ».'); return;
+    }
+    if (runStage === 'analysis' && !runTranscription?.trim()) { setError('Pour évaluer l’analyse seule, lancez d’abord une lecture Vision et vérifiez sa transcription.'); return; }
+    if (runStage !== 'analysis' && !runImages.length) { setError('Importez une copie avant de lancer une évaluation Vision.'); return; }
+    if (runStage === 'integrated' && runCorrectionMode === 'separate' && !runSubjectImages.length && !runSubjectTranscription) { setError('Importez le sujet de référence pour ce mode de correction.'); return; }
+    if (!options) evaluationCancelledRef.current = false;
+    const abortController = options ? (evaluationAbortController.current ?? new AbortController()) : new AbortController();
+    evaluationAbortController.current = abortController;
+    if (evaluationCancelledRef.current || abortController.signal.aborted) return;
+    setModelEvaluationResults([]);
+    setSuggestedEvaluationComparisonIds(null);
+    setEvaluationArchiveStatus('idle');
+    setPendingEvaluationArchive(null);
+    const measuredStages = runStage === 'vision' ? ['reading'] as const : runStage === 'analysis' ? ['analysis'] as const : ['reading', 'analysis'] as const;
+    const directProfiles = (profile: AiModelProfile) => runStage === 'integrated' && (
+      diagramMethod ? diagramMethod === 'direct-image-systemone'
+        : profile.configuration.correctionMethod === 'visual-decision'
+          || (runVisualDirect && profile.configuration.correctionMethod === 'decision'
+            && isVisualDecisionModel(profile.configuration.analysisModel))
+    );
+    const directGenerativeProfiles = (_profile: AiModelProfile) => runStage === 'integrated'
+      && (diagramMethod === 'graph-first-v1' || diagramMethod === 'graph-first-v2' || diagramMethod === 'direct-image-generative' || diagramMethod === 'direct-image-generative-thinking');
+    // Only the diagram lab can override a saved visual-decision profile to test
+    // its two-step System One text baseline. The teacher route is unchanged.
+    const effectiveMethod = (profile: AiModelProfile) =>
+      diagramMethod === 'vision-then-analysis' && profile.configuration.correctionMethod === 'visual-decision'
+        ? 'decision' as const : profile.configuration.correctionMethod;
+    const totalEvaluationSteps = selectedProfiles.reduce((sum, profile) =>
+      sum + (diagramMethod !== 'graph-first-v1' && diagramMethod !== 'graph-first-v2' && (directProfiles(profile) || directGenerativeProfiles(profile)) ? 1 : measuredStages.length), 0);
+    setEvaluationProgress({ completed: 0, total: selectedProfiles.length, currentConfiguration: null, status: 'running', completedSteps: 0, totalSteps: totalEvaluationSteps, currentStage: null });
+    setEvaluationStage('preparing');
+    setError('');
+    setBusy(true);
+    setIsAnalyzing(true);
+    const graphEvidence = new Map<string, DiagramGraphEvidence>();
+    const outputs = await runModelEvaluation({
+      stages: [...measuredStages],
+      stagesForConfiguration: (configuration) => {
+        if (diagramMethod === 'graph-first-v1' || diagramMethod === 'graph-first-v2') return ['reading', 'analysis'];
+        return configuration.directVisualDecision || configuration.directGenerativeVision ? ['analysis'] : [...measuredStages];
+      },
+      configurations: selectedProfiles.map((profile) => ({
+        id: profile.id,
+        name: profile.name,
+        endpoint: profile.configuration.endpoint,
+        apiCompatible: profile.configuration.apiCompatible,
+        apiKey: profile.configuration.apiKey,
+        visionModel: profile.configuration.visionModel,
+        analysisModel: profile.configuration.analysisModel,
+        // Every scientific diagram route explicitly controls thinking: only
+        // the opt-in Think route enables it. Other labs and teacher settings
+        // still use the saved profile preference unchanged.
+        thinking: diagramMethod ? diagramMethod === 'direct-image-generative-thinking'
+          : profile.configuration.analysisThinking,
+        ...(diagramMethod === 'direct-image-generative-thinking' && typeof options?.diagram?.thinkSetting === 'string'
+          ? { thinkingLevel: options.diagram.thinkSetting } : {}),
+        criterionByCriterion: profile.configuration.criterionByCriterion,
+        correctionMethod: effectiveMethod(profile),
+        directVisualDecision: directProfiles(profile),
+        directGenerativeVision: directGenerativeProfiles(profile),
+      })),
+      isCancelled: () => evaluationCancelledRef.current || abortController.signal.aborted,
+      onProgress: (progress) => {
+        if (evaluationAbortController.current === abortController) setEvaluationProgress({
+          ...progress, status: abortController.signal.aborted ? 'cancelled' : progress.status,
+        });
+      },
+      ...(options ? { onConfigurationSettled: async (configuration: ModelEvaluationConfiguration) => {
+        // A remote OpenAI-compatible API or nonlocal Ollama does not expose a safe local unload endpoint.
+        if (abortController.signal.aborted || !isLocalPilotConfiguration(configuration) || options?.retainModelAfterRun) return;
+        setPilotMessage('Libération de la mémoire Ollama après « ' + configuration.name + ' »…');
+        try {
+          if (!releasePilotModels) throw new Error('Gestionnaire de mémoire Ollama indisponible.');
+          const released = await awaitOrAbort(() => releasePilotModels(configuration, runStage), abortController.signal);
+          setPilotMessage(released.length
+            ? 'Mémoire libérée : ' + released.join(', ') + '. Préparation du profil suivant.'
+            : 'Aucun modèle de « ' + configuration.name + ' » encore chargé ; suite du protocole.');
+        } catch (cause) {
+          if (abortController.signal.aborted) return;
+          const reason = cause instanceof Error ? cause.message : String(cause);
+          pilotMemoryErrorRef.current = 'Échec de libération de la mémoire après « ' + configuration.name
+            + ' » : ' + reason + ' Arrêt de précaution avant de charger un autre modèle. Vérifiez « ollama ps ».';
+          pilotStopRef.current = true;
+          evaluationCancelledRef.current = true;
+          setPilotMessage(pilotMemoryErrorRef.current);
+        }
+      } } : {}),
+      execute: async (configuration, _isCancelled, onStage) => {
+        setEvaluationStage('preparing');
+        if (configuration.correctionMethod === 'visual-decision' && !isVisualDecisionModel(configuration.analysisModel)) {
+          throw new Error(/^tev1(?::|$)/i.test(configuration.analysisModel)
+            ? 'TEV1 ne supporte pas les images dans System One : sélectionnez une méthode Vision puis Analyse, ou Clef-Flash.'
+            : 'Le modèle choisi ne prend pas en charge les décisions directes sur images dans System One.');
+        }
+        if (runStage !== 'analysis' && !configuration.directVisualDecision && !configuration.directGenerativeVision && !configuration.visionModel.trim()) throw new Error('Le profil doit définir un modèle de vision pour cette expérience.');
+        if (runStage !== 'analysis' && !configuration.directVisualDecision && !configuration.directGenerativeVision
+          && !configuration.apiCompatible && isNativeDecisionModel(configuration.visionModel)) {
+          throw new Error('Modèle décisionnel utilisé en Vision : « ' + configuration.visionModel
+            + ' » ne prend pas en charge le chat (/api/chat). Configurez un modèle Vision distinct pour lire les images.');
+        }
+        if (runStage !== 'vision' && !configuration.analysisModel.trim()) throw new Error('Le profil doit définir un modèle d’analyse pour cette expérience.');
+        if (runStage !== 'analysis' && !configuration.directVisualDecision && !configuration.directGenerativeVision) await awaitOrAbort(() => service.checkReady({ endpoint: configuration.endpoint, apiCompatible: configuration.apiCompatible, apiKey: configuration.apiKey, model: configuration.visionModel }, abortController.signal), abortController.signal);
+        if (runStage !== 'vision') await awaitOrAbort(() => service.checkReady({ endpoint: configuration.endpoint, apiCompatible: configuration.apiCompatible, apiKey: configuration.apiKey, model: configuration.analysisModel }, abortController.signal), abortController.signal);
+        let extractedTranscription = '';
+        let raw = '';
+        const startedAt = Date.now();
+        let readingMs = 0;
+        let analysisStartedAt: number | null = null;
+        const measuredRuns: DiagnosticModelResult[] = [];
+        let streamedOutput = '';
+        const provider = service.createProvider({
+          endpoint: configuration.endpoint,
+          apiCompatible: configuration.apiCompatible,
+          apiKey: configuration.apiKey,
+          visionModel: configuration.visionModel,
+          analysisModel: configuration.analysisModel,
+          thinking: configuration.thinking,
+          ...(configuration.thinkingLevel ? { thinkingLevel: configuration.thinkingLevel } : {}),
+          criterionByCriterion: configuration.criterionByCriterion,
+          correctionMethod: configuration.correctionMethod,
+          diagnosticStrategy: 'single',
+        });
+        setStreamedOutput('');
+        try {
+          let gradingQuestion = runQuestion;
+          if (diagramMethod === 'graph-first-v1' || diagramMethod === 'graph-first-v2') {
+            onStage('reading');
+            setEvaluationStage('reading');
+            // V1 stays byte-for-byte compatible; V2 has its own validated
+            // label -> physical line endpoint -> observed structure schema.
+            const evidence = diagramMethod === 'graph-first-v2'
+              ? await (async () => {
+                const observe = evaluationVision.extractBlindDiagramGraphV2;
+                if (!observe) throw new Error('Lecteur de relations V2 indisponible.');
+                return extractDiagramGraphEvidenceV2(runImages, configuration.analysisModel, abortController.signal,
+                  image => awaitOrAbort(() => observe(configuration.endpoint, configuration.analysisModel, image,
+                    abortController.signal, {apiCompatible: !!configuration.apiCompatible, apiKey: configuration.apiKey ?? ''}),
+                  abortController.signal));
+              })()
+              : await (async () => {
+                const observe = evaluationVision.extractBlindDiagramGraph;
+                if (!observe) throw new Error('Extraction de graphe indisponible.');
+                return extractDiagramGraphEvidence(runImages, configuration.analysisModel, abortController.signal,
+                  image => awaitOrAbort(() => observe(configuration.endpoint, configuration.analysisModel, image,
+                    abortController.signal, undefined, {apiCompatible: !!configuration.apiCompatible,
+                      apiKey: configuration.apiKey ?? '', promptVariant: 'isolated-arrows-outside'}),
+                  abortController.signal));
+              })();
+            graphEvidence.set(configuration.id, evidence);
+            gradingQuestion += graphGradingContext(evidence);
+            readingMs = Math.max(0, Date.now() - startedAt);
+            analysisStartedAt = Date.now();
+            onStage('analysis');
+          }
+          raw = await awaitOrAbort(() => provider.generate({
+            question: buildAssignmentContext({ title: runTitle, description: runDescription, educationLevel: runLevel, question: gradingQuestion }),
+            rubric: rubricAsJson(runRubric),
+            ...(runStage === 'analysis' ? { transcription: runTranscription ?? '' } : {}),
+            ...(runStage === 'vision' ? { visionOnly: true } : {}),
+            ...(configuration.directVisualDecision ? { directVisualDecision: true } : {}),
+            ...(configuration.directGenerativeVision ? { directGenerativeVision: true } : {}),
+            images: runStage === 'analysis' ? [] : structuredClone(runImages),
+            ...(runStage !== 'vision' && runCorrectionMode === 'separate' ? { subjectImages: structuredClone(runSubjectImages), ...(runSubjectTranscription ? { subjectTranscription: runSubjectTranscription } : {}) } : {}),
+          }, (chunk) => { if (abortController.signal.aborted) return; streamedOutput += chunk; setStreamedOutput((current) => current + chunk); }, (stage) => {
+            if (abortController.signal.aborted) return;
+            const now = Date.now();
+            if (stage === 'grading') { if (analysisStartedAt === null) { readingMs = configuration.directVisualDecision || configuration.directGenerativeVision ? 0 : Math.max(0, now - startedAt); analysisStartedAt = configuration.directVisualDecision || configuration.directGenerativeVision ? startedAt : now; } onStage('analysis'); setEvaluationStage('grading'); setAnalysisStage('grading'); setStreamedOutput(''); }
+            else { onStage('reading'); setEvaluationStage('reading'); setAnalysisStage('reading'); }
+          }, (text, kind) => {
+            if (!abortController.signal.aborted && kind !== 'subject') extractedTranscription = text;
+          }, (result) => { if (!abortController.signal.aborted) measuredRuns.push(result); }, undefined, undefined, undefined, abortController.signal), abortController.signal);
+        } catch (cause) {
+          const failedAt = Date.now();
+          if ((runStage === 'vision' || diagramMethod === 'graph-first-v1' || diagramMethod === 'graph-first-v2') && analysisStartedAt === null) readingMs = Math.max(0, failedAt - startedAt);
+          const analysisMs = analysisStartedAt === null ? 0 : Math.max(0, failedAt - analysisStartedAt);
+          const readingTokens = sumReportedTokensForStage(measuredRuns, 'reading');
+          const analysisTokens = sumReportedTokensForStage(measuredRuns, 'analysis');
+          const readingTokensPerSecond = calculateReportedTokensPerSecondForStage(measuredRuns, 'reading');
+          const analysisTokensPerSecond = calculateReportedTokensPerSecondForStage(measuredRuns, 'analysis');
+          const tokens = measuredRuns.some((run) => run.promptTokens !== undefined || run.generatedTokens !== undefined || run.totalTokens !== undefined)
+            ? measuredRuns.reduce((sum, run) => sum + (run.totalTokens ?? (run.promptTokens ?? 0) + (run.generatedTokens ?? 0)), 0)
+            : null;
+          const partialValue = {
+            transcription: extractedTranscription,
+            raw: streamedOutput || measuredRuns[measuredRuns.length - 1]?.raw || '',
+            score: null,
+            proposal: null,
+            readingMs,
+            analysisMs,
+            readingTokens,
+            analysisTokens,
+            readingTokensPerSecond,
+            analysisTokensPerSecond,
+            tokens,
+            diagnosticRuns: measuredRuns,
+            elapsedMs: failedAt - startedAt,
+          };
+          const error = new Error(cause instanceof Error ? cause.message : String(cause));
+          Object.assign(error, { partialValue });
+          throw error;
+        }
+        const analysisFinishedAt = Date.now();
+        if (runStage === 'vision' && analysisStartedAt === null) readingMs = Math.max(0, analysisFinishedAt - startedAt);
+        const analysisMs = analysisStartedAt === null ? 0 : Math.max(0, analysisFinishedAt - analysisStartedAt);
+        setEvaluationStage('parsing');
+        const { score, proposal: parsedProposal } = readEvaluationGradingResult(
+          runStage, raw, runRubric,
+          configuration.correctionMethod === 'generative'
+            ? (runStage === 'analysis' ? runTranscription ?? '' : extractedTranscription)
+            : undefined,
+        );
+        const finishedAt = Date.now();
+        const readingTokens = sumReportedTokensForStage(measuredRuns, 'reading');
+        const analysisTokens = sumReportedTokensForStage(measuredRuns, 'analysis');
+        const readingTokensPerSecond = calculateReportedTokensPerSecondForStage(measuredRuns, 'reading');
+        const analysisTokensPerSecond = calculateReportedTokensPerSecondForStage(measuredRuns, 'analysis');
+        const tokens = measuredRuns.some((run) => run.promptTokens !== undefined || run.generatedTokens !== undefined || run.totalTokens !== undefined) ? measuredRuns.reduce((sum, run) => sum + (run.totalTokens ?? (run.promptTokens ?? 0) + (run.generatedTokens ?? 0)), 0) : null;
+        return { transcription: extractedTranscription, raw, score, proposal: parsedProposal, readingMs, analysisMs, readingTokens, analysisTokens, readingTokensPerSecond, analysisTokensPerSecond, tokens, diagnosticRuns: measuredRuns, elapsedMs: finishedAt - startedAt };
+      },
+    });
+    setEvaluationProgress((current) => current ? { ...current, completed: outputs.length, currentConfiguration: null, status: abortController.signal.aborted ? 'cancelled' : 'running' } : current);
+    setEvaluationStage('saving');
+    if (runStage === 'vision' && !options) {
+      const firstReadableResult = outputs.find((output) => output.status === 'success' && output.value?.transcription.trim());
+      if (firstReadableResult?.value?.transcription) setTranscription(firstReadableResult.value.transcription);
+    }
+    const results = outputs.map((output) => ({
+      ...(graphEvidence.has(output.configuration.id) ? {graphEvidence: graphEvidence.get(output.configuration.id)} : {}),
+      profileId: output.configuration.id,
+      profileName: output.configuration.name,
+      elapsedMs: output.elapsedMs,
+      readingMs: output.value?.readingMs ?? 0,
+      analysisMs: output.value?.analysisMs ?? 0,
+      readingTokens: output.value?.readingTokens ?? null,
+      analysisTokens: output.value?.analysisTokens ?? null,
+      readingTokensPerSecond: output.value?.readingTokensPerSecond ?? null,
+      analysisTokensPerSecond: output.value?.analysisTokensPerSecond ?? null,
+      tokens: output.value?.tokens ?? null,
+      status: output.status,
+      transcription: runStage === 'analysis' ? runTranscription ?? '' : output.value?.transcription ?? '',
+      raw: output.value?.raw ?? '',
+      score: output.value?.score ?? null,
+      proposal: output.value?.proposal ?? null,
+      diagnosticRuns: output.value?.diagnosticRuns ?? [],
+      directVisualDecision: output.configuration.directVisualDecision,
+      ...(output.error ? { error: output.error } : {}),
+    }));
+    setModelEvaluationResults(results);
+    // Render results immediately; IndexedDB writes must never block navigation.
+    if (results.length > 0 && !options) setEvaluationWorkspaceStep('results');
+    const savedRecord: ModelEvaluationRecord = {
+      ...(diagramMethod === 'graph-first-v1' || diagramMethod === 'graph-first-v2'
+        ? {graphFirst: true, graphVersion: diagramMethod === 'graph-first-v2' ? 'v2' as const : 'v1' as const} : {}),
+      id: 'evaluation-' + Date.now() + (options ? '-' + options.pilotCase.id + '-' + runStage + (options.contractVariant ? '-' + options.contractVariant : '') : ''),
+      completedAt: new Date().toISOString(),
+      assignmentId: runAssignmentId,
+      campaignId,
+      assignmentTitle: runTitle.trim() || 'Devoir sans titre',
+      question: runQuestion,
+      rubricSnapshot: structuredClone(runRubric),
+      correctionMode: runCorrectionMode,
+      images: runStage === 'analysis' || options?.diagram ? [] : structuredClone(runImages),
+      subjectImages: structuredClone(runSubjectImages),
+      subjectTranscription: runSubjectTranscription,
+      referenceTranscription: runStage === 'analysis' ? runTranscription : null,
+      configurations: selectedProfiles.map((profile) => ({
+        id: profile.id, name: profile.name, endpoint: profile.configuration.endpoint,
+        visionModel: profile.configuration.visionModel, analysisModel: profile.configuration.analysisModel,
+        // Keep the effective benchmark flag, not the saved profile default.
+        // Otherwise OFF and ON calls are mislabelled as the same method in
+        // the research report even though the wire requests differed.
+        thinking: outputs.find((output) => output.configuration.id === profile.id)?.configuration.thinking
+          ?? profile.configuration.analysisThinking,
+        ...(outputs.find((output) => output.configuration.id === profile.id)?.configuration.thinkingLevel
+          ? { thinkingLevel: outputs.find((output) => output.configuration.id === profile.id)!.configuration.thinkingLevel } : {}),
+        criterionByCriterion: profile.configuration.criterionByCriterion,
+        apiCompatible: profile.configuration.apiCompatible,
+        correctionMethod: effectiveMethod(profile),
+        directVisualDecision: directProfiles(profile),
+        directGenerativeVision: directGenerativeProfiles(profile),
+      })),
+      results,
+      stage: runStage,
+    };
+    // The diagram lab does not save full evaluations or images; it DOES retain
+    // each run's diagnostic calls for Observabilité, including failed responses.
+    if (options?.diagram) {
+      retainDiagramObservability(toDiagramLabObservabilityTraces(savedRecord, {
+        caseId: options.diagram.caseId ?? 'libre',
+        repetition: options.diagram.repetition ?? 1,
+        imageCount: options.diagram.imageCount ?? runImages.length,
+        methodLabel: diagramMethodLabels[options.diagram.method],
+      }));
+    } else {
+      const previousComparable = savedModelEvaluations.find((record) => canCompareModelEvaluationRecords([record, savedRecord]));
+      if (previousComparable) setSuggestedEvaluationComparisonIds([previousComparable.id, savedRecord.id]);
+      await persistModelEvaluationRecord(savedRecord);
+    }
+    setEvaluationProgress((current) => current ? { ...current, completed: outputs.length, currentConfiguration: null, status: abortController.signal.aborted ? 'cancelled' : 'completed' } : current);
+    if (evaluationAbortController.current === abortController) evaluationAbortController.current = null;
+    setEvaluationStage('completed');
+    setIsAnalyzing(false);
+    setBusy(false);
+    return savedRecord;
+  }
+
+  function cancelModelEvaluation() {
+    // Abort the active Ollama/OpenAI request, not only the next evaluation step.
+    evaluationCancelledRef.current = true;
+    evaluationAbortController.current?.abort();
+    setEvaluationProgress((current) => current?.status === 'running'
+      ? { ...current, status: 'cancelled', currentConfiguration: null, currentStage: null } : current);
+    setEvaluationActivity((current) => current?.status === 'running'
+      ? { ...current, status: 'cancelled', error: 'Arrêt immédiat demandé. Requête IA annulée.' } : current);
+    setPilotMessage('Interruption demandée. Les résultats déjà terminés restent disponibles.');
+    setDiagramProtocolProgress('Interruption demandée. Les résultats terminés sont conservés.');
+    setError('');
+  }
+
+  async function followEvaluation<T>(activity: Omit<EvaluationActivity, 'status'>, execute: () => Promise<T>): Promise<T> {
+    pilotStopRef.current = false;
+    evaluationAbortController.current = new AbortController();
+    evaluationCancelledRef.current = false;
+    const campaignId = activity.journey === 'biology' ? (crypto.randomUUID?.() ?? 'biology-' + Date.now()) : undefined;
+    if (campaignId) biologyCampaign.current = campaignId;
+    setEvaluationActivity({ ...activity, status: 'running',
+      ...(activity.journey === 'diagrams' && radarBatteryRef.current
+        ? { radarBattery: radarBatteryRef.current } : {}),
+    });
+    // A launch from the radar must show the matching test, not the previous personal-copy form.
+    if (activity.journey === 'biology') {
+      setEvaluationJourney('biology');
+      setEvaluationWorkspaceStep('configuration');
+      setBiologyRadarOpen(false);
+      setEvaluationBiologyScenario(activity.scenario ?? 'contracts');
+    }
+    if (activity.journey === 'diagrams') setDiagramProtocolProgress('Préparation des schémas et des modèles…');
+    if (activity.journey === 'biology') setPilotMessage('Préparation du protocole…');
+    try {
+      const outcome = await execute();
+      const result = resolveEvaluationActivityOutcome({
+        journey: activity.journey, interrupted: evaluationCancelledRef.current || pilotStopRef.current,
+        pilotMemoryError: pilotMemoryErrorRef.current, pilotMessage: pilotMessageRef.current, outcome,
+      });
+      const campaignResult = campaignId ?? (outcome && typeof outcome === 'object' &&
+        'format' in outcome && 'createdAt' in outcome ? String(outcome.format) + ':' + outcome.createdAt :
+        outcome && typeof outcome === 'object' && 'id' in outcome ? String(outcome.id) : undefined);
+      setEvaluationActivity((current) => current?.title === activity.title
+        ? { ...current, ...result, campaignId: campaignResult } : current);
+      pushAppNotification({
+        title: result.status === 'completed' ? 'Test terminé' : result.status === 'partial' ? 'Résultats partiels' : result.status === 'cancelled' ? 'Test interrompu' : 'Test en échec',
+        message: activity.title + ' · ' + activity.profiles + (result.error ? ' · ' + result.error.slice(0, 180) : ''),
+        kind: result.status === 'completed' ? 'success' : result.status === 'cancelled' || result.status === 'partial' ? 'warning' : 'error',
+        target: 'evaluation', journey: activity.journey, targetId: activity.targetId, campaignId: campaignResult,
+      });
+      return outcome;
+    } catch (cause) {
+      const error = cause instanceof Error ? cause.message : String(cause);
+      setEvaluationActivity((current) => current?.title === activity.title
+        ? { ...current, status: 'failed', error } : current);
+      pushAppNotification({
+        title: 'Test en échec', message: activity.title + ' · ' + error.slice(0, 180),
+        kind: 'error', target: 'evaluation', journey: activity.journey, targetId: activity.targetId,
+      });
+      throw cause;
+    }
+  }
+
+  function openNotification(item: AppNotification) {
+    if (item.target === 'evaluation') {
+      setShowAiSettings(false);
+      setShowAssignmentsHome(false);
+      setInterfaceMode('diagnostic');
+      if (item.campaignId) { showCampaigns({ domain: item.journey, ids: [item.campaignId] }); return; }
+      setBiologyRadarOpen(false);
+      setEvaluationJourney(item.journey ?? 'custom');
+      if (item.journey === 'diagrams') setDiagramLabView('protocols');
+      setEvaluationWorkspaceStep(item.journey === 'custom' ? 'results' : 'configuration');
+      if (item.targetId) setEvaluationJumpTarget(item.targetId);
+    } else if (item.target === 'correction') {
+      setInterfaceMode('teacher');
+      setShowAssignmentsHome(false);
+      setTeacherStep('overview');
+    } else if (item.target === 'diagnostic') {
+      setInterfaceMode('observability');
+    }
+  }
+
+  function showEvaluationActivity() {
+    if (!evaluationActivity) return;
+    if (evaluationActivity.campaignId && evaluationActivity.status !== 'running' && evaluationActivity.journey === 'biology') { showCampaigns({ domain: 'biology', ids: [evaluationActivity.campaignId] }); return; }
+    setBiologyRadarOpen(false);
+    setEvaluationJourney(evaluationActivity.journey);
+    // Keep the live stage selected by the active runner; the initial scenario can differ from it.
+    if (evaluationActivity.journey === 'biology' && evaluationActivity.status !== 'running' && evaluationActivity.scenario) {
+      setEvaluationBiologyScenario(evaluationActivity.scenario);
+    }
+    if (evaluationActivity.journey === 'diagrams') setDiagramLabView('protocols');
+    setEvaluationWorkspaceStep(evaluationActivity.journey === 'custom'
+      ? evaluationActivity.status === 'running' ? 'execution' : 'results'
+      : 'configuration');
+    setEvaluationJumpTarget(evaluationActivity.journey === 'custom' && evaluationActivity.status === 'running'
+      ? 'evaluation-results' : evaluationActivity.targetId);
+  }
+
+
+  function preparePilotProtocol() {
+    if (busy || pilotBusy) return;
+    setPilotEnabled(true);
+    setPilotRuns([]);
+    setPilotContractRuns([]);
+    setPilotRepeatabilityRuns([]);
+    setPilotRepeatabilityProgress(null);
+    setPilotConcurrencyRuns([]);
+    setPilotImages({});
+    setPilotMessage('Prêt : barème isolé et trois textes de référence. Utilisez les configurations sélectionnées dans « Configurations à exécuter » ci-dessous, ou sélectionnez-en de nouvelles.');
+    setPilotCurrentCase(null);
+    setEvaluationStageMode('analysis');
+    setEvaluationVisualDirect(false);
+  }
+
+  async function uploadPilotImages(caseId: PilotCase['id'], files: FileList | null) {
+    if (!files?.length || pilotBusy || busy) return;
+    setPilotUploadingCase(caseId);
+    try {
+      const prepared = await service.prepareFiles(files);
+      setPilotImages((current) => ({ ...current, [caseId]: prepared }));
+      setPilotMessage('Photos de la copie ' + caseId + ' prêtes pour l’évaluation.');
+    } catch (cause) {
+      setPilotMessage('Échec de lecture de la copie ' + caseId + ' : ' + (cause instanceof Error ? cause.message : String(cause)));
+    } finally { setPilotUploadingCase(null); }
+  }
+
+  async function runPilotProtocol(stage: 'vision' | 'analysis' | 'integrated') {
+    if (!pilotEnabled || pilotBusy || busy || pilotUploadingCase) return;
+    const profiles = selectPilotProfiles(aiModelProfiles, selectedEvaluationProfileIds);
+    const selectionIssue = pilotSelectionIssue(profiles, stage);
+    if (selectionIssue) { setPilotMessage(selectionIssue); return; }
+    if (profiles.some(isLocalPilotProfile) && !releasePilotModels) { setPilotMessage('Gestionnaire de mémoire Ollama indisponible : protocole bloqué pour éviter de saturer la RAM.'); return; }
+    if (stage !== 'analysis' && PILOT_CASES.some((testCase) => !pilotImages[testCase.id]?.length)) {
+      setPilotMessage('Ajoutez les photos des copies A, B et C avant de lancer le test Vision.');
+      return;
+    }
+    pilotStopRef.current = false;
+    evaluationAbortController.current = new AbortController();
+    pilotMemoryErrorRef.current = null;
+    setPilotBusy(true);
+    setEvaluationStageMode(stage);
+    setPilotRuns((current) => current.filter((run) => run.record.stage !== stage));
+    try {
+      for (const testCase of PILOT_CASES) {
+        if (pilotStopRef.current) break;
+        setPilotCurrentCase(testCase.id);
+        setPilotMessage('Évaluation séquentielle de la copie ' + testCase.id + ' sur ' + profiles.length + ' profil(s).');
+        const record = await startModelEvaluation({
+          pilotCase: testCase, stage, profiles,
+          caseImages: stage === 'analysis' ? [] : pilotImages[testCase.id] ?? [],
+        });
+        if (record) setPilotRuns((current) => [...current, { caseId: testCase.id, record }]);
+        if (evaluationCancelledRef.current) break;
+      }
+      setPilotMessage(pilotMemoryErrorRef.current ??
+        (pilotStopRef.current || evaluationCancelledRef.current
+          ? 'Protocole interrompu : les essais terminés restent exportables.'
+          : 'Campagne terminée. Les modèles du protocole ont été libérés de la mémoire Ollama. Exportez le rapport complet.'));
+    } catch (cause) {
+      setPilotMessage('Erreur du protocole : ' + (cause instanceof Error ? cause.message : String(cause)) + '. Les essais terminés restent exportables.');
+    } finally {
+      setPilotBusy(false);
+      setPilotCurrentCase(null);
+    }
+  }
+
+  async function runPilotQuestionContractBenchmark(profilesOverride?: AiModelProfile[], onlyVariant?: QuestionContractVariant) {
+    if (pilotBusy || busy || pilotUploadingCase) return;
+    const profiles = profilesOverride ?? selectPilotProfiles(aiModelProfiles, selectedEvaluationProfileIds);
+    const issue = pilotSelectionIssue(profiles, 'analysis');
+    if (issue) { setPilotMessage(issue); return; }
+    if (profiles.some(isLocalPilotProfile) && !releasePilotModels) { setPilotMessage('Gestionnaire de mémoire Ollama indisponible : comparaison bloquée pour protéger la RAM.'); return; }
+    pilotStopRef.current = false;
+    evaluationAbortController.current = new AbortController();
+    evaluationCancelledRef.current = false;
+    pilotMemoryErrorRef.current = null;
+    setPilotContractRuns([]);
+    setEvaluationBiologyScenario('contracts');
+    const variants: readonly QuestionContractVariant[] = onlyVariant ? [onlyVariant] : ['standard', 'contract'];
+    const planned = QUESTION_CONTRACT_CASES.length * variants.length * profiles.length;
+    let usable = 0;
+    setPilotBusy(true);
+    setEvaluationStageMode('analysis');
+    setEvaluationVisualDirect(false);
+    try {
+      for (const testCase of QUESTION_CONTRACT_CASES) {
+        for (const variant of variants) {
+          if (pilotStopRef.current || evaluationCancelledRef.current) break;
+          setPilotCurrentCase(testCase.id);
+          setPilotMessage('Contrats par question · copie ' + testCase.id + ' · ' +
+            (variant === 'contract' ? 'variante B enrichie' : 'barème standard') +
+            ' · ' + profiles.length + ' configuration(s).');
+          const record = await startModelEvaluation({
+            pilotCase: testCase, stage: 'analysis', profiles, caseImages: [], contractVariant: variant,
+          });
+          if (record) {
+            setPilotContractRuns((current) => [...current, { caseId: testCase.id, variant, record }]);
+            usable += countedUsableBiologyGrades(record.results);
+          }
+          if (pilotStopRef.current || evaluationCancelledRef.current) break;
+        }
+        if (pilotStopRef.current || evaluationCancelledRef.current) break;
+      }
+      const complete = !pilotStopRef.current && !evaluationCancelledRef.current &&
+        usable === planned;
+      setPilotMessage(pilotMemoryErrorRef.current ??
+        (pilotStopRef.current || evaluationCancelledRef.current
+          ? 'Comparaison interrompue : les résultats terminés restent exportables.'
+          : complete ? 'Comparaison standard / variante B terminée. Copiez le rapport JSON pour analyser les écarts.'
+            : 'Comparaison partielle : des notes ou sous-critères restent indéterminés.'));
+      return { usable, planned };
+    } catch (cause) {
+      setPilotMessage('Erreur de comparaison : ' + (cause instanceof Error ? cause.message : String(cause)) +
+        '. Les essais terminés restent exportables.');
+    } finally {
+      setPilotBusy(false);
+      setPilotCurrentCase(null);
+    }
+  }
+
+  async function runPilotRepeatabilityBenchmark(repetitions: RepeatabilityCount, suite: RepeatabilitySuite = 'baseline', profilesOverride?: AiModelProfile[], variant: QuestionContractVariant = 'contract') {
+    if (pilotBusy || busy || pilotUploadingCase || (repetitions !== 3 && repetitions !== 5)) return;
+    const profiles = profilesOverride ?? selectPilotProfiles(aiModelProfiles, selectedEvaluationProfileIds);
+    const issue = pilotSelectionIssue(profiles, 'analysis');
+    if (issue) { setPilotMessage(issue); return; }
+    if (profiles.some(isLocalPilotProfile) && !releasePilotModels) { setPilotMessage('Gestionnaire de mémoire Ollama indisponible : répétabilité bloquée pour protéger la RAM.'); return; }
+    const steps = questionContractRepeatabilitySteps(repetitions, suite);
+    // Snapshot the selected profiles once: edits to saved settings cannot change a running campaign.
+    pilotStopRef.current = false;
+    evaluationAbortController.current = new AbortController();
+    evaluationCancelledRef.current = false;
+    pilotMemoryErrorRef.current = null;
+    setPilotRepeatabilityRuns([]);
+    setEvaluationBiologyScenario('repeatability');
+    const planned = steps.length * profiles.length;
+    let usable = 0;
+    setPilotRepeatabilityPlanned(repetitions);
+    setPilotRepeatabilitySuite(suite);
+    setPilotRepeatabilityProgress({ completed: 0, total: steps.length });
+    setPilotBusy(true);
+    setEvaluationStageMode('analysis');
+    setEvaluationVisualDirect(false);
+    try {
+      for (const [index, step] of steps.entries()) {
+        if (pilotStopRef.current || evaluationCancelledRef.current) break;
+        const testCase = ALL_QUESTION_CONTRACT_CASES.find((item) => item.id === step.caseId)!;
+        setPilotCurrentCase(step.caseId);
+        setPilotMessage('Répétabilité ' + (suite === 'stress' ? 'robustesse' : 'variante B') + ' · passage ' + step.repetition + '/' + repetitions +
+          ' · copie ' + step.caseId + ' · ' + profiles.length + ' profil(s) · série ' +
+          (index + 1) + '/' + steps.length + '.');
+        const record = await startModelEvaluation({
+          pilotCase: testCase, stage: 'analysis', profiles, caseImages: [], contractVariant: variant,
+        });
+        if (record) {
+          setPilotRepeatabilityRuns((current) => [...current, { repetition: step.repetition, caseId: step.caseId, variant, record }]);
+          usable += countedUsableBiologyGrades(record.results);
+          setPilotRepeatabilityProgress({ completed: index + 1, total: steps.length });
+        }
+        if (pilotStopRef.current || evaluationCancelledRef.current) break;
+      }
+      const complete = !pilotStopRef.current && !evaluationCancelledRef.current &&
+        usable === planned;
+      setPilotMessage(pilotMemoryErrorRef.current ??
+        (pilotStopRef.current || evaluationCancelledRef.current
+          ? 'Répétabilité interrompue : les passages terminés restent exportables, sans être présentés comme répétables.'
+          : complete ? 'Répétabilité terminée. Comparez les décisions et exportez le rapport JSON pour ChatGPT.'
+            : 'Répétabilité partielle : des notes ou sous-critères restent indéterminés.'));
+      return { usable, planned };
+    } catch (cause) {
+      setPilotMessage('Erreur de répétabilité : ' + (cause instanceof Error ? cause.message : String(cause)) +
+        '. Les passages terminés restent exportables.');
+    } finally {
+      setPilotBusy(false);
+      setPilotCurrentCase(null);
+    }
+  }
+
+  async function runPilotConcurrencyBenchmark(caseId: PilotCase['id']) {
+    if (!pilotEnabled || pilotBusy || busy || pilotUploadingCase) return;
+    const profiles = selectPilotProfiles(aiModelProfiles, selectedEvaluationProfileIds);
+    const issue = pilotSelectionIssue(profiles, 'analysis');
+    if (issue) { setPilotMessage(issue); return; }
+    const nonLocal = profiles.filter((profile) => !isLocalPilotProfile(profile));
+    if (nonLocal.length) {
+      setPilotMessage('Le benchmark CPU / parallélisme ne prend en charge que les modèles Ollama locaux : ' +
+        nonLocal.map((profile) => profile.name).join(', ') + '.');
+      return;
+    }
+    if (!releasePilotModels) { setPilotMessage('Gestionnaire de mémoire Ollama indisponible : benchmark bloqué pour protéger la RAM.'); return; }
+    const testCase = PILOT_CASES.find((item) => item.id === caseId);
+    if (!testCase) return;
+    pilotStopRef.current = false;
+    evaluationAbortController.current = new AbortController();
+    pilotMemoryErrorRef.current = null;
+    setPilotBusy(true);
+    setPilotCurrentCase(caseId);
+    setPilotConcurrencyRuns([]);
+    try {
+      for (const profile of profiles) {
+        if (pilotStopRef.current) break;
+        const config = profile.configuration;
+        const configuration: ModelEvaluationConfiguration = {
+          id: profile.id, name: profile.name, endpoint: config.endpoint,
+          apiCompatible: false, visionModel: config.visionModel, analysisModel: config.analysisModel,
+          thinking: config.analysisThinking, criterionByCriterion: true,
+          correctionMethod: config.correctionMethod,
+        };
+        try {
+          await awaitOrAbort(() => service.checkReady({
+            endpoint: config.endpoint, apiCompatible: false, model: config.analysisModel,
+          }, evaluationAbortController.current?.signal), evaluationAbortController.current!.signal);
+          setPilotMessage('Préchauffage local de « ' + profile.name + ' » (non chronométré)…');
+          const samples = await runPilotCriterionConcurrency({
+            testCase, warmup: true,
+            isStopped: () => pilotStopRef.current || evaluationAbortController.current?.signal.aborted === true,
+            onProgress: (level, done, total) => setPilotMessage(
+              profile.name + ' · ' + level + ' requête(s) simultanée(s) · ' + done + '/' + total + ' critère(s) terminés.'),
+            executeCriterion: async (criterion) => {
+              // Fresh provider instance per concurrent request: no shared mutable
+              // generation state, and the standard teacher pipeline is unchanged.
+              const provider = service.createProvider({
+                endpoint: config.endpoint, apiCompatible: false,
+                visionModel: config.visionModel, analysisModel: config.analysisModel,
+                thinking: config.analysisThinking, criterionByCriterion: true,
+                correctionMethod: config.correctionMethod, diagnosticStrategy: 'single',
+              });
+              const criterionRubric = { title: PILOT_RUBRIC.title, criteria: [criterion] };
+              const diagnosticRuns: DiagnosticModelResult[] = [];
+              const started = performance.now();
+              const raw = await awaitOrAbort(() => provider.generate({
+                question: buildAssignmentContext({
+                  title: PILOT_TITLE, description: '', educationLevel: 'Université', question: PILOT_QUESTION,
+                }),
+                rubric: rubricAsJson(criterionRubric),
+                transcription: testCase.transcription,
+                images: [],
+              }, undefined, undefined, undefined, (trace) => diagnosticRuns.push(trace), undefined, undefined, undefined, evaluationAbortController.current?.signal), evaluationAbortController.current!.signal);
+              const elapsedMs = performance.now() - started;
+              const proposal = parseGradingProposal(raw, criterionRubric,
+                config.correctionMethod === 'generative' ? testCase.transcription : undefined);
+              // Ignore synthetic aggregate traces when real per-request traces
+              // exist: otherwise a sequential native/chat call counts twice.
+              const calls = diagnosticRuns.filter((trace) => trace.stage === 'analysis' && !trace.requestCount);
+              const sum = (key: 'generatedTokens' | 'totalTokens' | 'loadMs'): number | null =>
+                calls.length > 0 && calls.every((trace) => typeof trace[key] === 'number')
+                  ? calls.reduce((total, trace) => total + (trace[key] ?? 0), 0) : null;
+              return {
+                proposal: proposal.criteria[0]!,
+                elapsedMs,
+                generatedTokens: sum('generatedTokens'),
+                totalTokens: sum('totalTokens'),
+                loadMs: sum('loadMs'),
+              };
+            },
+          });
+          setPilotConcurrencyRuns((current) => [...current, {
+            caseId, profileId: profile.id, profileName: profile.name,
+            analysisModel: config.analysisModel,
+            method: config.correctionMethod === 'decision' ? 'decision' : 'generative',
+            completedAt: new Date().toISOString(),
+            samples,
+          }]);
+        } catch (cause) {
+          setPilotMessage('Essai « ' + profile.name + ' » interrompu : ' +
+            (cause instanceof Error ? cause.message : String(cause)));
+          pilotStopRef.current = true;
+        } finally {
+          try {
+            setPilotMessage('Libération Ollama après « ' + profile.name + ' »…');
+            await releasePilotModels(configuration, 'analysis');
+          } catch (cause) {
+            pilotMemoryErrorRef.current = 'Impossible de libérer « ' + profile.name +
+              ' ». Benchmark interrompu pour protéger la RAM : ' +
+              (cause instanceof Error ? cause.message : String(cause));
+            pilotStopRef.current = true;
+          }
+        }
+      }
+      setPilotMessage(pilotMemoryErrorRef.current ??
+        (pilotStopRef.current ? 'Benchmark interrompu. Les mesures terminées restent exportables.'
+          : 'Benchmark terminé : comparez les durées et la qualité avant toute optimisation des corrections.'));
+    } finally {
+      setPilotCurrentCase(null);
+      setPilotBusy(false);
+    }
+  }
+
+  type DiagramCaseInput = {
+    id: 'manual' | ScientificDiagramFixtureId | DiagramSensitivityCaseId;
+    images: ImageInput[];
+    context?: string;
+    promptMode?: DiagramSensitivityPromptMode;
+  };
+
+  /** Reuse the same evaluator/provider for the manual case and the three
+   * bundled teacher-reference cases. The model never receives the expected
+   * score, benchmark decisions or case label. */
+  async function executeScientificDiagramCases(
+    rubric: Rubric, context: string, cases: readonly DiagramCaseInput[], repetitions: DiagramProtocolCount,
+    methodSelection: DiagramMethodSelection,
+    onCompleted?: (runs: readonly { caseId: DiagramCaseInput['id']; repetition: number; record: ModelEvaluationRecord; promptMode?: DiagramSensitivityPromptMode }[]) => void,
+    retryInvalidOnce = false,
+  ): Promise<Array<{ caseId: DiagramCaseInput['id']; repetition: number; record: ModelEvaluationRecord }>> {
+    if (busy || pilotBusy) throw new Error('Une évaluation est déjà en cours.');
+    const profiles = selectPilotProfiles(aiModelProfiles, selectedEvaluationProfileIds);
+    if (!profiles.length) throw new Error('Sélectionnez une configuration dans l’évaluateur.');
+    const issue = profiles.map((profile) => diagramMethodIssue(profile, methodSelection)).find(Boolean);
+    if (issue) throw new Error(issue);
+    if (profiles.some(isLocalPilotProfile) && !releasePilotModels) {
+      throw new Error('Gestionnaire de mémoire Ollama indisponible : impossible de sécuriser les passages successifs.');
+    }
+    if (!cases.length || cases.some((testCase) => !testCase.images.length)) {
+      throw new Error('Chaque schéma doit contenir au moins une image.');
+    }
+    const runs: Array<{ caseId: DiagramCaseInput['id']; repetition: number; record: ModelEvaluationRecord; promptMode?: DiagramSensitivityPromptMode }> = [];
+    pilotStopRef.current = false;
+    evaluationAbortController.current = new AbortController();
+    evaluationCancelledRef.current = false;
+    pilotMemoryErrorRef.current = null;
+    setPilotBusy(true);
+    setDiagramProtocolProgress('Préparation de l’évaluation des schémas…');
+    try {
+      // One profile loaded at a time; reuse it across all cases/repetitions
+      // before unloading. Each case is one independent image group.
+      for (const profile of profiles) {
+        try {
+          const methods = selectDiagramMethods(profile, methodSelection);
+          // Ask Ollama which Think control this exact model supports. Probe once
+          // before any image call (even the OFF control), not once per case.
+          let thinkSetting: DiagramThinkSetting = true;
+          if (methods.includes('direct-image-generative-thinking')) {
+            setDiagramProtocolProgress('Vérification Think · ' + profile.name + '…');
+            if (!evaluationVision.detectDiagramThinking) throw new Error('Vérification Think indisponible dans le service Ollama local.');
+            thinkSetting = await awaitOrAbort(() => evaluationVision.detectDiagramThinking!(
+              profile.configuration.endpoint, profile.configuration.analysisModel,
+              methodSelection === 'compare-thinking',
+            ), evaluationAbortController.current!.signal);
+          }
+          for (const method of methods) {
+            for (const testCase of cases) {
+              for (let repetition = 1; repetition <= repetitions; repetition++) {
+                if (pilotStopRef.current || evaluationCancelledRef.current) break;
+                setDiagramProtocolProgress('Schéma ' + testCase.id + ' · ' + profile.name + ' · passage '
+                  + repetition + '/' + repetitions + ' · ' + method);
+                const evaluationRequest = {
+                  pilotCase: PILOT_CASES[0]!, stage: 'integrated' as const, profiles: [profile],
+                  caseImages: testCase.images, retainModelAfterRun: true,
+                  diagram: {
+                    rubric,
+                    caseId: testCase.id,
+                    repetition,
+                    imageCount: testCase.images.length,
+                    question: ((testCase.context ?? context) || 'Évalue uniquement les propriétés visibles du schéma scientifique selon le barème fourni.')
+                      + ' Vérifie chaque attendu sur le dessin original. N’invente pas de structures absentes ; signale les éléments incertains.',
+                    method,
+                    ...(method === 'direct-image-generative-thinking' ? { thinkSetting } : {}),
+                  },
+                };
+                const record = await startModelEvaluation(evaluationRequest);
+                if (record) {
+                  // Persist the first answer immediately, even when invalid.
+                  // A browser closing during its targeted retry must not discard it.
+                  runs.push({ caseId: testCase.id, repetition, record, ...(testCase.promptMode ? { promptMode: testCase.promptMode } : {}) });
+                  onCompleted?.([...runs]);
+                  if (retryInvalidOnce && shouldRetryInvalidDiagramRecord(record)
+                    && !pilotStopRef.current && !evaluationCancelledRef.current) {
+                    setDiagramProtocolProgress('Schéma ' + testCase.id + ' · ' + profile.name +
+                      ' · reprise ciblée du passage ' + repetition + '/' + repetitions + ' après sortie invalide');
+                    // A single extra attempt, never a restart of the entire battery.
+                    // The initial error remains in observability and the local
+                    // checkpoint until a replacement result is available.
+                    const retried = await startModelEvaluation(evaluationRequest);
+                    if (retried && !pilotStopRef.current && !evaluationCancelledRef.current) {
+                      runs[runs.length - 1] = { caseId: testCase.id, repetition, record: retried,
+                        ...(testCase.promptMode ? { promptMode: testCase.promptMode } : {}) };
+                      onCompleted?.([...runs]);
+                    }
+                  }
+                }
+                if (pilotStopRef.current || evaluationCancelledRef.current) break;
+              }
+              if (pilotStopRef.current || evaluationCancelledRef.current) break;
+            }
+            if (pilotStopRef.current || evaluationCancelledRef.current) break;
+          }
+        } finally {
+          if (isLocalPilotProfile(profile) && releasePilotModels) {
+            setDiagramProtocolProgress('Libération de la mémoire après « ' + profile.name + ' »…');
+            try {
+              await releasePilotModels({
+                id: profile.id, name: profile.name, endpoint: profile.configuration.endpoint,
+                apiCompatible: false, visionModel: profile.configuration.visionModel,
+                analysisModel: profile.configuration.analysisModel,
+                thinking: profile.configuration.analysisThinking,
+                correctionMethod: profile.configuration.correctionMethod,
+                directVisualDecision: usesDirectDiagramVision(profile),
+              }, 'integrated');
+            } catch (cause) {
+              pilotMemoryErrorRef.current = 'Impossible de libérer « ' + profile.name + ' » : ' +
+                (cause instanceof Error ? cause.message : String(cause));
+              pilotStopRef.current = true;
+              evaluationCancelledRef.current = true;
+            }
+          }
+        }
+        if (pilotStopRef.current || evaluationCancelledRef.current) break;
+      }
+      setDiagramProtocolProgress(pilotMemoryErrorRef.current ??
+        (pilotStopRef.current || evaluationCancelledRef.current
+          ? 'Essai arrêté. Les passages terminés restent exportables.'
+          : 'Série terminée.'));
+    } finally {
+      setPilotBusy(false);
+    }
+    return runs;
+  }
+
+  async function runScientificDiagramProtocol(request: DiagramProtocolRequest) {
+    const createdAt = new Date().toISOString();
+    activeDiagramReportRef.current = 'personal';
+    setDiagramProtocolReport(null);
+    const build = (runs: readonly { repetition: number; record: ModelEvaluationRecord }[]) =>
+      buildScientificDiagramProtocolReport(
+        runs.map(({ repetition, record }) => ({ repetition, record })),
+        request.rubric, request.gold, request.repetitions, createdAt, request.images.length,
+      );
+    const runs = await executeScientificDiagramCases(
+      request.rubric, request.context, [{ id: 'manual', images: request.images }], request.repetitions,
+      request.methodSelection, (completed) => setDiagramProtocolReport(build(completed)),
+    );
+    const report = build(runs);
+    setDiagramProtocolReport(report);
+    await persistFinishedDiagramReport(report);
+    return report;
+  }
+
+  async function runScientificDiagramFixtures(
+    request: { cases: Array<{ id: ScientificDiagramFixtureId; images: ImageInput[] }>; repetitions: DiagramProtocolCount; methodSelection: DiagramMethodSelection },
+  ) {
+    const createdAt = new Date().toISOString();
+    diagramArchiveWriter.register(createdAt, radarTrial.current);
+    activeDiagramReportRef.current = 'fixture';
+    setDiagramFixtureReport(null);
+    const build = (runs: readonly { caseId: DiagramCaseInput['id']; repetition: number; record: ModelEvaluationRecord }[]) =>
+      buildScientificDiagramFixtureReport(
+        runs.filter((run): run is ScientificDiagramFixtureRun => run.caseId !== 'manual'),
+        request.repetitions, createdAt,
+      );
+    const runs = await executeScientificDiagramCases(
+      SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC, SCIENTIFIC_DIAGRAM_FIXTURE_CONTEXT,
+      request.cases, request.repetitions, request.methodSelection,
+      (completed) => setDiagramFixtureReport(build(completed)), true,
+    );
+    const report = build(runs);
+    setDiagramFixtureReport(report);
+    await persistFinishedDiagramReport(report);
+    return report;
+  }
+
+  async function runScientificDiagramSensitivity(
+    request: {
+      cases: Array<{ id: DiagramSensitivityCaseId; images: ImageInput[]; promptMode: DiagramSensitivityPromptMode; context: string }>;
+      promptModes: DiagramSensitivityPromptMode[];
+      repetitions: DiagramProtocolCount;
+      methodSelection: DiagramMethodSelection;
+    },
+  ) {
+    const createdAt = new Date().toISOString();
+    diagramArchiveWriter.register(createdAt, radarTrial.current);
+    activeDiagramReportRef.current = 'sensitivity';
+    setDiagramSensitivityReport(null);
+    const build = (runs: readonly { caseId: DiagramCaseInput['id']; repetition: number; record: ModelEvaluationRecord; promptMode?: DiagramSensitivityPromptMode }[]) =>
+      buildScientificDiagramSensitivityReport(
+        runs.filter((run) => DIAGRAM_SENSITIVITY_CASE_IDS.some((id) => id === run.caseId))
+          .map((run): DiagramSensitivityRun => ({ caseId: run.caseId as DiagramSensitivityCaseId,
+            repetition: run.repetition, record: run.record, promptMode: run.promptMode })),
+        request.repetitions, createdAt, request.promptModes,
+      );
+    const runs = await executeScientificDiagramCases(
+      DIAGRAM_SENSITIVITY_RUBRIC, DIAGRAM_SENSITIVITY_CONTEXT,
+      request.cases, request.repetitions, request.methodSelection,
+      (completed) => setDiagramSensitivityReport(build(completed)), true,
+    );
+    const report = build(runs);
+    setDiagramSensitivityReport(report);
+    await persistFinishedDiagramReport(report);
+    return report;
+  }
+
+  async function runScientificDiagramBlindGraph(
+    request: { cases: Array<{ id: DiagramSensitivityCaseId; images: ImageInput[] }>; repetitions: DiagramProtocolCount; zoomUncertainArrows?: boolean; promptVariant?: BlindGraphPromptVariant },
+  ) {
+    if (busy || pilotBusy) throw new Error('Une évaluation est déjà en cours.');
+    if (!evaluationVision.extractBlindDiagramGraph) throw new Error('Lecteur de graphe indisponible.');
+    const profiles = selectPilotProfiles(aiModelProfiles, selectedEvaluationProfileIds);
+    if (!profiles.length) throw new Error('Sélectionnez une configuration Vision.');
+    const graphIssue = profiles.map(blindGraphProfileIssue).find((issue): issue is string => Boolean(issue));
+    if (graphIssue) throw new Error(graphIssue);
+    const choices = profiles.map((profile) => ({
+      profile, model: blindGraphVisionModel(profile),
+    }));
+    if (choices.some(({ model }) => !model)) {
+      throw new Error('Modèle Vision manquant pour une configuration sélectionnée.');
+    }
+    if (request.cases.length !== DIAGRAM_SENSITIVITY_CASE_IDS.length ||
+      request.cases.some((item) => !item.images.length)) {
+      throw new Error('Les six dessins doivent avoir une image préparée.');
+    }
+    activeDiagramReportRef.current = 'graph';
+    setDiagramBlindGraphReport(null);
+    const createdAt = new Date().toISOString();
+    diagramArchiveWriter.register(createdAt, radarTrial.current);
+    const runs: BlindVisualObservationRun[] = [];
+    let tracedRuns = 0;
+    const emit = () => {
+      if (runs.length > tracedRuns) {
+        retainDiagramObservability(runs.slice(tracedRuns).map((run) =>
+          toBlindGraphObservabilityTrace(run, new Date().toISOString())));
+        tracedRuns = runs.length;
+      }
+      const report = buildBlindVisualObservationReport(runs, request.repetitions, createdAt, request.promptVariant ?? 'baseline');
+      setDiagramBlindGraphReport(report);
+      return report;
+    };
+    const controller = new AbortController();
+    blindGraphAbortRef.current = controller;
+    pilotStopRef.current = false;
+    evaluationAbortController.current = new AbortController();
+    setPilotBusy(true);
+    try {
+      for (const { profile, model } of choices) {
+        for (const entry of request.cases) {
+          for (let repetition = 1; repetition <= request.repetitions; repetition++) {
+            if (controller.signal.aborted || pilotStopRef.current) break;
+            setDiagramProtocolProgress('Observation indépendante ' + entry.id +
+              ' · ' + profile.name + ' · ' + repetition + '/' + request.repetitions);
+            const started = performance.now();
+            let diagnostic: BlindGraphDiagnostic | undefined;
+            try {
+              const graph = await evaluationVision.extractBlindDiagramGraph(
+                profile.configuration.endpoint, model, entry.images[0]!, controller.signal,
+                (value) => { diagnostic = value; },
+                { apiCompatible: profile.configuration.apiCompatible, apiKey: profile.configuration.apiKey, promptVariant: request.promptVariant ?? 'baseline' },
+                request.zoomUncertainArrows,
+              );
+              runs.push({
+                caseId: entry.id, repetition, profileId: profile.id, profileName: profile.name,
+                model, zoom: Boolean(request.zoomUncertainArrows), promptVariant: request.promptVariant ?? 'baseline', provider: profile.configuration.apiCompatible ? 'openai-compatible' : 'ollama-local',
+                remote: !isLoopbackPilotEndpoint(profile.configuration.endpoint),
+                status: 'success', durationMs: Math.round(performance.now() - started),
+                observations: compareBlindVisualGraph(graph), graph, diagnostic,
+                relationDetails: explainBlindVisualGraph(graph),
+                arrowCount: graph.arrows.length, containmentCount: graph.containment.length,
+              });
+            } catch (cause) {
+              const interrupted = controller.signal.aborted ||
+                (cause instanceof Error && cause.name === 'AbortError');
+              runs.push({
+                caseId: entry.id, repetition, profileId: profile.id, profileName: profile.name,
+                model, zoom: Boolean(request.zoomUncertainArrows), promptVariant: request.promptVariant ?? 'baseline', provider: profile.configuration.apiCompatible ? 'openai-compatible' : 'ollama-local',
+                remote: !isLoopbackPilotEndpoint(profile.configuration.endpoint),
+                status: interrupted ? 'aborted' : 'failed',
+                durationMs: Math.round(performance.now() - started),
+                observations: {}, arrowCount: 0, containmentCount: 0, diagnostic,
+                errorCategory: interrupted ? 'cancelled'
+                  : cause instanceof Error && /JSON|graphe|visuel|Sortie|observation/i.test(cause.message)
+                    ? 'invalid-output' : 'network',
+              });
+              if (interrupted) { emit(); break; }
+            }
+            emit();
+          }
+          if (controller.signal.aborted || pilotStopRef.current) break;
+        }
+        if (controller.signal.aborted || pilotStopRef.current) break;
+      }
+      const report = emit();
+      await persistFinishedDiagramReport(report);
+      return report;
+    } finally {
+      if (blindGraphAbortRef.current === controller) blindGraphAbortRef.current = null;
+      setDiagramProtocolProgress(controller.signal.aborted ? 'Observation interrompue.' : 'Observation terminée.');
+      setPilotBusy(false);
+    }
+  }
+
+  function stopPilotProtocol() {
+    methodBatchStopped.current = true;
+    scienceMethodQueue.current = null;
+    setMethodBatchProgress(null);
+    blindGraphAbortRef.current?.abort();
+    pilotStopRef.current = true;
+    cancelModelEvaluation();
+  }
+
+  function runRadarPlan(planned: Omit<RadarMissingTestRequest, 'id'>) {
+    if (busy || pilotBusy || radarAutoBusy || !aiModelProfiles.some((profile) => profile.id === planned.profileId)) return;
+    const firstBattery = planned.steps.length ? describeRadarBattery(planned, 0) : null;
+    radarBatteryRef.current = firstBattery;
+    setRadarBattery(firstBattery);
+    setEvaluationActivity(null);
+    setSelectedEvaluationProfileIds([planned.profileId]);
+    setRadarAutoRequest({ ...planned, id: ++radarAutoSequence.current });
+    setEvaluationJourney('diagrams');
+    setEvaluationWorkspaceStep('configuration');
+    setDiagramLabView('protocols');
+  }
+
+  function runRemainingScientificMethods(requests: Array<Omit<RadarMissingTestRequest, 'id'>>) {
+    if (!requests.length || busy || pilotBusy || radarAutoBusy || scienceMethodQueue.current || biologyMethodBatchRunning.current) return;
+    if (requests.some(request => !aiModelProfiles.some(profile => profile.id === request.profileId))) return;
+    const [first, ...remaining] = requests;
+    methodBatchStopped.current = false;
+    setMethodBatchReturnLab(null);
+    scienceMethodQueue.current = { remaining, total: requests.length, failures: 0 };
+    setMethodBatchProgress({domain: 'diagrams', current: 1, total: requests.length,
+      label: first!.trial ? scienceMethods[first!.trial.method].label : first!.profileName});
+    runRadarPlan(first!);
+  }
+
+  function runRemainingBiologyMethods(profileId: string, methods: BiologyMethod[]) {
+    const profile = aiModelProfiles.find(item => item.id === profileId);
+    if (!profile || !methods.length || busy || pilotBusy || radarAutoBusy || scienceMethodQueue.current || biologyMethodBatchRunning.current) return;
+    biologyMethodBatchRunning.current = true;
+    methodBatchStopped.current = false;
+    setMethodBatchReturnLab(null);
+    void (async () => {
+      let failures = 0;
+      for (const [index, method] of methods.entries()) {
+        if (methodBatchStopped.current) break;
+        setMethodBatchProgress({domain: 'biology', current: index + 1, total: methods.length,
+          label: method === 'contract' ? 'Contrats par question' : 'Barème standard'});
+        try {
+          await followEvaluation({
+            title: 'Biologie · évaluation de la méthode ' + method,
+            journey: 'biology', scenario: 'contracts',
+            targetId: 'evaluation-biology-contract-launch', profiles: profile.name,
+          }, async () => {
+            const comparison = await runPilotQuestionContractBenchmark([profile], method);
+            if (pilotStopRef.current || evaluationCancelledRef.current) return 0;
+            const stress = await runPilotRepeatabilityBenchmark(3, 'stress', [profile], method);
+            return { usable: (comparison?.usable ?? 0) + (stress?.usable ?? 0),
+              planned: QUESTION_CONTRACT_CASES.length + questionContractRepeatabilitySteps(3, 'stress').length };
+          });
+          if (pilotStopRef.current || evaluationCancelledRef.current) break;
+        } catch { failures++; }
+      }
+      biologyMethodBatchRunning.current = false;
+      setMethodBatchProgress(null);
+      if (!methodBatchStopped.current && !pilotStopRef.current && !evaluationCancelledRef.current) {
+        setMethodBatchReturnLab('biology');
+        setEvaluationWorkspaceStep('dashboard');
+        if (failures) pushAppNotification({title: 'Méthodes biologiques incomplètes',
+          message: failures + ' méthode(s) ont rencontré une erreur. Consultez les campagnes.',
+          kind: 'warning', target: 'evaluation', journey: 'biology'});
+      }
+    })();
+  }
+
+  function evaluateBiologyModel(profileId: string, baseline = true, traps = true, variant?: QuestionContractVariant) {
+    const profile = aiModelProfiles.find((item) => item.id === profileId);
+    if (!profile || busy || pilotBusy) return;
+    setSelectedEvaluationProfileIds([profileId]);
+    void followEvaluation({
+      title: 'Biologie · évaluation complète du modèle',
+      journey: 'biology', scenario: baseline ? 'contracts' : 'repeatability',
+      targetId: baseline ? 'evaluation-biology-contract-launch' : 'evaluation-biology-repeatability-launch',
+      profiles: profile.name,
+    }, async () => {
+      const comparison = baseline ? await runPilotQuestionContractBenchmark([profile], variant) : undefined;
+      if (pilotStopRef.current || evaluationCancelledRef.current) return 0;
+      // Run the stress battery even when A/B/C was only partially resolved.
+      // This keeps independently measurable axes available in the radar.
+      const stress = traps ? await runPilotRepeatabilityBenchmark(3, 'stress', [profile], variant) : undefined;
+      return {
+        usable: (comparison?.usable ?? 0) + (stress?.usable ?? 0),
+        planned: (baseline ? QUESTION_CONTRACT_CASES.length * (variant ? 1 : 2) : 0) +
+          (traps ? questionContractRepeatabilitySteps(3, 'stress').length : 0),
+      };
+    });
+  }
+
+  function combinedPilotReport() {
+    const createdAt = new Date().toISOString();
+    const baseReport = buildPilotReport(pilotRuns, createdAt, pilotConcurrencyRuns);
+    const hasOtherPilotResults = pilotRuns.length || pilotConcurrencyRuns.length;
+    const contractReport = pilotContractRuns.length ? buildQuestionContractReport(pilotContractRuns, createdAt) : null;
+    const repeatabilityReport = pilotRepeatabilityRuns.length
+      ? buildQuestionContractRepeatabilityReport(pilotRepeatabilityRuns, createdAt, pilotRepeatabilityPlanned, pilotRepeatabilitySuite) : null;
+    if (repeatabilityReport && !contractReport && !hasOtherPilotResults) return repeatabilityReport;
+    if (contractReport && !repeatabilityReport && !hasOtherPilotResults) return contractReport;
+    return {
+      ...(hasOtherPilotResults ? { pilot: baseReport } : {}),
+      ...(contractReport ? { questionContractPilot: contractReport } : {}),
+      ...(repeatabilityReport ? { questionContractRepeatability: repeatabilityReport } : {}),
+    };
+  }
+
+  function exportPilotReport() {
+    if (!pilotRuns.length && !pilotConcurrencyRuns.length && !pilotContractRuns.length && !pilotRepeatabilityRuns.length) return;
+    const report = combinedPilotReport();
+    const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'companion-protocole-biologie-' + new Date().toISOString().slice(0, 10) + '.json';
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+    setPilotMessage('Rapport JSON exporté. Il ne contient ni images, ni identifiants de connexion.');
+  }
+
+  async function copyPilotReport() {
+    if (!pilotRuns.length && !pilotConcurrencyRuns.length && !pilotContractRuns.length && !pilotRepeatabilityRuns.length) return;
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(combinedPilotReport(), null, 2));
+      setPilotMessage('Rapport copié dans le presse-papiers : collez-le dans notre conversation pour l’analyse.');
+    } catch {
+      setPilotMessage('Copie bloquée par le navigateur. Utilisez « Exporter JSON complet » pour joindre le fichier.');
+    }
+  }
+
+  function saveDiagnosticReference() {
+    if (!currentTimingRecordId) {
+      setReferenceMessage('Lancez un essai de diagnostic avant d’associer une référence à ses résultats.');
+      return;
+    }
+    const existingReference = timingHistory.find((record) => record.id === currentTimingRecordId)?.referenceScores ?? [];
+    const scores: ReferenceCriterionScore[] = rubric.criteria.flatMap((criterion) => {
+      const raw = referenceScoreInputs[criterion.id] ?? existingReference.find((score) => score.criterionId === criterion.id)?.points.toString();
+      return raw === undefined || raw.trim() === '' ? [] : [{ criterionId: criterion.id, points: Number(raw) }];
+    });
+    const validationResult = validateDiagnosticReference(scores, rubric);
+    if (!validationResult.valid) {
+      setReferenceMessage(validationResult.errors.join(' '));
+      return;
+    }
+    const next = timingHistory.map((record) => record.id === currentTimingRecordId ? { ...record, referenceScores: scores } : record);
+    setTimingHistory(next);
+    setReferenceMessage('Correction de référence enregistrée. Les écarts par modèle sont maintenant calculés.');
+  }
+
+  function clearDiagnosticReference() {
+    if (!currentTimingRecordId) return;
+    setTimingHistory((current) => {
+      const next = current.map((record) => {
+        if (record.id !== currentTimingRecordId) return record;
+        const { referenceScores: _referenceScores, ...withoutReference } = record;
+        return withoutReference;
+      });
+      return next;
+    });
+    setReferenceScoreInputs({});
+    setReferenceMessage('Référence retirée de cet essai. Les résultats restent consultables sans référence.');
+  }
+
+  function updateCurrentReviewTraceMetrics(update: (metrics: ReviewTraceMetrics) => ReviewTraceMetrics) {
+    if (!currentTimingRecordId) return;
+    setTimingHistory((current) => {
+      const next = current.map((record) => record.id === currentTimingRecordId && record.reviewMetrics
+        ? { ...record, reviewMetrics: update(record.reviewMetrics) }
+        : record);
+      return next;
+    });
+  }
+
+  function updateReview(id: string, patch: Partial<ReviewedCriterion>) {
+    setIsFinalized(false);
+    setReviewMessage('');
+    if (patch.teacherPoints !== undefined || patch.teacherComment !== undefined || patch.decision !== undefined) {
+      updateCurrentReviewTraceMetrics((metrics) => markGroupConfirmedCriterionModified(metrics, id));
+    }
+    setReview((current) => current.map((item) => item.criterionId === id
+      ? patch.teacherPoints !== undefined && !patch.subcriteria
+        ? resolveManualCriterionOverride({ ...item, ...patch })
+        : { ...item, ...patch }
+      : item));
+  }
+
+  function verifySubcriterion(criterionId: string, subcriterionId: string, action: SubcriterionTeacherDecision) {
+    const item = review.find((candidate) => candidate.criterionId === criterionId);
+    if (!item) return;
+    const next = resolveReviewedSubcriterion(item, subcriterionId, action);
+    if (next === item) return;
+    updateReview(criterionId, {
+      subcriteria: next.subcriteria, teacherPoints: next.teacherPoints,
+      assessmentStatus: next.assessmentStatus, decision: next.decision,
+      questionForTeacher: next.questionForTeacher,
+    });
+  }
+
+  async function finalizeReview(advanceToNextCopy = false) {
+    await finalizeReviewAction.current(async () => {
+    if (!proposal) {
+      setReviewMessage('Aucune proposition à archiver. Lancez d’abord l’analyse de la copie.');
+      return;
+    }
+    const reviewValidation = validateReviewedCorrection(rubric, review);
+    if (!reviewValidation.valid) {
+      setReviewMessage(reviewValidation.errors[0] ?? 'Vérifiez les notes avant de valider la correction.');
+      return;
+    }
+    const now = new Date().toISOString();
+    const id = currentCorrectionId ?? `correction-${crypto.randomUUID()}`;
+    const previous = archivedCorrections.find((item) => item.id === id);
+    const snapshot: CorrectionArchiveSnapshot = {
+      ...(currentTimingRecordId ? { timingTraceId: currentTimingRecordId } : {}),
+      assignmentTitle: assignmentTitle.trim() || 'Devoir de biologie',
+      studentIdentity,
+      question,
+      rubric: structuredClone(rubric),
+      proposal: structuredClone(proposal),
+      review: structuredClone(review),
+      teacherQuestions,
+      images: structuredClone(images),
+      originalImages: structuredClone(originalImages),
+      detectTeacherAnnotations,
+      annotationInkColor,
+      teacherAnnotations,
+      transcription,
+      subjectImages: structuredClone(subjectImages),
+      subjectTranscription,
+      correctionMode,
+      maximumPoints: validation.maximumPoints,
+      hasScientificDiagrams,
+      ...(scientificDiagramAnalysis ? { scientificDiagramAnalysis: structuredClone(scientificDiagramAnalysis) } : {}),
+      ...(pageClassifications ? { scientificPageClassifications: structuredClone(pageClassifications) } : {}),
+    };
+    const correction: LocalCorrection = {
+      id,
+      label: studentLabel.trim() || images[0]?.fileName || `Copie du ${new Date(now).toLocaleDateString('fr-FR')}`,
+      rubricTitle: rubric.title,
+      rubricFingerprint: fingerprintRubric(rubric.title, rubricAsJson(rubric)),
+      createdAt: previous?.createdAt ?? now,
+      updatedAt: now,
+      assignmentId: activeAssignmentId,
+      assignmentTitle: snapshot.assignmentTitle,
+      snapshot,
+    };
+    try {
+      await archiveService.saveCorrection(correction);
+      if (currentBackgroundJobId) await backgroundService.markCompleted(currentBackgroundJobId);
+      const memoryCorrectionId = getLocalMemoryCorrectionId();
+      const decisionEntries = createDecisionMemoryEntries({
+        correctionId: memoryCorrectionId ?? id,
+        rubricFingerprint: correction.rubricFingerprint,
+        sourceCorrectionId: id,
+        rubric,
+        proposal,
+        review,
+        createdAt: now,
+      });
+      let savedDecisionCount = 0;
+      let memorySaveFailed = decisionEntries.length > 0 && !memoryCorrectionId;
+      if (memoryCorrectionId) {
+        try {
+          for (const entry of decisionEntries) {
+            await archiveService.saveMemory(entry);
+            savedDecisionCount += 1;
+          }
+        } catch {
+          memorySaveFailed = decisionEntries.length > 0;
+        }
+      }
+      if (savedDecisionCount > 0) window.dispatchEvent(new Event(LOCAL_MEMORY_UPDATED_EVENT));
+      const saved = await (archiveService.listCorrectionSummaries?.() ?? archiveService.listCorrections());
+      setArchivedCorrections(saved.filter((item) => Boolean(item.snapshot)));
+      setCurrentCorrectionId(id);
+      setIsFinalized(true);
+      const memoryStatus = memorySaveFailed
+        ? ` ${savedDecisionCount} décision(s) ont été conservées, mais la mémoire locale n’a pas pu être entièrement mise à jour.`
+        : savedDecisionCount > 0
+          ? ` ${savedDecisionCount} décision(s) ajustée(s) ou commentée(s) ont été conservées dans la mémoire locale pour les prochaines analyses de ce contexte.`
+          : '';
+      setReviewMessage(teacherQuestions.trim()
+        ? `Correction enregistrée.${memoryStatus} Relisez les questions ouvertes avant de communiquer la note.`
+        : `Correction enregistrée.${memoryStatus} Vous pourrez la retrouver dans « Corrections enregistrées ».`);
+      if (advanceToNextCopy) {
+        const nextToReview = copyNavigation.nextCopyToReview;
+        if (nextToReview?.kind === 'job') {
+          await loadNextQueuedCopy(nextToReview.id);
+        } else {
+          setReviewMessage('Aucune autre copie à vérifier pour le moment.');
+        }
+      } else { setCopyOverviewFilter('completed'); setCopyOverviewFilterTouched(true); setTeacherStep('overview'); }
+    } catch {
+      setIsFinalized(false);
+      setReviewMessage('La correction n’a pas pu être archivée dans le stockage local. Vérifiez l’espace disponible du navigateur puis réessayez.');
+    }
+  
+    });
+  }
+
+  function captureActiveDraft(): AssignmentDraft {
+    return {
+      images, originalImages, transcription, subjectImages, subjectTranscription, proposal, review,
+      teacherQuestions, studentLabel, studentIdentity, currentCorrectionId, isFinalized, reviewMessage, detectTeacherAnnotations, teacherAnnotations, scientificDiagramAnalysis, scientificPageClassifications: pageClassifications,
+      annotationInkColor, annotationInkColorApplied,
+    };
+  }
+
+  function applyAssignment(profile: AssignmentProfile) {
+    setCopyOverviewFilter('all');
+    setCopyOverviewFilterTouched(false);
+    setCurrentBackgroundJobId(null);
+    setShowOnlyFlagged(true);
+    setFocusedEvidencePage(null);
+    setActiveAssignmentId(profile.id);
+    setAssignmentKind(profile.kind ?? 'standard');
+    setAssignmentTitle(profile.title);
+    setAssignmentDescription(profile.description ?? '');
+    setEducationLevel(profile.educationLevel ?? '');
+    setRubric(profile.rubric);
+    setExpandedCriterionId(profile.rubric.criteria[0]?.id ?? null);
+    setQuestion(profile.question);
+    setCorrectionMode(profile.correctionMode);
+    setHasScientificDiagrams(profile.hasScientificDiagrams ?? false);
+    const draft = assignmentDrafts[profile.id];
+    setScientificDiagramAnalysis(draft?.scientificDiagramAnalysis ?? null);
+    setPageClassifications(draft?.scientificPageClassifications ?? null);
+    setManualRotationAngles(draft?.manualRotationAngles ?? {});
+    setRotationSuggestions({});
+    setScientificDiagramError('');
+    setImages(draft?.images ?? []);
+    setOriginalImages(draft?.originalImages ?? draft?.images ?? []);
+    setTranscription(draft?.transcription ?? null);
+    setSubjectImages(draft?.subjectImages ?? []);
+    setSubjectTranscription(draft?.subjectTranscription ?? null);
+    setProposal(draft?.proposal ?? null);
+    setReview((draft?.review ?? []).map((item) => item.decision === 'pending' ? { ...item, decision: 'accepted' as const } : item));
+    setTeacherQuestions(draft?.teacherQuestions ?? '');
+    setStudentLabel(draft?.studentLabel ?? '');
+    setStudentIdentity(draft?.studentIdentity ?? null);
+    setDetectTeacherAnnotations(draft?.detectTeacherAnnotations ?? false);
+    setAnnotationInkColor(draft?.annotationInkColor ?? profile.annotationInkColor ?? 'none');
+    setAnnotationInkColorApplied(draft?.annotationInkColorApplied ?? true);
+    setAnnotationInkColorPreview(null);
+    setTeacherAnnotations(draft?.teacherAnnotations ?? '');
+    setCurrentCorrectionId(draft?.currentCorrectionId ?? null);
+    setIsFinalized(draft?.isFinalized ?? false);
+    setReviewMessage(draft?.reviewMessage ?? '');
+    setCopyOverviewNotice('');
+    setError('');
+    setStreamedOutput('');
+    setDiagnosticRuns([]);
+    setShowAiSettings(false);
+    setTeacherStep(getTeacherEntryStep(profile.rubric) === 'copies' ? 'overview' : 'rubric');
+  }
+
+  function switchAssignment(profile: AssignmentProfile) {
+    if (isAnalyzing || profile.id === activeAssignmentId) return;
+    setAssignmentDrafts((current) => ({ ...current, [activeAssignmentId]: captureActiveDraft() }));
+    applyAssignment(profile);
+  }
+
+  function deleteAssignment(profile: AssignmentProfile) {
+    if (isAnalyzing || assignmentProfiles.length <= 1) return;
+
+    const nextProfiles = assignmentProfiles.filter((item) => item.id !== profile.id);
+    setAssignmentProfiles(nextProfiles);
+    setAssignmentDrafts((current) => {
+      const next = { ...current };
+      delete next[profile.id];
+      return next;
+    });
+
+    if (profile.id === activeAssignmentId) {
+      const deletedIndex = assignmentProfiles.findIndex((item) => item.id === profile.id);
+      const nextActive = nextProfiles[Math.max(0, deletedIndex - 1)] ?? nextProfiles[0];
+      applyAssignment(nextActive);
+    }
+  }
+
+  function requestDeleteAssignment(profile: AssignmentProfile) {
+    if (!isAnalyzing && assignmentProfiles.length > 1) setPendingRemoval({ kind: 'assignment', profile });
+  }
+
+  function createNewAssignment(details: NewAssignmentDetails) {
+    if (isAnalyzing || !details.title.trim()) return;
+    setAssignmentDrafts((current) => ({ ...current, [activeAssignmentId]: captureActiveDraft() }));
+    const profile: AssignmentProfile = {
+      id: 'assignment-' + crypto.randomUUID(),
+      title: details.title.trim(),
+      description: details.description.trim(),
+      educationLevel: details.educationLevel,
+      rubric: initialAssignmentRubric(details.kind ?? 'standard', details.title),
+      question: details.description.trim() || (details.kind === 'scientific-diagram'
+        ? 'Évalue uniquement les éléments observables du dessin scientifique selon le barème fourni.'
+        : defaultQuestion),
+      correctionMode: 'integrated',
+      kind: details.kind ?? 'standard',
+      hasScientificDiagrams: details.kind === 'scientific-diagram',
+    };
+    setAssignmentProfiles((current) => [...current, profile]);
+    applyAssignment(profile);
+    setExpandedCriterionId(null);
+  }
+
+  function duplicateAssignment(source: AssignmentProfile) {
+    if (isAnalyzing) return;
+    setAssignmentDrafts((current) => ({ ...current, [activeAssignmentId]: captureActiveDraft() }));
+    const duplicate = duplicateAssignmentProfile(source, 'assignment-' + crypto.randomUUID());
+    setAssignmentProfiles((current) => [...current, duplicate]);
+    applyAssignment(duplicate);
+    setTeacherStep('rubric');
+    setShowAssignmentsHome(false);
+  }
+
+  async function enqueueBackgroundCopy(files: FileList | null) {
+    if (!files?.length || isAnalyzing || isPreparingSeriesCopies) return;
+    if (diagramIssue) { setError(diagramIssue); return; }
+    if (!validation.valid) { setError(validation.errors.join(' ')); return; }
+    if (!isScientificDiagramAssignment && correctionMode === 'separate' && !subjectImages.length && !subjectTranscription) { setError('Importez le sujet de référence avant d’ajouter des copies.'); return; }
+    setIsPreparingSeriesCopies(true);
+    setCopyOverviewNotice('');
+    setError('');
+    try {
+      const selectedFiles = Array.from(files);
+      const fileGroups = seriesGroupingMode === 'group-files' ? [selectedFiles] : selectedFiles.map((file) => [file]);
+      const now = new Date().toISOString();
+      const firstCopyNumber = backgroundJobs.length + 1;
+      const jobs = await prepareBatchCopies(
+        fileGroups,
+        (selected) => service.prepareFiles(selected),
+        (group, prepared, index) => {
+          const label = backgroundCopyLabel.trim() && (seriesGroupingMode === 'group-files' || group.length === 1 && selectedFiles.length === 1)
+            ? backgroundCopyLabel.trim()
+            : seriesGroupingMode === 'group-files'
+              ? `Copie ${firstCopyNumber + index}`
+              : group[0].name || `Copie ${firstCopyNumber + index}`;
+          return createBackgroundCorrection({
+            id: `queued-copy-${crypto.randomUUID()}`,
+            assignmentId: activeAssignmentId,
+            label,
+            question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }),
+            rubric: structuredClone(rubric),
+            correctionMode,
+            ...(isScientificDiagramAssignment ? { gradingFlow: 'scientific-diagram-direct' as const } : {}),
+            images: structuredClone(prepared),
+            originalImages: structuredClone(prepared),
+            subjectImages: structuredClone(subjectImages),
+            ...(subjectTranscription ? { subjectTranscription } : {}),
+            detectTeacherAnnotations: isScientificDiagramAssignment ? false : backgroundCopyDetectTeacherAnnotations,
+            annotationInkColor: 'none',
+            annotationInkColorApplied: true,
+            visionModel,
+            analysisModel,
+            thinking: analysisThinking,
+            correctionMethod,
+            createdAt: now,
+            updatedAt: now,
+          });
+        },
+      );
+      let preparedJobs = jobs;
+      let automaticRotationCount = 0;
+      let automaticRotationUnavailable = false;
+      if (autoRotateScientificDiagrams && !isScientificDiagramAssignment) {
+        try {
+          preparedJobs = [];
+          for (const job of jobs) {
+            const rotation = await autoRotateScientificPages(
+              job.images,
+              (pages) => diagramAnalysisService.classifyPages({ images: pages, model: visionModel, endpoint, apiKey, apiCompatible }),
+              (image, degrees) => service.rotateImage(image, degrees),
+            );
+            automaticRotationCount += rotation.rotatedPages.length;
+            preparedJobs.push({ ...job, images: rotation.images, originalImages: job.images, rotationAngles: Object.fromEntries(rotation.rotatedPages.map(({ pageIndex, degrees }) => [pageIndex, degrees])) as Record<number, 0 | 90 | 180 | 270>, scientificPageClassifications: rotation.classifications });
+          }
+        } catch {
+          automaticRotationUnavailable = true;
+          preparedJobs = jobs;
+        }
+      }
+      const settings = {
+        endpoint, apiCompatible, apiKey, visionModel, analysisModel,
+        thinking: analysisThinking, criterionByCriterion: true, correctionMethod, autoBackgroundCorrection,
+        transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty,
+        transcriptionPenaltyParameter, transcriptionFrequencyPenalty,
+      };
+      for (const job of preparedJobs) await backgroundService.enqueue(job, settings);
+      setBackgroundCopyLabel('');
+      setSeriesPickerVersion((version) => version + 1);
+      setBackgroundCopyDetectTeacherAnnotations(false);
+      setBackgroundJobs(await loadQueueOverviews(activeAssignmentId));
+      const rotationMessage = automaticRotationUnavailable
+        ? ' La détection d’orientation a échoué : les images originales sont conservées sans rotation.'
+        : automaticRotationCount > 0
+          ? ` ${automaticRotationCount} page(s) de schéma tournée(s) automatiquement après vérification.`
+          : autoRotateScientificDiagrams ? ' Aucune rotation fiable nécessaire.' : '';
+      setReviewMessage((autoBackgroundCorrection
+        ? `${preparedJobs.length} copie(s) ajoutée(s). Les corrections démarrent automatiquement, l’une après l’autre.`
+        : `${preparedJobs.length} copie(s) ajoutée(s). Vérifiez la liste ci-dessous, puis démarrez les corrections lorsque vous êtes prêt.`) + rotationMessage);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Impossible d’ajouter ces copies à la liste des copies à corriger.');
+    } finally {
+      setIsPreparingSeriesCopies(false);
+    }
+  }
+
+  async function openQueuedCopyViewer(jobId: string, pageIndex: number) {
+    const version = ++queuedViewerLoadSequence.current;
+    setQueuedViewer({ jobId, pageIndex });
+    setQueuedViewerFullJob(null);
+    if (selectedSeriesPreviewJob?.id === jobId) {
+      setQueuedViewerFullJob(selectedSeriesPreviewJob);
+      return;
+    }
+    try {
+      const full = await loadFullQueuedJob(jobId);
+      if (version !== queuedViewerLoadSequence.current) return;
+      if (full) setQueuedViewerFullJob(full);
+      else {
+        setQueuedViewer(null);
+        setError('Cette page est introuvable dans la file locale.');
+      }
+    } catch {
+      if (version !== queuedViewerLoadSequence.current) return;
+      setQueuedViewer(null);
+      setError('Impossible de charger les pages de cette copie.');
+    }
+  }
+
+  function closeQueuedCopyViewer() {
+    queuedViewerLoadSequence.current += 1;
+    setQueuedViewer(null);
+    setQueuedViewerFullJob(null);
+  }
+
+  async function toggleSeriesPreview(jobId: string) {
+    const opening = selectedSeriesPreviewId !== jobId;
+    const version = ++previewLoadSequence.current;
+    setSelectedSeriesPreviewId(opening ? jobId : null);
+    setSelectedSeriesPreviewJob(null);
+    if (!opening) { closeQueuedCopyViewer(); return; }
+    try {
+      const full = await loadFullQueuedJob(jobId);
+      if (previewLoadSequence.current !== version) return;
+      if (full) setSelectedSeriesPreviewJob(full);
+      else setError('Cette copie n’est plus disponible dans la file.');
+    } catch {
+      if (previewLoadSequence.current === version) setError('Impossible de charger les pages de cette copie.');
+    }
+  }
+
+  async function rotateQueuedCopyPage(job: BackgroundCorrectionJob, pageIndex: number, clockwiseDegrees: 90 | 270) {
+    const currentStatus = backgroundJobs.find((entry) => entry.id === job.id)?.status ?? job.status;
+    if (currentStatus === 'completed' || isPreparingSeriesCopies || rotatingQueuedPage !== null) return;
+    const rotationKey = `${job.id}:${pageIndex}`;
+    let pausedForRotation = false;
+    setRotatingQueuedPage(rotationKey);
+    try {
+      const source = job.imagesDeferred ? await loadFullQueuedJob(job.id) : job;
+      if (!source) throw new Error('Cette copie n’est plus disponible sur cet appareil.');
+      const original = source.originalImages[pageIndex] ?? source.images[pageIndex];
+      if (!original) throw new Error('La page à tourner est introuvable.');
+      // A batch can start immediately. Pause at the next safe model boundary so the
+      // teacher can still correct orientation without racing an in-flight image read.
+      if (currentStatus === 'processing') {
+        await backgroundService.pauseAndWait();
+        pausedForRotation = true;
+      }
+      const nextAngle = accumulateClockwiseRotation(source.rotationAngles?.[pageIndex] ?? 0, clockwiseDegrees);
+      const rotated = nextAngle === 0 ? original : await service.rotateImage(original, nextAngle);
+      const nextImages = source.images.map((image, index) => index === pageIndex ? rotated : image);
+      const nextAngles = { ...(source.rotationAngles ?? {}), [pageIndex]: nextAngle };
+      await backgroundService.updateImages(job.id, nextImages, nextAngles, {
+        endpoint, apiCompatible, apiKey, visionModel, analysisModel,
+        thinking: analysisThinking, criterionByCriterion: true, correctionMethod, autoBackgroundCorrection,
+        transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty,
+        transcriptionPenaltyParameter, transcriptionFrequencyPenalty,
+      });
+      setReviewMessage(`Orientation de la page ${pageIndex + 1} de « ${job.label} » modifiée. La transcription et les évaluations précédentes ont été invalidées ; la copie sera relue avec l’image corrigée.`);
+      setBackgroundJobs(await loadQueueOverviews(activeAssignmentId));
+      const updated = await loadFullQueuedJob(job.id);
+      if (selectedSeriesPreviewId === job.id) setSelectedSeriesPreviewJob(updated);
+      if (queuedViewer?.jobId === job.id) setQueuedViewerFullJob(updated);
+      if (detailsThumbnailsOpen && updated) {
+        const thumbnails: Array<ImageInput | null> = [];
+        for (const page of updated.images) thumbnails.push(await createQueuedCopyThumbnail(page));
+        setDetailThumbnails((current) => ({ ...current, [job.id]: thumbnails }));
+      }
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'La rotation de cette page a échoué.');
+    } finally {
+      if (pausedForRotation) backgroundService.resume(activeAssignmentId);
+      setRotatingQueuedPage(null);
+    }
+  }
+
+  async function removeSeriesCopy(job: BackgroundCorrectionJob) {
+    if (job.status === 'processing' || job.status === 'completed') return;
+    try {
+      await backgroundService.remove(job.id);
+      const remainingJobs = await loadQueueOverviews(activeAssignmentId);
+      setBackgroundJobs(remainingJobs);
+      if (selectedSeriesPreviewId === job.id) setSelectedSeriesPreviewJob(null);
+      if (selectedSeriesPreviewId === job.id) setSelectedSeriesPreviewId(null);
+      if (currentBackgroundJobId === job.id) {
+        // A copy opened before returning to the overview must not remain as a ghost draft.
+        setCurrentBackgroundJobId(null);
+        setCurrentCorrectionId(null);
+        setStudentLabel('');
+        setStudentIdentity(null);
+        setImages([]);
+        setOriginalImages([]);
+        setManualRotationAngles({});
+        setTranscription(null);
+        setScientificDiagramAnalysis(null);
+        setPageClassifications(null);
+        setProposal(null);
+        setReview([]);
+        setTeacherQuestions('');
+        setTeacherAnnotations('');
+        setIsFinalized(false);
+      }
+      setReviewMessage(`La copie « ${job.label} » a été retirée du devoir.`);
+      setCopyOverviewNotice(`La copie « ${job.label} » a été retirée du devoir.`);
+      setError('');
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : 'Impossible de retirer cette copie.';
+      setCopyOverviewNotice('');
+      setError(message);
+    }
+  }
+
+  function requestRemoveSeriesCopy(job: BackgroundCorrectionJob) {
+    if (job.status !== 'processing' && job.status !== 'completed') setPendingRemoval({ kind: 'copy', job });
+  }
+
+  async function queueCurrentCopy() {
+    if (!images.length || isAnalyzing || proposal) return;
+    if (diagramIssue) { setError(diagramIssue); return; }
+    if (!validation.valid) { setError(validation.errors.join(' ')); setTeacherStep('rubric'); return; }
+    if (!isScientificDiagramAssignment && correctionMode === 'separate' && !subjectImages.length && !subjectTranscription) { setError('Importez le sujet de référence avant de mettre cette copie en file.'); return; }
+    if (annotationInkColor !== 'none' && !annotationInkColorApplied) { setError('Prévisualisez puis appliquez le retrait de la couleur des annotations avant de mettre cette copie en file.'); return; }
+    const now = new Date().toISOString();
+    const id = `queued-copy-${crypto.randomUUID()}`;
+    const label = studentLabel.trim() || images[0]?.fileName || `Copie ${backgroundJobs.length + 1}`;
+    try {
+      const job = createBackgroundCorrection({
+        id,
+        assignmentId: activeAssignmentId,
+        label,
+        question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }),
+        rubric: structuredClone(rubric),
+        correctionMode,
+        ...(isScientificDiagramAssignment ? { gradingFlow: 'scientific-diagram-direct' as const } : {}),
+        images: structuredClone(images),
+        originalImages: structuredClone(originalImages),
+        subjectImages: structuredClone(subjectImages),
+        ...(subjectTranscription ? { subjectTranscription } : {}),
+        scientificPageClassifications: pageClassifications ?? undefined,
+        scientificDiagramAnalysis,
+        detectTeacherAnnotations,
+        annotationInkColor,
+        annotationInkColorApplied,
+        visionModel,
+        analysisModel,
+        thinking: analysisThinking,
+        correctionMethod,
+        createdAt: now,
+        updatedAt: now,
+      });
+      await backgroundService.enqueue(job, {
+        endpoint, apiCompatible, apiKey, visionModel, analysisModel,
+        thinking: analysisThinking, criterionByCriterion: true, correctionMethod, autoBackgroundCorrection,
+        transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty,
+        transcriptionPenaltyParameter, transcriptionFrequencyPenalty,
+      });
+      setStudentLabel('');
+    setStudentIdentity(null);
+      setDetectTeacherAnnotations(false);
+      setAnnotationInkColor('none');
+      setAnnotationInkColorApplied(true);
+      setAnnotationInkColorPreview(null);
+      setTeacherAnnotations('');
+      setImages([]);
+      setOriginalImages([]);
+      setTranscription(null);
+      setScientificDiagramAnalysis(null);
+      setPageClassifications(null);
+      setScientificDiagramError('');
+      setProposal(null);
+      setReview([]);
+      setTeacherQuestions('');
+      setReviewMessage(autoBackgroundCorrection
+        ? 'Copie ajoutée. Sa correction démarrera pendant que vous poursuivez votre vérification.'
+        : 'Copie ajoutée à la liste. Lancez les corrections quand vous le souhaitez.');
+      setTeacherStep('copy');
+      const jobs = await loadQueueOverviews(activeAssignmentId);
+      setBackgroundJobs(jobs);
+      if (isScientificDiagramAssignment) await loadNextQueuedCopy(id);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Impossible d’ajouter cette copie à la liste des copies à corriger.');
+    }
+  }
+
+  async function retryQueuedCorrection(jobId: string) {
+    setError('');
+    try {
+      await backgroundService.retry(jobId, {
+        endpoint, apiCompatible, apiKey, visionModel, analysisModel,
+        thinking: analysisThinking, criterionByCriterion: true, correctionMethod, autoBackgroundCorrection,
+        transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty,
+        transcriptionPenaltyParameter, transcriptionFrequencyPenalty,
+      });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Impossible de relancer la correction.');
+    }
+  }
+
+  async function startSeriesCorrections() {
+    if (isStartingSeriesCorrectionsRef.current) return;
+    if (diagramIssue) { setError(diagramIssue); return; }
+    const pendingCount = backgroundJobs.filter((job) => job.assignmentId === activeAssignmentId && job.status === 'pending').length;
+    if (!pendingCount) return;
+    isStartingSeriesCorrectionsRef.current = true;
+    setIsStartingSeriesCorrections(true);
+    setCopyOverviewNotice('');
+    setReviewMessage(`Préparation de la première copie du devoir « ${assignmentTitle} » avant la correction de ${pendingCount} copie(s)…`);
+    try {
+      await backgroundService.processPending({ endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, correctionMethod, autoBackgroundCorrection: false, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty }, activeAssignmentId);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Impossible de démarrer les corrections.');
+    } finally {
+      isStartingSeriesCorrectionsRef.current = false;
+      setIsStartingSeriesCorrections(false);
+    }
+  }
+
+  async function loadNextQueuedCopy(jobId?: string) {
+    // A background job keeps running independently; navigating to another queued
+    // or processing copy must not be blocked by the foreground copy's analysis flag.
+    if (isAnalyzing && !jobId) { setReviewMessage('Attendez la fin du traitement avant de changer de copie.'); return; }
+
+    const requestedJob = jobId
+      ? await loadFullQueuedJob(jobId)
+      : copyNavigation.nextCopyToReview?.job ?? null;
+    if (requestedJob && requestedJob.assignmentId !== activeAssignmentId) {
+      setReviewMessage('Cette copie appartient à un autre devoir.');
+      return;
+    }
+    if (!requestedJob) {
+      setReviewMessage('Aucune autre copie à vérifier pour le moment. Les autres corrections se poursuivent.');
+      return;
+    }
+
+    // Complete persistence work before publishing the new active copy. Otherwise
+    // the header/rail can briefly point at a job while its queue snapshot is stale,
+    // allowing a fast second navigation to resolve against the previous copy.
+    const canBeMarkedForReview = Boolean(requestedJob.proposal) &&
+      ['ready', 'needs-review', 'reviewing'].includes(requestedJob.status);
+    if (canBeMarkedForReview) {
+      await backgroundService.markForReview(requestedJob.id);
+    }
+    const next = await loadFullQueuedJob(requestedJob.id);
+    if (!next || next.assignmentId !== activeAssignmentId) {
+      setReviewMessage('Cette copie n’est plus disponible. Actualisez le suivi avant de poursuivre.');
+      return;
+    }
+    const canReview = Boolean(next.proposal) && ['ready', 'needs-review', 'reviewing'].includes(next.status);
+
+    // Publish the refreshed queue and selected copy together after all async work.
+    setBackgroundJobs(await loadQueueOverviews(activeAssignmentId));
+    setCurrentBackgroundJobId(next.id);
+    // The foreground analysis flag belongs to the previously displayed copy.
+    // A selected background job has its own persisted status/phase and must
+    // keep navigation available even while that job is processing in the queue.
+    setIsAnalyzing(false);
+    setStreamedOutput('');
+    setCurrentTimingRecordId(null);
+    setStudentLabel(next.label);
+    setStudentIdentity(next.studentIdentity ?? null);
+    setDetectTeacherAnnotations(next.detectTeacherAnnotations);
+    setAnnotationInkColor(next.annotationInkColor);
+    setAnnotationInkColorApplied(next.annotationInkColorApplied);
+    setAnnotationInkColorPreview(null);
+    setTeacherAnnotations('');
+    setImages(structuredClone(next.images));
+    setOriginalImages(structuredClone(next.originalImages));
+    setSubjectImages(structuredClone(next.subjectImages));
+    setSubjectTranscription(next.subjectTranscription ?? null);
+    setCorrectionMode(next.correctionMode);
+    setTranscription(next.transcription);
+    setScientificDiagramAnalysis(next.scientificDiagramAnalysis ?? null);
+    setPageClassifications(next.scientificPageClassifications ?? null);
+    setScientificDiagramError('');
+    setProposal(canReview && next.proposal ? structuredClone(next.proposal) : null);
+    setReview(canReview && next.proposal ? structuredClone(next.reviewDraft ?? toReviewedCriteria(next.proposal)) : []);
+    setTeacherQuestions(canReview && next.proposal ? next.teacherQuestionsDraft ?? next.proposal.questionsForTeacher.join('\\n') : '');
+    setShowOnlyFlagged(true);
+    setReviewMessage(canReview ? 'Correction prête. Examinez les propositions signalées avant validation.'
+      : next.status === 'pending' ? 'Cette copie attend sa correction. Aucune note n’a encore été attribuée.'
+      : next.status === 'processing' ? 'La lecture et l’évaluation de cette copie sont en cours.'
+      : 'Cette copie nécessite une vérification ou une relance. Les éléments déjà traités sont conservés.');
+    setError(next.status === 'failed' ? '' : next.error ?? '');
+    setCurrentCorrectionId(null);
+    setIsFinalized(false);
+    setTeacherStep(canReview || ['processing', 'pending', 'failed'].includes(next.status) ? 'review' : 'copy');
+  }
+
+  async function startNextCopy(options: { forceNew?: boolean; stayInOverview?: boolean } = {}) {
+    if (isAnalyzing) return false;
+    const forceNew = options.forceNew ?? false;
+    const readyExists = !forceNew && backgroundJobs.some((job) => job.assignmentId === activeAssignmentId && (job.status === 'ready' || (job.status === 'reviewing' && Boolean(job.proposal))) && job.id !== currentBackgroundJobId);
+    if (readyExists) { await loadNextQueuedCopy(); return true; }
+
+    if (currentBackgroundJobId && !isFinalized) {
+      try {
+        await backgroundService.saveReviewDraft(currentBackgroundJobId, structuredClone(review), teacherQuestions);
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : 'Impossible de sauvegarder votre vérification avant de passer à la copie suivante.');
+        return false;
+      }
+    }
+
+    // A foreground copy may not have been queued yet. Persist it before resetting
+    // the editor so "Ajouter une copie" cannot discard pages or teacher revisions.
+    if (!currentBackgroundJobId && images.length > 0 && !isFinalized) {
+      if (!validation.valid) {
+        setError('Vérifiez le barème avant de sauvegarder cette copie dans le suivi.');
+        return false;
+      }
+      try {
+        const now = new Date().toISOString();
+        const id = `queued-copy-${crypto.randomUUID()}`;
+        const label = studentLabel.trim() || images[0]?.fileName || `Copie ${backgroundJobs.length + 1}`;
+        const savedProposal = proposal ? structuredClone(proposal) : null;
+        const savedCriteria = savedProposal?.criteria ?? [];
+        const savedJob: BackgroundCorrectionJob = {
+          ...createBackgroundCorrection({
+            id,
+            assignmentId: activeAssignmentId,
+            label,
+            studentIdentity,
+            question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }),
+            rubric: structuredClone(rubric),
+            correctionMode,
+            ...(isScientificDiagramAssignment ? { gradingFlow: 'scientific-diagram-direct' as const } : {}),
+            images: structuredClone(images),
+            originalImages: structuredClone(originalImages),
+            subjectImages: structuredClone(subjectImages),
+            ...(subjectTranscription ? { subjectTranscription } : {}),
+            scientificPageClassifications: pageClassifications ?? undefined,
+            scientificDiagramAnalysis,
+            detectTeacherAnnotations,
+            annotationInkColor,
+            annotationInkColorApplied,
+            visionModel,
+            analysisModel,
+            thinking: analysisThinking,
+            correctionMethod,
+            createdAt: now,
+            updatedAt: now,
+          }),
+          status: savedProposal ? (savedCriteria.length === rubric.criteria.length ? 'ready' : 'needs-review') : 'pending',
+          phase: savedProposal ? 'complete' : 'preparation',
+          completedPages: transcription ? images.length : 0,
+          completedCriteria: savedCriteria.length,
+          totalCriteria: rubric.criteria.length,
+          transcription,
+          partialCriteria: savedCriteria,
+          proposal: savedProposal,
+          reviewDraft: structuredClone(review),
+          teacherQuestionsDraft: teacherQuestions,
+          error: null,
+          updatedAt: now,
+        };
+        await backgroundService.enqueue(savedJob, {
+          endpoint, apiCompatible, apiKey, visionModel, analysisModel,
+          thinking: analysisThinking, criterionByCriterion: true, correctionMethod, autoBackgroundCorrection,
+          transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty,
+          transcriptionPenaltyParameter, transcriptionFrequencyPenalty,
+        });
+        setBackgroundJobs(await loadQueueOverviews(activeAssignmentId));
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : 'Impossible de sauvegarder la copie avant de passer à la suivante.');
+        return false;
+      }
+    }
+
+    setCurrentBackgroundJobId(null);
+    setStudentLabel('');
+    setStudentIdentity(null);
+    setImages([]);
+    setOriginalImages([]);
+    setDetectTeacherAnnotations(false);
+    setAnnotationInkColor('none');
+    setAnnotationInkColorApplied(true);
+    setAnnotationInkColorPreview(null);
+    setTeacherAnnotations('');
+    setTranscription(null);
+    setScientificDiagramAnalysis(null);
+    setPageClassifications(null);
+    setScientificDiagramError('');
+    setProposal(null);
+    setShowOnlyFlagged(true);
+    setReview([]);
+    setTeacherQuestions('');
+    setReviewMessage('');
+    setError('');
+    setIsFinalized(false);
+    setCurrentCorrectionId(null);
+    setCurrentTimingRecordId(null);
+    setDiagnosticRuns([]);
+    setStreamedOutput('');
+    setTeacherStep(options.stayInOverview ? 'overview' : 'copy');
+    return true;
+  }
+
+  async function openCopyNavigationItem(copyId: string) {
+    const target = copyNavigation.copies.find((copy) => copy.id === copyId);
+    if (!target) {
+      setReviewMessage('Cette copie n’est plus disponible dans ce devoir. Actualisez la liste avant de réessayer.');
+      return;
+    }
+    if (target.id === currentCopyId) return;
+
+    // Preserve an unregistered foreground copy in the local queue before switching away.
+    if (currentCopyId === 'current-copy' && images.length > 0 && !currentBackgroundJobId && !currentCorrectionId) {
+      const previousJobIds = new Set(backgroundJobs.map((job) => job.id));
+      await startNextCopy({ forceNew: true });
+      const savedJobs = await backgroundService.listJobs(activeAssignmentId);
+      setBackgroundJobs(await loadQueueOverviews(activeAssignmentId));
+      if (!savedJobs.some((job) => !previousJobIds.has(job.id))) {
+        setReviewMessage('La copie courante n’a pas pu être sauvegardée. Vérifiez le barème et le stockage local avant de changer de copie.');
+        return;
+      }
+    }
+
+    if (target.kind === 'job') {
+      await loadNextQueuedCopy(target.id);
+      return;
+    }
+    if (target.kind === 'correction' && target.correction) {
+      openArchivedCorrection(target.correction);
+      return;
+    }
+    setReviewMessage('La copie courante est déjà affichée.');
+  }
+
+  function openArchivedCorrection(correction: LocalCorrection) {
+    if (correction.imagesDeferred) {
+      // The overview keeps only small metadata. Fetch the full saved pages
+      // when the teacher explicitly opens the archived correction.
+      if (!archiveService.getCorrection) {
+        setError('Impossible de charger les pages de cette correction archivée.');
+        return;
+      }
+      void archiveService.getCorrection(correction.id).then((full) => {
+        if (!full?.snapshot) {
+          setError('La correction archivée est introuvable sur cet appareil.');
+          return;
+        }
+        openArchivedCorrection(full);
+      }).catch(() => setError('Impossible de charger cette correction archivée depuis le stockage local.'));
+      return;
+    }
+    const snapshot = correction.snapshot;
+    setCurrentBackgroundJobId(null);
+    if (!snapshot) return;
+    const archivedTitle = snapshot.assignmentTitle || correction.assignmentTitle || assignmentTitle;
+    // An archived correction's assignment id is authoritative. Matching only
+    // by title can silently attach it to a different assignment with the same name.
+    let matchingAssignment = correction.assignmentId
+      ? assignmentProfiles.find((profile) => profile.id === correction.assignmentId)
+      : assignmentProfiles.find((profile) => profile.title === archivedTitle);
+    if (!matchingAssignment) {
+      matchingAssignment = {
+        // Preserve the assignment identity stored with the correction. Generating
+        // a new id here would detach this archive (and its siblings) from the
+        // current navigation list when the profile is not yet in memory.
+        id: correction.assignmentId ?? `assignment-${crypto.randomUUID()}`,
+        title: archivedTitle,
+        rubric: snapshot.rubric,
+        question: snapshot.question,
+        correctionMode: snapshot.correctionMode,
+        hasScientificDiagrams: snapshot.hasScientificDiagrams ?? false,
+        annotationInkColor: snapshot.annotationInkColor ?? 'none',
+      };
+      setAssignmentProfiles((current) => [...current, matchingAssignment!]);
+    }
+    setActiveAssignmentId(matchingAssignment.id);
+    setAssignmentTitle(archivedTitle);
+    setStudentLabel(correction.label);
+    setStudentIdentity(snapshot.studentIdentity ?? null);
+    setQuestion(snapshot.question);
+    setRubric(snapshot.rubric);
+    setProposal(snapshot.proposal);
+    setReview(snapshot.review.map((item) => item.decision === 'pending' ? { ...item, decision: 'accepted' as const } : item));
+    setScientificDiagramAnalysis(snapshot.scientificDiagramAnalysis ?? null);
+    setPageClassifications(snapshot.scientificPageClassifications ?? null);
+    setScientificDiagramError('');
+    setShowOnlyFlagged(true);
+    setTeacherQuestions(snapshot.teacherQuestions);
+    setTeacherAnnotations('');
+    setImages(snapshot.images);
+    setOriginalImages(snapshot.originalImages ?? snapshot.images);
+    setDetectTeacherAnnotations(snapshot.detectTeacherAnnotations ?? false);
+    setAnnotationInkColor(snapshot.annotationInkColor ?? 'none');
+    setAnnotationInkColorApplied(true);
+    setAnnotationInkColorPreview(null);
+    setTeacherAnnotations(snapshot.teacherAnnotations ?? '');
+    setTranscription(snapshot.transcription);
+    setSubjectImages(snapshot.subjectImages);
+    setSubjectTranscription(snapshot.subjectTranscription);
+    setCorrectionMode(snapshot.correctionMode);
+    setHasScientificDiagrams(snapshot.hasScientificDiagrams ?? matchingAssignment.hasScientificDiagrams ?? false);
+    setCurrentCorrectionId(correction.id);
+    setCurrentTimingRecordId(snapshot.timingTraceId ?? null);
+    setIsFinalized(true);
+    setReviewMessage('Correction enregistrée ouverte en lecture et vérification locale.');
+    setShowAiSettings(false);
+    setTeacherStep('review');
+  }
+
+
+  async function stopCurrentOperations() {
+    if (isStoppingOperation) return;
+    setIsStoppingOperation(true);
+    activeCorrectionAbortController.current?.abort();
+    try {
+      await backgroundService.stopAndWait();
+      if (autoBackgroundCorrection && allBackgroundJobs.some((job) => job.status === 'pending' || job.status === 'processing')) {
+        setAutoBackgroundCorrection(false);
+        try { window.localStorage.setItem('companion-correcteur:auto-background-correction:v1', 'false'); } catch { /* Keep the current session paused even if persistence is unavailable. */ }
+        await backgroundService.setAutomatic(false, { endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, autoBackgroundCorrection: false }, activeAssignmentId);
+      }
+      setCopyOverviewNotice('Correction arrêtée. Les copies restent enregistrées et pourront être reprises.');
+      setReviewMessage('Correction arrêtée à votre demande. Vous pouvez reprendre la correction quand vous le souhaitez.');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Impossible de terminer l’arrêt de la correction.');
+    } finally {
+      setIsStoppingOperation(false);
+    }
+  }
+  const processingCopy = allBackgroundJobs.find((job) => job.assignmentId === activeAssignmentId && job.status === 'processing') ?? null;
+  const preparingCopy = isStartingSeriesCorrections && !processingCopy
+    ? [...allBackgroundJobs].filter((job) => job.assignmentId === activeAssignmentId && job.status === 'pending').sort((a, b) => a.createdAt.localeCompare(b.createdAt))[0] ?? null
+    : null;
+  const activeQueueCopy = processingCopy ?? preparingCopy;
+  const showingBiologyRunMonitor = interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration' &&
+    evaluationJourney === 'biology' && !biologyRadarOpen && pilotBusy && evaluationBiologyScenario !== 'copies';
+
+  return (
+    <main className={interfaceMode === 'teacher' ? `app-shell teacher-flow-shell${showAssignmentsHome ? ' teacher-assignments-home' : ''}` : interfaceMode === 'diagnostic' ? 'app-shell evaluation-workspace-shell ai-tools-view' : 'app-shell ai-tools-view'}>
+      <header className="topbar">
+        <div className="brand-mark" aria-hidden="true">CC</div>
+        <div><p className="eyebrow">ASSISTANT PÉDAGOGIQUE</p><h1>Compagnon Correcteur de Devoirs</h1></div>
+        <AppVersionBadge />
+        <div className="topbar-actions"><NotificationCenter onNavigate={openNotification} />{interfaceMode === 'teacher' && (activeQueueCopy || isAnalyzing) && <button type="button" className="teacher-processing-copy-link" onClick={() => { setShowAssignmentsHome(false); setShowAiSettings(false); if (activeQueueCopy) void loadNextQueuedCopy(activeQueueCopy.id); else setTeacherStep(proposal ? 'review' : 'copy'); }}><span aria-hidden="true">◌</span> {activeQueueCopy ? (processingCopy ? 'Copie en cours' : 'Préparation de la copie') : 'Copie en cours'} : {activeQueueCopy?.label || studentLabel || images[0]?.fileName || 'Copie sans nom'} <span aria-hidden="true">→</span></button>}<nav className="view-switch" aria-label="Navigation principale">
+          <button type="button" className={interfaceMode === 'teacher' ? 'view-switch-button active' : 'view-switch-button'}
+            aria-current={interfaceMode === 'teacher' ? 'page' : undefined}
+            onClick={() => setInterfaceMode('teacher')}>Correction</button>
+          <button type="button" className={interfaceMode === 'diagnostic' ? 'view-switch-button active' : 'view-switch-button'}
+            aria-current={interfaceMode === 'diagnostic' ? 'page' : undefined}
+            aria-label="Évaluer les modèles" title="Évaluer les modèles"
+            onClick={() => { setShowAiSettings(false); setShowAssignmentsHome(false); setInterfaceMode('diagnostic'); setEvaluationWorkspaceStep('dashboard'); setDashboardModel(restoredModelId()); }}>Évaluer</button>
+          <button type="button" className={interfaceMode === 'observability' || interfaceMode === 'debug' ? 'view-switch-button active' : 'view-switch-button'}
+            aria-current={interfaceMode === 'observability' || interfaceMode === 'debug' ? 'page' : undefined}
+            onClick={() => { setShowAiSettings(false); setShowAssignmentsHome(false); setInterfaceMode('observability'); }}>Suivi & diagnostic</button>
+        </nav></div>
+      </header>
+
+      {interfaceMode !== 'teacher' && <DeveloperToolsNavigation activeTool={interfaceMode} traces={observabilityRecords} onNavigate={(tool: DeveloperTool) => { setShowAiSettings(false); setShowAssignmentsHome(false); if (tool === 'debug') setNetworkInitialFilter('all'); setInterfaceMode(tool); }} />}
+      {interfaceMode !== 'teacher' && (diagramFixtureReport || diagramProtocolReport || diagramSensitivityReport || diagramBlindGraphReport) && <section className="diagram-protocol-export-strip" aria-label="Rapports des schémas scientifiques">
+        <details className="diagram-protocol-export-details">
+          <summary>Rapports de schémas disponibles · afficher les exports</summary>
+          <div className="diagram-protocol-export-actions">
+          {diagramFixtureReport && <Button variant="secondary" onClick={() => downloadScientificDiagramJson(diagramFixtureReport, 'companion-schemas-scientifiques.json')}>
+            Exporter les schémas testés ({diagramFixtureReport.cases.reduce((sum, item) => sum + item.experiments.length, 0)} passage{diagramFixtureReport.cases.reduce((sum, item) => sum + item.experiments.length, 0) === 1 ? '' : 's'})
+          </Button>}
+          {diagramBlindGraphReport && <Button variant="secondary" onClick={() => downloadScientificDiagramJson(diagramBlindGraphReport, 'companion-graphe-visuel.json')}>
+            Exporter l’observation indépendante ({diagramBlindGraphReport.cases.reduce((sum, item) => sum + item.experiments.length, 0)} passage(s))
+          </Button>}
+          {diagramSensitivityReport && <Button variant="secondary" onClick={() => downloadScientificDiagramJson(diagramSensitivityReport, 'companion-sensibilite-semantique.json')}>
+            Exporter la sensibilité sémantique ({diagramSensitivityReport.cases.reduce((sum, item) => sum + item.experiments.length, 0)} passage(s))
+          </Button>}
+          {diagramProtocolReport && <Button variant="secondary" onClick={() => downloadScientificDiagramJson(diagramProtocolReport, 'companion-protocole-schema-scientifique.json')}>
+            Exporter le schéma personnel ({diagramProtocolReport.experiments.length} passage{diagramProtocolReport.experiments.length === 1 ? '' : 's'})
+          </Button>}
+          </div>
+        </details>
+      </section>}
+      {interfaceMode === 'debug' && <NetworkInspector initialFilter={networkInitialFilter} />}
+      {interfaceMode === 'teacher' && showAssignmentsHome && <AssignmentsHome
+        assignments={assignmentProfiles}
+        activeAssignmentId={activeAssignmentId}
+        archivedCorrections={archivedCorrections}
+        backgroundJobs={allBackgroundJobs}
+        currentCopy={images.length > 0 && !isFinalized && !currentBackgroundJobId ? { assignmentId: activeAssignmentId, status: isAnalyzing ? 'processing' : proposal ? 'to-review' : 'to-do' } : null}
+        onCreate={(details) => { createNewAssignment(details); setShowAssignmentsHome(false); }}
+        onDuplicate={duplicateAssignment}
+        onOpen={(profile) => { if (profile.id === activeAssignmentId) { setCopyOverviewFilterTouched(false); setTeacherStep('overview'); } else switchAssignment(profile); setShowAssignmentsHome(false); }}
+        onDelete={requestDeleteAssignment}
+        onReturn={() => setShowAssignmentsHome(false)}
+        disabled={isAnalyzing}
+      />}
+
+
+
+      {interfaceMode !== 'debug' && !(interfaceMode === 'teacher' && showAssignmentsHome) && <div className={interfaceMode === 'teacher' ? 'teacher-content-column' + (teacherStep === 'review' && !showAiSettings ? ' has-copy-rail' : '') : 'diagnostic-content-column'}>
+      {interfaceMode === 'teacher' && <TeacherWorkspaceNavigation
+        assignmentTitle={assignmentTitle}
+        studentLabel={studentLabel}
+        educationLevel={assignmentProfiles.find((profile) => profile.id === activeAssignmentId)?.educationLevel}
+        maximumPoints={validation.maximumPoints}
+        activeSection={teacherStep === 'rubric' || teacherStep === 'details' ? 'rubric' : 'copies'}
+        showCopyRail={(teacherStep === 'review' || (teacherStep === 'rubric' && copyNavigation.copies.length > 0) || (teacherStep === 'copy' && Boolean(currentBackgroundJobId || currentCorrectionId))) && !showAiSettings}
+        copies={copyNavigation.copies.map((copy) => ({
+          id: copy.id,
+          label: copy.label,
+          status: copy.status,
+          score: copy.score,
+          updatedAt: copy.updatedAt,
+        }))}
+        activeCopyId={currentCopyId}
+        aiConfigured={gradingModelsReady}
+        settingsExpanded={showAiSettings}
+        isAnalyzing={isAnalyzing}
+        processingStatus={isAnalyzing ? analysisStage === 'checking' ? 'Préparation de la correction' : analysisStage === 'reading' ? 'Lecture de la copie' : 'Correction des réponses' : 'Aucune correction en cours'}
+        processingDetail={isAnalyzing ? formatElapsed(elapsedSeconds) + ' écoulées' : 'Sélectionnez une copie à corriger'}
+        onBackToAssignments={() => { setShowAiSettings(false); setShowAssignmentsHome(true); }}
+        onSelectCopies={() => { setShowAiSettings(false); setCopyOverviewFilterTouched(false); setTeacherStep('overview'); }}
+        onSelectRubric={() => { setShowAiSettings(false); setTeacherStep('rubric'); }}
+        onOpenSettings={() => setShowAiSettings(true)}
+        canOpenNextReviewCopy={Boolean(copyNavigation.nextCopyToReview)}
+        nextReviewCopyLabel={copyNavigation.nextCopyToReview?.label ?? null}
+        onOpenNextReviewCopy={() => { const next = copyNavigation.nextCopyToReview; if (next) void openCopyNavigationItem(next.id); }}
+        onOpenCopy={(copyId) => { setShowAiSettings(false); void openCopyNavigationItem(copyId); }}
+      />}
+      {interfaceMode === 'teacher' && isScientificDiagramAssignment && !showAiSettings && <section
+        className="panel diagram-assignment-context" aria-label="Devoir de schéma scientifique">
+        <div><p className="eyebrow">DEVOIR · SCHÉMA SCIENTIFIQUE</p>
+          <strong>Correction directe du dessin, sans transcription OCR</strong>
+          <p>Les copies de ce devoir suivent les mêmes états et la même vérification que vos autres devoirs.</p>
+        </div>
+        <details><summary>Voir le barème graphique · {validation.maximumPoints} points</summary>
+          <ol>{buildDiagramReview(rubric, null).items.map((item) => <li key={item.id}><strong>{item.title} · {item.maxPoints} pt</strong>
+            <small className="diagram-assignment-cumulative">Barème cumulé : {item.cumulativeMaximum} / {validation.maximumPoints} pts</small>
+            <ul>{item.subcriteria.map((sub) => <li key={sub.id}>{sub.title} · {sub.maxPoints} pt</li>)}</ul>
+          </li>)}</ol>
+        </details>
+        {diagramIssue && <p className="hint" role="status">{diagramIssue}</p>}
+      </section>}
+      {interfaceMode === 'teacher' && showAiSettings && <section id="teacher-ai-settings-panel" className={`panel ollama-panel teacher-model-panel ai-settings-view ${gradingModelsReady ? 'setup-complete' : 'setup-needed'}`} aria-labelledby="teacher-model-title">
+        <div className="workspace-heading"><div><p className="eyebrow">CONFIGURATION DE L’IA</p><h2 id="teacher-model-title">Paramètres IA</h2></div></div>
+        <p className="settings-intro">Configurez les modèles utilisés par le parcours de correction.</p>
+        <div className="ai-profile-controls" aria-label="Profils de configuration IA">
+          <label className="field-label" htmlFor="ai-model-profile">Configuration enregistrée</label>
+          <div className="ai-profile-row">
+            <DesignSystemSelect id="ai-model-profile" value={selectedAiModelProfileId} onChange={(event) => { const profile = aiModelProfiles.find((item) => item.id === event.target.value); if (profile) { setAiModelProfileName(profile.name); applyAiModelProfile(profile); } else setSelectedAiModelProfileId(''); }}>
+              <option value="">Configuration actuelle</option>
+              {aiModelProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name} · {profile.mode === 'arbitrate' ? 'avec arbitre' : profile.mode === 'compare' ? 'comparaison' : 'un modèle'} · {profile.configuration.correctionMethod === 'visual-decision' ? 'vision + décisionnel direct' : profile.configuration.correctionMethod === 'decision' ? 'décisionnelle' : 'classique'}</option>)}
+            </DesignSystemSelect>
+            <input aria-label="Nom du profil IA" value={aiModelProfileName} onChange={(event) => setAiModelProfileName(event.target.value)} placeholder="Nom du profil" />
+          </div>
+          <div className="ai-profile-actions"><Button variant="secondary" onClick={saveAiModelProfile}>Enregistrer cette configuration</Button><Button variant="secondary" disabled={!selectedAiModelProfileId || busy || pilotBusy} onClick={() => setPendingAiProfileRemoval(aiModelProfiles.find((profile) => profile.id === selectedAiModelProfileId) ?? null)}>Supprimer cette configuration</Button><Button variant="secondary" disabled={busy || pilotBusy || aiModelProfiles.length === 0} onClick={() => setManagingAiProfiles(true)}>Gérer les configurations ({aiModelProfiles.length})</Button></div>
+          {aiModelProfileMessage && <StatusNotice tone={aiModelProfileTone}>{aiModelProfileMessage}</StatusNotice>}
+        </div>
+        <label className="field-label" htmlFor="ai-provider-type">Fournisseur IA</label>
+        <DesignSystemSelect id="ai-provider-type" value={apiCompatible ? 'openai' : 'ollama'} onChange={(event) => { const compatible = event.target.value === 'openai'; setApiCompatible(compatible); setAvailableModels([]); setConnectionMessage(''); setTranscription(null); if (compatible && endpoint === 'http://localhost:11434') setEndpoint('https://ai.zaup.org/v1/chat/completions'); if (!compatible && endpoint.includes('/v1/chat/completions')) setEndpoint('http://localhost:11434'); }}>
+          <option value="ollama">Ollama local</option><option value="openai">API compatible OpenAI</option>
+        </DesignSystemSelect>
+        <label className="field-label" htmlFor="ollama-endpoint">{apiCompatible ? 'URL Chat Completions' : 'Adresse du serveur Ollama'}</label>
+        <input id="ollama-endpoint" value={endpoint} onChange={(event) => { setEndpoint(event.target.value); setAvailableModels([]); setConnectionMessage(''); setTranscription(null); }} placeholder={apiCompatible ? 'https://serveur/v1/chat/completions' : 'http://localhost:11434'} />
+        {apiCompatible && <><label className="field-label" htmlFor="ai-api-key">Token API (Bearer)</label><input id="ai-api-key" type="password" autoComplete="new-password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder="Token d’accès" /><p className="hint">Le jeton est masqué dans les traces de diagnostic.</p></>}
+        <AiModelRoleFields prefix="ai" models={availableModels} generativeModel={generativeModel} decisionModel={decisionModel} method={correctionMethod} apiCompatible={apiCompatible} visionModel={visionModel} onGenerativeModel={changeGenerativeModel} onDecisionModel={setDecisionModel} onMethod={setCorrectionMethod} disabled={busy || pilotBusy} />
+        <details className="ai-model-advanced"><summary>Options avancées de lecture et de correction</summary>
+        <label className="field-label" htmlFor="ollama-vision-model">Modèle de lecture des copies</label>
+        {availableModels.length > 0 ? <DesignSystemSelect id="ollama-vision-model" value={visionModel} onChange={(event) => { setVisionModel(event.target.value); setTranscription(null); }}>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</DesignSystemSelect> : <input id="ollama-vision-model" value={visionModel} onChange={(event) => { setVisionModel(event.target.value); setTranscription(null); }} placeholder="Ex. gemma3:4b ou qwen2.5vl" />}
+        <p className="hint">Modèle de vision utilisé pour transcrire chaque page. La transcription est réutilisée lors d’une nouvelle analyse si la copie n’a pas changé.</p>
+        <label className="field-label" htmlFor="ai-transcription-token-limit">Limite de tokens de transcription (maximum 2048)</label>
+        <input id="ai-transcription-token-limit" type="number" min="128" max="2048" step="128" value={transcriptionTokenLimit} onChange={(event) => { setTranscriptionTokenLimit(Math.min(2048, Math.max(128, Number(event.target.value) || 2048))); setTranscription(null); }} />
+        <p className="hint">La transcription utilise du texte brut, sans sortie JSON. La limite est plafonnée à 2048 tokens.</p>
+        <label className="field-label" htmlFor="ai-transcription-prompt-mode">Consignes de lecture</label>
+        <DesignSystemSelect id="ai-transcription-prompt-mode" value={transcriptionPromptMode} onChange={(event) => { setTranscriptionPromptMode(event.target.value as 'auto' | 'ocr' | 'general'); setTranscription(null); }}>
+          <option value="auto">Automatique selon le modèle</option><option value="ocr">OCR dédié (Text Recognition)</option><option value="general">Modèle généraliste (consignes détaillées)</option>
+        </DesignSystemSelect>
+        <p className="hint">En automatique, GLM-OCR et les modèles OCR dédiés utilisent « Text Recognition: » ; Qwen et Gemma reçoivent des consignes complètes avec [illisible] et conservation de l’ordre.</p>
+        <label className="field-label" htmlFor="ai-transcription-repeat-penalty">Pénalité de répétition</label>
+        <input id="ai-transcription-repeat-penalty" type="number" min="1" max="2" step="0.01" value={transcriptionRepeatPenalty} onChange={(event) => { setTranscriptionRepeatPenalty(Math.min(2, Math.max(1, Number(event.target.value) || 1.05))); setTranscription(null); }} />
+        <label className="field-label" htmlFor="ai-transcription-penalty-parameter">Paramètre de pénalité (API compatible)</label>
+        <DesignSystemSelect id="ai-transcription-penalty-parameter" value={transcriptionPenaltyParameter} onChange={(event) => { setTranscriptionPenaltyParameter(event.target.value as 'none' | 'frequency_penalty' | 'repeat_penalty'); setTranscription(null); }}>
+          <option value="none">Aucune pénalité (recommandé)</option><option value="frequency_penalty">frequency_penalty (standard OpenAI)</option><option value="repeat_penalty">repeat_penalty (serveur compatible Ollama)</option>
+        </DesignSystemSelect>
+        {apiCompatible && transcriptionPenaltyParameter === 'frequency_penalty' && <>
+          <label className="field-label" htmlFor="ai-transcription-frequency-penalty">Valeur frequency_penalty (API compatible)</label>
+          <input id="ai-transcription-frequency-penalty" type="number" min="0" max="2" step="0.05" value={transcriptionFrequencyPenalty} onChange={(event) => { setTranscriptionFrequencyPenalty(Math.min(2, Math.max(0, Number(event.target.value) || 0))); setTranscription(null); }} />
+          <p className="hint">Cette pénalité est différente de repeat_penalty. Pour une transcription fidèle, la valeur neutre 0 est recommandée ; n’augmentez-la que si vous avez validé son effet avec votre fournisseur.</p>
+        </>}
+        <label className="analysis-thinking-option" htmlFor="ai-criterion-by-criterion"><input id="ai-criterion-by-criterion" type="checkbox" checked={criterionByCriterion} disabled={correctionMethod !== 'generative'} onChange={(event) => setCriterionByCriterion(event.target.checked)} /><span><strong>Analyser critère par critère</strong><small>Un appel séquentiel par critère, avec affichage progressif. Désactivez cette option pour envoyer tout le barème dans un seul appel et comparer les deux approches.</small></span></label>
+        </details>
+        {apiCompatible && <ModelPreloadPanel endpoint={endpoint} apiKey={apiKey} busy={busy} loadModel={loadOnDemandModel} />}
+        <button type="button" className="secondary-button full-button" disabled={busy} onClick={() => void connectOllama()}>{busy ? 'Connexion…' : apiCompatible ? 'Tester la connexion' : 'Tester la connexion et détecter les modèles'}</button>
+        {connectionMessage && <StatusNotice tone={connectionTone}>{connectionMessage}</StatusNotice>}
+        <p className="hint">Aucun basculement automatique vers un autre fournisseur n’est effectué.</p>
+        <div className="settings-actions"><button type="button" className="primary-button" onClick={() => setShowAiSettings(false)}>Terminé, revenir au devoir</button></div>
+      </section>}
+      {interfaceMode === 'observability' && <ObservabilityDashboard records={observabilityRecords} storageDiagnosticsService={storageDiagnosticsService} onManageEvaluations={() => { setInterfaceMode('diagnostic'); setEvaluationWorkspaceStep('history'); }} onInspectNetworkErrors={() => { setNetworkInitialFilter('error'); setInterfaceMode('debug'); }} benchmarkRows={buildLocalDecisionBenchmark(timingHistory)} />}
+      {interfaceMode === 'diagnostic' && <h2 id="evaluation-page-title" className="evaluation-visually-hidden">Évaluer les modèles</h2>}
+      {interfaceMode === 'diagnostic' && <nav className="evaluation-step-nav" data-journey={evaluationJourney} aria-label="Espaces de l’évaluation">
+        <button type="button" className={dashboardOpen ? 'is-active' : ''} aria-current={dashboardOpen ? 'page' : undefined} onClick={() => { setDashboardModel(restoredModelId()); setEvaluationWorkspaceStep('dashboard'); }}><strong>Radars</strong></button>
+        <button type="button" className={evaluationWorkspaceStep === 'configuration' && (evaluationJourney !== 'diagrams' || diagramLabView === 'protocols') && (evaluationJourney !== 'biology' || !biologyRadarOpen) ? 'is-active' : ''} aria-current={evaluationWorkspaceStep === 'configuration' && (evaluationJourney !== 'diagrams' || diagramLabView === 'protocols') && (evaluationJourney !== 'biology' || !biologyRadarOpen) ? 'page' : undefined} onClick={() => { setEvaluationWorkspaceStep('configuration'); setDiagramLabView('protocols'); setBiologyRadarOpen(false); }}><strong>Tests</strong></button>
+        <button type="button" hidden={evaluationJourney !== 'custom' || (!busy && evaluationWorkspaceStep !== 'execution')} className={evaluationWorkspaceStep === 'execution' ? 'is-active' : ''} aria-current={evaluationWorkspaceStep === 'execution' ? 'page' : undefined} onClick={() => setEvaluationWorkspaceStep('execution')}><strong>Exécution</strong></button>
+        <button type="button" hidden={evaluationJourney !== 'custom' || (!modelEvaluationResults.length && evaluationWorkspaceStep !== 'results')} className={evaluationWorkspaceStep === 'results' ? 'is-active' : ''} aria-current={evaluationWorkspaceStep === 'results' ? 'page' : undefined} onClick={() => setEvaluationWorkspaceStep('results')}><strong>Résultats</strong></button>
+        <button type="button" className={campaignsOpen ? 'is-active' : ''} aria-current={campaignsOpen ? 'page' : undefined} onClick={() => showCampaigns({})}><strong>Campagnes</strong></button>
+      </nav>}
+      {interfaceMode === 'diagnostic' && evaluationActivity && !showingBiologyRunMonitor && <section className={`evaluation-activity-banner is-${evaluationActivity.status}`}
+        role="status" aria-live="polite" aria-label="Dernière expérience lancée">
+        <div className="evaluation-activity-main">
+          <span className="evaluation-activity-state">
+            {evaluationActivity.status === 'running' ? 'TEST EN COURS'
+              : evaluationActivity.status === 'completed' ? 'TEST TERMINÉ'
+              : evaluationActivity.status === 'partial' ? 'RÉSULTATS PARTIELS'
+              : evaluationActivity.status === 'cancelled' ? 'TEST INTERROMPU' : 'TEST EN ÉCHEC'}
+          </span>
+          <strong>{evaluationActivity.title}</strong>
+          <p>{evaluationActivity.status === 'running'
+            ? evaluationActivity.error || (evaluationActivity.journey === 'diagrams'
+              ? diagramProtocolProgress || 'Préparation du protocole…'
+              : evaluationActivity.journey === 'biology'
+                ? (pilotMessage || 'Préparation du protocole…') + (evaluationProgress?.currentConfiguration ? ' · Modèle : ' + evaluationProgress.currentConfiguration.name : '')
+                : evaluationProgress?.currentConfiguration
+                  ? `${evaluationProgress.currentConfiguration.name} · ${evaluationProgress.currentStage === 'analysis' ? 'Analyse' : evaluationProgress.currentStage === 'reading' ? 'Lecture Vision' : 'Préparation'} · ${evaluationProgress.completedSteps}/${evaluationProgress.totalSteps} étapes`
+                  : 'Préparation du modèle et des données…')
+            : evaluationActivity.error || (evaluationActivity.status === 'completed'
+              ? 'Les résultats de cette expérience sont prêts à consulter.'
+              : 'Les passages déjà terminés peuvent rester disponibles dans le protocole.')}</p>
+          {evaluationActivity.journey === 'diagrams' && (radarBattery || evaluationActivity.radarBattery) &&
+            <RadarBatteryContext execution={(radarBattery || evaluationActivity.radarBattery)!} />}
+          <small>{evaluationActivity.profiles}</small>
+        </div>
+        <div className="evaluation-activity-actions">
+          <button type="button" className="primary-button" onClick={showEvaluationActivity}>
+            {evaluationActivity.status === 'running' ? 'Suivre ce test'
+              : evaluationActivity.status === 'completed' ? 'Voir les résultats' : 'Consulter ce test'}
+          </button>
+          {evaluationActivity.status === 'running' && <Button variant="secondary" onClick={evaluationActivity.journey === 'custom' ? cancelModelEvaluation : stopPilotProtocol}>Arrêter maintenant</Button>}
+          {evaluationActivity.status !== 'running' && <button type="button" className="evaluation-activity-dismiss" aria-label="Masquer le bandeau" title="Masquer le bandeau" onClick={() => setEvaluationActivity(null)}>×</button>}
+          {(evaluationActivity.status === 'failed' || evaluationActivity.status === 'partial') && <EvaluationIssueButton makeReport={() => buildEvaluationIssueReport({
+            journey: evaluationActivity.journey, status: evaluationActivity.status,
+            model: evaluationActivity.profiles, campaignId: evaluationActivity.campaignId,
+            message: evaluationActivity.error,
+            observations: evaluationActivity.campaignId
+              ? biologyRadarHistory.filter((item) => item.campaignId === evaluationActivity.campaignId) : [],
+          })} />}
+        </div>
+      </section>}
+      {interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration' && (evaluationJourney !== 'diagrams' || diagramLabView === 'protocols') && (evaluationJourney !== 'biology' || !biologyRadarOpen) && <section id="evaluation-configurations" className="panel evaluation-config-workspace" data-journey={evaluationJourney} aria-labelledby="evaluation-config-title">
+        <h2 id="evaluation-config-title" className="evaluation-visually-hidden">Configurations à évaluer</h2>
+        {!showingBiologyRunMonitor && <div className="evaluation-workbench-controls">
+        <EvaluationJourneyPicker value={evaluationJourney} disabled={busy || pilotBusy} onChange={(journey) => { try { localStorage.setItem('companion:evaluation-test-family', journey); } catch { /* Session only */ } setEvaluationJourney(journey); if (journey === 'diagrams') setDiagramLabView('protocols'); }} />
+        <div className="evaluation-model-brief" role="group" aria-label="Modèles sélectionnés pour les tests">
+          <span className="evaluation-model-brief-name">Modèle{selectedEvaluationProfiles.length > 1 ? 's' : ''}</span>
+          <strong className="evaluation-model-brief-selected">{selectedEvaluationProfiles.length ? selectedEvaluationProfiles.map((profile) => profile.name).join(' · ') : 'Aucun modèle sélectionné'}</strong>
+          <Button variant="secondary" className="evaluation-model-brief-manage" onClick={() => setManagingEvaluationProfiles(true)}>Gérer les configurations</Button>
+        </div>
+        </div>}
+        <div id="evaluation-diagram-workspace" hidden={evaluationJourney !== 'diagrams'}>
+        {methodBatchProgress?.domain === 'diagrams' && <div className="diagram-radar-return-note" role="status">
+          <strong>Méthodes restantes : {methodBatchProgress.current}/{methodBatchProgress.total}</strong>
+          <span> · {methodBatchProgress.label} · exécution séquentielle, résultats conservés après chaque batterie.</span>
+          <Button variant="secondary" onClick={stopPilotProtocol}>Arrêter toutes les méthodes</Button>
+        </div>}
+        <ScientificDiagramProtocolPanel
+          selectedProfiles={selectedEvaluationProfiles} busy={busy || pilotBusy}
+          progress={diagramProtocolProgress}
+          onPrepareImages={(files) => service.prepareFiles(files)}
+          onRun={(request) => followEvaluation({ title: 'Schéma scientifique · essai personnalisé', journey: 'diagrams', targetId: 'evaluation-diagram-personal-results', profiles: selectedEvaluationProfiles.map((profile) => profile.name).join(' · ') }, () => runScientificDiagramProtocol(request))}
+          onRunFixtures={(request) => followEvaluation({ title: request.cases.some((item) => item.id === 'D' || item.id === 'E') ? 'Schémas scientifiques · sens des flèches D/E' : 'Schémas scientifiques · qualité graphique A/B/C', journey: 'diagrams', targetId: 'evaluation-diagram-fixture-results', profiles: selectedEvaluationProfiles.map((profile) => profile.name).join(' · ') }, () => runScientificDiagramFixtures(request))}
+          onRunSensitivity={(request) => followEvaluation({ title: 'Schémas scientifiques · sensibilité sémantique', journey: 'diagrams', targetId: 'evaluation-diagram-sensitivity-results', profiles: selectedEvaluationProfiles.map((profile) => profile.name).join(' · ') }, () => runScientificDiagramSensitivity(request))}
+          onRunBlindGraph={(request) => followEvaluation({ title: 'Schémas scientifiques · graphe de relations', journey: 'diagrams', targetId: 'evaluation-diagram-graph-results', profiles: selectedEvaluationProfiles.map((profile) => profile.name).join(' · ') }, () => runScientificDiagramBlindGraph(request))}
+          onStop={stopPilotProtocol}
+          report={diagramProtocolReport}
+          fixtureReport={diagramFixtureReport}
+          sensitivityReport={diagramSensitivityReport}
+          blindGraphReport={diagramBlindGraphReport}
+          onClearReport={() => setDiagramProtocolReport(null)}
+          onClearFixtureReport={() => setDiagramFixtureReport(null)}
+          onClearSensitivityReport={() => setDiagramSensitivityReport(null)}
+          onClearBlindGraphReport={() => setDiagramBlindGraphReport(null)}
+          autoRequest={radarAutoRequest}
+          onAutoRequestConsumed={(id) => setRadarAutoRequest((current) => current?.id === id ? null : current)}
+          onAutoBusyChange={(running) => {
+            radarTrial.current = running ? radarAutoRequest?.trial ?? null : null;
+            setRadarAutoBusy(running);
+            if (!running) {
+              radarBatteryRef.current = null;
+              setRadarBattery(null);
+              const queue = scienceMethodQueue.current;
+              if (queue) {
+                if (methodBatchStopped.current || pilotStopRef.current || evaluationCancelledRef.current) {
+                  scienceMethodQueue.current = null;
+                  setMethodBatchProgress(null);
+                } else {
+                  const next = queue.remaining.shift();
+                  if (next) {
+                    const execution = describeRadarBattery(next, 0);
+                    radarBatteryRef.current = execution;
+                    setRadarBattery(execution);
+                    setSelectedEvaluationProfileIds([next.profileId]);
+                    setRadarAutoRequest({...next, id: ++radarAutoSequence.current});
+                    setMethodBatchProgress({domain: 'diagrams', current: queue.total - queue.remaining.length,
+                      total: queue.total, label: next.trial ? scienceMethods[next.trial.method].label : next.profileName});
+                  } else {
+                    scienceMethodQueue.current = null;
+                    setMethodBatchProgress(null);
+                    setMethodBatchReturnLab('diagrams');
+                    setEvaluationWorkspaceStep('dashboard');
+                    if (queue.failures) pushAppNotification({title: 'Méthodes scientifiques partielles',
+                      message: queue.failures + ' campagne(s) ont des batteries incomplètes. Consultez les résultats.',
+                      kind: 'warning', target: 'evaluation', journey: 'diagrams'});
+                  }
+                }
+              }
+            }
+          }}
+          onAutoStepChange={(request, index) => {
+            const execution = describeRadarBattery(request, index);
+            radarBatteryRef.current = execution;
+            setRadarBattery(execution);
+            setEvaluationActivity((current) => current?.journey === 'diagrams' && current.status === 'running'
+              ? { ...current, radarBattery: execution } : current);
+          }}
+          onAutoWasStopped={() => pilotStopRef.current || evaluationCancelledRef.current}
+          onAutoEvaluationFinished={async (request, steps) => {
+            const failed = steps.filter((step) => !step.complete)
+              .map((step) => RADAR_TEST_PROTOCOL_NAMES[step.protocol]);
+            if (scienceMethodQueue.current && failed.length) scienceMethodQueue.current.failures++;
+            const batteryStatus = failed.length
+              ? 'Batteries incomplètes : ' + failed.join(', ') + '. '
+              : '';
+            if (!request.modelId) {
+              return batteryStatus + 'Batteries exécutées pour ' + request.profileName +
+                '. Consultez le radar pour vérifier les mesures.';
+            }
+            // Each runner has awaited its archive write; never derive completion
+            // from the number of API calls or a notification saying "terminé".
+            const archived = await diagramArchive.list();
+            const outcome = radarEvaluationOutcome(request.trial ? archived.filter(entry => entry.trial?.id === request.trial!.id) : archived, request.modelId);
+            if (outcome.complete) return batteryStatus + 'Radar complet pour ' + request.profileName +
+              ' : 8/8 caractéristiques mesurées.';
+            return batteryStatus + 'Évaluation partielle pour ' + request.profileName + ' : ' +
+              outcome.measured + '/8 caractéristiques mesurées. Restent à mesurer : ' +
+              outcome.missing.map((axis) => axis.label + ' (' + axis.reason + ')').join(' ; ') +
+              '. Consultez les campagnes pour comprendre les échecs ou les décisions indéterminées.';
+          }}
+          onOpenRadar={() => openCandidateRadar('diagrams')}
+        />
+        </div>
+        <div id="evaluation-biology-workspace" hidden={evaluationJourney !== 'biology'}>
+        {methodBatchProgress?.domain === 'biology' && <div className="diagram-radar-return-note" role="status">
+          <strong>Méthodes restantes : {methodBatchProgress.current}/{methodBatchProgress.total}</strong>
+          <span> · {methodBatchProgress.label} · résultats conservés après chaque méthode.</span>
+          <Button variant="secondary" onClick={stopPilotProtocol}>Arrêter toutes les méthodes</Button>
+        </div>}
+        <PilotEvaluationPanel
+          selectedScenario={evaluationBiologyScenario} onSelectScenario={setEvaluationBiologyScenario}
+          enabled={pilotEnabled} busy={pilotBusy} uploadingCase={pilotUploadingCase} currentCase={pilotCurrentCase}
+          automaticRun={evaluationActivity?.status === 'running' && evaluationActivity.title === 'Biologie · évaluation complète du modèle'}
+          message={pilotMessage} runs={pilotRuns} contractRuns={pilotContractRuns}
+          repeatabilityRuns={pilotRepeatabilityRuns} repeatabilityPlanned={pilotRepeatabilityPlanned} repeatabilitySuite={pilotRepeatabilitySuite}
+          repeatabilityProgress={pilotRepeatabilityProgress} concurrencyRuns={pilotConcurrencyRuns}
+          imageCounts={Object.fromEntries(Object.entries(pilotImages).map(([caseId, pages]) => [caseId, pages.length]))}
+          selectedProfiles={selectedEvaluationProfiles}
+          onPrepare={preparePilotProtocol}
+          onUpload={(caseId, files) => { void uploadPilotImages(caseId, files); }}
+          onRun={(mode) => { void followEvaluation({
+            title: 'Biologie · ' + (mode === 'vision' ? '3 lectures Vision' : mode === 'analysis' ? '3 analyses' : '3 parcours complets'),
+            journey: 'biology', scenario: 'copies', targetId: 'evaluation-biology-copy-results', profiles: selectedEvaluationProfiles.map((profile) => profile.name).join(' · '),
+          }, () => runPilotProtocol(mode)); }}
+          onRunConcurrency={(caseId) => { void followEvaluation({
+            title: 'Biologie · benchmark CPU · copie ' + caseId,
+            journey: 'biology', scenario: 'copies', targetId: 'evaluation-biology-cpu-results', profiles: selectedEvaluationProfiles.map((profile) => profile.name).join(' · '),
+          }, () => runPilotConcurrencyBenchmark(caseId)); }}
+          onRunContracts={() => { void followEvaluation({
+            title: 'Biologie · comparaison standard / variante B',
+            journey: 'biology', scenario: 'contracts', targetId: 'evaluation-biology-contract-results', profiles: selectedEvaluationProfiles.map((profile) => profile.name).join(' · '),
+          }, runPilotQuestionContractBenchmark); }}
+          onRunRepeatability={(count, suite) => { void followEvaluation({
+            title: 'Biologie · répétabilité ' + count + ' passages · ' + (suite === 'stress' ? 'robustesse' : 'référence'),
+            journey: 'biology', scenario: 'repeatability', targetId: 'evaluation-biology-repeatability-results', profiles: selectedEvaluationProfiles.map((profile) => profile.name).join(' · '),
+          }, () => runPilotRepeatabilityBenchmark(count, suite)); }}
+          onStop={stopPilotProtocol} onExport={exportPilotReport}
+          onCopy={() => { void copyPilotReport(); }}
+        />
+        </div>
+        <div hidden={evaluationJourney !== 'custom'}>
+        <div className="evaluation-stage-picker" role="group" aria-label="Type d’évaluation">
+          <button type="button" className={evaluationStageMode === 'vision' ? 'is-active' : ''} aria-pressed={evaluationStageMode === 'vision'} title="Comparer les transcriptions des images sans notation" disabled={busy || pilotBusy} onClick={() => setEvaluationStageMode('vision')}><strong>Vision seule</strong></button>
+          <button type="button" className={evaluationStageMode === 'analysis' ? 'is-active' : ''} aria-pressed={evaluationStageMode === 'analysis'} title="Comparer la notation sur une transcription de référence" disabled={busy || pilotBusy} onClick={() => setEvaluationStageMode('analysis')}><strong>Analyse seule</strong></button>
+          <button type="button" className={evaluationStageMode === 'integrated' ? 'is-active' : ''} aria-pressed={evaluationStageMode === 'integrated'} title="Mesurer le pipeline complet de lecture et de notation" disabled={busy || pilotBusy} onClick={() => setEvaluationStageMode('integrated')}><strong>Parcours complet</strong></button>
+        </div>
+        <p className="evaluation-stage-guidance" role="status">{evaluationStageMode === 'vision' ? 'Seul le modèle Vision est sollicité. Les transcriptions obtenues sont comparables entre profils et restent disponibles pour une validation humaine.' : evaluationStageMode === 'analysis' ? 'La transcription courante est réutilisée à l’identique pour chaque profil : aucune image n’est renvoyée au modèle Vision.' : evaluationVisualDirect ? 'D1/D3 : décisions directement depuis les photos, sans OCR. Les autres profils suivent Vision puis Analyse et servent de référence.' : 'Chaque profil exécute les deux étapes successivement. Ce mode mesure aussi le temps total du parcours.'}</p>
+        {evaluationStageMode === 'integrated' && <label className="analysis-thinking-option evaluation-thinking-option" htmlFor="evaluation-visual-proof"><input id="evaluation-visual-proof" type="checkbox" checked={evaluationVisualDirect} disabled={busy} onChange={(event) => setEvaluationVisualDirect(event.target.checked)} /><span><strong>Tester la décision directement sur les images (D1 / D3)</strong><small>Expérimental : les profils Ollama décisionnels D1 et D3 reçoivent les photos sans OCR via System One. Les autres profils restent inchangés et servent de comparaison. Les notes doivent être vérifiées par le professeur. Utiliser uniquement un serveur Ollama local.</small></span></label>}
+        {evaluationStageMode === 'analysis' && <section className="evaluation-analysis-reference" aria-labelledby="evaluation-analysis-reference-title">
+          <div><p className="eyebrow">SOURCE DE RÉFÉRENCE</p><h3 id="evaluation-analysis-reference-title">Transcription à noter</h3><p>Vérifiez et corrigez le texte une fois pour toutes : chaque modèle d’analyse recevra exactement cette même transcription, sans nouvelle lecture d’image.</p></div>
+          <textarea aria-label="Transcription de référence pour l’évaluation de l’analyse" rows={8} value={transcription ?? ''} onChange={(event) => setTranscription(event.target.value)} placeholder="Lancez d’abord une évaluation Vision, ou collez ici une transcription déjà vérifiée…" />
+          <QuestionScopePreview criteria={rubric.criteria} transcription={transcription ?? ''} />
+          <p className="evaluation-reference-meta">{transcription?.trim() ? `${transcription.trim().split(/\s+/).filter(Boolean).length} mots dans la transcription de référence` : 'Aucune transcription de référence pour le moment'}</p>
+        </section>}
+        </div>
+      </section>}
+      {(interfaceMode as string) === 'debug' ? <section className="panel diagnostic-results" aria-labelledby="debug-workspace-title">
+        <div className="workspace-heading"><div><p className="eyebrow">OUTILS DE DIAGNOSTIC</p><h2 id="debug-workspace-title">Diagnostic des appels IA</h2><p className="workspace-description">Espace technique séparé : consultez les traces brutes d’une exécution déjà réalisée. Pour créer une expérience ou comparer les résultats, utilisez Évaluation des modèles.</p></div></div>
+        <section id="debug-advanced-settings" className="debug-advanced-settings" aria-label="Configuration avancée du diagnostic">
+          <div className="workspace-heading"><div><p className="eyebrow">OUTILS AVANCÉS</p><h3>Configuration du diagnostic multi-modèles</h3><p>Ces réglages techniques servent aux essais de diagnostic et restent séparés de l’évaluation indépendante.</p></div></div>
+          <article className="panel ollama-panel">
+          <div className="panel-heading"><span className="number">03</span><div><h3>Modèles du diagnostic</h3><p>Configurez votre serveur et vérifiez les modèles installés.</p></div></div>
+        <div className="diagnostic-ai-profile-controls" aria-label="Profils de configuration IA">
+          <label className="field-label" htmlFor="debug-ai-model-profile">Configuration enregistrée</label>
+          <div className="ai-profile-row">
+            <DesignSystemSelect id="debug-ai-model-profile" value={selectedAiModelProfileId} onChange={(event) => { const profile = aiModelProfiles.find((item) => item.id === event.target.value); if (profile) { setAiModelProfileName(profile.name); applyAiModelProfile(profile); } else setSelectedAiModelProfileId(''); }}>
+              <option value="">Configuration actuelle</option>
+              {aiModelProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name} · {profile.mode === 'arbitrate' ? 'avec arbitre' : profile.mode === 'compare' ? 'comparaison' : 'un modèle'} · {profile.configuration.correctionMethod === 'visual-decision' ? 'vision + décisionnel direct' : profile.configuration.correctionMethod === 'decision' ? 'décisionnelle' : 'classique'}</option>)}
+            </DesignSystemSelect>
+            <input aria-label="Nom du profil IA" value={aiModelProfileName} onChange={(event) => setAiModelProfileName(event.target.value)} placeholder="Nom du profil" />
+          </div>
+          <div className="ai-profile-actions"><Button variant="secondary" onClick={saveAiModelProfile}>Enregistrer cette configuration</Button><Button variant="secondary" disabled={!selectedAiModelProfileId || busy || pilotBusy} onClick={() => setPendingAiProfileRemoval(aiModelProfiles.find((profile) => profile.id === selectedAiModelProfileId) ?? null)}>Supprimer cette configuration</Button><Button variant="secondary" disabled={busy || pilotBusy || aiModelProfiles.length === 0} onClick={() => setManagingAiProfiles(true)}>Gérer les configurations ({aiModelProfiles.length})</Button></div>
+          {aiModelProfileMessage && <StatusNotice tone={aiModelProfileTone}>{aiModelProfileMessage}</StatusNotice>}
+        </div>
+          <label className="field-label" htmlFor="ollama-endpoint">Adresse du serveur</label>
+          <input id="ollama-endpoint" value={endpoint} onChange={(event) => { setEndpoint(event.target.value); setAvailableModels([]); setConnectionMessage(''); setTranscription(null); }} placeholder="http://localhost:11434" />
+          <label className="field-label" htmlFor="ollama-vision-model">Modèle de lecture (vision)</label>
+          {availableModels.length > 0 ? <DesignSystemSelect id="ollama-vision-model" value={visionModel} onChange={(event) => { setVisionModel(event.target.value); setTranscription(null); }}>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</DesignSystemSelect> : <input id="ollama-vision-model" value={visionModel} onChange={(event) => setVisionModel(event.target.value)} placeholder="ex. gemma3:4b, qwen2.5vl" />}
+          <p className="hint">Ce modèle lit les images et transcrit la copie sans la corriger. Vous pouvez réutiliser la transcription pour relancer l’analyse sans relire la copie.</p>
+          <label className="field-label" htmlFor="ollama-analysis-model">Modèle d’analyse et de notation</label>
+          {availableModels.length > 0 ? <DesignSystemSelect id="ollama-analysis-model" value={analysisModel} onChange={(event) => setAnalysisModel(event.target.value)}>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</DesignSystemSelect> : <input id="ollama-analysis-model" value={analysisModel} onChange={(event) => setAnalysisModel(event.target.value)} placeholder="ex. qwen3.5:4b, phi4-mini" />
+          }
+          <div className="diagnostic-experiment">
+            <p className="eyebrow">EXPÉRIMENTAL · DIAGNOSTIC UNIQUEMENT</p>
+            <label className="field-label" htmlFor="diagnostic-strategy">Stratégie de comparaison</label>
+            <DesignSystemSelect id="diagnostic-strategy" value={diagnosticStrategy} onChange={(event) => setDiagnosticStrategy(event.target.value as DiagnosticStrategy)}>
+              <option value="single">Un modèle — référence</option>
+              <option value="compare">Deux modèles — comparer les avis</option>
+              <option value="arbitrate">Deux modèles + un arbitre</option>
+            </DesignSystemSelect>
+            <p className="hint">L’option « Analyser critère par critère » s’applique à la stratégie « Un modèle ». Les stratégies multi-modèles conservent un appel par modèle sur le barème complet.</p>
+            {diagnosticStrategy !== 'single' && <>
+              <label className="field-label" htmlFor="diagnostic-second-model">Second modèle d’analyse</label>
+              {availableModels.length > 0 ? <DesignSystemSelect id="diagnostic-second-model" value={secondAnalysisModel} onChange={(event) => setSecondAnalysisModel(event.target.value)}>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</DesignSystemSelect> : <input id="diagnostic-second-model" value={secondAnalysisModel} onChange={(event) => setSecondAnalysisModel(event.target.value)} placeholder="Nom du second modèle Ollama" />}
+              <p className="hint">Les deux modèles évaluent indépendamment la même transcription et le même barème. Ils sont exécutés successivement pour limiter la pression mémoire.</p>
+            </>}
+            {diagnosticStrategy === 'arbitrate' && <>
+              <label className="field-label" htmlFor="diagnostic-arbitrator-model">Modèle arbitre</label>
+              {availableModels.length > 0 ? <DesignSystemSelect id="diagnostic-arbitrator-model" value={arbitratorModel} onChange={(event) => setArbitratorModel(event.target.value)}>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</DesignSystemSelect> : <input id="diagnostic-arbitrator-model" value={arbitratorModel} onChange={(event) => setArbitratorModel(event.target.value)} placeholder="Modèle qui réexamine les deux avis" />}
+              <p className="hint">L’arbitre réexamine les preuves et le barème ; il ne fait ni moyenne ni vote. Son avis reste une proposition à vérifier par l’enseignant.</p>
+            </>}
+            <p className="hint">Ces options ne sont appliquées qu’en mode Diagnostic IA. Le mode Correction reste sur un seul modèle.</p>
+          </div>
+          <label className="analysis-thinking-option" htmlFor="debug-criterion-by-criterion"><input id="debug-criterion-by-criterion" type="checkbox" checked={criterionByCriterion} disabled={correctionMethod !== 'generative'} onChange={(event) => setCriterionByCriterion(event.target.checked)} /><span><strong>Analyser critère par critère</strong><small>Un appel séquentiel par critère. Désactivez pour envoyer tout le barème en une seule requête.</small></span></label>
+          <label className="analysis-thinking-option" htmlFor="ollama-analysis-thinking">
+            <input id="ollama-analysis-thinking" type="checkbox" checked={analysisThinking} onChange={(event) => setAnalysisThinking(event.target.checked)} />
+            <span><strong>Activer le mode thinking pour l’analyse</strong><small>Désactivé par défaut. Peut améliorer le raisonnement, mais allonger fortement le temps de correction et ne fonctionne pas avec tous les modèles.</small></span>
+          </label>
+          <button type="button" className="secondary-button full-button" disabled={busy} onClick={() => void connectOllama()}>{busy ? 'Connexion…' : 'Tester la connexion et lister les modèles'}</button>
+          {connectionMessage && <StatusNotice tone={connectionTone}>{connectionMessage}</StatusNotice>}
+          <p className="hint">Le modèle de lecture doit accepter les images ; le modèle d’analyse peut être textuel. Si le navigateur bloque la connexion, configurez les origines CORS d’Ollama pour votre adresse locale.</p></article>
+          <div className="debug-run-actions"><button type="button" className="primary-button" disabled={busy || !images.length || !gradingModelsReady || !validation.valid || !subjectReady || Boolean(diagramIssue)} onClick={() => { if (isScientificDiagramAssignment) void queueCurrentCopy(); else void gradeCopies(); }}>{busy ? 'Diagnostic local en cours…' : 'Lancer le diagnostic avancé'}</button>{busy && <button type="button" className="secondary-button" onClick={cancelModelEvaluation}>Annuler après l’appel en cours</button>}</div>
+        </section>
+        <section className="transcription-review"><h3>Transcription actuellement chargée</h3>{transcription ? <pre>{transcription}</pre> : <p className="hint">Aucune transcription disponible.</p>}</section>
+        <section className="transcription-review"><h3>Dernière réponse reçue en streaming</h3>{streamedOutput ? <pre>{streamedOutput}</pre> : <p className="hint">Aucune réponse en streaming disponible.</p>}</section>
+        <section className="transcription-review"><h3>Sorties brutes des modèles ({diagnosticRuns.length})</h3>{diagnosticRuns.length ? diagnosticRuns.map((run, index) => <details key={run.kind + run.model + index} className="rubric-import-raw-response"><summary>{run.model} · {run.kind} · {formatElapsed(Math.round(run.elapsedMs / 1000))}</summary><pre>{run.raw}</pre></details>) : <p className="hint">Aucune trace technique enregistrée. Lancez une expérience dans « Évaluation des modèles » puis revenez ici pour examiner les réponses brutes.</p>}</section>
+        <section className="transcription-review debug-evaluation-traces"><h3>Traces des évaluations indépendantes ({modelEvaluationResults.length})</h3>{modelEvaluationResults.length ? modelEvaluationResults.map((result) => <details key={result.profileId} className="rubric-import-raw-response"><summary>{result.profileName} · {result.status} · {formatElapsed(Math.round(result.elapsedMs / 1000))}</summary><p>Lecture : {result.readingMs ? formatElapsed(Math.round(result.readingMs / 1000)) : '—'} · Analyse : {result.analysisMs ? formatElapsed(Math.round(result.analysisMs / 1000)) : '—'} · Tokens : {result.tokens === null ? 'non mesurés' : formatTokenCount(result.tokens)}</p>{result.error && <div className="evaluation-error-panel"><p className="validation" role="alert">{result.error}</p><details className="evaluation-error-details"><summary>Voir les détails de l’erreur</summary><div><p><strong>Configuration :</strong> {result.profileName}</p><p><strong>Étape :</strong> {evaluationStageMode === 'vision' ? 'Vision' : evaluationStageMode === 'analysis' ? 'Analyse' : 'Parcours complet'}</p>{result.diagnosticRuns?.length ? <><h5>Appels terminés avant l’échec</h5><ol>{result.diagnosticRuns.map((run, index) => <li key={index}><strong>{run.model}</strong> · {run.stage === 'reading' ? 'Vision' : run.stage === 'arbitration' ? 'Arbitrage' : 'Analyse'} · {formatElapsed(Math.round(run.elapsedMs / 1000))}{run.doneReason ? ' · fin : ' + run.doneReason : ''}{run.generatedTokens !== undefined ? ' · ' + run.generatedTokens + ' tokens générés' : ''}{run.generationTokenLimit !== undefined ? ' · limite demandée : ' + run.generationTokenLimit : ''}{run.raw && <pre>{run.raw}</pre>}</li>)}</ol></> : <p>Aucun appel n’a pu être enregistré comme terminé avant l’échec.</p>}{result.raw ? <><h5>Dernière réponse brute conservée</h5><pre>{result.raw}</pre></> : <p>Aucune réponse brute complète n’a été conservée pour cet échec.</p>}</div></details></div>}{result.transcription && <><h4>Transcription</h4><pre>{result.transcription}</pre></>}{result.raw && <><h4>Réponse brute</h4><pre>{result.raw}</pre></>}</details>) : <p className="hint">Les réponses brutes des expériences indépendantes apparaîtront ici après un lancement dans Évaluation des modèles.</p>}</section>
+            {(interfaceMode as string) === 'debug' && transcription && diagnosticRuns.filter((run) => run.kind === 'model').length === 2 && <button type="button" className="secondary-button full-button" disabled={busy || !arbitratorModel.trim()} onClick={() => void gradeCopies('arbitrate-only')}>Relancer uniquement l’arbitrage avec les deux avis enregistrés</button>}
+
+      {(interfaceMode as string) === 'debug' && <section className="panel diagnostic-results" aria-labelledby="diagnostic-results-title">
+        <div className="panel-heading"><span className="number">IA</span><div><h3 id="diagnostic-results-title">Résultats de l’expérience multi-modèles</h3><p>Notes et temps mesurés sur cette copie. Consultez les sorties ci-dessous.</p></div></div>
+        {diagnosticRuns.length === 0 ? <div className="diagnostic-empty-state">
+          <span className="diagnostic-empty-icon" aria-hidden="true">↗</span>
+          <div><h4>Aucun résultat pour le moment</h4><p>Préparez le barème et importez une copie, puis lancez une analyse. Les résultats des modèles apparaîtront ici pour cette même copie et cette même consigne.</p><p className="diagnostic-reference-optional-note">Pas encore de correction de référence validée ? Aucun problème : comparez les modèles dès maintenant et ajoutez une référence plus tard si vous le souhaitez.</p></div>
+          <button type="button" className="secondary-button" onClick={() => document.getElementById('debug-advanced-settings')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Préparer une expérience</button>
+        </div> : <>
+        {(() => {
+          const independent = diagnosticRuns.filter((run) => run.kind === 'model');
+          if (independent.length !== 2) return null;
+          const first = safeDiagnosticProposal(independent[0].raw, rubric);
+          const second = safeDiagnosticProposal(independent[1].raw, rubric);
+          if (!first || !second) return <p className="hint">Impossible de comparer les notes automatiquement : au moins une sortie intermédiaire ne respecte pas le format de correction attendu. Consultez les sorties brutes ci-dessous.</p>;
+          const comparison = compareDiagnosticProposals(first, second, rubric);
+          return <div className="diagnostic-comparison-summary">
+            <div className="diagnostic-total"><span>{independent[0].model}</span><strong>{comparison.firstTotal} / {validation.maximumPoints}</strong></div>
+            <div className="diagnostic-total"><span>{independent[1].model}</span><strong>{comparison.secondTotal} / {validation.maximumPoints}</strong></div>
+            <p className="hint">Écart total : {comparison.totalDifference > 0 ? '+' : ''}{comparison.totalDifference} point(s) pour le second modèle. {comparison.disagreements.length} critère(s) avec des notes différentes.</p>
+            {comparison.disagreements.length > 0 && <ul className="diagnostic-disagreements">{comparison.disagreements.map((item) => <li key={item.criterionId}><span>{item.title}</span><strong>{item.firstPoints} → {item.secondPoints} / {item.maxPoints}</strong></li>)}</ul>}
+          </div>;
+        })()}
+        {(() => {
+          const savedReference = timingHistory.find((record) => record.id === currentTimingRecordId)?.referenceScores;
+          const reference = savedReference && validateDiagnosticReference(savedReference, rubric).valid ? savedReference : null;
+          const modelRuns = diagnosticRuns.filter((run) => run.kind === 'model' || run.kind === 'arbitrator');
+          const comparisons = reference ? modelRuns.map((run) => {
+            const parsed = safeDiagnosticProposal(run.raw, rubric);
+            if (!parsed) return { run, comparison: null };
+            return { run, comparison: compareWithDiagnosticReference(buildDiagnosticScore(parsed, rubric).criterionScores, reference, rubric) };
+          }) : [];
+          return <section className="diagnostic-reference" aria-labelledby="diagnostic-reference-title">
+            <div className="diagnostic-reference-heading">
+              <div><h4 id="diagnostic-reference-title">Correction de référence <span>(facultative)</span></h4><p>Tu peux évaluer les modèles tout de suite. Quand tu disposes d’une correction validée par le professeur, saisis les points attribués à chaque critère pour mesurer l’écart réel. Cette référence reste sur cet appareil.</p></div>
+            </div>
+            <div className="diagnostic-reference-fields">{rubric.criteria.map((criterion) => <label className="diagnostic-reference-field" key={criterion.id}>
+              <span>{criterion.title}<small>Sur {criterion.maxPoints} point(s)</small></span>
+              <input type="number" min="0" max={criterion.maxPoints} step="0.25" inputMode="decimal" aria-label={`Note de référence — ${criterion.title}`} value={referenceScoreInputs[criterion.id] ?? savedReference?.find((score) => score.criterionId === criterion.id)?.points.toString() ?? ''} onChange={(event) => setReferenceScoreInputs((current) => ({ ...current, [criterion.id]: event.target.value }))} />
+            </label>)}</div>
+            <div className="diagnostic-reference-actions"><button type="button" className="secondary-button" disabled={!currentTimingRecordId || !rubric.criteria.length} onClick={saveDiagnosticReference}>Enregistrer la référence</button>{savedReference && <button type="button" className="text-button" onClick={clearDiagnosticReference}>Retirer cette référence</button>}</div>
+            <p className={referenceMessage.startsWith('Correction de référence enregistrée') ? 'diagnostic-reference-message success' : 'diagnostic-reference-message'} role="status">{referenceMessage || 'Aucune référence n’est nécessaire pour lancer ou comparer des essais.'}</p>
+            {reference && <div className="diagnostic-reference-comparisons"><h5>Écart par rapport à la référence validée</h5><p className="hint">L’erreur absolue moyenne est calculée en points par critère ; plus elle est faible, plus les notes sont proches. Elle ne remplace pas la vérification pédagogique.</p>
+              {comparisons.map(({ run, comparison }) => <div className="diagnostic-reference-comparison" key={run.kind + run.model}>
+                <strong>{run.kind === 'arbitrator' ? 'Arbitre' : 'Modèle'} · {run.model}</strong>
+                {comparison ? <span>Erreur moyenne : <b>{comparison.meanAbsoluteError} pt</b> · Correspondances exactes : <b>{comparison.exactMatches}/{comparison.comparedCriteria}</b> · Écart de note totale : <b>{comparison.absoluteTotalError} pt</b></span> : <span>Non comparable : sortie structurée indisponible.</span>}
+              </div>)}
+            </div>}
+          </section>;
+        })()}
+        <div className="diagnostic-run-list">{diagnosticRuns.map((run, index) => {
+          const parsed = run.kind === 'vision' || run.doneReason === 'length' ? null : safeDiagnosticProposal(run.raw, rubric);
+          const total = parsed?.criteria.reduce((sum, item) => sum + item.points, 0);
+          return <details className="diagnostic-run" key={run.kind + run.model + index}>
+            <summary><span><strong>{run.kind === 'vision' ? 'Lecture / transcription' : run.kind === 'arbitrator' ? 'Arbitre' : 'Avis indépendant'} · {run.model}</strong><small>{run.kind === 'vision' ? 'Lecture locale de la page' : run.kind === 'arbitrator' ? 'Synthèse finale' : 'Correction indépendante'}{total === undefined ? '' : ' · Note : ' + total + ' / ' + validation.maximumPoints}</small></span><strong>{formatElapsed(Math.round(run.elapsedMs / 1000))}</strong></summary>
+            {run.kind === 'vision' ? <div className="diagnostic-run-metrics diagnostic-usage-run-metrics" aria-label={`Consommation de ${run.model}`}>
+              <div><span>Tokens d’entrée</span><strong>{formatTokenCount(run.promptTokens)}</strong></div>
+              <div><span>Tokens générés</span><strong>{formatTokenCount(run.generatedTokens)}</strong></div>
+              <div><span>Total de tokens</span><strong>{formatTokenCount(run.totalTokens)}</strong></div>
+              <div><span>Vitesse de génération</span><strong>{run.tokensPerSecond === undefined ? '—' : run.tokensPerSecond.toFixed(2).replace('.', ',') + ' tokens/s'}</strong></div>
+              <div><span>Chargement du modèle</span><strong>{run.loadMs === undefined ? '—' : formatElapsed(Math.round(run.loadMs / 1000))}</strong></div>
+              <div><span>Prétraitement du prompt</span><strong>{run.promptEvaluationMs === undefined ? '—' : formatElapsed(Math.round(run.promptEvaluationMs / 1000))}</strong></div>
+            </div> : <div className="diagnostic-run-metrics" aria-label={`Indicateurs de qualité pour ${run.model}`}>
+              <div><span>Format exploitable</span><strong className={parsed ? 'metric-good' : 'metric-warning'}>{parsed ? 'Oui' : 'Non'}</strong></div>
+              <div><span>Critères évalués</span><strong>{parsed ? parsed.criteria.length : 0} / {rubric.criteria.length}</strong></div>
+              <div><span>Confiance moyenne déclarée</span><strong>{parsed && parsed.criteria.length ? Math.round(parsed.criteria.reduce((sum, item) => sum + (item.confidence === 'high' ? 3 : item.confidence === 'medium' ? 2 : 1), 0) / parsed.criteria.length * 100 / 3) : '—'}{parsed && parsed.criteria.length ? ' %' : ''}</strong></div>
+              <div><span>Questions au professeur</span><strong>{parsed?.questionsForTeacher.length ?? '—'}</strong></div>
+              <div><span>Tokens d’entrée</span><strong>{formatTokenCount(run.promptTokens)}</strong></div>
+              <div><span>Tokens générés</span><strong>{formatTokenCount(run.generatedTokens)}</strong></div>
+              <div><span>Total de tokens</span><strong>{formatTokenCount(run.totalTokens)}</strong></div>
+              <div><span>Vitesse de génération</span><strong>{run.tokensPerSecond === undefined ? '—' : run.tokensPerSecond.toFixed(2).replace('.', ',') + ' tokens/s'}</strong></div>
+              <div><span>Chargement du modèle</span><strong>{run.loadMs === undefined ? '—' : formatElapsed(Math.round(run.loadMs / 1000))}</strong></div>
+            </div>}
+            <div className="diagnostic-run-metrics diagnostic-termination-metrics" aria-label={`Terminaison Ollama pour ${run.model}`}>
+              <div><span>Fin de génération</span><strong className={run.doneReason === 'length' ? 'metric-warning' : ''}>{run.doneReason === 'length' ? 'Limite atteinte (length)' : run.doneReason ?? 'Non fournie par Ollama'}</strong></div>
+              <div><span>Contexte demandé</span><strong>{run.contextTokens === undefined ? '—' : formatTokenCount(run.contextTokens) + ' tokens'}</strong></div>
+              <div><span>Limite de génération</span><strong>{run.generationTokenLimit === undefined ? '—' : formatTokenCount(run.generationTokenLimit) + ' tokens'}</strong></div>
+              <div><span>Raisonnement séparé</span><strong>{run.thinkingPresent === undefined ? 'Non mesuré' : run.thinkingPresent ? 'Présent' : 'Absent'}</strong></div>
+            </div>
+            {run.doneReason === 'length' && <p className="diagnostic-raw-warning">Ollama a interrompu cette génération à la limite de tokens. La sortie partielle est conservée pour le diagnostic, mais ne constitue pas une correction exploitable.</p>}
+            {run.kind === 'vision' ? <p className="hint">La transcription est conservée dans le panneau « Vérifier le texte lu par l’IA » ; cette entrée affiche uniquement les métriques de la requête de lecture.</p> : parsed ? <><p className="diagnostic-run-summary">{parsed.summary}</p><ul className="diagnostic-disagreements">{parsed.criteria.map((item) => {
+              const criterion = rubric.criteria.find((entry) => entry.id === item.criterionId);
+              return <li key={item.criterionId}><span><strong>{criterion?.title ?? item.criterionId}</strong><small>{item.rationale}</small><small>Preuve : {item.evidence || 'Aucune preuve textuelle fournie'}</small><small className={item.confidence === 'low' ? 'diagnostic-confidence low' : 'diagnostic-confidence'}>Confiance déclarée : {item.confidence === 'high' ? 'élevée' : item.confidence === 'medium' ? 'moyenne' : 'faible'}</small></span><strong>{item.points} / {criterion?.maxPoints ?? 0}</strong></li>;
+            })}</ul>
+            {parsed.questionsForTeacher.length > 0 && <div className="diagnostic-questions"><strong>Points nécessitant un arbitrage humain</strong><ul>{parsed.questionsForTeacher.map((question, questionIndex) => <li key={questionIndex}>{question}</li>)}</ul></div>}</> : <><p className="diagnostic-raw-warning">La sortie n’a pas pu être interprétée comme une correction structurée. Elle ne doit pas être considérée comme une note exploitable.</p><pre>{run.raw}</pre></>}
+          </details>;
+        })}</div>
+        </>}
+      </section>}
+
+        <details className="debug-performance-history"><summary>Historique et comparaison des performances</summary>
+      {timingHistory.length > 0 && <section className="timing-history" aria-labelledby="timing-history-title">
+        <div className="timing-history-heading diagnostic-dashboard-header">
+          <div><p className="eyebrow">LABORATOIRE IA</p><h2 id="timing-history-title">Tableau de bord des expériences</h2><p>Comparez les compromis entre qualité, consommation et vitesse sur les mêmes devoirs et barèmes.</p></div>
+          <div className="diagnostic-dashboard-header-actions"><button type="button" className="text-button" onClick={() => { setTimingHistory([]); setSelectedComparisonIds([]); try { window.localStorage.removeItem(timingHistoryKey); } catch { /* History is already cleared in the current view. */ } }}>Effacer l’historique</button></div>
+        </div>
+        {(() => {
+          const allRuns = timingHistory.flatMap((item) => item.diagnosticRuns ?? []);
+          const measuredRuns = allRuns.filter((run) => run.promptTokens !== undefined || run.generatedTokens !== undefined);
+          const models = [...new Set([...timingHistory.flatMap((item) => [item.visionModel, item.analysisModel]), ...allRuns.map((run) => run.model)].filter(Boolean))];
+          const promptTokens = measuredRuns.reduce((sum, run) => sum + (run.promptTokens ?? 0), 0);
+          const generatedTokens = measuredRuns.reduce((sum, run) => sum + (run.generatedTokens ?? 0), 0);
+          const elapsedMs = allRuns.reduce((sum, run) => sum + run.elapsedMs, 0);
+          const generationMs = measuredRuns.reduce((sum, run) => sum + (run.generationMs ?? 0), 0);
+          return <div className="diagnostic-usage-overview" aria-label="Synthèse de consommation des modèles">
+            <div><span>Modèles observés</span><strong>{models.length}</strong></div>
+            <div><span>Temps cumulé des appels</span><strong>{formatElapsed(Math.round(elapsedMs / 1000))}</strong></div>
+            <div><span>Tokens mesurés (entrée + sortie)</span><strong>{formatTokenCount(promptTokens + generatedTokens)}</strong><small>{measuredRuns.length}/{allRuns.length} appels mesurés</small></div>
+            <div><span>Vitesse de génération pondérée</span><strong>{generationMs > 0 ? (generatedTokens / (generationMs / 1000)).toFixed(2).replace('.', ',') + ' tokens/s' : '—'}</strong></div>
+          </div>;
+        })()}
+        {(() => {
+          const selectedComparisons = timingHistory.filter((item) => selectedComparisonIds.includes(item.id)).slice(0, 2);
+          if (selectedComparisons.length < 2) return <section className="diagnostic-comparison-panel" aria-labelledby="diagnostic-comparison-title">
+            <div className="diagnostic-comparison-heading"><div><p className="eyebrow">COMPARAISON VISUELLE</p><h3 id="diagnostic-comparison-title">Comparer deux essais</h3><p>Sélectionnez deux lignes de l’historique pour comparer les performances et les consommations côte à côte.</p></div><span className="diagnostic-comparison-count">{selectedComparisons.length}/2 sélectionné(s)</span></div>
+            <p className="diagnostic-comparison-empty">{selectedComparisons.length === 0 ? 'Cochez deux essais dans le tableau ci-dessous pour afficher les graphiques.' : 'Encore un essai à sélectionner pour afficher les graphiques.'}</p>
+          </section>;
+          const usageFor = (record: TimingRecord) => {
+            const runs = record.diagnosticRuns ?? [];
+            const measuredRuns = runs.filter((run) => run.promptTokens !== undefined || run.generatedTokens !== undefined);
+            return {
+              prompt: measuredRuns.length ? measuredRuns.reduce((sum, run) => sum + (run.promptTokens ?? 0), 0) : null,
+              generated: measuredRuns.length ? measuredRuns.reduce((sum, run) => sum + (run.generatedTokens ?? 0), 0) : null,
+              groups: groupDiagnosticUsage(runs),
+            };
+          };
+          const usage = selectedComparisons.map((record) => usageFor(record));
+          const metrics = [
+            { key: 'duration', label: 'Temps total', unit: 's', values: selectedComparisons.map((record) => record.totalSeconds), display: (value: number | null) => value === null ? '—' : formatElapsed(value) },
+            { key: 'prompt', label: 'Tokens d’entrée', unit: 'tokens', values: usage.map((item) => item.prompt), display: (value: number | null) => value === null ? '—' : formatTokenCount(value) },
+            { key: 'generated', label: 'Tokens générés', unit: 'tokens', values: usage.map((item) => item.generated), display: (value: number | null) => value === null ? '—' : formatTokenCount(value) },
+            { key: 'score', label: 'Note proposée', unit: 'points', values: selectedComparisons.map((record) => record.modelScore), display: (value: number | null) => value === null ? 'Non disponible' : String(value) },
+          ];
+          const allGroups = usage.flatMap((item, index) => item.groups.map((group) => ({ ...group, runIndex: index })));
+          const rubricFor = (record: TimingRecord) => record.rubricSnapshot ?? rubric;
+          const rubricSignature = (record: TimingRecord) => JSON.stringify(rubricFor(record).criteria.map((criterion) => ({ id: criterion.id, title: criterion.title, description: criterion.description, maxPoints: criterion.maxPoints })));
+          const referenceSource = selectedComparisons.find((record) => {
+            const reference = record.referenceScores;
+            return Boolean(reference && validateDiagnosticReference(reference, rubricFor(record)).valid);
+          });
+          const sharedReference = referenceSource?.referenceScores;
+          const modelScores = selectedComparisons.flatMap((record, runIndex) => {
+            const recordRubric = rubricFor(record);
+            const compatibleSharedReference = Boolean(record.assignmentId && sharedReference && selectedComparisons.every((candidate) => candidate.assignmentId === record.assignmentId && rubricSignature(candidate) === rubricSignature(record)));
+            const reference = compatibleSharedReference ? sharedReference : record.referenceScores;
+            const validReference = reference && validateDiagnosticReference(reference, recordRubric).valid ? reference : null;
+            return (record.diagnosticRuns ?? [])
+              .filter((run) => run.kind === 'model' || run.kind === 'arbitrator')
+              .map((run) => {
+                const parsed = safeDiagnosticProposal(run.raw, recordRubric);
+                const score = parsed ? buildDiagnosticScore(parsed, recordRubric) : null;
+                const referenceComparison = score && validReference ? compareWithDiagnosticReference(score.criterionScores, validReference, recordRubric) : null;
+                const maxPoints = recordRubric.criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0);
+                const usageGroup = groupDiagnosticUsage([run])[0];
+                const tokens = run.promptTokens !== undefined || run.generatedTokens !== undefined ? (run.promptTokens ?? 0) + (run.generatedTokens ?? 0) : null;
+                const qualityPercent = referenceComparison && maxPoints > 0
+                  ? Math.max(0, 100 - referenceComparison.absoluteTotalError / maxPoints * 100)
+                  : score?.modelScore !== null && score?.modelScore !== undefined && maxPoints > 0 ? score.modelScore / maxPoints * 100 : null;
+                const criterionErrors = score && validReference && referenceComparison ? recordRubric.criteria.flatMap((criterion) => {
+                  const modelCriterion = score.criterionScores.find((item) => item.criterionId === criterion.id);
+                  const referenceCriterion = validReference.find((item) => item.criterionId === criterion.id);
+                  return modelCriterion && referenceCriterion ? [{ id: criterion.id, title: criterion.title, maxPoints: criterion.maxPoints, modelPoints: modelCriterion.points, referencePoints: referenceCriterion.points, error: Math.abs(modelCriterion.points - referenceCriterion.points) }] : [];
+                }) : [];
+                return { record, run, runIndex, score: score?.modelScore ?? null, maxPoints, elapsedSeconds: run.elapsedMs / 1000, tokens, usageGroup, referenceComparison, qualityPercent, criterionErrors, hasReference: Boolean(validReference), assignmentTitle: record.assignmentTitle ?? 'Devoir historique' };
+              });
+          });
+          const maxGroupElapsed = Math.max(1, ...allGroups.map((group) => group.elapsedMs));
+          const maxGroupTokens = Math.max(1, ...allGroups.map((group) => group.promptTokens + group.generatedTokens));
+          const plotMaxSeconds = Math.max(1, ...modelScores.map((item) => item.elapsedSeconds));
+          const plotMaxTokens = Math.max(1, ...modelScores.map((item) => item.tokens ?? 0));
+          const hasReferenceQuality = modelScores.length > 0 && modelScores.every((item) => item.referenceComparison !== null);
+          const qualityMetricLabel = hasReferenceQuality ? 'Proximité de la référence' : 'Note proposée (% du barème)';
+          const scatterPoints = modelScores.map((item, index) => ({
+            ...item,
+            qualityPercent: hasReferenceQuality ? item.qualityPercent : item.score !== null && item.maxPoints > 0 ? item.score / item.maxPoints * 100 : null,
+            x: 76 + item.elapsedSeconds / plotMaxSeconds * 590,
+            radius: 6 + Math.sqrt((item.tokens ?? 0) / plotMaxTokens) * 8,
+            key: item.record.id + item.run.model + index,
+          })).filter((item) => item.qualityPercent !== null).map((item) => ({
+            ...item,
+            y: 224 - (item.qualityPercent ?? 0) / 100 * 170,
+          }));
+          return <section className="diagnostic-comparison-panel" aria-labelledby="diagnostic-comparison-title">
+            <div className="diagnostic-comparison-heading"><div><p className="eyebrow">COMPARAISON VISUELLE</p><h3 id="diagnostic-comparison-title">Comparaison de deux essais</h3><p>Les barres partagent la même échelle au sein de chaque graphique. Les valeurs indisponibles restent distinctes de zéro.</p></div><button type="button" className="text-button" onClick={() => setSelectedComparisonIds([])}>Réinitialiser la sélection</button></div>
+            {selectedComparisons[0].assignmentId !== selectedComparisons[1].assignmentId || rubricSignature(selectedComparisons[0]) !== rubricSignature(selectedComparisons[1]) ? <p className="diagnostic-comparison-warning" role="note">Ces essais ne partagent pas le même devoir et le même barème. Les temps et tokens restent comparables ; les notes et écarts pédagogiques doivent être interprétés avec prudence.</p> : null}
+            <div className="diagnostic-comparison-legend">{selectedComparisons.map((record, index) => <div key={record.id}><span className={index === 0 ? 'comparison-swatch comparison-swatch-a' : 'comparison-swatch comparison-swatch-b'}></span><span><strong>Essai {index === 0 ? 'A' : 'B'}</strong><small>{record.visionModel} / {record.analysisModel} · {new Date(record.completedAt).toLocaleString()}</small></span></div>)}</div>
+            <div className="diagnostic-comparison-charts">{metrics.map((metric) => {
+              const values = metric.values.map((value) => typeof value === 'number' && Number.isFinite(value) ? value : null);
+              const max = Math.max(1, ...values.map((value) => value ?? 0));
+              return <article className="diagnostic-comparison-chart" key={metric.key}>
+                <h4>{metric.label}</h4>
+                {values.map((value, index) => <div className="diagnostic-comparison-bar-row" key={selectedComparisons[index].id}>
+                  <div className="diagnostic-comparison-bar-label"><span>Essai {index === 0 ? 'A' : 'B'}</span><strong>{metric.display(value)}</strong></div>
+                  <div className="diagnostic-comparison-track" role="img" aria-label={`Essai ${index === 0 ? 'A' : 'B'} : ${metric.display(value)}`}><span className={index === 0 ? 'comparison-bar-a' : 'comparison-bar-b'} style={{ width: value === null ? '0%' : `${Math.max(value > 0 ? 2 : 0, value / max * 100)}%` }} /></div>
+                </div>)}
+              </article>;
+            })}</div>
+            <div className="diagnostic-comparison-stage">
+              <div><h4>Temps et tokens par modèle / étape</h4><p>Chaque barre de temps utilise la même échelle entre les deux essais. Les appels sans métriques Ollama restent signalés.</p></div>
+              {allGroups.length === 0 ? <p className="diagnostic-comparison-empty">Aucun détail par modèle enregistré dans ces essais.</p> : <div className="diagnostic-comparison-models">{allGroups.map((group, index) => <article key={selectedComparisons[group.runIndex].id + group.stage + group.model + index}>
+                <div className="diagnostic-comparison-model-heading"><span className={group.runIndex === 0 ? 'comparison-swatch comparison-swatch-a' : 'comparison-swatch comparison-swatch-b'}></span><strong>Essai {group.runIndex === 0 ? 'A' : 'B'} · {group.model}</strong><small>{diagnosticStageLabel(group.stage)} · {group.calls} appel(s)</small></div>
+                <div className="diagnostic-comparison-bar-label"><span>Temps cumulé</span><strong>{formatElapsed(Math.round(group.elapsedMs / 1000))}</strong></div>
+                <div className="diagnostic-comparison-track" role="img" aria-label={`Temps ${group.model} ${diagnosticStageLabel(group.stage)} : ${formatElapsed(Math.round(group.elapsedMs / 1000))}`}><span className={group.runIndex === 0 ? 'comparison-bar-a' : 'comparison-bar-b'} style={{ width: `${group.elapsedMs / maxGroupElapsed * 100}%` }} /></div>
+                <div className="diagnostic-comparison-bar-label"><span>Tokens entrée + sortie</span><strong>{group.measuredCalls ? formatTokenCount(group.promptTokens + group.generatedTokens) : 'Non mesurés'}</strong></div>
+                <div className="diagnostic-comparison-track" role="img" aria-label={`Tokens ${group.model} ${diagnosticStageLabel(group.stage)} : ${group.measuredCalls ? formatTokenCount(group.promptTokens + group.generatedTokens) : 'non mesurés'}`}><span className={group.runIndex === 0 ? 'comparison-bar-a' : 'comparison-bar-b'} style={{ width: group.measuredCalls ? `${(group.promptTokens + group.generatedTokens) / maxGroupTokens * 100}%` : '0%' }} /></div>
+              </article>)}</div>}
+            </div>
+            <div className="diagnostic-dashboard-kpis" aria-label="Indicateurs qualité, coût et vitesse">
+              <article className="diagnostic-kpi quality"><span className="diagnostic-kpi-icon" aria-hidden="true">◎</span><div><span>Qualité mesurée</span><strong>{hasReferenceQuality ? 'Référence active' : 'À confirmer'}</strong><small>{hasReferenceQuality ? 'Écart aux notes du professeur' : 'La note proposée n’est pas une mesure de justesse'}</small></div></article>
+              <article className="diagnostic-kpi cost"><span className="diagnostic-kpi-icon" aria-hidden="true">◈</span><div><span>Consommation comparée</span><strong>{modelScores.filter((item) => item.tokens !== null).length} modèle(s) mesuré(s)</strong><small>Tokens d’entrée + de sortie réellement remontés par Ollama</small></div></article>
+              <article className="diagnostic-kpi speed"><span className="diagnostic-kpi-icon" aria-hidden="true">◷</span><div><span>Temps de calcul</span><strong>{modelScores.length ? formatElapsed(Math.round(modelScores.reduce((sum, item) => sum + item.elapsedSeconds, 0))) : '—'}</strong><small>Somme des appels d’analyse comparés</small></div></article>
+            </div>
+            <div className="diagnostic-comparison-stage diagnostic-quality-speed-stage">
+              <div className="diagnostic-section-title"><div><p className="eyebrow">QUALITÉ × VITESSE × COÛT</p><h4>Compromis entre qualité et temps</h4><p>{hasReferenceQuality ? 'Plus un point est haut, plus sa note est proche de la référence du professeur. La taille du point représente les tokens consommés.' : 'En l’absence de référence, l’axe vertical affiche la note proposée en pourcentage du barème — pas une mesure de justesse. La taille du point représente les tokens consommés.'}</p></div><span className="diagnostic-chart-legend"><i className="comparison-swatch comparison-swatch-a"></i> Essai A <i className="comparison-swatch comparison-swatch-b"></i> Essai B</span></div>
+              {scatterPoints.length === 0 ? <p className="diagnostic-comparison-empty">Aucune note structurée exploitable pour tracer ce graphique.</p> : <div className="diagnostic-scatter-wrap">
+                <svg className="diagnostic-scatter" viewBox="0 0 720 270" role="img" aria-label={`Graphique ${qualityMetricLabel} en fonction du temps de calcul ; taille des points proportionnelle aux tokens`}>
+                  {[0,25,50,75,100].map((tick) => <g key={tick}><line x1="76" x2="666" y1={224-tick/100*170} y2={224-tick/100*170} className="diagnostic-chart-gridline" /><text x="64" y={228-tick/100*170} textAnchor="end" className="diagnostic-chart-tick">{tick}%</text><line x1={76+590*tick/100} x2={76+590*tick/100} y1="54" y2="224" className="diagnostic-chart-gridline" /><text x={76+590*tick/100} y="240" textAnchor="middle" className="diagnostic-chart-tick">{(plotMaxSeconds*tick/100).toFixed(0)} s</text></g>)}
+                  <line x1="76" x2="76" y1="54" y2="224" className="diagnostic-chart-axis" /><line x1="76" x2="666" y1="224" y2="224" className="diagnostic-chart-axis" />
+                  <text x="370" y="258" textAnchor="middle" className="diagnostic-chart-axis-label">Temps d’analyse (secondes) · plus rapide à gauche</text>
+                  {scatterPoints.map((point) => <g key={point.key}>
+                    <circle cx={point.x} cy={point.y} r={point.radius} className={point.runIndex === 0 ? 'diagnostic-scatter-point point-a' : 'diagnostic-scatter-point point-b'}><title>{point.run.model} — {point.qualityPercent?.toFixed(1)} %, {point.elapsedSeconds.toFixed(1)} s, {point.tokens === null ? 'tokens non mesurés' : formatTokenCount(point.tokens)}</title></circle>
+                    <text x={Math.min(645, point.x + point.radius + 5)} y={point.y - 8} className="diagnostic-chart-point-label">{point.run.model}</text>
+                  </g>)}
+                </svg>
+                <div className="diagnostic-scatter-caption"><span><i className="comparison-swatch comparison-swatch-a"></i> Essai A · {selectedComparisons[0].analysisModel}</span><span><i className="comparison-swatch comparison-swatch-b"></i> Essai B · {selectedComparisons[1].analysisModel}</span><span>Surface du point ∝ tokens mesurés</span></div>
+              </div>}
+            </div>
+            <div className="diagnostic-comparison-stage">
+              <div className="diagnostic-section-title"><div><p className="eyebrow">DÉTAIL DES MODÈLES</p><h4>Qualité, coût et vitesse par modèle</h4><p>Les métriques sont calculées séparément pour chaque avis et pour l’arbitre. Une référence compatible peut être réutilisée entre les deux essais.</p></div></div>
+              {modelScores.length === 0 ? <p className="diagnostic-comparison-empty">Aucune note par modèle exploitable n’a été conservée dans ces essais.</p> : <div className="diagnostic-model-score-grid">{modelScores.map((item) => <article className="diagnostic-model-score-card" key={item.record.id + item.run.kind + item.run.model}>
+                <div className="diagnostic-model-score-top"><span className={item.runIndex === 0 ? 'comparison-swatch comparison-swatch-a' : 'comparison-swatch comparison-swatch-b'}></span><div><strong>{item.run.kind === 'arbitrator' ? 'Arbitre' : 'Avis indépendant'} · {item.run.model}</strong><small>Essai {item.runIndex === 0 ? 'A' : 'B'} · {item.assignmentTitle}</small></div></div>
+                <div className="diagnostic-model-score-main"><strong>{item.score === null ? '—' : item.score}</strong><span>/ {item.maxPoints} points</span></div>
+                <div className="diagnostic-model-score-metrics">
+                  <div><span>{item.hasReference ? 'Erreur moyenne' : 'Note / barème'}</span><strong>{item.referenceComparison ? `${item.referenceComparison.meanAbsoluteError} pt` : item.score === null || item.maxPoints <= 0 ? '—' : `${(item.score/item.maxPoints*100).toFixed(1).replace('.', ',')} %`}</strong><small>{item.referenceComparison ? `${item.referenceComparison.exactMatches}/${item.referenceComparison.comparedCriteria} critères exacts` : 'Référence facultative'}</small></div>
+                  <div><span>Temps</span><strong>{formatElapsed(Math.round(item.elapsedSeconds))}</strong><small>{item.usageGroup?.generationMs ? `${(item.usageGroup.generationMs > 0 ? (item.usageGroup.generatedTokens/(item.usageGroup.generationMs/1000)).toFixed(1) : '—')} tokens/s` : 'Vitesse non mesurée'}</small></div>
+                  <div><span>Tokens</span><strong>{item.tokens === null ? 'Non mesurés' : formatTokenCount(item.tokens)}</strong><small>{item.run.promptTokens === undefined ? 'Entrée non mesurée' : `Entrée : ${formatTokenCount(item.run.promptTokens)}`}</small></div>
+                </div>
+                {item.criterionErrors.length > 0 && <details className="diagnostic-criterion-error-details"><summary>Écart par critère</summary><div className="diagnostic-criterion-error-list">{item.criterionErrors.map((criterion) => <div key={criterion.id}><span>{criterion.title}</span><strong>{criterion.modelPoints} / {criterion.maxPoints}</strong><div className="diagnostic-comparison-track"><span className="comparison-bar-b" style={{width: `${criterion.maxPoints > 0 ? criterion.error / criterion.maxPoints * 100 : 0}%`}} /></div><small>Écart à la référence : {criterion.error} pt</small></div>)}</div></details>}
+              </article>)}</div>}
+            </div>
+          </section>;
+        })()}
+        <p className="hint">Les tokens sont les compteurs remontés par Ollama : entrée (prompt), sortie (générés) et total lorsqu’ils sont disponibles. Le temps par modèle correspond à la durée murale des appels, tandis que le temps de génération et de chargement sont des métriques Ollama. Les anciennes expériences sans ces métadonnées restent consultables, mais ne peuvent pas être recalculées.</p>
+        <div className="timing-history-table-wrap">
+          <table className="timing-history-table">
+            <thead><tr><th scope="col">Comparer</th><th scope="col">Date</th><th scope="col">Modèles (lecture / analyse)</th><th scope="col">Lecture</th><th scope="col">Analyse</th><th scope="col">Total</th><th scope="col">Tokens consommés</th><th scope="col">Usage par modèle</th><th scope="col">Note du modèle</th><th scope="col">Résultat</th></tr></thead>
+            <tbody>{timingHistory.map((item) => { const runs = item.diagnosticRuns ?? []; const usage = groupDiagnosticUsage(runs); const measured = runs.filter((run) => run.promptTokens !== undefined || run.generatedTokens !== undefined); const promptTokens = runs.reduce((sum, run) => sum + (run.promptTokens ?? 0), 0); const generatedTokens = runs.reduce((sum, run) => sum + (run.generatedTokens ?? 0), 0); const totalTokens = runs.reduce((sum, run) => sum + (run.totalTokens ?? 0), 0); return <tr key={item.id}>
+              <td><input type="checkbox" className="diagnostic-comparison-checkbox" aria-label={`Sélectionner l’essai ${item.visionModel} / ${item.analysisModel} pour comparaison`} checked={selectedComparisonIds.includes(item.id)} disabled={!selectedComparisonIds.includes(item.id) && selectedComparisonIds.length >= 2} onChange={(event) => setSelectedComparisonIds((current) => event.target.checked ? (current.length < 2 ? [...current, item.id] : current) : current.filter((id) => id !== item.id))} /></td><td>{new Date(item.completedAt).toLocaleString()}</td>
+              <td><strong>{item.visionModel || '—'}</strong><small>{item.analysisModel || '—'}{item.thinking ? ' · thinking' : ''}</small><small>{item.pageCount} page(s) · {item.correctionMode === 'separate' ? 'sujet séparé' : 'questions intégrées'}</small></td>
+              <td>{item.readingSeconds === null ? 'Réutilisée / non mesurée' : formatElapsed(item.readingSeconds)}</td>
+              <td>{item.analysisSeconds === null ? 'Non mesurée' : formatElapsed(item.analysisSeconds)}</td>
+              <td><strong>{formatElapsed(item.totalSeconds)}</strong></td>
+              <td>{measured.length ? <><span>Entrée : {formatTokenCount(promptTokens)}</span><small>Générés : {formatTokenCount(generatedTokens)} · Total : {formatTokenCount(totalTokens)}</small><small>{measured.length}/{runs.length} appel(s) avec métriques</small></> : 'Non fournis par Ollama pour cet essai'}</td>
+              <td>{usage.length ? <details className="diagnostic-usage-details"><summary>{usage.length} groupe(s) modèle / étape</summary><div className="diagnostic-usage-groups">{usage.map((group) => <section key={group.stage + group.model}><strong>{group.model}</strong><span>{diagnosticStageLabel(group.stage)} · {group.calls} appel(s)</span><small>Temps cumulé : {formatElapsed(Math.round(group.elapsedMs / 1000))}</small><small>{group.measuredCalls ? `Tokens d’entrée : ${formatTokenCount(group.promptTokens)} · générés : ${formatTokenCount(group.generatedTokens)} · total : ${formatTokenCount(group.totalTokens)}` : 'Tokens : non fournis par Ollama pour ces appels'}</small><small>Mesures de tokens disponibles : {group.measuredCalls}/{group.calls} appel(s)</small><small>Vitesse de génération : {group.generationMs > 0 && group.generatedTokens > 0 ? (group.generatedTokens / (group.generationMs / 1000)).toFixed(2).replace('.', ',') + ' tokens/s' : 'Non mesurée'} · Chargement : {group.loadMs > 0 ? formatElapsed(Math.round(group.loadMs / 1000)) : 'Non mesuré'}</small></section>)}</div></details> : 'Aucun détail de consommation enregistré'}</td>
+              <td>{item.modelScore === null ? '—' : <details className="diagnostic-score-details"><summary><strong>{item.modelScore} / {item.criterionScores.reduce((sum, criterion) => sum + criterion.maxPoints, 0)}</strong><span>Détail par barème</span></summary>{item.criterionScores.length > 0 ? <ul>{item.criterionScores.map((criterion) => <li key={criterion.criterionId}><span>{criterion.title}</span><strong>{criterion.points} / {criterion.maxPoints}</strong></li>)}</ul> : <small>Aucun détail de critère enregistré.</small>}{(item.diagnosticRuns ?? []).some((run) => run.kind !== 'vision') && <div className="diagnostic-history-runs"><strong>Essai multi-modèles · {item.diagnosticStrategy === 'arbitrate' ? 'avec arbitre' : item.diagnosticStrategy === 'compare' ? 'comparaison' : 'modèle unique'}</strong>{(item.diagnosticRuns ?? []).filter((run) => run.kind !== 'vision').map((run, index) => { const parsed = safeDiagnosticProposal(run.raw, rubric); const total = parsed?.criteria.reduce((sum, criterion) => sum + criterion.points, 0); return <div key={run.kind + run.model + index}><span>{run.kind === 'arbitrator' ? 'Arbitre' : 'Avis'} · {run.model}</span><strong>{total === undefined ? 'Sortie non exploitable' : total + ' / ' + validation.maximumPoints}</strong><small>{formatElapsed(Math.round(run.elapsedMs / 1000))}</small>{parsed && <ul>{parsed.criteria.map((criterion) => <li key={criterion.criterionId}><span>{rubric.criteria.find((entry) => entry.id === criterion.criterionId)?.title ?? criterion.criterionId}</span><strong>{criterion.points} / {rubric.criteria.find((entry) => entry.id === criterion.criterionId)?.maxPoints ?? 0}</strong></li>)}</ul>}</div>; })}</div>}</details>}</td>
+              <td><span className={item.outcome === 'success' ? 'timing-outcome success' : 'timing-outcome error'}>{item.outcome === 'success' ? 'Terminée' : 'Échec'}</span></td>
+            </tr>; })}</tbody>
+          </table>
+        </div>
+        <p className="hint">Les durées sont arrondies à la seconde. Une lecture déjà en mémoire n’est pas comptée comme une nouvelle lecture ; le temps de vérification d’Ollama est inclus dans le total, pas dans les durées des étapes.</p>
+      </section>}
+
+
+        </details>
+</section> : (interfaceMode === 'diagnostic' || !showAiSettings) && <>      {interfaceMode === 'teacher' && teacherStep === 'overview' && <CorrectionOverview
+        jobs={allBackgroundJobs.filter((job) => job.assignmentId === activeAssignmentId)}
+        notice={copyOverviewNotice}
+        corrections={archivedCorrectionsForActiveAssignment}
+        filter={copyOverviewFilter}
+        onFilterChange={(filter) => { setCopyOverviewFilterTouched(true); setCopyOverviewFilter(filter); }}
+        currentCopy={images.length > 0 && !isFinalized && !currentBackgroundJobId ? { label: studentLabel || images[0]?.fileName || 'Copie en cours', pageCount: images.length, status: isAnalyzing ? 'processing' : proposal ? 'to-review' : 'to-do', score: proposal ? reviewedTotal : null, maximumPoints: validation.maximumPoints, updatedAt: '9999-12-31T23:59:59.999Z' } : null}
+        onAddCopy={() => {
+          if (showCopyIntake) { setShowCopyIntake(false); return; }
+          void (async () => {
+            if (images.length && !isFinalized && !currentBackgroundJobId) {
+              const saved = await startNextCopy({ forceNew: true, stayInOverview: true });
+              if (!saved) return;
+            }
+            setShowCopyIntake(true);
+          })();
+        }}
+        addCopyExpanded={showCopyIntake}
+        pendingCount={allBackgroundJobs.filter((job) => job.assignmentId === activeAssignmentId && job.status === 'pending').length}
+        isStartingCorrections={isStartingSeriesCorrections}
+        isStoppingCorrections={isStoppingOperation}
+        onStopCorrections={() => { void stopCurrentOperations(); }}
+        onStartCorrections={() => { void startSeriesCorrections(); }}
+        onOpenJob={(jobId) => { void loadNextQueuedCopy(jobId); }}
+        onRemoveJob={(jobId) => { void (async () => { const job = await loadFullQueuedJob(jobId); if (job?.assignmentId === activeAssignmentId) requestRemoveSeriesCopy(job); })(); }}
+        onRetryJob={(jobId) => { void retryQueuedCorrection(jobId); }}
+        onReviewNextCopy={() => {
+          if (images.length > 0 && !currentBackgroundJobId && proposal) {
+            setTeacherStep('review');
+            return;
+          }
+          const next = allBackgroundJobs
+            .filter((job) => job.assignmentId === activeAssignmentId && ['ready', 'needs-review', 'reviewing'].includes(job.status))
+            .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0];
+          if (next) void loadNextQueuedCopy(next.id);
+          else if (images.length > 0 && !currentBackgroundJobId) setTeacherStep(proposal ? 'review' : 'copy');
+        }}
+        onOpenCorrection={(correction) => { openArchivedCorrection(correction); }}
+        onOpenCurrentCopy={() => { setShowAiSettings(false); setTeacherStep(proposal ? 'review' : 'copy'); }}
+      >
+        {showCopyIntake && <TeacherCopyIntake
+        grouping={seriesGroupingMode}
+        onGroupingChange={setSeriesGroupingMode}
+        studentLabel={backgroundCopyLabel}
+        onStudentLabelChange={setBackgroundCopyLabel}
+        hasTeacherAnnotations={backgroundCopyDetectTeacherAnnotations}
+        onTeacherAnnotationsChange={setBackgroundCopyDetectTeacherAnnotations}
+        onFilesSelected={(files) => { void enqueueBackgroundCopy(files); }}
+        onClose={() => setShowCopyIntake(false)}
+        onOpenDetailedCopy={() => { setShowCopyIntake(false); void startNextCopy({ forceNew: true }); }}
+        busy={isPreparingSeriesCopies || isAnalyzing}
+        rubricReady={validation.valid}
+        />}
+      </CorrectionOverview>}
+
+      {interfaceMode === 'teacher' && teacherStep === 'overview' && backgroundJobs.some((job) => job.assignmentId === activeAssignmentId && job.status !== 'completed') && <details className="copy-queue copy-overview-queue teacher-copy-pages-details" onToggle={(event) => setDetailsThumbnailsOpen(event.currentTarget.open)}>
+        <summary>Vérifier l’ordre et l’orientation des pages <span>({backgroundJobs.filter((job) => job.assignmentId === activeAssignmentId && job.status !== 'completed').length} copies)</span></summary>
+        <ol className="batch-copy-queue-list">{backgroundJobs.filter((job) => job.assignmentId === activeAssignmentId && job.status !== 'completed').map((job, index) => <li key={job.id}><span className="queue-position">{index + 1}</span><div className="queue-copy-content"><span className="queue-copy-label"><strong>Aperçu de la copie {index + 1}</strong><small>{job.images.length} page(s) · {backgroundCorrectionStatusLabel(job.status)}</small></span><div className="batch-copy-page-previews" aria-label={`Pages de ${job.label}`}>{job.images.map((image, pageIndex) => { const preview = detailThumbnails[job.id]?.[pageIndex]; return <figure className="batch-copy-page-preview" key={image.fileName + '-' + pageIndex}><button type="button" className="copy-page-preview-trigger" aria-label={`Agrandir la page ${pageIndex + 1} de ${job.label}`} onClick={() => { void openQueuedCopyViewer(job.id, pageIndex); }}>{preview ? <img loading="lazy" src={`data:${preview.mimeType};base64,${preview.base64}`} alt={`Aperçu de la page ${pageIndex + 1} de ${job.label}`} /> : <span className="copy-page-thumbnail-loading" aria-hidden="true">Aperçu en cours…</span>}<span aria-hidden="true">Agrandir ↗</span></button><figcaption>Page {pageIndex + 1}{job.rotationAngles?.[pageIndex] ? ` · tournée de ${job.rotationAngles[pageIndex]}°` : ''}</figcaption><div className="copy-image-rotation-controls"><button type="button" className="text-button" aria-label={`Tourner la page ${pageIndex + 1} de ${job.label} à gauche de 90 degrés`} disabled={isPreparingSeriesCopies || rotatingQueuedPage !== null} onClick={() => { void rotateQueuedCopyPage(job, pageIndex, 270); }}>↶ 90°</button><button type="button" className="text-button" aria-label={`Tourner la page ${pageIndex + 1} de ${job.label} à droite de 90 degrés`} disabled={isPreparingSeriesCopies || rotatingQueuedPage !== null} onClick={() => { void rotateQueuedCopyPage(job, pageIndex, 90); }}>↷ 90°</button></div></figure>; })}</div></div><div className="batch-copy-actions">{(['needs-review', 'failed'].includes(job.status) || (job.status === 'reviewing' && job.completedCriteria < job.totalCriteria && job.id !== currentBackgroundJobId)) && <button type="button" className="text-button" disabled={isAnalyzing} onClick={() => { void backgroundService.retry(job.id, { endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, correctionMethod, autoBackgroundCorrection, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty }); }}>Corriger</button>}<button type="button" className="text-button" disabled={isAnalyzing} onClick={() => { void loadNextQueuedCopy(job.id); }}>Ouvrir</button></div></li>)}</ol>
+      </details>}
+
+      {interfaceMode === 'teacher' && teacherStep === 'rubric' && <>
+        <details className="assignment-details-collapsible">
+          <summary><span><strong>Devoir</strong><small>{validation.maximumPoints} points · {rubric.criteria.length} critères</small></span><span className="assignment-details-edit">Modifier</span></summary>
+        <section className="panel assignment-details-panel" aria-labelledby="assignment-details-title">
+          <div className="panel-heading"><div><h3 id="assignment-details-title">Informations générales</h3></div></div>
+          <label className="field-label" htmlFor="assignment-title-main">Nom du devoir</label>
+          <input id="assignment-title-main" value={assignmentTitle} onChange={(event) => setAssignmentTitle(event.target.value)} placeholder="Ex. Contrôle de biologie cellulaire — chapitre 3" />
+          <label className="field-label" htmlFor="assignment-description">Description et objectifs pédagogiques</label>
+          <textarea id="assignment-description" rows={3} value={assignmentDescription} onChange={(event) => { const value = event.target.value; setAssignmentDescription(value); if (!question.trim() || question === defaultQuestion) setQuestion(value); }} placeholder="Ex. Vérifier la compréhension de la mitose, la capacité à interpréter un schéma et à utiliser le vocabulaire scientifique." />
+          <label className="field-label" htmlFor="assignment-education-level">Niveau scolaire / universitaire</label>
+          <DesignSystemSelect id="assignment-education-level" value={educationLevel} onChange={(event) => setEducationLevel(event.target.value)}>
+            <option value="">Choisir un niveau (facultatif)</option>
+            <option value="Lycée — Seconde">Lycée — Seconde</option><option value="Lycée — Première">Lycée — Première</option><option value="Lycée — Terminale">Lycée — Terminale</option>
+            <option value="Université — Licence 1">Université — Licence 1</option><option value="Université — Licence 2">Université — Licence 2</option><option value="Université — Licence 3">Université — Licence 3</option>
+            <option value="Université — Master 1">Université — Master 1</option><option value="Université — Master 2">Université — Master 2</option><option value="Université — Doctorat">Université — Doctorat</option>
+            <option value="Autre">Autre</option>
+          </DesignSystemSelect>
+          <p className="hint">Le niveau sert à calibrer les attentes : vocabulaire, profondeur du raisonnement et précision scientifique. Il ne remplace pas les critères explicites du barème.</p>
+        </section>
+        </details>
+      </>}
+
+      {((interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration' && evaluationJourney === 'custom') || (interfaceMode === 'teacher' && teacherStep === 'rubric')) && <>
+      <div id={interfaceMode === 'diagnostic' ? 'evaluation-rubric' : undefined} className="workspace-heading diagnostic-setup-heading"><div><p className="eyebrow">{interfaceMode === 'teacher' ? 'ÉTAPE 1 · DEVOIR' : 'JEU D’ESSAI · BARÈME'}</p><h2>{interfaceMode === 'teacher' ? 'Devoir et barème' : 'Préparer le barème de correction'}</h2><p className="workspace-description">Le devoir identifie votre sujet ; le barème décrit comment noter les réponses.</p></div><span className="step-count">{validation.maximumPoints} POINTS AU TOTAL</span></div>
+      <div className={interfaceMode === "teacher" ? "atelier-rubric-grid" : "atelier-rubric-grid is-diagnostic"}>
+      <section className={interfaceMode === "teacher" ? "panel rubric-editor atelier-rubric-editor" : "panel rubric-editor"}>
+        <div className="rubric-assignment-context"><span className="eyebrow">BARÈME ASSOCIÉ AU DEVOIR</span><strong>{assignmentTitle.trim() || 'Devoir sans titre'}</strong><p>Vous pouvez donner au barème un nom différent de celui du devoir.</p></div>
+        <label className="field-label" htmlFor="rubric-title">Nom du barème (distinct du devoir)</label>
+        <input id="rubric-title" value={rubric.title} placeholder="Ex. Barème du contrôle de biologie" onChange={(event) => { setRubric((current) => ({ ...current, title: event.target.value })); setProposal(null); }} />
+        {rubric.criteria.length === 0 && <div className="rubric-empty-state" role="status"><strong>Le barème n’est pas encore défini</strong><p>Importez un barème existant ou ajoutez les critères et leurs points ci-dessous. La correction restera indisponible tant qu’un barème valide n’est pas prêt.</p></div>}
+        <details className="rubric-import rubric-document-import"><summary>Importer un barème depuis un document</summary><div className="rubric-document-import-content">
+          <label className="field-label" htmlFor="rubric-file">Importer un barème existant (PDF, Excel (.xlsx), CSV, TXT, Markdown ou JSON)</label>
+          <FilePicker id="rubric-file" accept=".pdf,.xlsx,.csv,.txt,.md,.json" disabled={rubricFileImporting} onFilesSelected={(files) => { void importRubricFileFromInput(files?.[0]); }} title="Importer un document de barème" description={rubricFileImporting ? "Lecture par l’IA de vision locale en cours…" : "PDF, Excel, CSV, TXT, Markdown ou JSON"} actionLabel={rubricFileImporting ? "Analyse en cours…" : "Parcourir les fichiers"} />
+          <p className="hint">Les PDF sont convertis en images dans le navigateur. Vérifiez les critères, les points et le total après import.</p>
+          <label className="field-label" htmlFor="rubric-image-file">Ou importer une photo / un scan du barème (JPEG, PNG, WebP)</label>
+          <FilePicker id="rubric-image-file" accept="image/jpeg,image/png,image/webp" disabled={rubricImageImporting} onFilesSelected={(files) => { void importRubricImageFromInput(files?.[0]); }} title="Importer une photo ou un scan" description="JPEG, PNG ou WebP · ou PDF multipage" actionLabel={rubricImageImporting ? 'Lecture en cours…' : 'Choisir une image'} compact />
+          <p className="hint">{rubricImageImporting ? 'Lecture du barème en cours…' : 'Les pages sont analysées ensemble et le barème est extrait au format structuré. Vérifiez toujours le résultat avant utilisation.'}</p>
+          {rubricImportEvents.length > 0 && <section className={`rubric-import-progress ${rubricImportProgress?.stage === 'error' ? 'has-error' : ''}`} aria-label="Étapes de l’import du barème" aria-live="polite">
+            <div className="rubric-import-progress-heading"><strong>Import du barème</strong><span>{rubricImportFileName}</span></div>
+            {rubricImageImporting && <button type="button" className="secondary-button" onClick={() => rubricImportAbortController.current?.abort()} aria-label="Arrêter l’import du barème">Arrêter l’import</button>}
+            {(() => {
+              const stage = rubricImportProgress?.stage;
+              const failed = stage === 'error';
+              const readingDone = Boolean(rubricImportVisionResponse) && ['structuring', 'response', 'parsing', 'complete'].includes(stage ?? '');
+              const extractionStarted = ['structuring', 'response', 'parsing', 'complete'].includes(stage ?? '');
+              const extractionDone = stage === 'complete';
+              return <ol className="rubric-import-steps">
+                <li className={`rubric-import-step ${readingDone ? 'is-complete' : !extractionStarted && !failed ? 'is-active' : ''}`}>
+                  <span className="rubric-import-step-number" aria-hidden="true">{readingDone ? '✓' : '1'}</span>
+                  <div className="rubric-import-step-content">
+                    <strong>1. Lecture du document</strong>
+                    <p>{readingDone ? 'Lecture terminée : le texte reconnu est consultable ci-dessous.' : failed && !extractionStarted ? 'La lecture a rencontré une erreur.' : 'Le modèle de vision lit les pages dans leur ordre.'}</p>
+                    {rubricImportProgress && !readingDone && !extractionStarted && <p className="rubric-import-step-status" role="status">{rubricImportProgress.message}</p>}
+                    {rubricImportVisionResponse ? <details className="rubric-import-raw-response">
+                      <summary>Voir le texte lu par le modèle de vision</summary>
+                      <p>Transcription brute de « {visionModel} », avant structuration du barème.</p>
+                      <pre>{rubricImportVisionResponse}</pre>
+                      <button type="button" className="button-secondary" onClick={() => { void navigator.clipboard?.writeText(rubricImportVisionResponse); }}>Copier la transcription</button>
+                    </details> : <p className="rubric-import-step-hint">Le texte reconnu apparaîtra ici dès que la lecture sera disponible.</p>}
+                  </div>
+                </li>
+                <li className={`rubric-import-step ${extractionDone ? 'is-complete' : extractionStarted ? 'is-active' : ''}`}>
+                  <span className="rubric-import-step-number" aria-hidden="true">{extractionDone ? '✓' : '2'}</span>
+                  <div className="rubric-import-step-content">
+                    <strong>2. Extraction du barème</strong>
+                    <p>{extractionDone ? 'Extraction terminée : les critères et les points sont éditables ci-dessous.' : extractionStarted ? 'Le modèle d’analyse structure la transcription en critères, descriptions et points.' : 'Cette étape démarre après la lecture de toutes les pages.'}</p>
+                    {extractionStarted && !extractionDone && rubricImportProgress && <p className="rubric-import-step-status" role="status">{rubricImportProgress.message}</p>}
+                    {rubricImportAnalysisResponse ? <details className="rubric-import-raw-response">
+                      <summary>Voir le JSON brut extrait</summary>
+                      <p>Réponse de « {generativeModel} » avant validation, y compris si le JSON ou certains critères sont invalides.</p>
+                      <pre>{rubricImportAnalysisResponse}</pre>
+                      <button type="button" className="button-secondary" onClick={() => { void navigator.clipboard?.writeText(rubricImportAnalysisResponse); }}>Copier le JSON</button>
+                    </details> : <p className="rubric-import-step-hint">Le JSON extrait apparaîtra ici après l’analyse.</p>}
+                  </div>
+                </li>
+              </ol>;
+            })()}
+            <details className="rubric-import-event-log">
+              <summary>Afficher le journal détaillé de l’import</summary>
+              <ol className="rubric-import-progress-events">{rubricImportEvents.map((event, index) => <li key={`${index}-${event}`}>{event}</li>)}</ol>
+            </details>
+            {rubricImportProgress?.stage === 'complete' && <p className="rubric-import-progress-review">Vérifiez le résultat extrait dans les champs modifiables ci-dessous, puis comparez chaque critère et ses points avec le document original avant de valider le barème.</p>}
+          </section>}
+          {rubricImportMessage && <StatusNotice tone={rubricImportTone}>{rubricImportMessage}</StatusNotice>}
+        </div></details>
+        <ContractPreparationPanel key={activeAssignmentId} assignmentId={activeAssignmentId ?? 'current'} rubric={rubric} service={service} settings={{ endpoint, apiCompatible, apiKey, visionModel, analysisModel: generativeModel, correctionMethod: 'generative' }} disabled={busy || rubricFileImporting || rubricImageImporting} existingDocument={subjectTranscription || rubricImportVisionResponse} onApply={(next) => { setRubric(next); setProposal(null); setReview([]); setScientificDiagramAnalysis(null); }} />
+        <div className="rubric-editor-toolbar"><button type="button" className="primary-button" onClick={addCriterion}>＋ Ajouter un critère</button><span className={validation.valid ? 'validation valid' : 'validation invalid'}>{validation.valid ? '✓ Barème cohérent' : validation.errors.join(' ')}</span></div>
+        {interfaceMode === 'teacher' && <RubricReusePanel assignments={assignmentProfiles} activeAssignmentId={activeAssignmentId} rubric={rubric} onReuse={(criteria) => { setRubric((current) => ({ ...current, criteria: [...current.criteria, ...criteria] })); setProposal(null); setReview([]); setScientificDiagramAnalysis(null); setTeacherAnnotations(''); setExpandedCriterionId(criteria[0]?.id ?? null); }} />}
+        <div className="criteria-list">
+          {rubric.criteria.map((criterion, criterionIndex) => <details className="criterion-editor" key={criterion.id} open={expandedCriterionId === criterion.id}>
+            <summary className="criterion-editor-summary" onClick={(event) => { event.preventDefault(); setExpandedCriterionId((current) => current === criterion.id ? null : criterion.id); }}><span className="atelier-criterion-index" aria-hidden="true">{String(criterionIndex + 1).padStart(2, "0")}</span><span><strong>{criterion.title.trim() || 'Critère sans titre'}</strong><small> · {getRubricSubcriteria(criterion).length} sous-critère(s)</small></span><span>{criterion.maxPoints} pt · {expandedCriterionId === criterion.id ? '⌃' : '⌄'}</span></summary>
+            <div className="criterion-editor-content"><div className="criterion-fields">
+              <label><span className="field-label">Critère</span><input value={criterion.title} onChange={(event) => updateCriterion(criterion.id, { title: event.target.value })} /></label>
+              <label><span className="field-label">Description / attendus</span><textarea rows={2} value={criterion.description} onChange={(event) => updateCriterion(criterion.id, { description: event.target.value })} /></label>
+            </div>
+            <label className="points-field"><span className="field-label">Points max.</span><input type="number" min="0" step="0.5" value={criterion.maxPoints} onChange={(event) => updateCriterion(criterion.id, { maxPoints: Number(event.target.value) })} /></label>
+            <label className="criterion-visual-toggle"><input type="checkbox" checked={partitionScientificRubric({ title: rubric.title, criteria: [criterion] }).diagramCriteria.length > 0} onChange={(event) => updateCriterion(criterion.id, { analysisMode: event.target.checked ? 'scientific-diagram' : 'text', ...(event.target.checked ? { correctionContract: undefined } : {}) })} /><span><strong>Analyse de schéma scientifique</strong><small>Évaluer ce critère sur l’image avec Vision, jamais sur la transcription.</small></span></label>
+            <QuestionContractEditor criterion={criterion} onChange={(patch) => updateCriterion(criterion.id, patch)} />
+            <div className="subcriteria-editor">
+              <strong>Sous-critères (facultatifs)</strong>
+              <SubcriteriaSuggestionPanel criterion={criterion} onApply={(patch) => updateCriterion(criterion.id, patch)} />
+              {getRubricSubcriteria(criterion).map((subcriterion, index) => <div className="criterion-fields" key={subcriterion.id}>
+                <label><span className="field-label">Sous-critère</span><input aria-label={`Sous-critère ${index + 1} — ${criterion.title}`} value={subcriterion.title} onChange={(event) => updateCriterion(criterion.id, { subcriteria: getRubricSubcriteria(criterion).map((item, itemIndex) => itemIndex === index ? { ...item, title: event.target.value } : item), expectedElements: undefined })} /></label>
+                <label><span className="field-label">Précisions (facultatif)</span><input aria-label={`Précisions du sous-critère ${index + 1} — ${criterion.title}`} value={subcriterion.description} onChange={(event) => updateCriterion(criterion.id, { subcriteria: getRubricSubcriteria(criterion).map((item, itemIndex) => itemIndex === index ? { ...item, description: event.target.value } : item), expectedElements: undefined })} /></label>
+                <label className="points-field"><span className="field-label">Points</span><input type="number" min="0" step="0.01" value={subcriterion.maxPoints} onChange={(event) => updateCriterion(criterion.id, { subcriteria: getRubricSubcriteria(criterion).map((item, itemIndex) => itemIndex === index ? { ...item, maxPoints: Number(event.target.value) } : item), expectedElements: undefined })} /></label>
+                <button type="button" className="icon-button" aria-label={`Supprimer le sous-critère ${subcriterion.title || index + 1}`} onClick={() => updateCriterion(criterion.id, { subcriteria: getRubricSubcriteria(criterion).filter((_, itemIndex) => itemIndex !== index), expectedElements: undefined })}>×</button>
+              </div>)}
+              <div className="rubric-actions">
+                <button type="button" className="secondary-button" onClick={() => updateCriterion(criterion.id, { subcriteria: [...getRubricSubcriteria(criterion), { id: crypto.randomUUID(), title: '', description: '', maxPoints: 0 }], expectedElements: undefined })}>+ Ajouter un sous-critère</button>
+                <button type="button" className="secondary-button" disabled={getRubricSubcriteria(criterion).length === 0} onClick={() => { const items = getRubricSubcriteria(criterion); const count = items.length; const unit = count ? Math.floor((criterion.maxPoints / count) * 100) / 100 : 0; updateCriterion(criterion.id, { subcriteria: items.map((item, index) => ({ ...item, maxPoints: index === count - 1 ? Number((criterion.maxPoints - unit * (count - 1)).toFixed(2)) : unit })), expectedElements: undefined }); }}>Répartir également</button>
+              </div>
+              {getRubricSubcriteria(criterion).length > 0 && <p className={Math.abs(getRubricSubcriteria(criterion).reduce((sum, item) => sum + item.maxPoints, 0) - criterion.maxPoints) < 0.0001 ? 'validation valid' : 'validation invalid'}>Total des sous-critères : {getRubricSubcriteria(criterion).reduce((sum, item) => sum + item.maxPoints, 0)} / {criterion.maxPoints} points{Math.abs(getRubricSubcriteria(criterion).reduce((sum, item) => sum + item.maxPoints, 0) - criterion.maxPoints) >= 0.0001 ? ' · Le total doit correspondre au maximum du critère.' : ''}</p>}
+            </div>
+            <button className="icon-button" type="button" aria-label={`Supprimer ${criterion.title}`} onClick={() => setRubric((current) => ({ ...current, criteria: current.criteria.filter((item) => item.id !== criterion.id) }))}>×</button>
+            </div></details>)}
+        </div>
+        {interfaceMode === 'teacher' && <RubricImportPanel rubric={rubric} onImport={(criteria) => { setRubric((current) => ({ ...current, criteria: [...current.criteria, ...criteria] })); setProposal(null); setReview([]); setScientificDiagramAnalysis(null); setTeacherAnnotations(''); }} />}
+        <RubricExportPanel rubric={rubric} />
+        <div className="rubric-actions"><span className={validation.valid ? 'validation valid' : 'validation invalid'}>{validation.valid ? '✓ Barème cohérent' : validation.errors.join(' ')}</span></div>
+      </section>
+      {interfaceMode === 'teacher' && <aside className="atelier-rubric-synthesis" aria-label="Synthèse du barème">
+        <p className="eyebrow">SYNTHÈSE</p>
+        <h3>{validation.valid ? 'Un barème prêt à corriger' : 'Un barème à compléter'}</h3>
+        <dl>
+          <div><dt>Critères définis</dt><dd>{rubric.criteria.length} critère{rubric.criteria.length > 1 ? 's' : ''}</dd></div>
+          <div><dt>Total de points</dt><dd>{validation.maximumPoints.toLocaleString('fr-FR')} points</dd></div>
+          <div><dt>Niveau pédagogique</dt><dd>{assignmentProfiles.find((profile) => profile.id === activeAssignmentId)?.educationLevel || 'Non renseigné'}</dd></div>
+        </dl>
+        <div className={validation.valid ? 'atelier-rubric-synthesis-status is-ready' : 'atelier-rubric-synthesis-status is-incomplete'}>
+          <strong>{validation.valid ? '✓ Barème cohérent' : 'À vérifier avant la correction'}</strong>
+          <span>{validation.valid ? 'Les critères et leurs points sont définis.' : 'Complétez les critères et vérifiez leurs points.'}</span>
+        </div>
+        <div className="atelier-rubric-reuse-hint">
+          <strong>Gagnez du temps</strong>
+          <p>Vous pouvez reprendre des critères d’un autre devoir et les adapter librement.</p>
+          <button type="button" className="text-button" onClick={() => {
+            const panel = document.querySelector<HTMLDetailsElement>('.rubric-reuse-panel');
+            if (!panel) return;
+            panel.open = true;
+            panel.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            panel.querySelector('summary')?.focus();
+          }}>Voir les critères disponibles →</button>
+        </div>
+      </aside>}
+      </div>
+
+      {interfaceMode === 'teacher' && <div className="teacher-step-footer"><span>Le devoir est prêt ? Ajoutez les copies à corriger.</span><button type="button" className="primary-button" disabled={!validation.valid} onClick={() => setTeacherStep('overview')}>Continuer vers les copies <span aria-hidden="true">→</span></button></div>}
+      </>}
+
+      {((interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration' && evaluationStageMode !== 'analysis' && evaluationJourney === 'custom') || (interfaceMode === 'teacher' && teacherStep === 'copy')) && <>
+      <div id={interfaceMode === 'diagnostic' ? 'evaluation-copy' : undefined} className="workspace-heading"><div><p className="eyebrow">{interfaceMode === 'teacher' ? 'ÉTAPE 2 SUR 3' : 'JEU D’ESSAI · COPIE'}</p><h2>{interfaceMode === 'teacher' && correctionSessionMode === 'series' ? 'Copies du devoir' : 'Ajouter une copie'}</h2></div><span className="step-count">{interfaceMode === 'teacher' && correctionSessionMode === 'series' ? `${backgroundJobs.filter((job) => job.assignmentId === activeAssignmentId && job.status !== 'completed').length} COPIE(S) À TRAITER` : `${images.length} PAGE(S) · ${transcription ? 'LECTURE DISPONIBLE' : 'À LIRE'}`}</span></div>
+      {interfaceMode === 'teacher' && <section className="correction-session-mode" aria-label="Choisir le mode de correction">
+        <div className="correction-session-mode-heading"><p className="eyebrow">VOTRE ORGANISATION</p><h3>Comment souhaitez-vous corriger ?</h3><p>Vous pourrez changer de mode à tout moment. Le barème et les réglages du devoir restent les mêmes.</p></div>
+        <div className="correction-session-mode-options" role="group" aria-label="Mode de correction">
+          <button type="button" className={correctionSessionMode === 'individual' ? 'correction-session-mode-option is-selected' : 'correction-session-mode-option'} aria-pressed={correctionSessionMode === 'individual'} onClick={() => setCorrectionSessionMode('individual')}>
+            <span className="correction-session-mode-icon" aria-hidden="true">1</span><span><strong>Correction individuelle</strong><small>Une copie à la fois. Vous l’ajoutez, lancez sa correction et passez à la suivante quand vous le souhaitez.</small></span><span className="correction-session-mode-check" aria-hidden="true">{correctionSessionMode === 'individual' ? '✓' : ''}</span>
+          </button>
+          <button type="button" className={correctionSessionMode === 'series' ? 'correction-session-mode-option is-selected' : 'correction-session-mode-option'} aria-pressed={correctionSessionMode === 'series'} onClick={() => { setBackgroundCopyLabel(''); setCorrectionSessionMode('series'); }}>
+            <span className="correction-session-mode-icon" aria-hidden="true">≡</span><span><strong>Corriger plusieurs copies</strong><small>Ajoutez plusieurs copies : elles seront corrigées l’une après l’autre. Vous pourrez suivre leur avancement ici.</small></span><span className="correction-session-mode-check" aria-hidden="true">{correctionSessionMode === 'series' ? '✓' : ''}</span>
+          </button>
+        </div>
+      </section>}
+      {interfaceMode === 'teacher' && correctionSessionMode === 'series' && <section className="panel correction-series-workspace" aria-label="Copies du devoir">
+        <div className="correction-series-heading"><div><p className="eyebrow">SESSION DU DEVOIR</p><h3>{assignmentTitle.trim() || 'Devoir sans titre'}</h3><p>Ajoutez les copies de plusieurs étudiants. Chaque fichier est une copie distincte ; les pages d’un même PDF restent regroupées.</p></div><span className="correction-series-order">Correction des copies</span></div>
+        {(processingCopy || isStartingSeriesCorrections) && <div className="correction-series-current-stop"><span>{processingCopy ? 'En cours : ' + processingCopy.label : 'Préparation de la première copie…'}</span><button type="button" className="context-stop-button" onClick={() => { void stopCurrentOperations(); }} disabled={isStoppingOperation}>{isStoppingOperation ? 'Arrêt en cours…' : 'Arrêter les corrections'}</button></div>}
+        <div className="correction-series-metrics" aria-label="Bilan de la session">
+          <article><strong>{backgroundJobs.filter((job) => job.assignmentId === activeAssignmentId && job.status === 'completed').length}</strong><span>Terminées</span></article>
+          <article><strong>{backgroundJobs.filter((job) => job.assignmentId === activeAssignmentId && (job.status === 'processing' || job.status === 'reviewing')).length}</strong><span>Correction en cours</span></article>
+          <article><strong>{backgroundJobs.filter((job) => job.assignmentId === activeAssignmentId && job.status === 'pending').length}</strong><span>À corriger</span></article>
+          <article><strong>{backgroundJobs.filter((job) => job.assignmentId === activeAssignmentId && (job.status === 'needs-review' || job.status === 'failed')).length}</strong><span>À vérifier</span></article>
+        </div>
+        <div className="correction-series-grouping" role="group" aria-label="Organisation des fichiers en copies">
+          <label className={seriesGroupingMode === 'each-file' ? 'correction-series-grouping-option is-selected' : 'correction-series-grouping-option'}>
+            <input type="radio" name="series-grouping-mode" value="each-file" checked={seriesGroupingMode === 'each-file'} onChange={() => setSeriesGroupingMode('each-file')} />
+            <span><strong>Un fichier = une copie</strong><small>Chaque image ou PDF sélectionné crée une copie indépendante.</small></span>
+          </label>
+          <label className={seriesGroupingMode === 'group-files' ? 'correction-series-grouping-option is-selected' : 'correction-series-grouping-option'}>
+            <input type="radio" name="series-grouping-mode" value="group-files" checked={seriesGroupingMode === 'group-files'} onChange={() => setSeriesGroupingMode('group-files')} />
+            <span><strong>Regrouper les fichiers dans une copie</strong><small>Sélectionnez plusieurs photos ou fichiers : ils deviennent les pages d’un même étudiant.</small></span>
+          </label>
+        </div>
+        <div className="correction-series-import">
+          <div><strong>{seriesGroupingMode === 'group-files' ? 'Ajouter les pages d’une copie' : 'Ajouter des copies à la session'}</strong><p>{seriesGroupingMode === 'group-files' ? 'Chaque sélection constitue une nouvelle copie. Vous pourrez recommencer pour ajouter l’étudiant suivant.' : 'Sélectionnez un ou plusieurs fichiers ; chacun constituera une copie distincte.'} Formats acceptés : JPG, PNG, WebP et PDF.</p></div>
+          <FilePicker key={seriesPickerVersion} id="series-copy-files" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" multiple disabled={isPreparingSeriesCopies} onFilesSelected={(files) => { void enqueueBackgroundCopy(files); }} title={seriesGroupingMode === 'group-files' ? 'Sélectionner les pages de cette copie' : 'Sélectionner les copies'} description={seriesGroupingMode === 'group-files' ? 'Tous les fichiers sélectionnés seront regroupés dans une seule copie.' : 'Un fichier sélectionné correspond à une copie ; les PDF multipages restent groupés.'} actionLabel={isPreparingSeriesCopies ? 'Préparation…' : seriesGroupingMode === 'group-files' ? 'Ajouter cette copie' : 'Ajouter les copies'} />
+        </div>
+        <label className="analysis-thinking-option copy-annotation-option correction-series-auto" htmlFor="auto-rotate-series-diagrams"><input id="auto-rotate-series-diagrams" type="checkbox" checked={autoRotateScientificDiagrams} onChange={(event) => { setAutoRotateScientificDiagrams(event.target.checked); try { window.localStorage.setItem('companion-correcteur:auto-rotate-diagrams:v1', String(event.target.checked)); } catch { setReviewMessage('Le réglage de rotation automatique ne peut pas être conservé dans le stockage local.'); } }} /><span><strong>Rotation automatique des schémas</strong><small>Désactivée par défaut. Les pages identifiées avec une forte confiance sont tournées puis contrôlées une seconde fois avant leur correction.</small></span></label>
+        <label className="analysis-thinking-option copy-annotation-option correction-series-auto"><input type="checkbox" checked={backgroundCopyDetectTeacherAnnotations} onChange={(event) => setBackgroundCopyDetectTeacherAnnotations(event.target.checked)} /><span><strong>Les copies contiennent des annotations du professeur</strong><small>Appliquez cette consigne à toutes les copies ajoutées lors de cette sélection.</small></span></label>
+        <label className="analysis-thinking-option copy-annotation-option correction-series-auto"><input type="checkbox" checked={autoBackgroundCorrection} onChange={(event) => { const enabled = event.target.checked; setAutoBackgroundCorrection(enabled); try { window.localStorage.setItem('companion-correcteur:auto-background-correction:v1', String(enabled)); } catch { /* Keep the current session preference if storage is unavailable. */ } void backgroundService.setAutomatic(enabled, { endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, correctionMethod, autoBackgroundCorrection: enabled, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty }, activeAssignmentId); }} /><span><strong>Démarrer automatiquement la correction</strong><small>Les copies sont traitées une par une pendant que vous consultez les résultats déjà prêts.</small></span></label>
+        {isPreparingSeriesCopies && <p className="correction-series-feedback" role="status">Préparation des fichiers et constitution des copies…</p>}
+        {!autoBackgroundCorrection && backgroundJobs.some((job) => job.status === 'pending') && <div className="correction-series-launch">
+          <p><strong>{backgroundJobs.filter((job) => job.status === 'pending').length} copie(s) en attente.</strong> Les copies seront corrigées l’une après l’autre. Vous pourrez suivre leur avancement ici.</p>
+          <button type="button" className="primary-button" disabled={isStartingSeriesCorrections || backgroundJobs.some((job) => job.status === 'processing')} onClick={() => { void startSeriesCorrections(); }}>{isStartingSeriesCorrections ? 'Démarrage des corrections…' : `Démarrer les corrections (${backgroundJobs.filter((job) => job.status === 'pending').length})`}</button>
+        </div>}
+        {backgroundJobs.length > 0 && (() => {
+          const availableCount = backgroundJobs.filter((job) => ['ready', 'reviewing', 'completed'].includes(job.status)).length;
+          const processingCount = backgroundJobs.filter((job) => job.status === 'processing').length;
+          const pendingCount = backgroundJobs.filter((job) => job.status === 'pending').length;
+          const reviewCount = backgroundJobs.filter((job) => job.status === 'needs-review').length;
+          const failedCount = backgroundJobs.filter((job) => job.status === 'failed').length;
+          const progressPercent = Math.round((availableCount / backgroundJobs.length) * 100);
+          return <section className="correction-series-overview" aria-label="Avancement des corrections">
+            <div className="correction-series-overview-heading"><div><span className="eyebrow">AVANCEMENT DES CORRECTIONS</span><strong>{availableCount} / {backgroundJobs.length} copies prêtes</strong></div><span>{progressPercent} %</span></div>
+            <div className="correction-series-progress-track" role="progressbar" aria-label="Copies dont la correction est disponible" aria-valuemin={0} aria-valuemax={backgroundJobs.length} aria-valuenow={availableCount}><span style={{ width: progressPercent + '%' }} /></div>
+            <div className="correction-series-overview-metrics">
+              <article><strong>{availableCount}</strong><span>Copies prêtes</span></article>
+              <article><strong>{processingCount}</strong><span>En cours</span></article>
+              <article><strong>{pendingCount}</strong><span>En attente</span></article>
+              <article className={reviewCount > 0 ? 'has-attention' : ''}><strong>{reviewCount}</strong><span>À vérifier</span></article>
+              <article className={failedCount > 0 ? 'has-failure' : ''}><strong>{failedCount}</strong><span>À corriger</span></article>
+            </div>
+          </section>;
+        })()}
+        <div className="correction-series-list-heading"><div><h4>Copies à corriger</h4><p>Vérifiez les pages et leur ordre avant de lancer les corrections.</p></div><span>{backgroundJobs.length} copie(s)</span></div>
+        {backgroundJobs.length === 0 ? <p className="correction-series-empty">Aucune copie dans la session. Ajoutez les pages de la première copie ci-dessus.</p> : <ol className="correction-series-list">{backgroundJobs.map((job, index) => { const result = getBackgroundCorrectionResult(job); const hasProvisionalScore = job.partialCriteria.length > 0; const provisionalScore = job.partialCriteria.reduce((sum, criterion) => sum + criterion.points, 0); const provisionalMax = job.rubric.criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0); const canOpenCorrection = ['ready', 'needs-review', 'failed', 'reviewing'].includes(job.status); const statusLabel = job.status === 'completed' ? 'Correction terminée' : job.status === 'processing' ? (job.phase === 'reading' ? 'Lecture de la copie' : job.phase === 'preparation' ? 'Préparation de la copie' : 'Correction en cours') : job.status === 'pending' ? 'À corriger' : job.status === 'failed' ? 'Correction à corriger' : job.status === 'needs-review' ? 'À vérifier' : 'Prête à consulter'; return <li key={job.id} className={['correction-series-card', `is-${job.status}`].join(' ')} aria-current={job.status === 'processing' ? 'step' : undefined}>
+          <div className="correction-series-card-heading"><span className="queue-position">{index + 1}</span><div className="correction-series-copy"><strong title={job.label}>{job.label}</strong><small>{job.images.length} page(s)</small></div></div>
+          <div className="correction-series-card-score">
+            {result ? <><span className="correction-series-card-score-label">Note proposée</span><strong aria-label={`Note ${result.score}/${result.maxScore}`}>{result.score.toLocaleString('fr-FR')}<span> / {result.maxScore.toLocaleString('fr-FR')}</span></strong></> : hasProvisionalScore ? <><span className="correction-series-card-score-label">Note provisoire</span><strong>{provisionalScore.toLocaleString('fr-FR')}<span> / {provisionalMax.toLocaleString('fr-FR')}</span></strong></> : <><span className="correction-series-card-score-label">{job.status === 'failed' ? 'Note indisponible' : job.status === 'processing' ? 'Évaluation en cours' : 'Note à venir'}</span><strong className="is-pending">{job.status === 'failed' ? '—' : job.status === 'processing' ? `${job.completedCriteria}/${job.totalCriteria}` : '—'}</strong></>}
+          </div>
+          <div className="correction-series-card-footer">
+            <span className={`correction-series-card-status is-${job.status}`}>{statusLabel}</span>
+            <div className="correction-series-actions">
+              {canOpenCorrection && <button type="button" className="secondary-button correction-series-view" disabled={isAnalyzing} onClick={() => { void loadNextQueuedCopy(job.id); }}>Consulter la correction</button>}
+              {['pending', 'processing'].includes(job.status) && <button type="button" className="secondary-button correction-series-view" onClick={() => { void toggleSeriesPreview(job.id); }}>{selectedSeriesPreviewId === job.id ? 'Masquer la copie' : 'Voir la copie'}</button>}
+              {['needs-review', 'failed'].includes(job.status) && <button type="button" className="text-button" disabled={isAnalyzing} onClick={() => { void backgroundService.retry(job.id, { endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, correctionMethod, autoBackgroundCorrection, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty }); }}>Corriger</button>}
+              {job.status !== 'processing' && job.status !== 'completed' && <button type="button" className="text-button correction-series-remove" onClick={() => requestRemoveSeriesCopy(job)}>Supprimer</button>}
+            </div>
+          </div>
+        </li>; })}</ol>}
+        {selectedSeriesPreviewId && (() => { const selectedCopy = selectedSeriesPreviewJob?.id === selectedSeriesPreviewId && selectedSeriesPreviewJob.assignmentId === activeAssignmentId ? selectedSeriesPreviewJob : null; return selectedCopy ? <section className="correction-series-preview-panel" aria-label={`Aperçu de ${selectedCopy.label}`}>
+          <div className="correction-series-preview-heading"><div><h4>{selectedCopy.label}</h4><p>{selectedCopy.images.length} page(s) · Vous pouvez vérifier l’ordre et l’orientation des pages.</p></div><button type="button" className="text-button" onClick={() => { void toggleSeriesPreview(selectedCopy.id); }}>Fermer</button></div>
+          <div className="correction-series-pages" aria-label={`Pages de ${selectedCopy.label}`}>{selectedCopy.images.map((page, pageIndex) => <figure key={`${selectedCopy.id}-page-${pageIndex}`}><button type="button" className="copy-page-preview-trigger" aria-label={`Agrandir la page ${pageIndex + 1} de ${selectedCopy.label}`} onClick={() => { void openQueuedCopyViewer(selectedCopy.id, pageIndex); }}><img src={`data:${page.mimeType};base64,${page.base64}`} alt={`Page ${pageIndex + 1} de ${selectedCopy.label}`} loading="lazy" /><span aria-hidden="true">Agrandir ↗</span></button><figcaption>Page {pageIndex + 1}{selectedCopy.rotationAngles?.[pageIndex] ? ` · tournée de ${selectedCopy.rotationAngles[pageIndex]}°` : ''}{page.fileName ? ` · ${page.fileName}` : ''}</figcaption><div className="copy-image-rotation-controls"><button type="button" className="text-button" aria-label={`Tourner la page ${pageIndex + 1} de ${selectedCopy.label} à gauche de 90 degrés`} disabled={isPreparingSeriesCopies || rotatingQueuedPage !== null} onClick={() => { void rotateQueuedCopyPage(selectedCopy, pageIndex, 270); }}>↶ 90°</button><button type="button" className="text-button" aria-label={`Tourner la page ${pageIndex + 1} de ${selectedCopy.label} à droite de 90 degrés`} disabled={isPreparingSeriesCopies || rotatingQueuedPage !== null} onClick={() => { void rotateQueuedCopyPage(selectedCopy, pageIndex, 90); }}>↷ 90°</button></div></figure>)}</div>
+        </section> : null; })()}
+      </section>}
+      {(interfaceMode !== 'teacher' || correctionSessionMode === 'individual') && <>
+      <details className="copy-advanced-options"><summary>Options avancées <span>Format des questions, sujet et annotations</span></summary>
+      <section className="panel correction-mode-panel" aria-labelledby="correction-mode-title">
+        <div className="panel-heading">{interfaceMode === 'diagnostic' && <span className="number">02</span>}<div><h3 id="correction-mode-title">Où se trouvent les questions ?</h3><p>Choisissez le format utilisé pour ce devoir. Vous pourrez corriger les copies une par une.</p></div></div>
+        <div className="correction-mode-options" role="group" aria-label="Mode de correction">
+          <label className={correctionMode === 'integrated' ? 'correction-mode-option selected' : 'correction-mode-option'}><input type="radio" name="correction-mode" value="integrated" checked={correctionMode === 'integrated'} onChange={() => { setCorrectionMode('integrated'); setSubjectTranscription(null); }} /><span><strong>Questions intégrées à la copie</strong><small>Les questions et les réponses sont sur les mêmes feuilles.</small></span></label>
+          <label className={correctionMode === 'separate' ? 'correction-mode-option selected' : 'correction-mode-option'}><input type="radio" name="correction-mode" value="separate" checked={correctionMode === 'separate'} onChange={() => { setCorrectionMode('separate'); setProposal(null); setReview([]); }} /><span><strong>Sujet fourni séparément</strong><small>Le sujet de référence est distinct des pages de réponses manuscrites.</small></span></label>
+        </div>
+      </section>
+      {correctionMode === 'separate' && <section className={`panel subject-panel ${subjectReady ? 'setup-complete' : 'setup-needed'}`}>
+        <div className="panel-heading">{interfaceMode === 'diagnostic' && <span className="number">A</span>}<div><h3>Sujet de référence</h3><p>Importez les questions et leurs éventuels schémas une seule fois pour ce devoir.</p></div></div>
+        <label className="upload-placeholder" htmlFor="subject-files"><span className="upload-icon">↑</span><strong>Choisir les pages du sujet</strong><p>JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier</p><span className="primary-button">Importer le sujet</span></label>
+        <FilePicker id="subject-files" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" multiple onFilesSelected={(files) => { void importSubjectFiles(files); }} title="Déposer les pages du sujet ici" description="JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier" actionLabel="Parcourir les fichiers" />
+        {subjectImages.length > 0 && <div className="file-list"><strong>{subjectImages.length} page(s) de sujet prête(s)</strong>{subjectImages.map((image, index) => <div className="file-row" key={`${image.fileName}-${index}`}><span>{image.fileName || `Page ${index + 1}`}</span><button type="button" className="text-button" onClick={() => { setSubjectImages((current) => current.filter((_, imageIndex) => imageIndex !== index)); setSubjectTranscription(null); }}>Retirer</button></div>)}<button type="button" className="text-button" onClick={() => { setSubjectImages([]); setSubjectTranscription(null); }}>Retirer toutes les pages du sujet</button></div>}
+        {subjectTranscription && <p className="validation valid" role="status">Sujet prêt à être réutilisé pour les copies suivantes de ce devoir.</p>}
+      </section>}
+      </details>
+      <section className="setup-grid">
+        <article className={`panel copy-panel ${images.length ? 'setup-complete' : 'setup-needed'}`}>
+          <div className="panel-heading">{interfaceMode === 'diagnostic' && <span className="number">03</span>}<div><h3>Copie de l’étudiant</h3><p>Importez les pages d’un seul étudiant à la fois.</p></div></div>
+          {interfaceMode === 'teacher' && <p className="hint student-identity-import-hint">Le nom sera recherché automatiquement dans l’en-tête de la copie après son import. Vous pourrez le vérifier et le corriger au moment de la vérification.</p>}
+          <label className="upload-placeholder" htmlFor="copy-files"><span className="upload-icon">↑</span><strong>Choisir les pages de la copie</strong><p>JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier</p><span className="primary-button">Sélectionner les pages</span><span className="upload-note">Sélectionnez uniquement les pages d’un même étudiant. Les PDF sont convertis en images dans ce navigateur (10 pages max).</span></label>
+          <FilePicker id="copy-files" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" multiple onFilesSelected={(files) => { void importFiles(files); }} title="Déposer les pages de la copie ici" description="JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier" actionLabel="Choisir les fichiers" />
+          {interfaceMode !== 'teacher' && <label className="analysis-thinking-option copy-annotation-option"><input type="checkbox" checked={autoBackgroundCorrection} onChange={(event) => { const enabled = event.target.checked; setAutoBackgroundCorrection(enabled); try { window.localStorage.setItem('companion-correcteur:auto-background-correction:v1', String(enabled)); } catch { /* Keep the current session preference if storage is unavailable. */ } void backgroundService.setAutomatic(enabled, { endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, correctionMethod, autoBackgroundCorrection: enabled, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty }, activeAssignmentId); }} /><span><strong>Démarrer automatiquement la correction des copies ajoutées</strong><small>Activé par défaut. Les copies sont corrigées l’une après l’autre. Vous gardez la main pour vérifier chaque proposition.</small></span></label>}
+          {images.length > 0 && <div className="file-list"><strong>{images.length} page(s) prête(s) à analyser</strong>
+             {interfaceMode === 'teacher' && <details className="copy-advanced-options copy-annotation-details"><summary>Annotations du professeur</summary><label className="analysis-thinking-option copy-annotation-option" htmlFor="copy-has-teacher-annotations"><input id="copy-has-teacher-annotations" type="checkbox" checked={detectTeacherAnnotations} onChange={(event) => setDetectTeacherAnnotations(event.target.checked)} /><span><strong>Cette copie contient déjà des annotations du professeur</strong><small>À activer uniquement pour cette copie si elle comporte des remarques, corrections, coches ou notes déjà inscrites. Leur détection reste locale et les points existants ne sont jamais additionnés automatiquement.</small></span></label></details>}{interfaceMode === 'teacher' && <details className="copy-advanced-options copy-annotation-details"><summary>Couleur des annotations</summary><div className="annotation-ink-color-control"><label className="field-label">Couleur des annotations du professeur</label><AnnotationInkColorPicker image={originalImages[0] ?? images[0]} preview={annotationInkColorPreview} selectedColor={annotationInkColor} onColorPick={(color) => { if (annotationInkColorApplied && annotationInkColor !== 'none') { setImages(originalImages); setManualRotationAngles({}); setPageClassifications(null); setScientificDiagramAnalysis(null); } setAnnotationInkColor(color); setAnnotationInkColorApplied(color === 'none'); setAnnotationInkColorPreview(null); if (color !== 'none') setDetectTeacherAnnotations(true); }} /><p className="hint">Le retrait est effectué dans le navigateur, sur la copie de travail uniquement. Les originaux restent conservés. Attention : tous les pixels de cette couleur sont concernés, y compris une éventuelle écriture de l’étudiant dans la même couleur. Vérifiez l’aperçu avant validation.</p>{annotationInkColor !== 'none' && !annotationInkColorApplied && <div className="annotation-ink-preview-actions"><button type="button" className="secondary-button" disabled={annotationInkColorBusy || !images.length} onClick={async () => { setAnnotationInkColorBusy(true); setError(''); try { const preview = await service.eraseTeacherAnnotationColor(images[0], annotationInkColor); setAnnotationInkColorPreview(preview); } catch (cause) { setError(cause instanceof Error ? cause.message : 'La prévisualisation du retrait des annotations a échoué.'); } finally { setAnnotationInkColorBusy(false); } }}>{annotationInkColorBusy ? 'Préparation…' : 'Prévisualiser le retrait'}</button>{annotationInkColorPreview && <><button type="button" className="primary-button" disabled={annotationInkColorBusy} onClick={async () => { setAnnotationInkColorBusy(true); try { const cleaned = await Promise.all(images.map((image) => service.eraseTeacherAnnotationColor(image, annotationInkColor))); setImages(cleaned); setAnnotationInkColorApplied(true); setAnnotationInkColorPreview(null); setTranscription(null); setPageClassifications(null); setScientificDiagramAnalysis(null); setProposal(null); setReview([]); setReviewMessage('Couleur des annotations retirée localement sur toutes les pages de la copie.'); } catch (cause) { setError(cause instanceof Error ? cause.message : 'Le retrait des annotations a échoué.'); } finally { setAnnotationInkColorBusy(false); } }}>Appliquer à toutes les pages</button></>}</div>}</div></details>}{interfaceMode === 'teacher' && <label className="analysis-thinking-option copy-annotation-option" htmlFor="auto-rotate-scientific-diagrams"><input id="auto-rotate-scientific-diagrams" type="checkbox" checked={autoRotateScientificDiagrams} onChange={(event) => { setAutoRotateScientificDiagrams(event.target.checked); try { window.localStorage.setItem('companion-correcteur:auto-rotate-diagrams:v1', String(event.target.checked)); } catch { setReviewMessage('Le réglage de rotation automatique ne peut pas être conservé dans le stockage local.'); } }} /><span><strong>Rotation automatique des schémas</strong><small>Désactivée par défaut. Lorsqu’elle est activée, chaque rotation est vérifiée par une seconde analyse d’orientation avant application ; sinon, une suggestion avant/après est proposée.</small></span></label>}{images.map((image, index) => <div className="file-row copy-image-row" key={`${image.fileName}-${index}`}><button type="button" className="copy-image-row-preview copy-image-preview-trigger" onClick={() => { setCopyViewerPage(index); }} aria-label={`Agrandir la page ${index + 1}`}><img src={`data:${image.mimeType};base64,${image.base64}`} alt={`Aperçu de la page ${index + 1}`} /><span>{image.fileName || `Page ${index + 1}`} · Agrandir</span></button>{originalImages[index] && originalImages[index].base64 !== image.base64 && <details className="original-image-details"><summary>Voir l’image originale non modifiée</summary><ZoomableImage src={`data:${originalImages[index].mimeType};base64,${originalImages[index].base64}`} alt={`Image originale non modifiée de la page ${index + 1}`} /></details>}{rotationSuggestions[index] && <div className="copy-rotation-suggestion" role="group" aria-label={`Suggestion de rotation pour la page ${index + 1}`}><strong>La page {index + 1} semble tournée de {rotationSuggestions[index].degrees}°</strong><div className="copy-rotation-suggestion-previews"><figure><ZoomableImage src={`data:${(originalImages[index] ?? image).mimeType};base64,${(originalImages[index] ?? image).base64}`} alt={`Page ${index + 1} avant rotation`} /><figcaption>Avant</figcaption></figure><figure><ZoomableImage src={`data:${rotationSuggestions[index].preview.mimeType};base64,${rotationSuggestions[index].preview.base64}`} alt={`Page ${index + 1} après rotation proposée`} /><figcaption>Après</figcaption></figure></div><div><button type="button" className="secondary-button" onClick={() => { void rotateCopyPage(index, rotationSuggestions[index].degrees); }}>Appliquer</button><button type="button" className="text-button" onClick={() => setRotationSuggestions((current) => { const next = { ...current }; delete next[index]; return next; })}>Ignorer</button></div></div>}<div className="copy-image-rotation-controls"><button type="button" className="text-button" aria-label={`Tourner la page ${index + 1} à gauche de 90 degrés`} disabled={isAnalyzing} onClick={() => { void rotateCopyPage(index, 270); }}>↶ 90°</button><button type="button" className="text-button" aria-label={`Tourner la page ${index + 1} à droite de 90 degrés`} disabled={isAnalyzing} onClick={() => { void rotateCopyPage(index, 90); }}>↷ 90°</button><button type="button" className="text-button" onClick={() => removeCopyPage(index)}>Retirer</button></div></div>)}<p className="copy-image-original-note">Les rotations s’appliquent uniquement à la copie de travail. Les images originales non modifiées sont conservées localement avec la correction.</p>{interfaceMode !== 'teacher' && <div className="copy-queue-actions"><button type="button" className="secondary-button" onClick={queueCurrentCopy} disabled={!images.length || Boolean(proposal) || isAnalyzing}>Mettre cette copie en file d’attente</button><button type="button" className="text-button" onClick={() => startNextCopy()}>Effacer cette copie</button></div>}</div>}
+          {(interfaceMode !== 'teacher' || correctionSessionMode === 'series') && backgroundJobs.some((job) => job.assignmentId === activeAssignmentId && job.status !== 'completed') && <section className="copy-queue" aria-label="Copies à suivre"><div className="copy-queue-heading"><div><span className="eyebrow">COPIES À SUIVRE</span><h4>{backgroundJobs.filter((job) => job.status === 'ready' || (job.status === 'reviewing' && job.completedCriteria === job.totalCriteria)).length} copie(s) prête(s) à vérifier · {backgroundJobs.filter((job) => job.status === 'pending' || job.status === 'processing').length} en attente ou en cours · {backgroundJobs.filter((job) => job.status === 'needs-review' || job.status === 'failed' || (job.status === 'reviewing' && job.completedCriteria < job.totalCriteria)).length} à reprendre</h4></div>{currentBackgroundJobId ? <button type="button" className="primary-button" onClick={() => { void finalizeReview(true); }} disabled={isAnalyzing || !proposal || !copyNavigation.nextCopyToReview}>Valider et passer à la copie suivante</button> : <button type="button" className="primary-button" onClick={() => { void loadNextQueuedCopy(); }} disabled={isAnalyzing || !copyNavigation.nextCopyToReview}>Ouvrir une copie prête</button>}</div>{!autoBackgroundCorrection && backgroundJobs.some((job) => job.status === 'pending') && <button type="button" className="secondary-button" onClick={() => { void backgroundService.processPending({ endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, correctionMethod, autoBackgroundCorrection: false, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty }, activeAssignmentId); }}>Corriger les copies en attente</button>}<ol>{backgroundJobs.filter((job) => job.assignmentId === activeAssignmentId).map((job, index) => <li key={job.id} className={job.id === currentBackgroundJobId ? 'is-current-review' : undefined} aria-current={job.id === currentBackgroundJobId ? 'step' : undefined}><span className="queue-position">{index + 1}</span><span className="queue-copy-label"><strong>{job.label}</strong><small>{job.id === currentBackgroundJobId ? 'En cours de vérification · ' : ''}{job.images.length} page(s) · {backgroundCorrectionStatusLabel(job.status)}{job.status === 'processing' ? ` · ${job.phase === 'preparation' ? 'Préparation' : job.phase === 'reading' ? `Lecture ${job.completedPages}/${job.images.length}` : `Correction ${job.completedCriteria}/${job.totalCriteria}`}` : ''}</small>{job.error && <small role="status">{job.error}</small>}</span>{(['needs-review', 'failed'].includes(job.status) || (job.status === 'reviewing' && job.completedCriteria < job.totalCriteria && job.id !== currentBackgroundJobId)) && <><button type="button" className="text-button" disabled={isAnalyzing} onClick={() => { void loadNextQueuedCopy(job.id); }}>Ouvrir</button><button type="button" className="text-button" disabled={isAnalyzing} onClick={() => { void backgroundService.retry(job.id, { endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, correctionMethod, autoBackgroundCorrection, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty }); }}>Corriger</button></>}</li>)}</ol></section>}
+        </article>
+
+      </section>
+
+
+      </>}
+      </>}
+      {interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration' && evaluationJourney === 'custom' && <section className="evaluation-launch-panel" aria-label="Lancer l’expérience">
+        <div className="evaluation-launch-intro"><p className="eyebrow">PRÊT POUR L’EXPÉRIENCE ?</p><h2>Lancer l’évaluation</h2><p>{!validation.valid ? 'Vérifiez le barème pour continuer.' : !selectedEvaluationProfileIds.length ? 'Sélectionnez au moins une configuration.' : evaluationStageMode !== 'analysis' && !images.length ? 'Ajoutez les pages de la copie à évaluer.' : evaluationStageMode === 'analysis' && !transcription?.trim() ? 'Renseignez la transcription de référence.' : 'Votre jeu d’essai est prêt. Les configurations seront évaluées l’une après l’autre.'}</p></div>
+        <div className="evaluation-run-actions evaluation-config-launch"><div><strong>{selectedEvaluationProfileIds.length} configuration(s) sélectionnée(s)</strong><p>Le lancement passera à l’espace Exécution pour afficher la progression en direct.</p></div><button type="button" className="primary-button" disabled={busy || selectedEvaluationProfileIds.length < 1 || (evaluationStageMode === 'analysis' ? !transcription?.trim() : !images.length) || !validation.valid} onClick={() => { setEvaluationWorkspaceStep('execution'); void startModelEvaluation(); }}>{busy ? 'Évaluation locale en cours…' : evaluationStageMode === 'vision' ? (selectedEvaluationProfileIds.length > 1 ? 'Comparer les modèles Vision' : 'Évaluer le modèle Vision') : evaluationStageMode === 'analysis' ? (selectedEvaluationProfileIds.length > 1 ? 'Comparer les modèles d’analyse' : 'Évaluer le modèle d’analyse') : (selectedEvaluationProfileIds.length > 1 ? 'Comparer les configurations' : 'Évaluer cette configuration')}</button></div>
+      </section>}
+      {interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'dashboard' &&
+        <EvaluationRadarHome entries={dashboardEntries} history={biologyRadarHistory} profiles={aiModelProfiles}
+          model={dashboardModel} choose={selectDashboardModel} busy={busy || pilotBusy || radarAutoBusy}
+          manage={() => setManagingEvaluationProfiles(true)} details={(domain, model) => { selectDashboardModel(model); openCandidateRadar(domain); }}
+          campaigns={(domain, model, ids) => showCampaigns({ domain, model, ids })}
+          runScience={runRadarPlan} runBiology={evaluateBiologyModel}
+          runScienceBatch={runRemainingScientificMethods} runBiologyBatch={runRemainingBiologyMethods}
+          initialLab={methodBatchReturnLab} />}
+      {interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'campaigns' &&
+        <EvaluationCampaigns key={JSON.stringify(campaignFilter)} filter={campaignFilter}
+          diagrams={dashboardEntries} biology={biologyRadarHistory} records={savedModelEvaluations}
+          onDiagram={id => { setReportId(id); setEvaluationJourney('diagrams'); setDiagramLabView('history'); setEvaluationWorkspaceStep('configuration'); }}
+          onCustom={id => { setEvaluationJourney('custom'); const record = savedModelEvaluations.find(item => item.id === id); if (record) { openModelEvaluationHistoryRecord(record); return; } setSelectedEvaluationHistoryIds([]); setEvaluationHistoryStageFilter('all'); setEvaluationWorkspaceStep('history'); }} />}
+      {interfaceMode === 'diagnostic' && ['dashboard','campaigns'].includes(evaluationWorkspaceStep) && diagramHistoryError && <p role="alert">{diagramHistoryError}</p>}
+      {interfaceMode === 'diagnostic' && evaluationJourney === 'biology' && biologyRadarOpen && evaluationWorkspaceStep === 'configuration' &&
+        <div id="evaluation-biology-radar"><BiologyTeacherRadar
+          initialModel={dashboardModel} onModelChange={selectDashboardModel} history={biologyRadarHistory} profiles={aiModelProfiles} busy={busy || pilotBusy}
+          onEvaluate={evaluateBiologyModel}
+          onShowTests={(scenario) => {
+            setEvaluationBiologyScenario(scenario);
+            setBiologyRadarOpen(false);
+          }} /></div>}
+      {interfaceMode === 'diagnostic' && evaluationJourney === 'diagrams' && diagramLabView !== 'protocols' && evaluationWorkspaceStep === 'configuration' &&
+        <ScientificDiagramLabHistory repository={diagramArchive} revision={diagramHistoryRevision} archiveError={diagramHistoryError}
+          view={diagramLabView === 'radar' ? 'radar' : 'campaigns'} onViewChange={(view) => { if (view === 'radar') openCandidateRadar('diagrams'); else setDiagramLabView('history'); }}
+          profileIds={aiModelProfiles.map((profile) => profile.id)} profiles={aiModelProfiles} busy={busy || pilotBusy || radarAutoBusy}
+          initialReportId={reportId} onRunMissing={runRadarPlan} onBack={() => showCampaigns(campaignFilter)} />}
+      {interfaceMode === 'diagnostic' && ['execution', 'results', 'history'].includes(evaluationWorkspaceStep) && <section id="evaluation-results" data-evaluation-step={evaluationWorkspaceStep} className="panel evaluation-results-workspace" aria-labelledby="evaluation-results-title">
+        <div className="evaluation-section-heading"><div><p className="eyebrow">{evaluationWorkspaceStep === 'execution' ? 'ÉTAPE 2 · EXÉCUTION' : evaluationWorkspaceStep === 'results' ? 'ÉTAPE 3 · RÉSULTATS' : 'ÉTAPE 4 · ANALYSE & HISTORIQUE'}</p><h2 id="evaluation-results-title">{evaluationWorkspaceStep === 'execution' ? 'Exécution de l’expérience' : evaluationWorkspaceStep === 'results' ? (evaluationStageMode === 'vision' ? 'Résultats de la lecture Vision' : evaluationStageMode === 'analysis' ? 'Résultats de l’analyse' : 'Résultats du parcours complet') : 'Analyser et comparer les expériences'}</h2><p>{evaluationWorkspaceStep === 'execution' ? 'Suivez la progression des modèles et le détail de chaque étape de traitement.' : evaluationWorkspaceStep === 'results' ? (evaluationStageMode === 'vision' ? 'Examinez les transcriptions produites et les performances des modèles de lecture.' : evaluationStageMode === 'analysis' ? 'Examinez les notes proposées, les justifications et les écarts entre modèles à partir de la même transcription.' : 'Examinez successivement la transcription, la notation et les performances des deux étapes.') : 'Retrouvez les essais précédents et comparez leurs performances grâce aux indicateurs graphiques.'}</p></div><span className="evaluation-step-chip">{evaluationWorkspaceStep === 'history' ? savedModelEvaluations.length + ' essai(s)' : modelEvaluationResults.length + ' résultat(s)'}</span></div>
+        {evaluationWorkspaceStep === 'results' && evaluationArchiveStatus !== 'idle' && <div className={`evaluation-archive-feedback is-${evaluationArchiveStatus}`} role={evaluationArchiveStatus === 'failed' ? 'alert' : 'status'}>
+          <div><strong>{evaluationArchiveStatus === 'saving' ? 'Enregistrement dans l’historique…' : evaluationArchiveStatus === 'saved' ? 'Résultats enregistrés' : evaluationArchiveStatus === 'without-images' ? 'Résultats enregistrés sans les images' : 'Historique non enregistré'}</strong>
+            <p>{evaluationArchiveStatus === 'saving' ? 'Vous pouvez déjà consulter les notes et les mesures.' : evaluationArchiveStatus === 'saved' ? 'Vous les retrouverez dans Analyse & historique.' : evaluationArchiveStatus === 'without-images' ? 'Le stockage local était insuffisant pour les photos. Les notes, transcriptions et mesures sont conservées ; les images de cette expérience ne pourront pas être restaurées.' : evaluationArchiveError}</p></div>
+          {evaluationArchiveStatus === 'failed' && pendingEvaluationArchive && <button type="button" className="secondary-button" onClick={() => void persistModelEvaluationRecord(pendingEvaluationArchive)}>Réessayer la sauvegarde</button>}
+        </div>}
+        {evaluationWorkspaceStep === 'results' && suggestedEvaluationComparisonIds && <div className="evaluation-archive-feedback" role="status"><div><strong>Comparer avec l’essai précédent</strong><p>Deux essais réalisés sur la même copie et le même barème sont disponibles. Consultez leurs notes par critère et leurs durées.</p></div><button type="button" className="secondary-button" onClick={() => { setEvaluationHistoryStageFilter(evaluationStageMode); setSelectedEvaluationHistoryIds(suggestedEvaluationComparisonIds); setEvaluationWorkspaceStep('history'); }}>Comparer D1, TEV ou les autres modèles</button></div>}
+        {evaluationWorkspaceStep === 'execution' && modelEvaluationResults.length > 0 && !busy && <div className="evaluation-run-actions"><div><strong>Expérience terminée</strong><p>Consultez les notes et performances de chaque configuration.</p></div><button type="button" className="primary-button" onClick={() => setEvaluationWorkspaceStep('results')}>Voir les résultats</button></div>}
+        {evaluationWorkspaceStep === 'execution' && (busy || modelEvaluationResults.length === 0) && <div className="evaluation-run-actions"><div><strong>{selectedEvaluationProfileIds.length} configuration(s) sélectionnée(s)</strong><p>{!validation.valid ? 'Vérifiez le barème avant de lancer l’expérience.' : evaluationStageMode !== 'analysis' && !images.length ? 'Importez les pages de la copie dans l’étape précédente.' : evaluationStageMode === 'analysis' && !transcription?.trim() ? 'Ajoutez ou vérifiez la transcription de référence dans la configuration.' : selectedEvaluationProfileIds.length < 1 ? 'Sélectionnez au moins une configuration.' : 'Le jeu d’essai est prêt à être lancé.'}</p></div><button type="button" className={busy ? 'primary-button is-running' : 'primary-button'} disabled={busy || selectedEvaluationProfileIds.length < 1 || (evaluationStageMode === 'analysis' ? !transcription?.trim() : !images.length) || !validation.valid} onClick={() => { void followEvaluation({
+            title: 'Évaluation libre · ' + (evaluationStageMode === 'vision' ? 'Vision seule' : evaluationStageMode === 'analysis' ? 'Analyse seule' : 'Parcours complet'),
+            journey: 'custom', targetId: 'evaluation-results', profiles: selectedEvaluationProfiles.map((profile) => profile.name).join(' · '),
+          }, () => startModelEvaluation()); }}>{busy ? 'Évaluation locale en cours…' : evaluationStageMode === 'vision' ? (selectedEvaluationProfileIds.length > 1 ? 'Comparer les modèles Vision' : 'Évaluer le modèle Vision') : evaluationStageMode === 'analysis' ? (selectedEvaluationProfileIds.length > 1 ? 'Comparer les modèles d’analyse' : 'Évaluer le modèle d’analyse') : (selectedEvaluationProfileIds.length > 1 ? 'Comparer les configurations' : 'Évaluer cette configuration')}</button>{busy && <button type="button" className="secondary-button" onClick={cancelModelEvaluation}>Annuler après l’appel en cours</button>}</div>}
+                {evaluationWorkspaceStep === 'execution' && evaluationProgress && <section className="evaluation-progress" aria-labelledby="evaluation-progress-title" aria-live="polite">
+          <div className="evaluation-progress-heading"><div><p className="eyebrow">SUIVI DE L’EXPÉRIENCE</p><h3 id="evaluation-progress-title">{evaluationProgress.status === 'completed' ? 'Évaluation terminée' : evaluationProgress.status === 'cancelled' ? 'Évaluation interrompue' : 'Évaluation en cours'}</h3><p>{evaluationProgress.status === 'completed' ? 'Toutes les configurations ont été traitées.' : evaluationProgress.status === 'cancelled' ? 'La requête en cours a été annulée.' : evaluationProgress.currentConfiguration ? 'La configuration active est indiquée ci-dessous.' : 'Préparation de la prochaine configuration…'}</p></div><strong className="evaluation-progress-counter">{evaluationProgress.completedSteps} / {evaluationProgress.totalSteps} étapes terminées</strong></div>
+          <div className="evaluation-progress-track" role="progressbar" aria-label="Étapes de traitement terminées" aria-valuemin={0} aria-valuemax={evaluationProgress.totalSteps} aria-valuenow={evaluationProgress.completedSteps}><span style={{ width: (evaluationProgress.completedSteps / Math.max(1, evaluationProgress.totalSteps) * 100) + '%' }} /></div>
+          <ol className="evaluation-configuration-steps" aria-label="Progression par configuration">{selectedEvaluationProfiles.map((profile, index) => { const active = evaluationProgress.currentConfiguration?.id === profile.id; const complete = index < evaluationProgress.completed || (evaluationProgress.status === 'completed' && index < evaluationProgress.total); const result = modelEvaluationResults.find((item) => item.profileId === profile.id); const failed = complete && result?.status === 'failed'; return <li key={profile.id} className={`evaluation-configuration-step ${active ? 'is-active' : ''} ${complete ? 'is-complete' : ''} ${failed ? 'has-failed' : ''}`}><span className="evaluation-configuration-step-index" aria-hidden="true">{complete ? (failed ? '!' : '✓') : index + 1}</span><div><strong>{profile.name}</strong><span>{active ? (evaluationProgress.currentStage === 'analysis' ? (evaluationVisualDirect && profile.configuration.correctionMethod === 'decision' && isVisualDecisionModel(profile.configuration.analysisModel) ? 'En cours maintenant · décision visuelle directe' : 'En cours maintenant · analyse · lecture terminée') : evaluationProgress.currentStage === 'reading' ? 'En cours maintenant · lecture' : 'En cours maintenant · préparation') : complete ? (failed ? 'Échec — voir le détail' : 'Terminé') : 'En attente'}</span><small>{evaluationStageMode === 'integrated' && evaluationVisualDirect && profile.configuration.correctionMethod === 'decision' && isVisualDecisionModel(profile.configuration.analysisModel) ? 'Image → System One direct · ' + profile.configuration.analysisModel : (profile.configuration.visionModel || 'Vision non définie') + ' → ' + (profile.configuration.analysisModel || 'Analyse non définie')}</small></div>{active && <span className="evaluation-active-pill">EN COURS</span>}</li>; })}</ol>
+          {evaluationProgress.status === 'running' && <div className="evaluation-phase-panel"><strong>{evaluationStage === 'preparing' ? '1. Préparation des modèles' : evaluationStage === 'reading' ? '2. Lecture des images et extraction du texte' : evaluationStage === 'grading' ? (evaluationProgress.currentConfiguration?.directVisualDecision ? 'Décision sur la preuve visuelle (sans OCR)' : '3. Analyse de la copie et attribution des notes') : evaluationStage === 'parsing' ? '4. Structuration et vérification du résultat' : evaluationStage === 'saving' ? '5. Enregistrement de l’expérience' : 'Initialisation'}</strong><p>{evaluationStage === 'preparing' ? 'Vérification de la disponibilité des modèles Ollama avant de commencer cette configuration.' : evaluationStage === 'reading' ? 'Le modèle Vision traite les images originales de la copie.' : evaluationStage === 'grading' ? (evaluationProgress.currentConfiguration?.directVisualDecision ? 'D1/D3 évalue directement les images selon les attendus du barème. Les décisions restent provisoires.' : 'Le modèle d’analyse confronte la transcription au barème et prépare les notes.') : evaluationStage === 'parsing' ? 'La réponse est convertie en critères, notes et justifications exploitables.' : evaluationStage === 'saving' ? 'Les résultats, les images et le barème sont enregistrés dans l’historique local.' : 'Mise en place de la séquence de test.'}</p></div>}
+        </section>}
+        {evaluationWorkspaceStep === 'execution' && busy && streamedOutput && <section className="transcription-review" aria-live="polite"><h3>Réponse du modèle en streaming</h3><pre>{streamedOutput}</pre></section>}
+        {evaluationWorkspaceStep === 'history' && evaluationJourney !== 'diagrams' && <section className="evaluation-result-list evaluation-history-workspace" aria-labelledby="model-evaluation-history-title">
+          <div className="evaluation-section-heading"><div><p className="eyebrow">HISTORIQUE DES MESURES</p><h3 id="model-evaluation-history-title">Historique & comparaison graphique</h3><p>Choisissez Vision, Analyse ou le parcours complet. Vous pouvez comparer les configurations d’un seul essai dès qu’il contient plusieurs modèles, ou comparer deux essais du même type. Un essai non sauvegardé est marqué « session uniquement » et disparaît à la fermeture ou au rechargement de la page.</p></div><span className="evaluation-step-chip">{savedModelEvaluations.length} essai(s)</span></div>
+          <div className="evaluation-history-stage-filter" role="group" aria-label="Filtrer les expériences par type">
+            {([
+              { value: 'all', label: 'Toutes', count: savedModelEvaluations.length },
+              { value: 'vision', label: 'Vision seule', count: savedModelEvaluations.filter((record) => getModelEvaluationStage(record) === 'vision').length },
+              { value: 'analysis', label: 'Analyse seule', count: savedModelEvaluations.filter((record) => getModelEvaluationStage(record) === 'analysis').length },
+              { value: 'integrated', label: 'Parcours complet', count: savedModelEvaluations.filter((record) => getModelEvaluationStage(record) === 'integrated').length },
+            ] as const).map((filter) => <button type="button" key={filter.value} aria-pressed={evaluationHistoryStageFilter === filter.value} className={evaluationHistoryStageFilter === filter.value ? 'is-active' : ''} onClick={() => { setEvaluationHistoryStageFilter(filter.value); setSelectedEvaluationHistoryIds([]); }}>{filter.label}<span>{filter.count}</span></button>)}
+          </div>
+          <p className="evaluation-history-selection-help">Sélectionnez un essai pour comparer ses modèles, ou deux essais du même devoir et du même jeu d’entrée. Une comparaison n’associe jamais des copies ou des transcriptions différentes.</p>
+          <div className="evaluation-history-selection" role="group" aria-label="Expériences à comparer">
+            {visibleEvaluationHistoryRecords.map((record) => <label className={selectedEvaluationHistoryIds.includes(record.id) ? 'evaluation-history-option is-selected' : 'evaluation-history-option'} key={record.id}>
+              <input type="checkbox" checked={selectedEvaluationHistoryIds.includes(record.id)} disabled={!selectedEvaluationHistoryIds.includes(record.id) && (selectedEvaluationHistoryIds.length >= 2 || (selectedEvaluationHistoryRecords.length === 1 && !canCompareModelEvaluationRecords([selectedEvaluationHistoryRecords[0]!, record])))} onChange={(event) => setSelectedEvaluationHistoryIds((current) => event.target.checked ? [...current, record.id].slice(-2) : current.filter((id) => id !== record.id))} />
+              <span><strong>{record.assignmentTitle}</strong><small>{getModelEvaluationStage(record) === 'vision' ? 'Vision seule' : getModelEvaluationStage(record) === 'analysis' ? 'Analyse seule' : 'Parcours complet'} · {new Date(record.completedAt).toLocaleString()} · {record.configurations.length} configuration(s) · {getModelEvaluationStage(record) === 'analysis' ? 'transcription commune' : (record.originalImageCount ?? record.images.length) + ' page(s)'}</small></span>
+            </label>)}
+          </div>
+          {canCompareModelEvaluationRecords(selectedEvaluationHistoryRecords) ? (() => {
+            const firstRecord = selectedEvaluationHistoryRecords[0]!;
+            const comparisonStage = getModelEvaluationStage(firstRecord);
+            const metrics = [
+              { key: 'readingMs' as const, title: 'Temps de lecture', unit: 'durée', format: (value: number) => formatElapsed(Math.round(value / 1000)), model: (configuration: ModelEvaluationRecord['configurations'][number]) => configuration.visionModel },
+              { key: 'analysisMs' as const, title: 'Temps d’analyse', unit: 'durée', format: (value: number) => formatElapsed(Math.round(value / 1000)), model: (configuration: ModelEvaluationRecord['configurations'][number]) => configuration.analysisModel },
+              { key: 'readingTokens' as const, title: 'Tokens de lecture', unit: 'tokens', format: (value: number) => formatTokenCount(value), model: (configuration: ModelEvaluationRecord['configurations'][number]) => configuration.visionModel },
+              { key: 'analysisTokens' as const, title: 'Tokens d’analyse', unit: 'tokens', format: (value: number) => formatTokenCount(value), model: (configuration: ModelEvaluationRecord['configurations'][number]) => configuration.analysisModel },
+              { key: 'readingTokensPerSecond' as const, title: 'Débit de lecture', unit: 'tokens/s', format: (value: number) => value.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + ' tokens/s', model: (configuration: ModelEvaluationRecord['configurations'][number]) => configuration.visionModel },
+              { key: 'analysisTokensPerSecond' as const, title: 'Débit d’analyse', unit: 'tokens/s', format: (value: number) => value.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + ' tokens/s', model: (configuration: ModelEvaluationRecord['configurations'][number]) => configuration.analysisModel },
+              { key: 'score' as const, title: 'Note proposée', unit: 'score', format: (value: number) => value.toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' / 100', model: (configuration: ModelEvaluationRecord['configurations'][number]) => configuration.analysisModel },
+            ].filter((metric) => comparisonStage === 'vision' ? metric.key.startsWith('reading') : comparisonStage === 'analysis' ? metric.key.startsWith('analysis') || metric.key === 'score' : true);
+            const rubricSignature = (record: ModelEvaluationRecord) => JSON.stringify(record.rubricSnapshot.criteria.map((criterion) => ({
+              id: criterion.id, title: criterion.title, description: criterion.description,
+              maxPoints: criterion.maxPoints, subcriteria: getRubricSubcriteria(criterion),
+            })));
+            const sameRubric = selectedEvaluationHistoryRecords.every((record) => rubricSignature(record) === rubricSignature(firstRecord));
+            const comparisonColumns = selectedEvaluationHistoryRecords.flatMap((record, recordIndex) => record.results.map((result) => ({
+              key: record.id + '-' + result.profileId,
+              label: selectedEvaluationHistoryRecords.length === 1 ? result.profileName : (recordIndex === 0 ? 'Essai A · ' : 'Essai B · ') + result.profileName,
+              record,
+              result,
+            })));
+            const visualComparison = sameRubric ? compareVisualDecisions(comparisonColumns.map((column) => column.result), firstRecord.rubricSnapshot) : null;
+            return <section className="evaluation-history-comparison" aria-labelledby="evaluation-history-comparison-title">
+              <div className="evaluation-history-comparison-heading"><div><p className="eyebrow">COMPARAISON VISUELLE</p><h4 id="evaluation-history-comparison-title">{comparisonStage === 'vision' ? 'Comparaison des modèles Vision' : comparisonStage === 'analysis' ? 'Comparaison des modèles d’analyse' : 'Comparaison du parcours complet'}</h4></div><span>{selectedEvaluationHistoryRecords.length === 1 ? selectedEvaluationHistoryRecords[0].assignmentTitle + ' · ' + selectedEvaluationHistoryRecords[0].results.length + ' modèles' : selectedEvaluationHistoryRecords.map((record) => record.assignmentTitle).join(' ↔ ')}</span></div>
+              <div className="evaluation-history-chart-grid">
+                {metrics.map((metric) => {
+                  const points = selectedEvaluationHistoryRecords.flatMap((record, experimentIndex) => record.results.map((result) => {
+                    const configuration = record.configurations.find((item) => item.id === result.profileId);
+                    const rawValue = metric.key === 'score'
+                      ? result.score === null ? null : result.score / Math.max(1, record.rubricSnapshot.criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0)) * 100
+                      : result[metric.key];
+                    return { key: record.id + '-' + result.profileId + '-' + metric.key, experimentIndex, experiment: selectedEvaluationHistoryRecords.length === 1 ? result.profileName : (experimentIndex === 0 ? 'Essai A · ' : 'Essai B · ') + result.profileName, profileName: result.profileName, modelName: configuration ? metric.model(configuration) : 'Modèle non renseigné', value: typeof rawValue === 'number' ? rawValue : null, status: result.status };
+                  }));
+                  const maxValue = Math.max(1, ...points.flatMap((point) => point.value === null ? [] : [point.value]));
+                  return <section className="evaluation-history-chart" key={metric.key} aria-labelledby={'evaluation-history-chart-' + metric.key}>
+                    <h5 id={'evaluation-history-chart-' + metric.key}>{metric.title}</h5>
+                    <p>{metric.unit === 'durée' ? 'Comparaison des temps mesurés' : metric.unit === 'score' ? 'Note normalisée sur 100' : 'Compteurs remontés par Ollama, si disponibles'}</p>
+                    <div className="evaluation-history-bars" role="img" aria-label={'Graphique ' + metric.title}>
+                      {points.map((point) => <div className="evaluation-history-bar-row" key={point.key}>
+                        <div className="evaluation-history-bar-label"><strong>{point.experiment} · {point.profileName}</strong><span>{point.modelName} · {point.status === 'success' ? 'Terminé' : point.status === 'cancelled' ? 'Annulé' : 'Échec'}</span></div>
+                        <div className="evaluation-history-bar-track"><span className={'evaluation-history-bar-fill experiment-' + point.experimentIndex} style={{ width: point.value === null ? '0%' : Math.max(2, point.value / maxValue * 100) + '%' }} /></div>
+                        <strong className="evaluation-history-bar-value">{point.value === null ? 'Non mesuré' : metric.format(point.value)}</strong>
+                      </div>)}
+                    </div>
+                  </section>;
+                })}
+              </div>
+              {comparisonStage === 'analysis' && <section className="evaluation-history-transcriptions" aria-labelledby="evaluation-history-input-title">
+                <h5 id="evaluation-history-input-title">Transcription commune notée</h5>
+                <p>Tous les modèles de cet essai ont reçu le même texte en entrée. Cette référence est conservée pour pouvoir comprendre et reproduire la comparaison.</p>
+                <pre>{firstRecord.referenceTranscription ?? firstRecord.results.find((result) => result.transcription)?.transcription ?? 'Transcription de référence non disponible dans cette ancienne expérience.'}</pre>
+              </section>}
+              {comparisonStage !== 'vision' && <section className="evaluation-history-criteria-comparison" aria-labelledby="evaluation-history-criteria-title">
+                <h5 id="evaluation-history-criteria-title">Comparer les notes par critère</h5>
+                {sameRubric ? <div className="evaluation-history-table-scroll"><table className="evaluation-history-criteria-table"><thead><tr><th scope="col">Critère</th>{comparisonColumns.map((column) => <th scope="col" key={column.key}>{column.label}</th>)}</tr></thead><tbody>{firstRecord.rubricSnapshot.criteria.map((criterion) => <tr key={criterion.id}><th scope="row">{criterion.title}<small>sur {criterion.maxPoints}</small></th>{comparisonColumns.map((column) => { const criterionResult = column.result.proposal?.criteria.find((item) => item.criterionId === criterion.id); return <td key={column.key}>{criterionResult?.assessmentStatus === 'not-evaluated' ? 'À arbitrer' : criterionResult ? criterionResult.points + ' / ' + criterion.maxPoints : '—'}</td>; })}</tr>)}</tbody></table></div> : <p className="evaluation-history-empty">Les barèmes de ces deux essais sont différents. Les notes globales restent comparables sur 100, mais les critères ne sont pas alignés.</p>}
+                <div className="evaluation-history-rationales">{comparisonColumns.map((column) => <details key={column.key}><summary>{column.label} · Justifications et preuves</summary>{column.result.proposal ? <ul>{column.result.proposal.criteria.map((criterion) => <li key={criterion.criterionId}><strong>{column.record.rubricSnapshot.criteria.find((item) => item.id === criterion.criterionId)?.title ?? criterion.criterionId} · {criterion.assessmentStatus === 'not-evaluated' ? 'Points non attribués · à arbitrer' : criterion.points + ' point(s)'}</strong><p>{criterion.rationale || 'Aucune justification fournie.'}</p><p><strong>Preuve :</strong> {criterion.evidence || 'Aucune preuve textuelle fournie.'}</p><small>Confiance déclarée : {criterion.confidence === 'high' ? 'élevée' : criterion.confidence === 'medium' ? 'moyenne' : 'faible'}</small></li>)}</ul> : <p>Aucune proposition structurée exploitable pour ce modèle.</p>}{(column.result.proposal?.questionsForTeacher.length ?? 0) > 0 && <p><strong>Questions au professeur :</strong> {column.result.proposal?.questionsForTeacher.join(' · ')}</p>}</details>)}</div>
+              </section>}
+              {visualComparison && visualComparison.models > 1 && <section className="evaluation-visual-decision-comparison" aria-label="Décisions visuelles de l’historique">
+                <h5>Concordance des décisions visuelles · {visualComparison.disagreements.length} / {visualComparison.compared} désaccord(s)</h5>
+                <p className="hint">Décisions historiques reconstruites à partir des traces locales, sans nouvel appel aux modèles. Le barème utilisé pour cet essai fournit tous les intitulés.</p>
+                {visualComparison.disagreements.length > 0 && <ol className="evaluation-disagreement-list">{visualComparison.disagreements.map((difference) => <li key={difference.criterionId + difference.targetId}>
+                  <div><strong>{difference.criterionTitle} · {difference.title}</strong></div>
+                  <p>{difference.choices.map((item) => item.profileName + ' : ' + visualChoiceLabels[item.choice]).join(' · ')}</p>
+                </li>)}</ol>}
+              </section>}
+              {comparisonStage === 'vision' && <section className="evaluation-history-transcriptions" aria-labelledby="evaluation-history-transcriptions-title">
+                <h5 id="evaluation-history-transcriptions-title">Comparer les transcriptions</h5>
+                <p>Sans transcription de référence validée par l’enseignant, ces différences ne constituent pas une mesure de précision OCR. Elles permettent de repérer rapidement les divergences entre modèles.</p>
+                <div>{selectedEvaluationHistoryRecords.flatMap((record) => record.results.map((result) => ({ record, result }))).map(({ record, result }) => <details key={record.id + result.profileId}><summary>{selectedEvaluationHistoryRecords.length === 1 ? result.profileName : record.assignmentTitle + ' · ' + result.profileName}</summary><pre>{result.transcription || 'Aucune transcription exploitable retournée.'}</pre></details>)}</div>
+              </section>}
+              {comparisonStage !== 'vision' && <p className="hint">La note est normalisée sur 100 pour permettre la comparaison. Les notes absentes ou incomplètes ne sont pas converties en zéros. Les écarts entre modèles ne remplacent pas une correction de référence validée par l’enseignant.</p>}
+              <p className="hint">« Non mesuré » signifie que les anciennes données ne contiennent pas ce compteur. Les anciennes expériences restent consultables, sans inventer de répartition des tokens.</p>
+            </section>;
+          })() : <p className="evaluation-history-empty">{visibleEvaluationHistoryRecords.length === 0 ? 'Aucun essai enregistré pour ce type. Lancez une évaluation pour alimenter cette vue.' : selectedEvaluationHistoryIds.length === 0 ? 'Sélectionnez un essai pour comparer les modèles qui le composent.' : selectedEvaluationHistoryRecords.length === 1 ? (selectedEvaluationHistoryRecords[0].results.length < 2 ? 'Cet essai ne contient qu’une configuration. Sélectionnez un autre essai du même type pour comparer.' : 'La comparaison de cet essai est en préparation.') : 'Sélectionnez un essai compatible : même type, même devoir et même copie ou transcription.'}</p>}
+          {visibleEvaluationHistoryRecords.map((record) => <article key={record.id} className="evaluation-history-record">
+            <div className="evaluation-history-record-heading"><div><p className="eyebrow">EXPÉRIENCE ENREGISTRÉE</p><h4>{record.assignmentTitle}</h4><p>{getModelEvaluationStage(record) === 'vision' ? 'Vision seule' : getModelEvaluationStage(record) === 'analysis' ? 'Analyse seule' : 'Parcours complet'} · {new Date(record.completedAt).toLocaleString()} · {record.configurations.length} configuration(s) · {(record.originalImageCount ?? record.images.length)} page(s){record.originalImagesArchived === false ? ' · sans images originales' : ''}{sessionOnlyEvaluationIds.includes(record.id) ? ' · session uniquement' : ''}</p></div>
+              <button type="button" className="secondary-button evaluation-history-load" onClick={() => openModelEvaluationHistoryRecord(record)}>Consulter les résultats</button>
+            </div>
+            <div className="evaluation-history-record-metrics">{record.results.map((result) => <article className="evaluation-history-model-metric" key={result.profileId}>
+              <div className="evaluation-history-model-heading"><strong>{result.profileName}{result.directVisualDecision ? ' · preuve visuelle directe' : ''}</strong><span className={result.status === 'success' ? 'evaluation-history-status is-success' : 'evaluation-history-status'}>{result.status === 'success' ? 'Terminé' : result.status === 'cancelled' ? 'Interrompu' : 'Échec'}</span></div>
+              <p className="evaluation-history-model-name">{result.directVisualDecision ? 'Images de la copie (sans OCR)' : (record.configurations.find((configuration) => configuration.id === result.profileId)?.visionModel ?? 'Vision non renseigné')} <span aria-hidden="true">→</span> {record.configurations.find((configuration) => configuration.id === result.profileId)?.analysisModel ?? 'Analyse non renseigné'}</p>
+              <div className="evaluation-history-model-stats">
+                <div><span>{result.directVisualDecision ? 'Lecture non sollicitée' : 'Lecture'}</span><strong>{formatElapsed(Math.round(result.readingMs / 1000))}</strong><small>{result.readingTokens === null || result.readingTokens === undefined ? 'Tokens non mesurés' : formatTokenCount(result.readingTokens) + ' tokens'}</small><small className="evaluation-throughput">{result.readingTokensPerSecond == null ? 'Débit non mesuré' : result.readingTokensPerSecond.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + ' tokens/s'}</small></div>
+                <div><span>Analyse</span><strong>{formatElapsed(Math.round(result.analysisMs / 1000))}</strong><small>{result.analysisTokens === null || result.analysisTokens === undefined ? 'Tokens non mesurés' : formatTokenCount(result.analysisTokens) + ' tokens'}</small><small className="evaluation-throughput">{result.analysisTokensPerSecond == null ? 'Débit non mesuré' : result.analysisTokensPerSecond.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + ' tokens/s'}</small></div>
+                <div><span>Note</span><strong>{result.score === null ? '—' : result.score + ' / ' + record.rubricSnapshot.criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0)}</strong><small>Résultat de la configuration</small></div>
+              </div>
+            </article>)}</div>
+            <div className="evaluation-history-record-footer"><span>{record.results.length} configuration(s) évaluée(s){sessionOnlyEvaluationIds.includes(record.id) ? ' · Session uniquement' : record.originalImagesArchived === false ? ' · Archive allégée' : ''}</span>{sessionOnlyEvaluationIds.includes(record.id) && <button type="button" className="secondary-button" onClick={() => { void persistModelEvaluationRecord(record); }}>Réessayer la sauvegarde</button>}<button type="button" className="text-button" onClick={() => { if (sessionOnlyEvaluationIds.includes(record.id)) { setSavedModelEvaluations((current) => current.filter((item) => item.id !== record.id)); setSelectedEvaluationHistoryIds((current) => current.filter((id) => id !== record.id)); setSessionOnlyEvaluationIds((current) => current.filter((id) => id !== record.id)); return; } void evaluationService.delete(record.id).then(() => { setSavedModelEvaluations((current) => current.filter((item) => item.id !== record.id)); setSelectedEvaluationHistoryIds((current) => current.filter((id) => id !== record.id)); }).catch(() => setError('Impossible de supprimer cette expérience locale.')); }}>Supprimer l’expérience</button></div>
+          </article>)}
+        </section>}
+        {evaluationWorkspaceStep === 'results' && evaluationStageMode !== 'vision' && modelEvaluationResults.some((result) => result.proposal !== null) && (() => {
+          const { proposals: comparableResults, complete, incomplete, scoreSpread, averageScore, disagreements } =
+            summarizeModelEvaluationScores(modelEvaluationResults, rubric);
+          const visualComparison = compareVisualDecisions(comparableResults, rubric);
+          const lowConfidence = (result: ModelEvaluationResultSnapshot) => result.proposal?.criteria.filter((item) => item.confidence === 'low').length ?? 0;
+          const teacherQuestionCount = comparableResults.reduce((sum, result) => sum + (result.proposal?.questionsForTeacher.length ?? 0), 0);
+          return <section className="evaluation-result-list evaluation-comparison-analysis" aria-labelledby="evaluation-comparison-analysis-title">
+            <div className="evaluation-analysis-heading"><div><p className="eyebrow">SYNTHÈSE AUTOMATIQUE</p><h3 id="evaluation-comparison-analysis-title">Analyse comparative des configurations</h3></div><span className="evaluation-analysis-count">{complete.length} note(s) complète(s) · {incomplete.length} à arbitrer</span></div>
+            <p className="hint">Cette synthèse distingue les notes complètes des décisions provisoires. Les décisions partial/uncertain ne valent pas zéro point : elles nécessitent l’arbitrage du professeur. Sans correction de référence, on ne peut pas déterminer lequel des modèles est juste.</p>
+            <div className="evaluation-analysis-metrics">
+              <article><span>Écart entre les notes</span><strong>{scoreSpread === null ? '—' : scoreSpread.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + ' pt'}</strong><small>entre la note la plus basse et la plus haute</small></article>
+              <article><span>Note moyenne</span><strong>{averageScore === null ? '—' : averageScore.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + ' / ' + validation.maximumPoints}</strong><small>repère descriptif, pas une référence</small></article>
+              <article><span>Critères notés en désaccord</span><strong>{disagreements.length} / {rubric.criteria.length}</strong><small>uniquement entre critères effectivement évalués</small></article>
+              <article><span>Questions à vérifier</span><strong>{teacherQuestionCount}</strong><small>questions remontées par les modèles</small></article>
+            </div>
+            <div className="evaluation-analysis-columns">
+              <section className="evaluation-analysis-subsection"><h4>Lecture par configuration</h4>
+                {comparableResults.map((result) => <article className="evaluation-model-summary" key={result.profileId}>
+                  <div><strong>{result.profileName}{result.directVisualDecision ? ' · preuve visuelle directe' : ''}</strong><span>{result.score === null ? 'Note incomplète · arbitrage requis' : result.score + ' / ' + validation.maximumPoints}</span></div>
+                  <p>{formatElapsed(Math.round(result.elapsedMs / 1000))} au total · Lecture {result.readingTokensPerSecond == null ? 'débit non mesuré' : result.readingTokensPerSecond.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + ' tokens/s'} · Analyse {result.analysisTokensPerSecond == null ? 'débit non mesuré' : result.analysisTokensPerSecond.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + ' tokens/s'} · {lowConfidence(result)} critère(s) à faible confiance · {result.proposal?.questionsForTeacher.length ?? 0} question(s) à vérifier</p>
+                </article>)}
+                {modelEvaluationResults.some((result) => result.status !== 'success') && <p className="evaluation-analysis-warning">Au moins une configuration a échoué ou a été interrompue. Consultez les erreurs dans les résultats détaillés.</p>}
+              </section>
+              <section className="evaluation-analysis-subsection"><h4>Écarts entre notes effectivement attribuées</h4>
+                {disagreements.length ? <ol className="evaluation-disagreement-list">{disagreements.map(({ criterion, spread, values }) => <li key={criterion.id}><div><strong>{criterion.title}</strong><span>Écart de {spread.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} / {criterion.maxPoints}</span></div><p>{values.map((value) => value.profileName + ' : ' + value.points).join(' · ')}</p></li>)}</ol> : <p className="evaluation-analysis-empty">{complete.length < 2 ? 'Aucune comparaison de note complète : examiner les décisions élémentaires ci-dessous.' : 'Aucun écart entre les critères effectivement évalués.'}</p>}
+              </section>
+            </div>
+            {visualComparison.models >= 2 && <section className="evaluation-visual-decision-comparison" aria-label="Concordance des décisions visuelles">
+              <h4>Décisions visuelles D1/D3 · {visualComparison.disagreements.length} désaccord(s) sur {visualComparison.compared} attendu(s) communs</h4>
+              <p className="hint">Chaque décision provient d’un attendu du barème du professeur. Les réponses partielles et indécidables restent à vérifier : aucun point n’est déduit automatiquement.</p>
+              {visualComparison.disagreements.length > 0 ? <ol className="evaluation-disagreement-list">{visualComparison.disagreements.map((difference) => <li key={difference.criterionId + difference.targetId}>
+                <div><strong>{difference.criterionTitle} · {difference.title}</strong></div>
+                <p>{difference.choices.map((item) => item.profileName + ' : ' + visualChoiceLabels[item.choice]).join(' · ')}</p>
+              </li>)}</ol> : <p className="evaluation-analysis-empty">Aucune divergence sur les décisions retrouvées dans les traces locales.</p>}
+            </section>}
+            {complete.length > 1 && <details className="evaluation-pairwise-details"><summary>Afficher les comparaisons détaillées deux à deux</summary>{complete.slice(1).map((result) => { const baseline = complete[0]; const comparison = baseline?.proposal && result.proposal ? compareDiagnosticProposals(baseline.proposal, result.proposal, rubric) : null; return <article className="transcription-review" key={result.profileId}><h4>{baseline.profileName} ↔ {result.profileName}</h4>{comparison && <><p>Écart de note totale : {comparison.totalDifference > 0 ? '+' : ''}{comparison.totalDifference} point(s)</p>{comparison.disagreements.length ? <ul>{comparison.disagreements.map((item) => <li key={item.criterionId}>{item.title} : {item.firstPoints} → {item.secondPoints} / {item.maxPoints} ({item.difference > 0 ? '+' : ''}{item.difference})</li>)}</ul> : <p>Les deux propositions attribuent la même note à chaque critère.</p>}</>}</article>; })}</details>}
+          </section>;
+        })()}
+        {evaluationWorkspaceStep === 'results' && modelEvaluationResults.length > 0 && <div className="evaluation-result-list evaluation-current-results"><h3>{evaluationStageMode === 'vision' ? 'Résultats de lecture par modèle' : evaluationStageMode === 'analysis' ? 'Résultats de notation par modèle' : modelEvaluationResults.some((result) => result.directVisualDecision) ? 'Résultats : parcours classique et preuve visuelle directe' : 'Résultats des deux étapes par configuration'}</h3>{modelEvaluationResults.map((result) => <article key={result.profileId} className="transcription-review"><h4>{result.profileName}{result.directVisualDecision ? ' · preuve visuelle directe' : ''}</h4><p>{result.status === 'success' ? 'Terminé' : result.status === 'cancelled' ? 'Annulé' : 'Échec'} · {evaluationStageMode === 'vision' ? 'Lecture' : evaluationStageMode === 'analysis' ? 'Analyse' : result.directVisualDecision ? 'Preuve visuelle directe' : 'Parcours complet'} {formatElapsed(Math.round(result.elapsedMs / 1000))}</p>{evaluationStageMode !== 'analysis' && <p className="evaluation-result-stage-metrics">{result.directVisualDecision ? 'Lecture Vision non sollicitée' : 'Lecture Vision'} · {formatElapsed(Math.round(result.readingMs / 1000))} · {result.readingTokens == null ? 'Tokens non mesurés' : formatTokenCount(result.readingTokens) + ' tokens'} · {result.readingTokensPerSecond == null ? 'Débit non mesuré' : result.readingTokensPerSecond.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + ' tokens/s'}</p>}{evaluationStageMode !== 'vision' && <p className="evaluation-result-stage-metrics">Analyse · {formatElapsed(Math.round(result.analysisMs / 1000))} · {result.analysisTokens == null ? 'Tokens non mesurés' : formatTokenCount(result.analysisTokens) + ' tokens'} · {result.analysisTokensPerSecond == null ? 'Débit non mesuré' : result.analysisTokensPerSecond.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + ' tokens/s'}</p>}{evaluationStageMode !== 'vision' && <p className="evaluation-result-score">{result.score === null ? 'Note incomplète : certains attendus sont à arbitrer' : 'Note proposée : ' + result.score + ' / ' + validation.maximumPoints}</p>}{result.error && <p className="validation" role="alert">{result.error}</p>}{result.transcription && <details open={evaluationStageMode === 'vision'}><summary>{evaluationStageMode === 'vision' ? 'Transcription produite' : 'Consulter la transcription utilisée'}</summary><pre>{result.transcription}</pre></details>}{result.directVisualDecision && (() => { const decisions = extractVisualDecisions(result, rubric); return decisions.length ? <details className="evaluation-visual-decision-details"><summary>Décisions System One par attendu du barème ({decisions.length})</summary><p className="hint">Le poids du choix n’est pas une probabilité de correction juste. Vérifiez les observations sur la copie originale.</p><ol className="evaluation-visual-observation-list">{decisions.map((item) => <li key={item.criterionId + item.targetId}><span><strong>{item.criterionTitle}</strong> · {item.title}</span><span>{visualChoiceLabels[item.choice]}{item.probability !== null ? ' · poids ' + Math.round(item.probability * 100) + ' %' : ''}</span></li>)}</ol></details> : <p className="hint">Décisions détaillées non disponibles dans cet historique local.</p>; })()}
+            {result.proposal && <details open={evaluationStageMode !== 'vision'}><summary>Détail par critère et justifications</summary><ul>{result.proposal.criteria.map((criterion) => { const rubricCriterion = rubric.criteria.find((item) => item.id === criterion.criterionId); return <li key={criterion.criterionId}><strong>{rubricCriterion?.title ?? criterion.criterionId} : {criterion.points} / {rubricCriterion?.maxPoints ?? '—'}</strong><p>{criterion.rationale || 'Aucune justification fournie.'}</p><p><strong>Preuve :</strong> {criterion.evidence || 'Aucune preuve textuelle fournie.'}</p><small>Confiance déclarée : {criterion.confidence === 'high' ? 'élevée' : criterion.confidence === 'medium' ? 'moyenne' : 'faible'}</small></li>; })}</ul>{result.proposal.questionsForTeacher.length > 0 && <div className="diagnostic-questions"><strong>Questions à vérifier</strong><ul>{result.proposal.questionsForTeacher.map((question, index) => <li key={index}>{question}</li>)}</ul></div>}</details>}{result.raw && <details><summary>Réponse brute</summary><pre>{result.raw}</pre></details>}</article>)}</div>}
+      </section>}
+      {interfaceMode === 'teacher' && teacherStep === 'copy' && correctionSessionMode === 'individual' && <section className="panel question-panel teacher-launch-panel">
+        {interfaceMode === 'teacher' && <div className="teacher-launch-heading"><div><p className="eyebrow">LANCER LA CORRECTION</p><h2>{assignmentTitle.trim() || 'Devoir de biologie'}</h2><p>La proposition est retenue par défaut. Vous pouvez ajuster les notes et commentaires, sans validation obligatoire.</p></div><span className="launch-ready-count">{setupChecks.filter((item) => item.ready).length}/{setupChecks.length} prêts</span></div>}
+        <details className="copy-advanced-options copy-instructions"><summary>Consigne de l’exercice</summary>
+          <label className="field-label" htmlFor="grading-question">Consigne / question de l’exercice</label>
+          <textarea id="grading-question" rows={3} value={question} onChange={(event) => setQuestion(event.target.value)} />
+        </details>
+        <button className="primary-button grade-button" aria-busy={busy} disabled={busy || !images.length || !gradingModelsReady || !validation.valid || !subjectReady} onClick={() => void gradeCopies()}>{busy ? (interfaceMode === 'teacher' ? analysisStage === 'checking' ? 'Préparation de la correction…' : analysisStage === 'reading' ? 'Lecture de la copie…' : 'Correction en cours…' : 'Analyse locale en cours…')  : interfaceMode === 'teacher' ? (isScientificDiagramAssignment ? 'Corriger le schéma' : 'Corriger') : transcription ? 'Relancer l’analyse sans relire les images' : 'Lire puis analyser les copies'}</button>
+        {interfaceMode === 'teacher' && <p className="launch-footnote">Après l’analyse, la proposition est retenue automatiquement. Les alertes restent visibles et vous pouvez ajuster chaque note si nécessaire.</p>}
+      </section>}
+      {interfaceMode === 'teacher' && teacherStep === 'copy' && correctionSessionMode === 'individual' && <div className="teacher-copy-footer"><button type="button" className="secondary-button" onClick={() => setTeacherStep('rubric')}>← Revoir le barème</button><span>Une seule copie à la fois · ajustement facultatif des propositions</span></div>}
+      
+
+      {interfaceMode === 'teacher' && isAnalyzing && <section className="analysis-progress teacher-progress-card" role="status" aria-live="polite" aria-atomic="true">
+        <div className="analysis-spinner" aria-hidden="true" />
+        <div className="analysis-progress-copy">
+          <div className="teacher-progress-heading"><div><p className="eyebrow">ESPACE ENSEIGNANT</p><h2>Correction en cours</h2></div><span className="step-count">{estimatedRemainingSeconds === null ? `${formatElapsed(elapsedSeconds)} écoulées` : `Environ ${Math.ceil(estimatedRemainingSeconds / 60)} min restantes · ${formatElapsed(elapsedSeconds)} écoulées`}</span></div>
+          <div className="teacher-progress-phases" aria-label="Progression de la correction">
+            <div className={analysisStage === 'checking' ? 'teacher-progress-phase current' : 'teacher-progress-phase complete'}><span>{analysisStage === 'checking' ? '1' : '✓'}</span><div><strong>Préparation</strong><small>{analysisStage === 'checking' ? 'Préparation du traitement' : 'Terminée'}</small></div></div>
+            <div className={analysisStage === 'reading' ? 'teacher-progress-phase current' : analysisStage === 'grading' ? 'teacher-progress-phase complete' : 'teacher-progress-phase'}><span>{analysisStage === 'grading' ? '✓' : '2'}</span><div><strong>Lecture de la copie</strong><small>{analysisStage === 'reading' ? `Lecture · page ${Object.keys(pageProgress).length ? Math.max(...Object.keys(pageProgress).map(Number)) : 1}/${images.length}` : analysisStage === 'grading' ? `${Object.values(pageProgress).filter((status) => status === 'completed' || status === 'doubtful').length}/${images.length} pages lues` : 'À venir'}</small></div></div>
+            <div className={analysisStage === 'grading' ? 'teacher-progress-phase current' : 'teacher-progress-phase'}><span>3</span><div><strong>Correction</strong><small>{analysisStage === 'grading' ? `Critère ${criterionProgressPosition?.index ?? Math.min(rubric.criteria.length, Object.values(criterionStatuses).filter((status) => status === 'completed').length + (activeCriterionId ? 1 : 0))}/${criterionProgressPosition?.total ?? rubric.criteria.length}` : 'À venir'}</small></div></div>
+          </div>
+          {((analysisStage === 'reading' && !modelResponseStarted && lastModelLoadDurationMs === null && Object.keys(pageProgress).length <= 1) || (analysisStage === 'grading' && !modelResponseStarted && lastModelLoadDurationMs === null && !Object.values(criterionStatuses).includes('completed'))) && <p className="teacher-progress-hint">{analysisStage === 'reading' ? 'Chargement du modèle de lecture, cela peut prendre quelques minutes' : 'Chargement du modèle d’analyse, cela peut prendre quelques minutes'} · {formatElapsed(elapsedSeconds)} écoulées.</p>}
+          {criterionProgressMessage && !criterionProgressMessage.startsWith('Chargement du modèle') && <p className="teacher-progress-hint">{criterionProgressMessage}</p>}
+          {lastModelLoadDurationMs !== null && <p className="teacher-progress-hint">Chargement réel du modèle : {formatElapsed(Math.round(lastModelLoadDurationMs / 1000))}.</p>}
+          <div className="teacher-progress-page-list" aria-label="État de lecture des pages">{images.map((image, index) => { const status = pageProgress[index + 1]; return <span className={status === 'doubtful' ? 'is-doubtful' : status === 'completed' ? 'is-complete' : ''} key={`${image.fileName}-${index}`}>{status === 'completed' ? '✓' : status === 'doubtful' ? '!' : '·'} Page {index + 1}</span>; })}</div>
+          <div className="context-stop-action"><button type="button" className="context-stop-button" onClick={() => { void stopCurrentOperations(); }} disabled={isStoppingOperation}>{isStoppingOperation ? 'Arrêt en cours…' : 'Arrêter cette correction'}</button></div>
+          {Object.entries(pageProgress).filter(([, status]) => status === 'doubtful').map(([page]) => <p className="teacher-progress-warning" key={page}>Page {page} : lecture douteuse. <button type="button" className="text-button" onClick={() => setCopyViewerPage(Number(page) - 1)}>Voir la page</button> avant de valider la correction.</p>)}
+        </div>
+        <div className="analysis-timer" aria-label={`Temps écoulé : ${formatElapsed(elapsedSeconds)}`}><span>TEMPS ÉCOULÉ</span><strong>{formatElapsed(elapsedSeconds)}</strong></div>
+      </section>}
+
+      {isAnalyzing && interfaceMode === 'teacher' && analysisStage === 'reading' && <section className="live-copy-preview panel" aria-labelledby="live-copy-preview-title">
+        <div className="live-preview-heading"><div><p className="eyebrow">ÉTAPE 1 · LECTURE</p><h3 id="live-copy-preview-title">La copie en cours de lecture</h3><p>Consultez les pages et le texte reconnu côte à côte.</p></div><span className="live-preview-state">Lecture en cours</span></div>
+        <div className="live-copy-layout">
+          <div className="live-copy-pages" aria-label="Pages de la copie importée">
+            {images.map((image, index) => <figure className="live-copy-page" key={image.fileName + '-' + index}>
+              <ZoomableImage src={`data:${image.mimeType};base64,${image.base64}`} alt={`Page ${index + 1} de la copie en cours de lecture`} />
+              <figcaption><span>PAGE {index + 1}</span><span>{image.fileName || `Page ${index + 1}`}</span></figcaption>
+            </figure>)}
+          </div>
+          <details className="live-transcription-panel teacher-transcription-details"><summary><span className="live-panel-icon" aria-hidden="true">Aa</span><strong>Afficher la transcription</strong><small>{transcription ? 'Texte disponible' : 'En attente de lecture'}</small></summary>
+            {transcription ? <pre className="live-transcription-text">{transcription}</pre> : <div className="live-transcription-placeholder" role="status"><span className="live-text-skeleton" /><span className="live-text-skeleton short" /><span className="live-text-skeleton" /><p>Le texte apparaîtra après la lecture.</p></div>}
+          </details>
+        </div>
+      </section>}
+
+
+      {interfaceMode === 'teacher' && teacherStep === 'copy' && (transcription || (correctionMode === 'separate' && subjectTranscription)) && <section className="transcription-review" aria-labelledby="transcription-review-title">
+        <details>
+          <summary id="transcription-review-title">
+            <span><strong>Vérifier le texte lu par l’IA</strong><small>Relisez la transcription pour repérer les erreurs de lecture avant de vous fier à la correction.</small></span>
+            <span className="transcription-review-action">Afficher le texte</span>
+          </summary>
+          <div className="transcription-review-content">
+            {correctionMode === 'separate' && subjectTranscription && <section className="transcription-text-block">
+              <h3>Texte du sujet de référence</h3>
+              <pre>{subjectTranscription}</pre>
+            </section>}
+            {transcription && <section className="transcription-text-block">
+              <h3>Texte de la copie étudiante</h3>
+              <pre>{transcription}</pre>
+              <QuestionScopePreview criteria={rubric.criteria} transcription={transcription} />
+            </section>}
+          </div>
+        </details>
+      </section>}
+
+      {currentBackgroundJobId && activeBackgroundJob?.status === 'processing' && interfaceMode === 'teacher' && teacherStep === 'review' && (
+        <ActiveCopyProcessingWorkspace job={activeBackgroundJob} pages={images} studentLabel={studentLabel} onStopCorrections={() => { void stopCurrentOperations(); }} isStoppingCorrections={isStoppingOperation} />
+      )}
+
+      {error && <div className="error-banner" role="alert"><strong>Une action est nécessaire</strong><p>{error}</p></div>}
+
+      {currentBackgroundJobId && activeBackgroundJob?.status === 'failed' && interfaceMode === 'teacher' && teacherStep === 'review' && <section className="analysis-progress teacher-progress-card" role="alert">
+        <div className="analysis-progress-copy">
+          <h2>Correction interrompue</h2>
+          <p>L’IA n’a pas terminé cette copie. Vous pouvez relancer sa correction ; la copie sera relue depuis le début.</p>
+          <button type="button" className="primary-button" onClick={() => { void retryQueuedCorrection(activeBackgroundJob.id); }}>Relancer la correction</button>
+        </div>
+      </section>}
+
+      {activeBackgroundJob?.status === 'pending' && interfaceMode === 'teacher' && teacherStep === 'review' && <section className="analysis-progress teacher-progress-card" role="status"><strong>{preparingCopy?.id === activeBackgroundJob.id ? 'Préparation de cette copie' : 'Copie en attente de correction'}</strong><p>{preparingCopy?.id === activeBackgroundJob.id ? 'Le modèle IA se prépare. La lecture commencera ensuite.' : 'La copie sera analysée lorsque viendra son tour. Aucune note n’a encore été attribuée.'}</p></section>}
+      {(currentBackgroundJobId || currentCorrectionId) && activeBackgroundJob?.status !== 'processing' && interfaceMode === 'teacher' && !showAiSettings && <section className="review-section copy-navigation-only">
+        <CopyReviewHeader studentLabel={studentLabel} onStudentLabelChange={setStudentLabel} position={reviewPosition} totalCopies={reviewTotalCopies}
+          status={isFinalized ? 'Corrigée' : activeBackgroundJob?.status === 'pending' ? 'En attente' : activeBackgroundJob?.status === 'failed' || activeBackgroundJob?.status === 'needs-review' || (activeBackgroundJob?.status === 'reviewing' && activeBackgroundJob.completedCriteria < activeBackgroundJob.totalCriteria) ? 'À reprendre' : 'À vérifier'}
+          score={isFinalized || (proposal && review.length > 0 && activeBackgroundJob?.status !== 'pending') ? reviewedTotal : null} scoreIncomplete={unassessedCount > 0 || review.length !== rubric.criteria.length} maximumPoints={validation.maximumPoints} isFinalized={isFinalized}
+          canPrevious={Boolean(copyNavigation.previousCopy)} canNext={Boolean(copyNavigation.nextCopy)}
+          previousLabel={copyNavigation.previousCopy ? copyNavigation.previousCopy.label + ' · ' + copyNavigation.previousCopy.status : null}
+          nextLabel={copyNavigation.nextCopy ? copyNavigation.nextCopy.label + ' · ' + copyNavigation.nextCopy.status : null}
+          onPrevious={() => { if (copyNavigation.previousCopy) void openCopyNavigationItem(copyNavigation.previousCopy.id); }}
+          onNext={() => { if (copyNavigation.nextCopy) void openCopyNavigationItem(copyNavigation.nextCopy.id); }}
+        />
+        {reviewMessage && <p className="copy-review-navigation-message" role="status">{reviewMessage}</p>}
+      </section>}
+      {(proposal || isAnalyzing || review.length > 0 || Boolean(pageClassifications?.some((page) => page.kind !== 'text')) || (analysisStage === 'grading' && teacherStep === 'review')) && !(currentBackgroundJobId && activeBackgroundJob?.status === 'processing') && interfaceMode === 'teacher' && teacherStep === 'review' && <section className="review-section" onKeyDown={(event) => {
+        if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+          event.preventDefault();
+          if (!isAnalyzing && !isFinalized && unassessedCount === 0 && review.length === rubric.criteria.length) void finalizeReview(true);
+        }
+      }}>
+        {reviewMessage && (showAiSettings || (!currentBackgroundJobId && !currentCorrectionId)) && <p className="copy-review-navigation-message" role="status">{reviewMessage}</p>}
+        
+
+        {interfaceMode !== 'teacher' && isAnalyzing && <p className="diagnostic-progress-message">{criterionProgressMessage || 'Analyse progressive en cours'}</p>}
+        {interfaceMode !== 'teacher' && (readingElapsedMs !== null || analysisElapsedMs !== null) && <p className="completed-stage-timings" aria-label="Durée des étapes de traitement"><span>Lecture de l’image : {readingElapsedMs === null ? 'non mesurée' : formatElapsed(Math.round(readingElapsedMs / 1000))}</span><span>Analyse et notation : {analysisElapsedMs === null ? 'non mesurée' : formatElapsed(Math.round(analysisElapsedMs / 1000))}</span></p>}
+        {scientificDiagramError && <p className="review-alert review-alert-warning" role="alert">{scientificDiagramError}</p>}
+
+        {teacherAnnotations && <details className="review-annotations-details"><summary>✎ {teacherAnnotations.split('\n').filter((line) => line.trim()).length} annotations repérées</summary><pre>{teacherAnnotations}</pre></details>}
+        <div className="review-workspace">
+          <aside className="review-source-pane" aria-labelledby="review-source-pane-title">
+            <div className="review-source-heading"><h3 id="review-source-pane-title">Copie de l’étudiant</h3><p>Pages de la copie · rotation modifiable si nécessaire.</p></div>
+            <div className="review-source-pages" aria-label="Pages originales de la copie">
+              {images.length > 0 ? images.map((image, index) => {
+                const pageNumber = index + 1;
+                return <figure id={`review-copy-page-${pageNumber}`} className={focusedEvidencePage === pageNumber ? 'live-copy-page evidence-page-focused' : 'live-copy-page'} key={image.fileName + '-review-' + index}>
+                  <div className="evidence-image-stage">
+                    <ZoomableImage src={`data:${image.mimeType};base64,${image.base64}`} alt={`Page de travail ${pageNumber} de la copie`} />
+                    {isScientificDiagramAssignment && <Button variant="secondary" className="diagram-review-enlarge" aria-label={`Agrandir la page ${pageNumber} du schéma`} onClick={() => setCopyViewerPage(index)}>Agrandir · Zoom</Button>}
+                    <div className="copy-image-rotation-controls review-image-rotation-controls"><button type="button" className="text-button" aria-label={`Réorienter la page ${pageNumber} à gauche de 90 degrés`} disabled={isAnalyzing} onClick={() => { void rotateCopyPage(index, 270); }}>↶ 90°</button><button type="button" className="text-button" aria-label={`Réorienter la page ${pageNumber} à droite de 90 degrés`} disabled={isAnalyzing} onClick={() => { void rotateCopyPage(index, 90); }}>↷ 90°</button></div>
+                    {originalImages[pageNumber - 1] && originalImages[pageNumber - 1].base64 !== image.base64 && <details className="original-image-details"><summary>Voir l’image originale non tournée</summary><ZoomableImage src={`data:${originalImages[pageNumber - 1].mimeType};base64,${originalImages[pageNumber - 1].base64}`} alt={`Image originale non modifiée de la page ${pageNumber}`} /></details>}
+                  </div>
+                  <figcaption><span>PAGE {pageNumber}</span><span>{image.fileName || `Page ${pageNumber}`}</span></figcaption>
+                </figure>;
+              }) : <p className="review-source-empty">Aucune image originale disponible. Vérifiez les preuves avec prudence.</p>}
+            </div>
+            <details className="review-transcription">
+              <summary><span><strong>Transcription de la copie</strong><small>{(activeBackgroundJob?.transcription ?? transcription) ? 'Texte disponible (consultation facultative)' : 'Aucun texte disponible'}</small></span></summary>
+              {(activeBackgroundJob?.transcription ?? transcription) ? <pre className="live-transcription-text">{activeBackgroundJob?.transcription ?? transcription}</pre> : <p role="status">La correction s’appuie sur les images de la copie.</p>}
+            </details>
+          </aside>
+          <div className="review-main-column" onKeyDown={(event) => {
+            const target = event.target as HTMLElement;
+            if (!target.classList.contains('review-card')) return;
+            const cards = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('.review-card[tabindex="0"]'));
+            const currentIndex = cards.indexOf(target);
+            if (currentIndex < 0) return;
+            if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+              event.preventDefault();
+              cards[Math.max(0, Math.min(cards.length - 1, currentIndex + (event.key === 'ArrowDown' ? 1 : -1)))]?.focus();
+            } else if (event.key === 'Enter') {
+              const criterionId = target.dataset.criterionId;
+              if (criterionId) {
+                event.preventDefault();
+                if (review.find((item) => item.criterionId === criterionId)?.assessmentStatus !== 'not-evaluated') updateReview(criterionId, { decision: 'accepted' });
+              }
+            }
+          }}>
+        {(flaggedCriteriaIds.size > 0 || unreadableCopySignal || (studentIdentity !== null && studentIdentity.confidence !== 'high')) && <section className="copy-review-alert-strip" aria-label="Éléments à examiner">
+          {flaggedCriteriaIds.size > 0 && <button type="button" onClick={() => { setShowOnlyFlagged(true); document.querySelector('.review-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}>⚠ {flaggedCriteriaIds.size} critère(s) à examiner</button>}
+          {studentIdentity && studentIdentity.confidence !== 'high' && <button type="button" className="copy-review-alert-chip" onClick={() => document.getElementById('student-label')?.focus()}>Nom à confirmer</button>}
+          {pageClassifications?.filter((page) => page.kind === 'ambiguous').map((page) => <div className="copy-review-alert-chip copy-review-classification-alert" role="group" aria-label={`Classification incertaine de la page ${page.pageNumber}`} key={page.pageNumber}><span role="alert">{page.warning ?? (page.confidence < 0.75 ? `Page ${page.pageNumber} : schéma possible, confiance faible.` : `Page ${page.pageNumber} : classification incertaine, à vérifier.`)}</span><button type="button" className="secondary-button" onClick={() => setPageClassifications((current) => current ? resolveAmbiguousPageClassification(current, page.pageNumber, 'scientific-diagram') : current)}>Analyser comme schéma</button><button type="button" className="text-button" onClick={() => setPageClassifications((current) => current ? resolveAmbiguousPageClassification(current, page.pageNumber, 'text') : current)}>Ignorer</button></div>)}
+          {unreadableCopySignal && !pageClassifications?.some((page) => page.kind === 'ambiguous') && <span className="copy-review-alert-chip" role="alert">Lecture à vérifier sur l’image</span>}
+        </section>}
+            <div className="atelier-review-decision-heading">
+              <strong>{flaggedCriteriaIds.size > 0 ? `${flaggedCriteriaIds.size} critère${flaggedCriteriaIds.size > 1 ? 's' : ''} à examiner` : 'Proposition de correction'}</strong>
+              <span>{reliableCriteriaCount > 0 ? `${reliableCriteriaCount} autre${reliableCriteriaCount > 1 ? 's' : ''} critère${reliableCriteriaCount > 1 ? 's' : ''} sans alerte` : 'Décisions fondées sur le barème'}</span>
+            </div>
+            <div className={`summary-panel review-score-summary ${isAnalyzing ? 'is-provisional' : ''}`} aria-live="polite"><strong>{isAnalyzing ? 'Note provisoire · calcul en cours' : unassessedCount > 0 ? 'Note partielle · critères non évalués' : criterionProgress.isComplete ? 'Note proposée' : 'Note partielle · analyse incomplète'}</strong>{isAnalyzing && <small>Cette note n’est pas définitive et évoluera avec les prochains critères.</small>}<span>{criterionProgress.completedCount > 0 ? `${reviewedTotal} / ${validation.maximumPoints} points` : 'En attente de la première note'} · {criterionProgress.completedCount - unassessedCount} / {criterionProgress.totalCount} critères évalués</span>{proposal?.summary && <details className="review-summary-details"><summary>Voir la synthèse de l’analyse</summary><p>{proposal.summary}</p></details>}</div>
+        {flaggedCriteriaIds.size > 0 && <div className="review-criteria-toolbar">
+          <button type="button" className="text-action" onClick={() => setShowOnlyFlagged((current) => !current)}>{shouldFocusExceptions ? 'Afficher tous les critères' : 'Afficher uniquement les points à examiner'}</button>
+        </div>}
+        {shouldFocusExceptions && reliableCriteriaCount > 0 && <div className="review-safe-summary-row">
+          <details className="review-safe-summary">
+            <summary>{reliableCriteriaCount} critères sans alerte · preuves disponibles</summary>
+            <ul>{review.filter((item) => reviewFocus.reliableCriteriaIds.includes(item.criterionId)).map((item) => {
+              const criterion = rubric.criteria.find((entry) => entry.id === item.criterionId);
+              return <li key={item.criterionId}><strong>{criterion?.title ?? item.criterionId}</strong><span>{item.teacherPoints} / {criterion?.maxPoints ?? 0} points</span><small>{item.evidence.trim().split(/\\s+/u).slice(0, 12).join(' ')}{item.evidence.trim().split(/\\s+/u).length > 12 ? '…' : ''}</small></li>;
+            })}</ul>
+          </details>
+        </div>}
+        {(isAnalyzing ? rubric.criteria : orderedReviewCriteria.filter((criterion) => !shouldFocusExceptions || flaggedCriteriaIds.has(criterion.id))).map((criterion, criterionIndex) => {
+          const item = review.find((entry) => entry.criterionId === criterion.id);
+          if (!item) {
+            const status = criterionStatuses[criterion.id];
+            const active = isAnalyzing && activeCriterionId === criterion.id;
+            const statusLabel = status === 'failed' ? 'À vérifier' : status === 'retrying' ? 'Nouvel essai en cours' : active ? `Analyse du critère ${criterionIndex + 1} en cours…` : (criterionByCriterion || correctionMethod === 'decision') ? 'En attente de son analyse' : 'En attente du résultat global';
+            return <article tabIndex={0} className={`panel review-card review-card-pending ${active ? 'is-active' : ''}`} key={criterion.id} aria-label={`Critère ${criterion.title} : ${statusLabel}`}>
+              <div className="review-card-heading"><div><h3>{criterion.title}</h3><p>Maximum : {criterion.maxPoints} points</p></div><span className="review-pending-status">{statusLabel}</span></div>
+              <div className="review-pending-content"><span className="live-score-placeholder" aria-hidden="true" /><div className="review-pending-skeleton" aria-hidden="true"><span /><span /><span /></div></div>
+            </article>;
+          }
+          const isFlagged = flaggedCriteriaIds.has(item.criterionId);
+          const alertReasons = getReviewAlertReasons(item, criterion?.maxPoints ?? 0);
+          return <article tabIndex={0} data-criterion-id={item.criterionId} className={isFlagged ? "panel review-card is-flagged" : "panel review-card"} key={item.criterionId}>
+            <div className="review-card-heading">
+              <div><h3>{criterion.title}</h3><p>Maximum : {criterion?.maxPoints ?? 0} points</p></div>
+              <div className="review-card-result">
+                <strong>{item.assessmentStatus === 'not-evaluated' ? 'À évaluer' : item.teacherPoints + ' / ' + (criterion?.maxPoints ?? 0)}</strong>
+                <span className={item.decision === 'accepted' ? 'review-result-status is-confirmed' : flaggedCriteriaIds.has(item.criterionId) ? 'review-result-status needs-review' : 'review-result-status'}>{item.decision === 'accepted' ? 'Confirmé' : flaggedCriteriaIds.has(item.criterionId) ? 'À examiner' : 'Sans alerte'}</span>
+              </div>
+            </div>
+            {isFlagged && <TeacherReviewAlert
+              reasons={alertReasons}
+              rationale={item.rationale}
+              questionForTeacher={item.questionForTeacher}
+              annotationSuggestion={item.annotationSuggestion}
+              pageNumber={item.pageNumber !== undefined && item.pageNumber >= 1 && item.pageNumber <= images.length ? item.pageNumber : undefined}
+              onShowEvidence={item.pageNumber !== undefined && item.pageNumber >= 1 && item.pageNumber <= images.length ? () => {
+                setFocusedEvidencePage(item.pageNumber!);
+                document.getElementById(`review-copy-page-${item.pageNumber}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              } : undefined}
+            />}
+            <details className="review-explanation" open={item.subcriteria?.some((sub) => sub.assessmentStatus === 'not-evaluated' || sub.verificationSource === 'teacher') || undefined}>
+              <summary>Voir la preuve et la justification détaillées</summary>
+            <div className="evidence"><span>ÉLÉMENTS REPÉRÉS</span><p>{item.evidence}</p>{item.pageNumber !== undefined && item.pageNumber >= 1 && item.pageNumber <= images.length && <button type="button" className="evidence-location-button" aria-label={`Repérer la preuve du critère ${criterion?.title ?? item.criterionId} sur la page ${item.pageNumber}`} onClick={() => { setFocusedEvidencePage(item.pageNumber!); document.getElementById(`review-copy-page-${item.pageNumber}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}>Repérer sur la page {item.pageNumber}</button>}</div>
+            {item.annotationSuggestion && item.pageNumber !== undefined && item.pageNumber >= 1 && item.pageNumber <= images.length && <button type="button" className="evidence-location-button" aria-label={`Afficher la page ${item.pageNumber} pour le commentaire proposé`} onClick={() => { setFocusedEvidencePage(item.pageNumber!); document.getElementById(`review-copy-page-${item.pageNumber}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}>Afficher la page liée</button>}
+            {item.annotationSuggestion && <section className="annotation-suggestion" aria-label={`Suggestion d’annotation pour le critère ${criterion?.title ?? item.criterionId}`}>
+              <div className="annotation-suggestion-heading"><span className="eyebrow">COMMENTAIRE ÉVENTUEL À REPORTER AU STYLO</span><span className="annotation-suggestion-status">Suggestion IA</span></div>
+              <p className="annotation-suggestion-text">{item.annotationSuggestion}</p>
+            </section>}
+            {item.rationale && <p className="rationale">{item.rationale}</p>}
+
+
+            {item.subcriteria && <details className="scientific-diagram-quality-details review-quality-details" open={item.subcriteria.some((entry) => entry.assessmentStatus === 'not-evaluated' || entry.verificationSource === 'teacher') || undefined}>
+              <summary>Sous-critères · {item.subcriteria.filter((entry) => entry.assessmentStatus === 'not-evaluated').length
+                ? item.subcriteria.filter((entry) => entry.assessmentStatus === 'not-evaluated').length + ' à vérifier sur ' + item.subcriteria.length
+                : item.subcriteria.length + ' évalués'}</summary>
+              <ul>{item.subcriteria.map((subcriterion) => <li key={subcriterion.subcriterionId}>
+                <div><strong>{subcriterion.title}</strong>
+                  <span className="quality-status">{subcriterion.assessmentStatus === 'not-evaluated'
+                    ? 'À vérifier · proposition ' + subcriterion.points + ' / ' + subcriterion.maxPoints
+                    : subcriterion.points + ' / ' + subcriterion.maxPoints + ' pt'}</span></div>
+                <p>{subcriterion.evidence}</p>
+                {subcriterion.verificationSource === 'teacher' && <small>Vérifié par le professeur</small>}
+                {subcriterion.assessmentStatus === 'not-evaluated' && <>
+                  <p className="teacher-question">{subcriterion.questionForTeacher || 'Vérifiez cette décision sur la réponse de l’étudiant.'}</p>
+                  {!isAnalyzing && <div className="review-controls" role="group" aria-label={`Arbitrage du sous-critère ${subcriterion.title}`}>
+                    <button type="button" className="secondary-button" onClick={() => verifySubcriterion(item.criterionId, subcriterion.subcriterionId, 'confirm')}>Confirmer {subcriterion.points} pt</button>
+                    {subcriterion.points > 0 && <button type="button" className="text-button" onClick={() => verifySubcriterion(item.criterionId, subcriterion.subcriterionId, 'reject')}>Refuser · 0 pt</button>}
+                  </div>}
+                </>}
+              </li>)}</ul>
+            </details>}
+            {item.questionForTeacher && <p className="teacher-question"><strong>Question pour vous :</strong> {item.questionForTeacher}</p>}
+            </details>
+            {item.scientificDiagramPages && <details className="scientific-diagram-quality-details review-quality-details">
+              <summary>Évaluation du schéma · pages {(item.scientificDiagramPages ?? []).join(', ') || 'à identifier'}</summary>
+              <p>{item.evidence}</p>
+              {item.scientificDiagramElements && !item.subcriteria && <ul>{item.scientificDiagramElements.map((element) => <li key={element.label}>
+                <div><strong>{element.label}</strong><span className={`quality-status quality-status-${element.status}`}>{({ present: 'Présent', partial: 'Partiel', absent: 'Absent', uncertain: 'Incertain' })[element.status]} · {element.points} / {element.maxPoints} pt</span></div>
+                <p>{element.evidence}</p>
+              </li>)}</ul>}
+              {!item.scientificDiagramElements && <p>{item.rationale}</p>}
+            </details>}
+            {scientificDiagramAnalysis?.diagrams.some((diagram) => diagram.criteria.some((result) => result.criterionId === item.criterionId)) && <details className="scientific-diagram-criterion-details"><summary>Analyse du schéma scientifique · {scientificDiagramAnalysis.diagrams.filter((diagram) => diagram.criteria.some((result) => result.criterionId === item.criterionId)).length} résultat(s)</summary>{scientificDiagramAnalysis.diagrams.filter((diagram) => diagram.criteria.some((result) => result.criterionId === item.criterionId)).map((diagram) => { const result = diagram.criteria.find((entry) => entry.criterionId === item.criterionId)!; return <article key={diagram.id}><strong>{diagram.diagramType || 'Schéma'} · page {diagram.pageNumber}</strong><p>{diagram.summary}</p><p>{result.evidence}</p><small>Confiance indicative : {Math.round(result.confidence * 100)} %{result.requiresTeacherReview ? ' · Vérification requise' : ''}</small>{diagram.uncertainties.map((uncertainty, index) => <p className="review-alert review-alert-warning" key={index}>{uncertainty}</p>)}</article>; })}{scientificDiagramAnalysis.overallUncertainties.map((uncertainty, index) => <p className="review-alert review-alert-warning" key={index}>{uncertainty}</p>)}</details>}
+            <details className="review-quick-edit">
+              <summary>Ajuster la note ou ajouter un commentaire</summary>
+              <div className="review-controls">
+              <label><span className="field-label">Votre note</span><input type="number" min={Math.min(0, criterion?.maxPoints ?? 0)} max={Math.max(0, criterion?.maxPoints ?? 0)} step="0.01" value={item.assessmentStatus === 'not-evaluated' ? '' : item.teacherPoints} placeholder={item.assessmentStatus === 'not-evaluated' ? 'À attribuer' : undefined} onChange={(event) => { if (event.target.value.trim()) updateReview(item.criterionId, { teacherPoints: normalizeGradeScore(Number(event.target.value)), decision: 'adjusted' }); }} /></label>
+              <label className="comment-field"><span className="field-label">Commentaire enseignant</span><input value={item.teacherComment} onChange={(event) => updateReview(item.criterionId, { teacherComment: event.target.value })} placeholder="Précision ou correction éventuelle" /></label>
+              </div>
+            </details>
+          </article>;
+        })}
+        {isFinalized && <div className="panel finalized-next-actions"><div><span className="eyebrow">COPIE ARCHIVÉE</span><h3>Correction enregistrée</h3><p>Vous pouvez la consulter plus tard ou passer à la copie d’un autre étudiant sans perdre ce résultat.</p></div><div><button type="button" className="primary-button" onClick={() => startNextCopy()}>Corriger une autre copie</button><button type="button" className="secondary-button" onClick={() => { setCopyOverviewFilter('completed'); setCopyOverviewFilterTouched(true); setTeacherStep('overview'); setShowAiSettings(false); }}>Voir les copies corrigées</button></div></div>}
+         <details className="review-extra-tools"><summary>Questions générales et export de la correction</summary>
+           <div className="questions-field"><span className="field-label">Points à vérifier avant de communiquer la note</span>{teacherQuestions.trim() ? <ul className="teacher-questions-list">{teacherQuestions.split('\n').map((line) => line.trim()).filter(Boolean).map((line, index) => <li key={index}>{line}</li>)}</ul> : <p className="no-teacher-questions">Aucune question générale. Les questions liées à un critère restent affichées sur celui-ci.</p>}</div>
+           <details className="review-export"><summary>Exporter le récapitulatif (JSON)</summary><p>Conservez ou réutilisez les résultats de cette correction au format JSON.</p><button type="button" className="secondary-button" onClick={() => { const payload = { rubric, question, summary: proposal?.summary ?? '', criteria: review, questionsForTeacher: teacherQuestions.split('\n').map((line) => line.trim()).filter(Boolean), total: reviewedTotal, exportedAt: new Date().toISOString() }; const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })); const link = document.createElement('a'); link.href = url; link.download = 'proposition-correction.json'; link.click(); URL.revokeObjectURL(url); setReviewMessage('Récapitulatif JSON exporté.'); }}>{isFinalized ? 'Télécharger la correction enregistrée' : 'Télécharger le récapitulatif provisoire'}</button></details>
+         </details>
+         <div className="copy-review-validation-bar"><div><span>{unassessedCount > 0 ? 'Total partiel' : 'Total'}</span><strong>{reviewedTotal.toLocaleString('fr-FR')} / {validation.maximumPoints}</strong><small>{teacherReviewStatus(unassessedCount, flaggedCriteriaIds.size)}</small></div><button type="button" className="primary-button" aria-keyshortcuts="Control+Enter Meta+Enter" disabled={isAnalyzing || isFinalized || unassessedCount > 0 || review.length !== rubric.criteria.length} onClick={() => void finalizeReview(true)}>{isFinalized ? 'Correction validée' : 'Valider et passer à la suivante'}</button></div>
+          </div>
+        </div>
+      </section>}
+
+      </>}
+      {pendingTeacherAnnotationReview.length > 0 && <Dialog
+        title="Vérifier les annotations incertaines"
+        subtitle={pendingTeacherAnnotationReview.length + ' élément(s) à confirmer'}
+        size="wide"
+        dismissible={false}
+        actions={<div className="annotation-review-actions"><span>Vous gardez la main sur les ajustements de la correction.</span><Button onClick={finishTeacherAnnotationReview}>Confirmer et poursuivre</Button></div>}
+      >
+        <div className="annotation-review-content">
+          <p>Le modèle a repéré des marques dont l’origine n’est pas certaine. Par défaut, elles restent dans la transcription et peuvent être prises en compte dans la correction. Cochez uniquement celles qui ont bien été ajoutées par le professeur : elles seront retirées du texte noté.</p>
+          {pendingTeacherAnnotationReview.map((candidate) => <Checkbox className="annotation-review-option" key={candidate.id}
+            checked={teacherAnnotationReviewDecisions[candidate.id] === true}
+            onChange={(event) => setTeacherAnnotationReviewDecisions((current) => ({ ...current, [candidate.id]: event.target.checked }))}
+          >
+            <strong>{candidate.text}</strong>
+            <small>Page {candidate.page} · {candidate.location || 'Emplacement non précisé'} · Confiance {candidate.confidence === 'medium' ? 'moyenne' : 'faible'}</small>
+            <small>Cocher si cette marque provient du professeur et non de l’étudiant.</small>
+          </Checkbox>)}
+        </div>
+      </Dialog>}
+      {copyViewerPage !== null && images[copyViewerPage] && <CopyPageViewer
+        pages={images}
+        pageIndex={copyViewerPage}
+        onPageChange={setCopyViewerPage}
+        onRotate={(pageIndex, degrees) => { void rotateCopyPage(pageIndex, degrees); }}
+        onClose={() => setCopyViewerPage(null)}
+        rotationDisabled={isAnalyzing}
+        rotationDegrees={manualRotationAngles[copyViewerPage] ?? 0}
+      />}
+      {queuedViewer && queuedViewerJob && queuedViewerJob.images[queuedViewer.pageIndex] && <CopyPageViewer
+        key={queuedViewer.jobId}
+        pages={queuedViewerJob.images}
+        pageIndex={queuedViewer.pageIndex}
+        copyLabel={queuedViewerJob.label}
+        onPageChange={(pageIndex) => setQueuedViewer({ jobId: queuedViewer.jobId, pageIndex })}
+        onRotate={(pageIndex, degrees) => { void rotateQueuedCopyPage(queuedViewerJob, pageIndex, degrees); }}
+        onClose={closeQueuedCopyViewer}
+        rotationDisabled={isPreparingSeriesCopies || rotatingQueuedPage !== null || queuedViewerJob.status === 'completed'}
+        rotationDegrees={queuedViewerJob.rotationAngles?.[queuedViewer.pageIndex] ?? 0}
+      />}
+      {(interfaceMode === 'diagnostic' || !showAiSettings) && <footer><span>Compagnon Correcteur de Devoirs</span><span>Une suggestion d’IA reste une suggestion. <strong>La décision est humaine.</strong></span></footer>}
+      </div>}
+      {interfaceMode === 'diagnostic' && managingEvaluationProfiles && <EvaluationProfilesDialog
+        profiles={aiModelProfiles}
+        selectedIds={selectedEvaluationProfileIds}
+        busy={busy || pilotBusy || radarAutoBusy}
+        onChange={setSelectedEvaluationProfileIds}
+        onCreate={() => { setManagingEvaluationProfiles(false); createNewAiModelProfile(); setEvaluationEditorOpen(true); }}
+        onEditCurrent={() => { setManagingEvaluationProfiles(false); setEvaluationEditorOpen(true); }}
+        onEdit={(profile) => { setManagingEvaluationProfiles(false); setAiModelProfileName(profile.name); applyAiModelProfile(profile); setEvaluationEditorOpen(true); }}
+        onManageDeletion={() => { setManagingEvaluationProfiles(false); setManagingAiProfiles(true); }}
+        onClose={() => setManagingEvaluationProfiles(false)}
+      />}
+      {interfaceMode === 'diagnostic' && evaluationEditorOpen && <Dialog
+        title="Créer ou modifier une configuration IA"
+        subtitle="Modèles, fournisseur et options d’évaluation"
+        size="wide"
+        className="evaluation-config-dialog"
+        onClose={() => setEvaluationEditorOpen(false)}
+        actions={<Button variant="secondary" onClick={() => setEvaluationEditorOpen(false)}>Fermer</Button>}
+      >
+        <div className="evaluation-config-editor">
+
+          <div className="evaluation-config-editor-heading"><div><h3>Paramètres du modèle</h3><p>Les réglages de cette configuration s’appliqueront aux prochains tests. Les copies restent sur le serveur sélectionné.</p></div><button type="button" className="secondary-button" disabled={busy} onClick={createNewAiModelProfile}>＋ Nouvelle configuration</button></div>
+          <div className="evaluation-config-fields">
+            <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-profile-select">Charger un profil existant</label><DesignSystemSelect id="evaluation-profile-select" value={selectedAiModelProfileId} onChange={(event) => { const profile = aiModelProfiles.find((item) => item.id === event.target.value); if (profile) { setAiModelProfileName(profile.name); applyAiModelProfile(profile); } else { setSelectedAiModelProfileId(''); } }}><option value="">Nouvelle configuration / réglages courants</option>{aiModelProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name} · {profile.configuration.correctionMethod === 'visual-decision' ? 'vision + décisionnel direct' : profile.configuration.correctionMethod === 'decision' ? 'décisionnelle' : 'classique'}</option>)}</DesignSystemSelect></div>
+            <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-profile-name">Nom de la configuration</label><input id="evaluation-profile-name" value={aiModelProfileName} onChange={(event) => setAiModelProfileName(event.target.value)} placeholder="Ex. Gemma rapide, Qwen raisonnement…" /></div>
+            <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-provider">Fournisseur IA</label><DesignSystemSelect id="evaluation-provider" value={apiCompatible ? 'openai' : 'ollama'} onChange={(event) => { const compatible = event.target.value === 'openai'; setApiCompatible(compatible); setAvailableModels([]); setConnectionMessage(''); if (compatible && endpoint === 'http://localhost:11434') setEndpoint('https://serveur/v1/chat/completions'); if (!compatible && endpoint.includes('/v1/chat/completions')) setEndpoint('http://localhost:11434'); }}><option value="ollama">Ollama local</option><option value="openai">API compatible OpenAI</option></DesignSystemSelect></div><div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-ollama-endpoint">{apiCompatible ? 'URL Chat Completions' : 'Adresse du serveur Ollama'}</label><input id="evaluation-ollama-endpoint" value={endpoint} onChange={(event) => { setEndpoint(event.target.value); setAvailableModels([]); setConnectionMessage(''); }} placeholder={apiCompatible ? 'https://serveur/v1/chat/completions' : 'http://localhost:11434'} /></div>{apiCompatible && <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-api-key">Token API (Bearer)</label><input id="evaluation-api-key" type="password" autoComplete="new-password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder="Token d’accès" /><small>Jeton masqué dans les traces de diagnostic.</small></div>}
+            <AiModelRoleFields prefix="evaluation" models={availableModels} generativeModel={generativeModel} decisionModel={decisionModel} method={correctionMethod} apiCompatible={apiCompatible} visionModel={visionModel} onGenerativeModel={changeGenerativeModel} onDecisionModel={setDecisionModel} onMethod={setCorrectionMethod} disabled={busy || pilotBusy} />
+          </div>
+          <details className="ai-model-advanced"><summary>Options avancées du test</summary>
+          <div className="evaluation-config-fields">
+            <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-vision-model">Modèle de lecture des images</label>{availableModels.length ? <DesignSystemSelect id="evaluation-vision-model" value={visionModel} onChange={(event) => setVisionModel(event.target.value)}><option value="">Choisir un modèle vision</option>{availableModels.map((model) => <option key={model} value={model}>{model}</option>)}</DesignSystemSelect> : <input id="evaluation-vision-model" value={visionModel} onChange={(event) => setVisionModel(event.target.value)} placeholder="Ex. gemma3:4b" />}</div>
+            <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-strategy">Stratégie d’analyse</label><DesignSystemSelect id="evaluation-strategy" value={diagnosticStrategy} onChange={(event) => setDiagnosticStrategy(event.target.value as DiagnosticStrategy)}><option value="single">Un modèle d’analyse</option><option value="compare">Comparer deux avis</option><option value="arbitrate">Deux avis + arbitre</option></DesignSystemSelect></div>
+            {diagnosticStrategy !== 'single' && <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-second-model">Second modèle d’analyse</label>{availableModels.length ? <DesignSystemSelect id="evaluation-second-model" value={secondAnalysisModel} onChange={(event) => setSecondAnalysisModel(event.target.value)}><option value="">Choisir un modèle</option>{availableModels.map((model) => <option key={model} value={model}>{model}</option>)}</DesignSystemSelect> : <input id="evaluation-second-model" value={secondAnalysisModel} onChange={(event) => setSecondAnalysisModel(event.target.value)} placeholder="Nom du second modèle" />}</div>}
+            {diagnosticStrategy === 'arbitrate' && <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-arbitrator-model">Modèle arbitre</label>{availableModels.length ? <DesignSystemSelect id="evaluation-arbitrator-model" value={arbitratorModel} onChange={(event) => setArbitratorModel(event.target.value)}><option value="">Choisir un arbitre</option>{availableModels.map((model) => <option key={model} value={model}>{model}</option>)}</DesignSystemSelect> : <input id="evaluation-arbitrator-model" value={arbitratorModel} onChange={(event) => setArbitratorModel(event.target.value)} placeholder="Nom du modèle arbitre" />}</div>}
+          </div>
+          <label className="analysis-thinking-option evaluation-thinking-option" htmlFor="evaluation-criterion-by-criterion"><input id="evaluation-criterion-by-criterion" type="checkbox" checked={criterionByCriterion} disabled={correctionMethod !== 'generative'} onChange={(event) => setCriterionByCriterion(event.target.checked)} /><span><strong>Analyser critère par critère</strong><small>Un appel par critère, séquentiellement. Désactivez pour comparer avec une requête globale.</small></span></label>
+          <label className="analysis-thinking-option evaluation-thinking-option" htmlFor="evaluation-analysis-thinking"><input id="evaluation-analysis-thinking" type="checkbox" checked={analysisThinking} onChange={(event) => setAnalysisThinking(event.target.checked)} /><span><strong>Activer le mode thinking</strong><small>Désactivé par défaut. Peut améliorer le raisonnement mais allonger fortement les essais.</small></span></label>
+          </details>
+          <div className="evaluation-config-actions"><button type="button" className="secondary-button" disabled={busy} onClick={() => void connectOllama()}>{busy ? 'Connexion…' : 'Tester la connexion et détecter les modèles'}</button><Button variant="primary" disabled={busy || pilotBusy} onClick={saveAiModelProfile}>Enregistrer la configuration</Button></div>
+          {connectionMessage && <StatusNotice tone={connectionTone}>{connectionMessage}</StatusNotice>}{aiModelProfileMessage && <StatusNotice tone={aiModelProfileTone}>{aiModelProfileMessage}</StatusNotice>}
+        </div>
+      </Dialog>}
+      {managingAiProfiles && <AiProfileManager
+        profiles={aiModelProfiles}
+        activeProfileId={selectedAiModelProfileId}
+        selectedEvaluationProfileIds={selectedEvaluationProfileIds}
+        busy={busy || pilotBusy}
+        onDelete={deleteAiModelProfiles}
+        onClose={() => setManagingAiProfiles(false)}
+      />}
+      {pendingAiProfileRemoval && <Dialog
+        title="Supprimer cette configuration IA ?"
+        subtitle={pendingAiProfileRemoval.name}
+        onClose={() => setPendingAiProfileRemoval(null)}
+        actions={<>
+          <Button variant="secondary" onClick={() => setPendingAiProfileRemoval(null)}>Annuler</Button>
+          <Button variant="danger" onClick={() => deleteAiModelProfile(pendingAiProfileRemoval)}>Supprimer la configuration</Button>
+        </>}
+      >
+        <p>Ce profil ne sera plus proposé pour la correction ni pour les évaluations. Les réglages chargés, les copies et l’historique des évaluations ne seront pas supprimés.</p>
+      </Dialog>}
+      {pendingRemoval && <Dialog
+        title={pendingRemoval.kind === 'assignment' ? 'Supprimer ce devoir ?' : 'Retirer cette copie ?'}
+        subtitle={pendingRemoval.kind === 'assignment' ? pendingRemoval.profile.title.trim() || 'Devoir sans titre' : pendingRemoval.job.label}
+        onClose={() => setPendingRemoval(null)}
+        actions={<>
+          <Button variant="secondary" onClick={() => setPendingRemoval(null)}>Annuler</Button>
+          <Button variant="danger" onClick={() => {
+            const target = pendingRemoval;
+            setPendingRemoval(null);
+            if (target?.kind === 'assignment') deleteAssignment(target.profile);
+            else if (target?.kind === 'copy') void removeSeriesCopy(target.job);
+          }}>{pendingRemoval.kind === 'assignment' ? 'Supprimer le devoir' : 'Retirer la copie'}</Button>
+        </>}
+      >
+        {pendingRemoval.kind === 'assignment'
+          ? <p>Ce devoir sera retiré de votre liste. Les corrections déjà archivées seront conservées.</p>
+          : <p>Cette copie et ses {pendingRemoval.job.images.length} page(s) seront retirées du devoir. Les données locales associées à cette copie seront supprimées.</p>}
+      </Dialog>}
+    </main>
+  );
+}

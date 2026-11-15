@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { readEvaluationGradingResult } from '../../../src/domain/evaluation/evaluationGradingResult.ts';
+import { readEvaluationGradingResult } from '../../../src/shell/application/evaluationGradingResult.ts';
 
 const rubric = { title: 'Biologie', criteria: [{ id: 'cell', title: 'Cellule', description: '', maxPoints: 2 }] };
 const criterion = { criterionId: 'cell', points: 0, evidence: 'Aucun noyau visible.', pageNumber: 2 };

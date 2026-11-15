@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { countAssignmentCopies, countCopyOverviewStatuses, defaultCopyOverviewFilter, getLatestAvailableCorrection, sortCopyOverviewItems, toCopyOverviewStatus } from '../../../src/domain/correction/copyOverview.ts';
+import { countAssignmentCopies, countCopyOverviewStatuses, defaultCopyOverviewFilter, getLatestAvailableCorrection, sortCopyOverviewItems, toCopyOverviewStatus } from '../../../src/correction/domain/copyOverview.ts';
 
 describe('suivi unifié des copies', () => {
   it.each([

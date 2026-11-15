@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_CORRECTION_METHOD, parseCorrectionMethod, requireCorrectionMethodAvailable } from '../../src/domain/correctionMethod.ts';
+import { DEFAULT_CORRECTION_METHOD, parseCorrectionMethod, requireCorrectionMethodAvailable } from '../../src/shared/domain/correctionMethod.ts';
 
 describe('correction method boundaries', () => {
   it('preserves the historical generative method for legacy or malformed settings', () => {

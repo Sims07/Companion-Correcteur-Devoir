@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { buildDiagramLabComparison, diagramLabReportMetrics } from '../../../src/domain/evaluation/diagramLabComparison.ts';
-import { summarizeDiagramLabReport } from '../../../src/domain/evaluation/diagramLabHistory.ts';
-import { buildBlindVisualObservationReport } from '../../../src/domain/evaluation/scientificDiagramBlindGraph.ts';
+import { buildDiagramLabComparison, diagramLabReportMetrics } from '../../../src/evaluation/domain/diagramLabComparison.ts';
+import { summarizeDiagramLabReport } from '../../../src/evaluation/domain/diagramLabHistory.ts';
+import { buildBlindVisualObservationReport } from '../../../src/evaluation/domain/scientificDiagramBlindGraph.ts';
 
 describe('scientific diagram benchmark comparisons', () => {
   it('retains non-measurable values rather than converting zero denominators into 0%', () => {

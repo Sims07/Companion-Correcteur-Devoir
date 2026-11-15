@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { clearNetworkHistory, getNetworkInspectorStatus, installNetworkInspector, loadNetworkHistory } from '../../../src/adapters/network/networkInspector.ts';
-import { installLocalMemoryFetchBridge } from '../../../src/adapters/ai/localMemoryFetchBridge.ts';
-import type { LocalCorrectionRepository } from '../../../src/ports/localCorrectionRepository.ts';
-import { annotateNetworkRequest } from '../../../src/ports/networkRequestMetadata.ts';
-import { createOpenAiScientificDiagramAnalyzer } from '../../../src/adapters/ai/openAiScientificDiagramAnalyzer.ts';
+import { clearNetworkHistory, getNetworkInspectorStatus, installNetworkInspector, loadNetworkHistory } from '../../../src/shared/adapters/network/networkInspector.ts';
+import { installLocalMemoryFetchBridge } from '../../../src/correction/adapters/ai/localMemoryFetchBridge.ts';
+import type { LocalCorrectionRepository } from '../../../src/correction/ports/localCorrectionRepository.ts';
+import { annotateNetworkRequest } from '../../../src/shared/ports/networkRequestMetadata.ts';
+import { createOpenAiScientificDiagramAnalyzer } from '../../../src/correction/adapters/ai/openAiScientificDiagramAnalyzer.ts';
 
 describe('network inspector fetch integration', () => {
   afterEach(() => vi.unstubAllGlobals());
@@ -204,7 +204,7 @@ describe('network inspector fetch integration', () => {
     vi.stubGlobal('CustomEvent', class { constructor(public type: string) {} });
     clearNetworkHistory();
     const restore = installNetworkInspector();
-    const { annotateNetworkRequest } = await import('../../../src/ports/networkRequestMetadata.ts');
+    const { annotateNetworkRequest } = await import('../../../src/shared/ports/networkRequestMetadata.ts');
     await window.fetch('/api/chat', annotateNetworkRequest({ method: 'POST', body: '{"model":"qwen3.5:4b"}' }, 'Lire et transcrire une page de copie', 'Copie TP1 · page 2/4'));
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(loadNetworkHistory()[0]).toMatchObject({ intent: 'Lire et transcrire une page de copie', context: 'Copie TP1 · page 2/4', state: 'success' });
@@ -244,7 +244,7 @@ describe('network inspector fetch integration', () => {
     vi.stubGlobal('window', fakeWindow);
     vi.stubGlobal('CustomEvent', class { constructor(public type: string) {} });
     vi.resetModules();
-    const inspector = await import('../../../src/adapters/network/networkInspector.ts');
+    const inspector = await import('../../../src/shared/adapters/network/networkInspector.ts');
 
     const [record] = inspector.loadNetworkHistory();
 

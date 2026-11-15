@@ -6,9 +6,9 @@ const read = (path: string) => readFileSync(path, 'utf8');
 describe('application design-system integration', () => {
   it('loads the shared application theme after the foundational tokens and controls', () => {
     const entrypoint = read('src/main.tsx');
-    const tokensIndex = entrypoint.indexOf("./ui/design-system/tokens.css");
-    const controlsIndex = entrypoint.indexOf("./ui/design-system/controls.css");
-    const themeIndex = entrypoint.indexOf("./ui/design-system/application-theme.css");
+    const tokensIndex = entrypoint.indexOf("./shared/ui/design-system/tokens.css");
+    const controlsIndex = entrypoint.indexOf("./shared/ui/design-system/controls.css");
+    const themeIndex = entrypoint.indexOf("./shared/ui/design-system/application-theme.css");
 
     expect(tokensIndex).toBeGreaterThan(-1);
     expect(controlsIndex).toBeGreaterThan(tokensIndex);
@@ -16,7 +16,7 @@ describe('application design-system integration', () => {
   });
 
   it('uses shared semantic tokens across correction, evaluation and observability surfaces', () => {
-    const theme = read('src/ui/design-system/application-theme.css');
+    const theme = read('src/shared/ui/design-system/application-theme.css');
 
     for (const selector of [
       '.app-shell',
@@ -48,7 +48,7 @@ describe('application design-system integration', () => {
   });
 
   it('keeps interactive states accessible and respects reduced-motion preferences', () => {
-    const theme = read('src/ui/design-system/application-theme.css');
+    const theme = read('src/shared/ui/design-system/application-theme.css');
 
     expect(theme).toContain(':focus-visible');
     expect(theme).toContain(':disabled');

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { compareDiagramLabEntries, parseDiagramLabReportJson, summarizeDiagramLabReport } from '../../../src/domain/evaluation/diagramLabHistory.ts';
-import { buildBlindVisualObservationReport } from '../../../src/domain/evaluation/scientificDiagramBlindGraph.ts';
-import { buildScientificDiagramFixtureReport } from '../../../src/domain/evaluation/scientificDiagramFixtures.ts';
+import { compareDiagramLabEntries, parseDiagramLabReportJson, summarizeDiagramLabReport } from '../../../src/evaluation/domain/diagramLabHistory.ts';
+import { buildBlindVisualObservationReport } from '../../../src/evaluation/domain/scientificDiagramBlindGraph.ts';
+import { buildScientificDiagramFixtureReport } from '../../../src/evaluation/domain/scientificDiagramFixtures.ts';
 
 describe('diagram laboratory archive metadata', () => {
   it('distinguishes D/E from A/B/C using actual executed cases, not the reference catalog', () => {

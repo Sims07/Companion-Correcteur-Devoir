@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { runModelEvaluation, type ModelEvaluationConfiguration } from '../../../src/domain/evaluation/modelEvaluation.ts';
+import { runModelEvaluation, type ModelEvaluationConfiguration } from '../../../src/evaluation/domain/modelEvaluation.ts';
 
 const config = (id: string): ModelEvaluationConfiguration => ({
   id, name: id, endpoint: 'http://localhost:11434', visionModel: 'gemma3:4b', analysisModel: id, thinking: false,

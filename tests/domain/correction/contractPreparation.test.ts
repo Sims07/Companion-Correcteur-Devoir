@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { applyContractPreparation, parseContractSuggestion, suggestionContract } from '../../../src/domain/correction/contractPreparation.ts';
-import { rubricEvaluationSignature } from '../../../src/domain/correction/rubric.ts';
+import { applyContractPreparation, parseContractSuggestion, suggestionContract } from '../../../src/correction/domain/contractPreparation.ts';
+import { rubricEvaluationSignature } from '../../../src/correction/domain/rubric.ts';
 const criterion = { id: 'c1', title: 'Mécanisme', description: 'Expliquer la relation', maxPoints: 2 };
 const rubric = { title: 'Examen', criteria: [criterion] };
 const sources = { subject: 'Question 1 : Expliquer le mécanisme.', correction: '' };

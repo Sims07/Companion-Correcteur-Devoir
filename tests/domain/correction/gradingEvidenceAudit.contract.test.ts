@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { checkStudentEvidence, findStudentExcerptForExpectation } from '../../../src/domain/correction/gradingEvidenceAudit.ts';
-import { questionAnswer } from '../../../src/domain/correction/questionContract.ts';
-import { QUESTION_CONTRACT_STRESS_CASES, questionContractRubric } from '../../../src/domain/evaluation/questionContractPilot.ts';
+import { checkStudentEvidence, findStudentExcerptForExpectation } from '../../../src/correction/domain/gradingEvidenceAudit.ts';
+import { questionAnswer } from '../../../src/correction/domain/questionContract.ts';
+import { QUESTION_CONTRACT_STRESS_CASES, questionContractRubric } from '../../../src/evaluation/domain/questionContractPilot.ts';
 
 const rubric = questionContractRubric('contract');
 

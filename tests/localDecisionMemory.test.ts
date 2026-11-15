@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { createDecisionMemoryEntries } from '../src/domain/correction/localMemory.ts';
-import type { GradingProposal, ReviewedCriterion } from '../src/domain/correction/grading.ts';
-import type { Rubric } from '../src/domain/correction/rubric.ts';
+import { createDecisionMemoryEntries } from '../src/correction/domain/localMemory.ts';
+import type { GradingProposal, ReviewedCriterion } from '../src/correction/domain/grading.ts';
+import type { Rubric } from '../src/correction/domain/rubric.ts';
 
 const rubric: Rubric = {
   title: 'Biologie cellulaire',

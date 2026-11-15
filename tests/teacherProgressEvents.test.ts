@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createOllamaProvider } from '../src/adapters/ai/ollamaProvider.ts';
-import type { GradingProgressEvent, GradingRequest } from '../src/ports/aiProvider.ts';
+import { createOllamaProvider } from '../src/correction/adapters/ai/ollamaProvider.ts';
+import type { GradingProgressEvent, GradingRequest } from '../src/correction/ports/aiProvider.ts';
 
 function streamingResponse(content: string): Response {
   const lines = [...content.split('').map((character) => JSON.stringify({ message: { content: character }, done: false })), JSON.stringify({ message: {}, done: true })];

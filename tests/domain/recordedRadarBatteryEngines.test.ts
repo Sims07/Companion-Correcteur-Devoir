@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { recordedRadarBatteryEngines } from '../../src/domain/evaluation/radarTimeline.ts';
-import type { DiagramLabArchiveEntry } from '../../src/domain/evaluation/diagramLabHistory.ts';
+import { recordedRadarBatteryEngines } from '../../src/evaluation/domain/radarTimeline.ts';
+import type { DiagramLabArchiveEntry } from '../../src/evaluation/domain/diagramLabHistory.ts';
 
 describe('actual engines recorded in radar campaign history', () => {
   it('keeps direct generative grading separate from the #439 graph reader and ignores other models', () => {

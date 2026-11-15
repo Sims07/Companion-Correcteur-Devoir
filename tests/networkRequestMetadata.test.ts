@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { annotateNetworkRequest, copyNetworkRequestMetadata, getNetworkRequestMetadata } from '../src/ports/networkRequestMetadata.ts';
+import { annotateNetworkRequest, copyNetworkRequestMetadata, getNetworkRequestMetadata } from '../src/shared/ports/networkRequestMetadata.ts';
 describe('network request metadata', () => {
   it('attaches intent and context without changing HTTP headers or payload', () => {
     const init = annotateNetworkRequest({ method: 'POST', body: '{"copy":"local"}' }, 'Enregistrer une copie', 'Copie TP1');

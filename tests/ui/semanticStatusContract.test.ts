@@ -5,7 +5,7 @@ const read = (path: string) => readFileSync(path, 'utf8');
 
 describe('semantic feedback and Atelier B consistency', () => {
   it('types profile messages by outcome, including storage failures', () => {
-    const app = read('src/ui/App.tsx');
+    const app = read('src/shell/ui/App.tsx');
     expect(app).toContain("setAiModelProfileTone('success');");
     expect(app).toContain("setAiModelProfileTone('error');");
     expect(app).toContain("setAiModelProfileTone('warning');");
@@ -16,8 +16,8 @@ describe('semantic feedback and Atelier B consistency', () => {
   });
 
   it('shares dedicated success/info/warning/error tokens instead of the brand red', () => {
-    const controls = read('src/ui/design-system/controls.css');
-    const tokens = read('src/ui/design-system/tokens.css');
+    const controls = read('src/shared/ui/design-system/controls.css');
+    const tokens = read('src/shared/ui/design-system/tokens.css');
     for (const tone of ['success', 'info', 'warning', 'error']) {
       expect(controls).toContain(`.ds-status-notice--${tone}`);
     }
@@ -25,11 +25,11 @@ describe('semantic feedback and Atelier B consistency', () => {
     expect(controls).toContain('--ds-status-accent: var(--ds-color-warning)');
     expect(controls).toContain('--ds-status-accent: var(--ds-color-danger)');
     expect(tokens).toContain('--ds-color-success-surface');
-    expect(read('src/ui/aiToolsAtelier.css')).not.toContain('.evaluation-profile-message');
+    expect(read('src/shared/ui/aiToolsAtelier.css')).not.toContain('.evaluation-profile-message');
   });
 
   it('overrides historical green configuration surfaces with semantic Atelier B tokens', () => {
-    const layout = read('src/ui/modelEvaluationWorkspace.css');
+    const layout = read('src/evaluation/ui/modelEvaluationWorkspace.css');
     expect(layout).toContain('.evaluation-workspace-shell .evaluation-thinking-option');
     expect(layout).toContain('accent-color: var(--ds-color-brand-700)');
     expect(layout).toContain('.evaluation-workspace-shell .evaluation-config-field .field-label');

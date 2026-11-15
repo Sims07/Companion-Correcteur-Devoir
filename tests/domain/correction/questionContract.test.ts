@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { parseCorrectionContract, questionAnswer, questionGroups } from '../../../src/domain/correction/questionContract.ts';
-import { rubricEvaluationSignature, validateRubric, type RubricCriterion } from '../../../src/domain/correction/rubric.ts';
-import { createRubricExport } from '../../../src/domain/correction/rubricExport.ts';
-import { parseRubricImport, previewRubricImport } from '../../../src/domain/correction/rubricImport.ts';
+import { parseCorrectionContract, questionAnswer, questionGroups } from '../../../src/correction/domain/questionContract.ts';
+import { rubricEvaluationSignature, validateRubric, type RubricCriterion } from '../../../src/correction/domain/rubric.ts';
+import { createRubricExport } from '../../../src/correction/domain/rubricExport.ts';
+import { parseRubricImport, previewRubricImport } from '../../../src/correction/domain/rubricImport.ts';
 
 const contract = { question: { id: '1', instruction: 'Expliquez le mécanisme.' }, expectedRelation: 'A entraîne B', acceptedAlternatives: 'B résulte de A', contradictions: 'A empêche B' };
 const criterion: RubricCriterion = { id: 'c1', title: 'Mécanisme', description: '', maxPoints: 1, correctionContract: contract };

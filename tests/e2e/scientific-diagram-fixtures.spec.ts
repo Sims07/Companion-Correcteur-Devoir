@@ -435,7 +435,7 @@ test(scenario.model + ' compares Think OFF/ON on E with runtime Ollama capabilit
 }
 
 test('graph-first grades with the original image and the blind observation', async ({page}) => {
-  const { defaultAiModelConfiguration } = await import('../../src/domain/aiModelProfiles.ts');
+  const { defaultAiModelConfiguration } = await import('../../src/shared/domain/aiModelProfiles.ts');
   const { chooseEvaluationModel } = await import('./helpers/evaluation-models.ts');
   await page.addInitScript(cfg => localStorage.setItem('companion-correcteur:ollama-profiles:v1', JSON.stringify([{
     id:'graph-test', name:'Vision graphe', mode:'single', updatedAt:'2026-11-14T09:00:00Z',

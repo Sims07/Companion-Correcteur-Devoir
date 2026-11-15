@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { RADAR_PRESETS } from '../../../src/domain/evaluation/diagramLabRadar.ts';
-import type { DiagramLabArchiveEntry, DiagramLabProtocol } from '../../../src/domain/evaluation/diagramLabHistory.ts';
-import type { BiologyRadarObservation } from '../../../src/domain/evaluation/biologyTeacherRadar.ts';
-import { remainingBiologyMethods, remainingScienceMethods } from '../../../src/domain/evaluation/radarRemainingMethods.ts';
-import { scienceMethods, type ScienceMethod } from '../../../src/domain/evaluation/radarTimeline.ts';
+import { RADAR_PRESETS } from '../../../src/evaluation/domain/diagramLabRadar.ts';
+import type { DiagramLabArchiveEntry, DiagramLabProtocol } from '../../../src/evaluation/domain/diagramLabHistory.ts';
+import type { BiologyRadarObservation } from '../../../src/evaluation/domain/biologyTeacherRadar.ts';
+import { remainingBiologyMethods, remainingScienceMethods } from '../../../src/evaluation/domain/radarRemainingMethods.ts';
+import { scienceMethods, type ScienceMethod } from '../../../src/evaluation/domain/radarTimeline.ts';
 
 const testCases: Record<string, readonly string[]> = {
   reference: ['A', 'B', 'C'], arrows: ['D', 'E'],

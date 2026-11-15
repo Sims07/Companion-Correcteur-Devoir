@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import type { Rubric } from '../../../src/domain/correction/rubric.ts';
-import type { ScientificDiagramAnalysis } from '../../../src/domain/correction/scientificDiagram.ts';
-import { mergeScientificDiagramCriteria } from '../../../src/domain/correction/scientificRubricRouting.ts';
-import { mergeDecisionScientificDiagramCriteria } from '../../../src/domain/correction/scientificDiagramDecisions.ts';
+import type { Rubric } from '../../../src/correction/domain/rubric.ts';
+import type { ScientificDiagramAnalysis } from '../../../src/correction/domain/scientificDiagram.ts';
+import { mergeScientificDiagramCriteria } from '../../../src/correction/domain/scientificRubricRouting.ts';
+import { mergeDecisionScientificDiagramCriteria } from '../../../src/correction/domain/scientificDiagramDecisions.ts';
 
 const rubric: Rubric = { title: 'Schéma biologique', criteria: [
   { id: 'diagram', title: 'Schéma de mitochondrie', description: 'Légender le schéma', maxPoints: 3,

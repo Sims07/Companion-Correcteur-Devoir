@@ -2,11 +2,11 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const appSource = readFileSync(resolve(process.cwd(), 'src/ui/App.tsx'), 'utf8');
-const domainSource = readFileSync(resolve(process.cwd(), 'src/domain/evaluation/modelEvaluation.ts'), 'utf8');
-const styles = readFileSync(resolve(process.cwd(), 'src/ui/correctionFlow.css'), 'utf8');
-const evaluationStyles = readFileSync(resolve(process.cwd(), 'src/ui/styles.css'), 'utf8');
-const evaluationLayout = readFileSync(resolve(process.cwd(), 'src/ui/modelEvaluationWorkspace.css'), 'utf8');
+const appSource = readFileSync(resolve(process.cwd(), 'src/shell/ui/App.tsx'), 'utf8');
+const domainSource = readFileSync(resolve(process.cwd(), 'src/evaluation/domain/modelEvaluation.ts'), 'utf8');
+const styles = readFileSync(resolve(process.cwd(), 'src/correction/ui/correctionFlow.css'), 'utf8');
+const evaluationStyles = readFileSync(resolve(process.cwd(), 'src/shared/ui/styles.css'), 'utf8');
+const evaluationLayout = readFileSync(resolve(process.cwd(), 'src/evaluation/ui/modelEvaluationWorkspace.css'), 'utf8');
 
 describe('Diagnostic IA — indicateurs d’évaluation des LLM', () => {
   it('exposes output validity, criterion coverage, declared confidence and teacher questions per run', () => {

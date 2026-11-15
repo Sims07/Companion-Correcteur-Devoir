@@ -1,10 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
-const app = readFileSync('src/ui/App.tsx', 'utf8');
-const teacherCss = readFileSync('src/ui/atelierBLayout.css', 'utf8');
-const aiCss = readFileSync('src/ui/aiToolsAtelier.css', 'utf8');
-const evaluationCss = readFileSync('src/ui/modelEvaluationWorkspace.css', 'utf8');
+const app = readFileSync('src/shell/ui/App.tsx', 'utf8');
+const teacherCss = readFileSync('src/correction/ui/atelierBLayout.css', 'utf8');
+const aiCss = readFileSync('src/shared/ui/aiToolsAtelier.css', 'utf8');
+const evaluationCss = readFileSync('src/evaluation/ui/modelEvaluationWorkspace.css', 'utf8');
 
 describe('full-width consistency between Correction, Évaluer and Suivi & diagnostic', () => {
   it('keeps all three destinations on a named shell without changing their navigation', () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { scoreCriterionDecisions } from '../../../src/domain/correction/criterionDecision.ts';
-import type { RubricCriterion } from '../../../src/domain/correction/rubric.ts';
+import { scoreCriterionDecisions } from '../../../src/correction/domain/criterionDecision.ts';
+import type { RubricCriterion } from '../../../src/correction/domain/rubric.ts';
 
 const criterion: RubricCriterion = { id: 'mito', title: 'Rôle des mitochondries', description: 'Production d’ATP', maxPoints: 2 };
 const copy = '[ page 1 ] Les mitochondries produisent de l’ATP pendant la respiration cellulaire.';

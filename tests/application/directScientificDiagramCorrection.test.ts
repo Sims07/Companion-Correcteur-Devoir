@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { defaultAiModelConfiguration } from '../../src/domain/aiModelProfiles.ts';
-import type { Rubric } from '../../src/domain/correction/rubric.ts';
-import type { CorrectionWorkspaceService } from '../../src/application/correctionWorkspaceService.ts';
-import { correctScientificDiagramDirect } from '../../src/application/directScientificDiagramCorrection.ts';
+import { defaultAiModelConfiguration } from '../../src/shared/domain/aiModelProfiles.ts';
+import type { Rubric } from '../../src/correction/domain/rubric.ts';
+import type { CorrectionWorkspaceService } from '../../src/correction/application/correctionWorkspaceService.ts';
+import { correctScientificDiagramDirect } from '../../src/correction/application/directScientificDiagramCorrection.ts';
 
 const rubric: Rubric = {
   title: 'Dessin scientifique',

@@ -1,8 +1,8 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { deleteModelEvaluation, getModelEvaluation, listDiagnosticHistory, listModelEvaluationSummaries, listModelEvaluations, saveDiagnosticHistory, saveModelEvaluation } from '../src/adapters/storage/indexedDbMemory.ts';
-import { readEvaluationGradingResult } from '../src/domain/evaluation/evaluationGradingResult.ts';
-import { canCompareModelEvaluationRecords, getModelEvaluationStage, type ModelEvaluationRecord } from '../src/domain/evaluation/modelEvaluation.ts';
+import { deleteModelEvaluation, getModelEvaluation, listDiagnosticHistory, listModelEvaluationSummaries, listModelEvaluations, saveDiagnosticHistory, saveModelEvaluation } from '../src/evaluation/adapters/storage/evaluationRepository.ts';
+import { readEvaluationGradingResult } from '../src/shell/application/evaluationGradingResult.ts';
+import { canCompareModelEvaluationRecords, getModelEvaluationStage, type ModelEvaluationRecord } from '../src/evaluation/domain/modelEvaluation.ts';
 
 const record: ModelEvaluationRecord = {
   id: 'evaluation-1',

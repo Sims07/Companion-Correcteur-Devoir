@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 
 describe('visual System One is limited to the technical model benchmark', () => {
   it('has an opt-in image mode with provenance and no copy OCR', () => {
-    const app = readFileSync(new URL('../../src/ui/App.tsx', import.meta.url), 'utf8');
+    const app = readFileSync(new URL('../../src/shell/ui/App.tsx', import.meta.url), 'utf8');
     expect(app).toContain('evaluation-visual-proof');
     expect(app).toContain('Tester la décision directement sur les images (D1 / D3)');
     expect(app).toContain('isVisualDecisionModel(profile.configuration.analysisModel)');
@@ -14,7 +14,7 @@ describe('visual System One is limited to the technical model benchmark', () => 
   });
 
   it('keeps rubric-driven visual decisions distinguishable from provisional scores in results and history', () => {
-    const app = readFileSync(new URL('../../src/ui/App.tsx', import.meta.url), 'utf8');
+    const app = readFileSync(new URL('../../src/shell/ui/App.tsx', import.meta.url), 'utf8');
     expect(app).toContain('summarizeModelEvaluationScores(modelEvaluationResults, rubric)');
     expect(app).toContain('compareVisualDecisions(comparableResults, rubric)');
     expect(app).toContain('visualChoiceLabels[item.choice]');
@@ -26,7 +26,7 @@ describe('visual System One is limited to the technical model benchmark', () => 
   });
 
   it('does not anchor the visual System One question factory on any specific school subject', () => {
-    const source = readFileSync(new URL('../../src/domain/correction/systemOneDecision.ts', import.meta.url), 'utf8');
+    const source = readFileSync(new URL('../../src/correction/domain/systemOneDecision.ts', import.meta.url), 'utf8');
     const visualFactory = source.slice(source.indexOf('function visualExpectedQuestion('), source.indexOf('function expectedQuestion('));
     expect(visualFactory).toContain('target.title');
     expect(visualFactory).toContain('target.description');

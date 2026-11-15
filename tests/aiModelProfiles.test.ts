@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultAiModelConfiguration, parseAiModelConfiguration, parseAiModelProfiles, removeAiModelProfile } from '../src/domain/aiModelProfiles.ts';
+import { defaultAiModelConfiguration, parseAiModelConfiguration, parseAiModelProfiles, removeAiModelProfile } from '../src/shared/domain/aiModelProfiles.ts';
 
 describe('AI model configuration defaults', () => {
   it('removes only the selected saved configuration and keeps other profiles loadable', () => {

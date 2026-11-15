@@ -2,7 +2,7 @@
 import { act, type ComponentProps } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { CopyReviewHeader } from '../../src/ui/components/CopyReviewHeader.tsx';
+import { CopyReviewHeader } from '../../src/correction/ui/components/CopyReviewHeader.tsx';
 
 const containers: HTMLDivElement[] = [];
 const roots: Array<ReturnType<typeof createRoot>> = [];

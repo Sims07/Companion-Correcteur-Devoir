@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { planMissingRadarAxis, planRadarModelEvaluation, radarPlanDescription } from '../../../src/domain/evaluation/diagramLabRadarLaunch.ts';
-import { RADAR_AXES, type RadarCandidate, type RadarAxisId } from '../../../src/domain/evaluation/diagramLabRadar.ts';
+import { planMissingRadarAxis, planRadarModelEvaluation, radarPlanDescription } from '../../../src/evaluation/domain/diagramLabRadarLaunch.ts';
+import { RADAR_AXES, type RadarCandidate, type RadarAxisId } from '../../../src/evaluation/domain/diagramLabRadar.ts';
 
 function candidate(values: Partial<Record<RadarAxisId, number>> = {}, method?: string): RadarCandidate {
   const axes = Object.fromEntries(RADAR_AXES.map((axis) => [axis.id, {

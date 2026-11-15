@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { compareDiagnosticProposals } from '../../../src/domain/evaluation/diagnosticComparison.ts';
-import { resolveCloseDiagnosticCriteria } from '../../../src/domain/correction/diagnosticResolution.ts';
-import type { GradingProposal } from '../../../src/domain/correction/grading.ts';
-import type { Rubric } from '../../../src/domain/correction/rubric.ts';
+import { compareDiagnosticProposals } from '../../../src/evaluation/domain/diagnosticComparison.ts';
+import { resolveCloseDiagnosticCriteria } from '../../../src/correction/domain/diagnosticResolution.ts';
+import type { GradingProposal } from '../../../src/correction/domain/grading.ts';
+import type { Rubric } from '../../../src/correction/domain/rubric.ts';
 
 const rubric: Rubric = {
   title: 'Biologie',

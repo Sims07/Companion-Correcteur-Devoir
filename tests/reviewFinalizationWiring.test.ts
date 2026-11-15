@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
-const source = readFileSync(new URL('../src/ui/App.tsx', import.meta.url), 'utf8');
+const source = readFileSync(new URL('../src/shell/ui/App.tsx', import.meta.url), 'utf8');
 
 describe('teacher review finalization wiring', () => {
   it('validates the full, teacher-adjusted rubric before archiving or marking a batch copy completed', () => {

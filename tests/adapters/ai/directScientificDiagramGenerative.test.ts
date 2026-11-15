@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createOllamaProvider } from '../../../src/adapters/ai/ollamaProvider.ts';
+import { createOllamaProvider } from '../../../src/correction/adapters/ai/ollamaProvider.ts';
 
 const grade = JSON.stringify({ summary: 'Schéma examiné', criteria: [], questionsForTeacher: [], finalScore: 0 });
 const request = {
@@ -44,7 +44,7 @@ describe('vision + analyse générative directe (laboratoire scientifique)', () 
       subcriteria: { arrows: { points: 0, evidence: 'Flèche erronée' } },
     } } });
     const calls: Array<{ think: boolean; options: { num_predict: number } }> = [];
-    const diagnostics: import('../../../src/ports/aiProvider.ts').DiagnosticModelResult[] = [];
+    const diagnostics: import('../../../src/correction/ports/aiProvider.ts').DiagnosticModelResult[] = [];
     const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
       const body = JSON.parse(String(init?.body));
       calls.push(body);

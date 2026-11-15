@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { buildSupportDiagnosticReport } from '../src/domain/supportDiagnosticReport.ts';
-import type { ObservabilityTrace } from '../src/domain/observability.ts';
-import type { NetworkRequestRecord } from '../src/adapters/network/networkInspector.ts';
+import { buildSupportDiagnosticReport } from '../src/shell/domain/supportDiagnosticReport.ts';
+import type { ObservabilityTrace } from '../src/shell/domain/observability.ts';
+import type { NetworkRequestRecord } from '../src/shared/adapters/network/networkInspector.ts';
 
 const trace: ObservabilityTrace = {
   id: 'student-id-SECRET', completedAt: '2026-11-05T06:00:00.000Z', source: 'correction',

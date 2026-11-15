@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { CorrectionOverview } from '../../src/ui/CorrectionOverview.tsx';
-import { createBackgroundCorrection, toBackgroundJobSummary } from '../../src/domain/correction/backgroundCorrection.ts';
-import type { BackgroundCorrectionJob } from '../../src/domain/correction/backgroundCorrection.ts';
-import type { LocalCorrection } from '../../src/domain/correction/localCorrection.ts';
+import { CorrectionOverview } from '../../src/correction/ui/CorrectionOverview.tsx';
+import { createBackgroundCorrection, toBackgroundJobSummary } from '../../src/correction/domain/backgroundCorrection.ts';
+import type { BackgroundCorrectionJob } from '../../src/correction/domain/backgroundCorrection.ts';
+import type { LocalCorrection } from '../../src/correction/domain/localCorrection.ts';
 
 const job = createBackgroundCorrection({
   id: 'copy-1', assignmentId: 'assignment-1', label: 'Copie de biologie',

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { summarizeTeacherReason, teacherReviewStatus } from '../../../src/domain/correction/teacherReviewSummary.ts';
+import { summarizeTeacherReason, teacherReviewStatus } from '../../../src/correction/domain/teacherReviewSummary.ts';
 
 describe('résumé de revue pour le professeur', () => {
   it('affiche uniquement la première phrase décisive sans exposer un long rapport', () => {

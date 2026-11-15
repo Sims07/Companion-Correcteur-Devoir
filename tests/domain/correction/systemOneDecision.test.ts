@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { expectedDecisionTargets, prepareSystemOneCriterion, prepareSystemOneRubric, scoreSystemOneCriterion, isNativeDecisionModel, findLiteralStudentEvidence, systemOnePointChoices } from '../../../src/domain/correction/systemOneDecision.ts';
-import type { RubricCriterion } from '../../../src/domain/correction/rubric.ts';
+import { expectedDecisionTargets, prepareSystemOneCriterion, prepareSystemOneRubric, scoreSystemOneCriterion, isNativeDecisionModel, findLiteralStudentEvidence, systemOnePointChoices } from '../../../src/correction/domain/systemOneDecision.ts';
+import type { RubricCriterion } from '../../../src/correction/domain/rubric.ts';
 
 const rubric: RubricCriterion = {
   id: 'q1-photosynthese', title: 'Q1 – Photosynthèse', maxPoints: 5,

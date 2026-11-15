@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import type { DiagramLabArchiveEntry, DiagramLabProtocol } from '../../../src/domain/evaluation/diagramLabHistory.ts';
-import { radarEvaluationOutcome } from '../../../src/domain/evaluation/diagramLabRadarLaunch.ts';
-import { DIAGRAM_SENSITIVITY_CASES } from '../../../src/domain/evaluation/scientificDiagramSensitivity.ts';
-import { SCIENTIFIC_DIAGRAM_FIXTURES, SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET } from '../../../src/domain/evaluation/scientificDiagramFixtures.ts';
-import { buildDiagramLabRadar, diagnoseUnmeasuredRadarAxis, compareRadarCommonAxes, observedRadarScore, RADAR_PRESETS, rankDiagramLabRadar, validRadarWeights } from '../../../src/domain/evaluation/diagramLabRadar.ts';
+import type { DiagramLabArchiveEntry, DiagramLabProtocol } from '../../../src/evaluation/domain/diagramLabHistory.ts';
+import { radarEvaluationOutcome } from '../../../src/evaluation/domain/diagramLabRadarLaunch.ts';
+import { DIAGRAM_SENSITIVITY_CASES } from '../../../src/evaluation/domain/scientificDiagramSensitivity.ts';
+import { SCIENTIFIC_DIAGRAM_FIXTURES, SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET } from '../../../src/evaluation/domain/scientificDiagramFixtures.ts';
+import { buildDiagramLabRadar, diagnoseUnmeasuredRadarAxis, compareRadarCommonAxes, observedRadarScore, RADAR_PRESETS, rankDiagramLabRadar, validRadarWeights } from '../../../src/evaluation/domain/diagramLabRadar.ts';
 
 function sample(protocol: Exclude<DiagramLabProtocol, 'personal'>, createdAt: string, repetitions = 1): DiagramLabArchiveEntry {
   const fixture = protocol === 'reference' || protocol === 'arrows';
@@ -296,8 +296,8 @@ describe('scientific benchmark 9-axis radar', () => {
 });
 
 it('freezes the weighted score and the executable graph method for each independent trial', async () => {
-  const { sciencePoints, trialSteps } = await import('../../../src/domain/evaluation/radarTimeline.ts');
-  const { createDiagramLabArchiveWriter } = await import('../../../src/application/diagramLabArchiveWriter.ts');
+  const { sciencePoints, trialSteps } = await import('../../../src/evaluation/domain/radarTimeline.ts');
+  const { createDiagramLabArchiveWriter } = await import('../../../src/evaluation/application/diagramLabArchiveWriter.ts');
   const archive = new Map<string, DiagramLabArchiveEntry>();
   const writer = createDiagramLabArchiveWriter({ list: async () => [...archive.values()], save: async e => { archive.set(e.id, e); } });
   const reports = complete(3);
@@ -318,7 +318,7 @@ it('freezes the weighted score and the executable graph method for each independ
 });
 
 it('identifies the actual archived method independently of the D/E battery title', async () => {
-  const { sciencePoints } = await import('../../../src/domain/evaluation/radarTimeline.ts');
+  const { sciencePoints } = await import('../../../src/evaluation/domain/radarTimeline.ts');
   const row = sample('arrows', '2026-11-14T09:16:00Z');
   row.title = 'Sens des flèches · D/E';
   if (row.report.format !== 'companion-scientific-diagram-fixture-report') throw Error();

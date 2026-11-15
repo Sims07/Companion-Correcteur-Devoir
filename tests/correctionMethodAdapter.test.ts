@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createOllamaProvider } from '../src/adapters/ai/ollamaProvider.ts';
+import { createOllamaProvider } from '../src/correction/adapters/ai/ollamaProvider.ts';
 
 describe('correction method compatibility at the HTTP boundary', () => {
   it('refuses an empty decision rubric before any network request', async () => {

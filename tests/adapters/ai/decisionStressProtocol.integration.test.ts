@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createOllamaProvider } from '../../../src/adapters/ai/ollamaProvider.ts';
-import { questionGroups } from '../../../src/domain/correction/questionContract.ts';
+import { createOllamaProvider } from '../../../src/correction/adapters/ai/ollamaProvider.ts';
+import { questionGroups } from '../../../src/correction/domain/questionContract.ts';
 import {
   QUESTION_CONTRACT_QUESTION, QUESTION_CONTRACT_STRESS_CASES, questionContractRubric,
-} from '../../../src/domain/evaluation/questionContractPilot.ts';
-import { parseGradingProposal } from '../../../src/domain/correction/grading.ts';
+} from '../../../src/evaluation/domain/questionContractPilot.ts';
+import { parseGradingProposal } from '../../../src/correction/domain/grading.ts';
 
 const verdict = (choice: string) => ({
   type: 'choice' as const, choice, confidence: 0.98, probabilities: { [choice]: 0.98 },

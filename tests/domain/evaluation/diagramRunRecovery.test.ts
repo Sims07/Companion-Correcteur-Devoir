@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { shouldRetryInvalidDiagramRecord } from '../../../src/domain/evaluation/diagramRunRecovery.ts';
+import { shouldRetryInvalidDiagramRecord } from '../../../src/evaluation/domain/diagramRunRecovery.ts';
 
 const result = (status: 'success' | 'failed' | 'cancelled', error = '') => ({ status, error });
 

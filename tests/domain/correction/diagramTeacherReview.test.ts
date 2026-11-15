@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC } from '../../../src/domain/correction/scientificDiagramRubric.ts';
-import { buildDiagramReview } from '../../../src/domain/correction/diagramTeacherReview.ts';
-import type { GradingProposal } from '../../../src/domain/correction/grading.ts';
+import { SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC } from '../../../src/correction/domain/scientificDiagramRubric.ts';
+import { buildDiagramReview } from '../../../src/correction/domain/diagramTeacherReview.ts';
+import type { GradingProposal } from '../../../src/correction/domain/grading.ts';
 
 describe('teacher scientific diagram rubric review', () => {
   it('shows all 15 observable expectations before grading and cumulative points', () => {

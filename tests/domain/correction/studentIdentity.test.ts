@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { extractStudentIdentity, formatStudentIdentityLabel, parseStudentIdentityResponse, resolveIdentifiedCopyLabel } from '../../../src/domain/correction/studentIdentity.ts';
-import { buildStudentIdentityPrompt } from '../../../src/adapters/ai/ollamaProvider.ts';
+import { extractStudentIdentity, formatStudentIdentityLabel, parseStudentIdentityResponse, resolveIdentifiedCopyLabel } from '../../../src/correction/domain/studentIdentity.ts';
+import { buildStudentIdentityPrompt } from '../../../src/correction/adapters/ai/ollamaProvider.ts';
 
 describe('student identity extraction', () => {
   it('extracts a name and student number without polluting the grading transcription', () => {

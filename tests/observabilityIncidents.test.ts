@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { recentObservabilityIncidents } from '../src/domain/observabilityIncidents.ts';
-import type { ObservabilityTrace } from '../src/domain/observability.ts';
+import { recentObservabilityIncidents } from '../src/shell/domain/observabilityIncidents.ts';
+import type { ObservabilityTrace } from '../src/shell/domain/observability.ts';
 
 const sample = (id: string, outcome: ObservabilityTrace['outcome'], completedAt: string): ObservabilityTrace => ({
   id, completedAt, outcome, visionModel: 'vision', analysisModel: 'analysis',

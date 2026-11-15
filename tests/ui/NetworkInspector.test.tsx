@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mockNetworkHistory = vi.hoisted(() => ({ records: [] as unknown[] }));
 
-vi.mock('../../src/adapters/network/networkInspector.ts', () => ({
+vi.mock('../../src/shared/adapters/network/networkInspector.ts', () => ({
   networkInspectorEvent: 'network-inspector-test-event',
   clearNetworkHistory: vi.fn(),
   getNetworkInspectorStatus: () => ({ storageBytes: 0, storageWarning: null }),
@@ -31,7 +31,7 @@ const pendingRecord = {
   };
 
 
-import { NetworkInspector } from '../../src/ui/NetworkInspector.tsx';
+import { NetworkInspector } from '../../src/shell/ui/NetworkInspector.tsx';
 
 describe('NetworkInspector live request feedback', () => {
   let root: Root | null = null;

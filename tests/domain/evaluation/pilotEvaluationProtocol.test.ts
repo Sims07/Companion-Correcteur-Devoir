@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import type { GradingProposal } from '../../../src/domain/correction/grading.ts';
-import type { ModelEvaluationRecord, ModelEvaluationResultSnapshot } from '../../../src/domain/evaluation/modelEvaluation.ts';
-import { validateRubric } from '../../../src/domain/correction/rubric.ts';
+import type { GradingProposal } from '../../../src/correction/domain/grading.ts';
+import type { ModelEvaluationRecord, ModelEvaluationResultSnapshot } from '../../../src/evaluation/domain/modelEvaluation.ts';
+import { validateRubric } from '../../../src/correction/domain/rubric.ts';
 import {
   PILOT_CASES, PILOT_PROTOCOL_ID, PILOT_QUESTION, PILOT_RUBRIC,
   buildPilotReport, comparePilotTranscription, isLocalPilotProfile, makePilotProfiles, pilotSelectionIssue, selectPilotProfiles, summarizePilotResult,
-} from '../../../src/domain/evaluation/pilotEvaluationProtocol.ts';
+} from '../../../src/evaluation/domain/pilotEvaluationProtocol.ts';
 
 function resultFor(caseId: 'A' | 'B' | 'C', override?: Record<string, number>): ModelEvaluationResultSnapshot {
   const testCase = PILOT_CASES.find((item) => item.id === caseId)!;

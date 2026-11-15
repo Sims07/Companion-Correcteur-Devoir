@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { checkOllamaReady } from '../../../src/adapters/ai/ollamaProvider.ts';
+import { checkOllamaReady } from '../../../src/correction/adapters/ai/ollamaProvider.ts';
 
 describe('model readiness cancellation', () => {
   it('uses the caller signal for /api/tags and a cancellable bounded signal for /api/show', async () => {

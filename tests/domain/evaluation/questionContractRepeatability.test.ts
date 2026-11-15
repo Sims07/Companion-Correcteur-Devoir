@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import type { ModelEvaluationRecord, ModelEvaluationResultSnapshot } from '../../../src/domain/evaluation/modelEvaluation.ts';
-import type { GradingProposal } from '../../../src/domain/correction/grading.ts';
-import { ALL_QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_PROTOCOL_ID, QUESTION_CONTRACT_QUESTION, questionContractRubric } from '../../../src/domain/evaluation/questionContractPilot.ts';
-import { buildQuestionContractRepeatabilityReport, questionContractRepeatabilitySteps } from '../../../src/domain/evaluation/questionContractRepeatability.ts';
+import type { ModelEvaluationRecord, ModelEvaluationResultSnapshot } from '../../../src/evaluation/domain/modelEvaluation.ts';
+import type { GradingProposal } from '../../../src/correction/domain/grading.ts';
+import { ALL_QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_PROTOCOL_ID, QUESTION_CONTRACT_QUESTION, questionContractRubric } from '../../../src/evaluation/domain/questionContractPilot.ts';
+import { buildQuestionContractRepeatabilityReport, questionContractRepeatabilitySteps } from '../../../src/evaluation/domain/questionContractRepeatability.ts';
 
 type CaseId = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G';
 

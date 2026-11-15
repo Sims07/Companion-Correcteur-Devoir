@@ -6,12 +6,12 @@ const read = (path: string) => readFileSync(path, 'utf8');
 describe('Atelier pédagogique correction workspace', () => {
   it('loads the correction style last so semantic alerts remain visible', () => {
     const main = read('src/main.tsx');
-    expect(main.indexOf('./ui/correctionAtelier.css')).toBeGreaterThan(main.indexOf('./ui/teacherAtelier.css'));
-    expect(read('.storybook/preview.ts')).toContain('../src/ui/correctionAtelier.css');
+    expect(main.indexOf('./correction/ui/correctionAtelier.css')).toBeGreaterThan(main.indexOf('./correction/ui/teacherAtelier.css'));
+    expect(read('.storybook/preview.ts')).toContain('../src/correction/ui/correctionAtelier.css');
   });
 
   it('uses only the search wrapper for the border and keyboard focus feedback', () => {
-    const css = read('src/ui/correctionAtelier.css');
+    const css = read('src/correction/ui/correctionAtelier.css');
     const input = css.match(/\.copy-overview-search input\[type="search"\]\s*\{([^}]+)\}/)?.[1];
     const focusedInput = css.match(/\.copy-overview-search input\[type="search"\]:focus-visible\s*\{([^}]+)\}/)?.[1];
     const wrapperFocus = css.match(/\.copy-overview-search:focus-within\s*\{([^}]+)\}/)?.[1];
@@ -24,9 +24,9 @@ describe('Atelier pédagogique correction workspace', () => {
   });
 
   it('marks flagged criteria instead of styling every review criterion as a problem', () => {
-    const app = read('src/ui/App.tsx');
+    const app = read('src/shell/ui/App.tsx');
     expect(app).toContain('isFlagged ? "panel review-card is-flagged" : "panel review-card"');
-    const css = read('src/ui/correctionAtelier.css');
+    const css = read('src/correction/ui/correctionAtelier.css');
     expect(css).toContain('.review-main-column .review-card.is-flagged');
     const flagged = css.split('.review-main-column .review-card.is-flagged {')[1]?.split('}')[0] ?? '';
     expect(flagged).toContain('border-left: 3px solid var(--ds-color-warning)');
@@ -36,7 +36,7 @@ describe('Atelier pédagogique correction workspace', () => {
   });
 
   it('keeps evidence beside decisions on desktop and stacks panels on smaller devices', () => {
-    const css = read('src/ui/correctionAtelier.css');
+    const css = read('src/correction/ui/correctionAtelier.css');
     expect(css).toContain('grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr)');
     expect(css).toContain('.review-source-pages .live-copy-page img');
     expect(css).toContain('@media (max-width: 1100px)');
@@ -49,8 +49,8 @@ describe('Atelier pédagogique correction workspace', () => {
 
   it('uses Atelier paper and the informational progress state while preserving completion green', () => {
     const main = read('src/main.tsx');
-    expect(main.indexOf('./ui/correctionAtelier.css')).toBeGreaterThan(main.indexOf('./ui/correctionFlow.css'));
-    const css = read('src/ui/correctionAtelier.css');
+    expect(main.indexOf('./correction/ui/correctionAtelier.css')).toBeGreaterThan(main.indexOf('./correction/ui/correctionFlow.css'));
+    const css = read('src/correction/ui/correctionAtelier.css');
     const source = css.match(/\.teacher-flow-shell \.analysis-progress,\s*\.live-copy-preview\s*\{([^}]+)\}/)?.[1];
     expect(source).toContain('background: var(--ds-color-surface)');
     expect(source).toContain('border-color: var(--ds-color-border)');
@@ -71,7 +71,7 @@ describe('Atelier pédagogique correction workspace', () => {
   });
 
   it('separates active copy work, actionable warnings, success and real failures on cards', () => {
-    const css = read('src/ui/correctionAtelier.css');
+    const css = read('src/correction/ui/correctionAtelier.css');
     expect(css).toContain('border-left: 3px solid var(--ds-color-progress)');
     expect(css).not.toContain('border-top: 3px solid var(--ds-color-brand-700)');
     expect(css).toContain('.correction-series-card.is-processing');
@@ -80,13 +80,13 @@ describe('Atelier pédagogique correction workspace', () => {
     expect(css).toContain('border-left: 3px solid var(--ds-color-danger)');
     expect(css).toContain('.correction-series-card-status.is-to-review');
     expect(css).toContain('background: var(--ds-color-success-surface)');
-    const layout = read('src/ui/atelierBLayout.css');
+    const layout = read('src/correction/ui/atelierBLayout.css');
     expect(layout).toContain('.teacher-workspace-processing.is-active');
     expect(layout).toContain('color: var(--ds-color-progress)');
   });
 
   it('keeps legacy batch cards and live criteria consistent with the Atelier B status vocabulary', () => {
-    const css = read('src/ui/correctionAtelier.css');
+    const css = read('src/correction/ui/correctionAtelier.css');
     const styles = (selector: string) => css.split(selector + ' {')[1]?.split('}')[0] ?? '';
     const batch = '.teacher-flow-shell .correction-series-list:not(.copy-overview-grid) > li.correction-series-card';
     expect(styles(batch)).toContain('var(--ds-color-border)');
@@ -101,9 +101,9 @@ describe('Atelier pédagogique correction workspace', () => {
   });
 
   it('places stopping beside the active copy instead of in the permanent application header', () => {
-    const app = read('src/ui/App.tsx');
-    const overview = read('src/ui/CorrectionOverview.tsx');
-    const css = read('src/ui/correctionFlow.css');
+    const app = read('src/shell/ui/App.tsx');
+    const overview = read('src/correction/ui/CorrectionOverview.tsx');
+    const css = read('src/correction/ui/correctionFlow.css');
     expect(app).not.toContain('global-stop-button');
     expect(app).toContain('Arrêter cette correction');
     expect(app).toContain('Arrêter les corrections');
@@ -112,13 +112,13 @@ describe('Atelier pédagogique correction workspace', () => {
   });
 
   it('preserves all existing evidence, note adjustments and teacher comments', () => {
-    const app = read('src/ui/App.tsx');
+    const app = read('src/shell/ui/App.tsx');
     expect(app).toContain('<TeacherReviewAlert');
     expect(app).toContain('<details className="review-explanation"');
     expect(app).toContain("open={item.subcriteria?.some((sub) => sub.assessmentStatus === 'not-evaluated' || sub.verificationSource === 'teacher') || undefined}");
     expect(app).toContain("open={item.subcriteria.some((entry) => entry.assessmentStatus === 'not-evaluated' || entry.verificationSource === 'teacher') || undefined}");
     expect(app).toContain('className="comment-field"');
     expect(app).toContain('normalizeGradeScore(Number(event.target.value))');
-    expect(read('src/ui/components/TeacherReviewAlert.tsx')).toContain('Copier le commentaire');
+    expect(read('src/correction/ui/components/TeacherReviewAlert.tsx')).toContain('Copier le commentaire');
   });
 });

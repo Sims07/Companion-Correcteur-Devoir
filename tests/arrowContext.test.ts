@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { describeArrowTips } from '../src/adapters/image/arrowContext.ts';
+import { describeArrowTips } from '../src/shared/adapters/image/arrowContext.ts';
 
 it('locates the tip on the source page independently of its resolution', () => {
   expect(describeArrowTips([{ x: 200, y: 150, direction: 'gauche' }], 800, 300, 7))

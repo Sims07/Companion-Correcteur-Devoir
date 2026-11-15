@@ -2,10 +2,10 @@
 import { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { describe, expect, it, vi } from 'vitest';
-import { DIAGRAM_SENSITIVITY_CASES, DIAGRAM_SENSITIVITY_TARGETS } from '../../src/domain/evaluation/scientificDiagramSensitivity.ts';
-import { buildBlindVisualObservationReport, type BlindVisualObservationRun } from '../../src/domain/evaluation/scientificDiagramBlindGraph.ts';
-import { summarizeDiagramLabReport } from '../../src/domain/evaluation/diagramLabHistory.ts';
-import { ScientificDiagramRadar } from '../../src/ui/components/ScientificDiagramRadar.tsx';
+import { DIAGRAM_SENSITIVITY_CASES, DIAGRAM_SENSITIVITY_TARGETS } from '../../src/evaluation/domain/scientificDiagramSensitivity.ts';
+import { buildBlindVisualObservationReport, type BlindVisualObservationRun } from '../../src/evaluation/domain/scientificDiagramBlindGraph.ts';
+import { summarizeDiagramLabReport } from '../../src/evaluation/domain/diagramLabHistory.ts';
+import { ScientificDiagramRadar } from '../../src/evaluation/ui/components/ScientificDiagramRadar.tsx';
 
 const runs = DIAGRAM_SENSITIVITY_CASES.map((item) => ({
   caseId: item.id, profileId: 'existing-profile', profileName: 'Vision laboratoire',

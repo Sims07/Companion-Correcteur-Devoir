@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { validateRubric } from '../../../src/domain/correction/rubric.ts';
-import { SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC, parseScientificDiagramRubric } from '../../../src/domain/correction/scientificDiagramRubric.ts';
+import { validateRubric } from '../../../src/correction/domain/rubric.ts';
+import { SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC, parseScientificDiagramRubric } from '../../../src/correction/domain/scientificDiagramRubric.ts';
 
 describe('barème enseignant du schéma scientifique', () => {
   it('conserves les 15 attendus observables et les 8 points exacts du barème professeur', () => {

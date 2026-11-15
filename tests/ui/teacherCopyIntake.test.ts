@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { TeacherCopyIntake } from '../../src/ui/components/TeacherCopyIntake.tsx';
+import { TeacherCopyIntake } from '../../src/correction/ui/components/TeacherCopyIntake.tsx';
 
 const props = {
   grouping: 'each-file' as const,

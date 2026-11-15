@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import { defaultAiModelConfiguration } from '../src/domain/aiModelProfiles.ts';
-import { SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC } from '../src/domain/correction/scientificDiagramRubric.ts';
-import { correctScientificDiagramDirect, isLoopbackDiagramEndpoint } from '../src/application/directScientificDiagramCorrection.ts';
-import type { GradingProvider } from '../src/ports/aiProvider.ts';
-import type { CorrectionWorkspaceService } from '../src/application/correctionWorkspaceService.ts';
+import { defaultAiModelConfiguration } from '../src/shared/domain/aiModelProfiles.ts';
+import { SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC } from '../src/correction/domain/scientificDiagramRubric.ts';
+import { correctScientificDiagramDirect, isLoopbackDiagramEndpoint } from '../src/correction/application/directScientificDiagramCorrection.ts';
+import type { GradingProvider } from '../src/correction/ports/aiProvider.ts';
+import type { CorrectionWorkspaceService } from '../src/correction/application/correctionWorkspaceService.ts';
 
 const rubric = structuredClone(SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC);
 const images = [{ mimeType: 'image/png', base64: 'dGVzdA==', fileName: 'schema.png' }];

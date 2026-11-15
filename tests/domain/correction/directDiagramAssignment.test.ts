@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC } from '../../../src/domain/correction/scientificDiagramRubric.ts';
-import { directDiagramAssignmentIssue } from '../../../src/domain/correction/directDiagramAssignment.ts';
+import { SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC } from '../../../src/correction/domain/scientificDiagramRubric.ts';
+import { directDiagramAssignmentIssue } from '../../../src/correction/domain/directDiagramAssignment.ts';
 
 const valid = structuredClone(SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC);
 const config = { correctionMethod: 'generative', analysisModel: 'qwen3.5:4b', endpoint: 'http://localhost:11434' };

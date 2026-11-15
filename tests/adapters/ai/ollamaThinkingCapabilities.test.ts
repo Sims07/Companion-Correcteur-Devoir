@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { detectOllamaDiagramThinkSetting, selectOllamaThinkSetting } from '../../../src/adapters/ai/ollamaThinkingCapabilities.ts';
+import { detectOllamaDiagramThinkSetting, selectOllamaThinkSetting } from '../../../src/evaluation/adapters/ai/ollamaThinkingCapabilities.ts';
 
 describe('Découverte Ollama Think sans noms de modèles codés en dur', () => {
   it('accepte les modèles à bascule booléenne, indépendamment du nom ou de la taille', () => {

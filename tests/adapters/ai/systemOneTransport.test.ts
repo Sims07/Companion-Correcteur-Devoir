@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { requestSystemOneDecision } from '../../../src/adapters/ai/systemOneTransport.ts';
+import { requestSystemOneDecision } from '../../../src/correction/adapters/ai/systemOneTransport.ts';
 
 describe('System One diagnostic identity', () => {
   it('traces the exact native decision prompt family without pretending that it streams text', async () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { BiologyRadarObservation } from '../../../src/domain/evaluation/biologyTeacherRadar.ts';
-import { buildEvaluationIssueReport, countedUsableBiologyGrades } from '../../../src/domain/evaluation/evaluationIssueReport.ts';
+import type { BiologyRadarObservation } from '../../../src/evaluation/domain/biologyTeacherRadar.ts';
+import { buildEvaluationIssueReport, countedUsableBiologyGrades } from '../../../src/evaluation/domain/evaluationIssueReport.ts';
 
 const observation = (score: number | null, extra: Partial<BiologyRadarObservation> = {}): BiologyRadarObservation => ({
   id: 'obs-1', profileId: 'p', profile: 'Gemma', model: 'gemma4:e4b',

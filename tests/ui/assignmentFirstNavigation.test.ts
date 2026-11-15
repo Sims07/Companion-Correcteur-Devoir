@@ -1,7 +1,7 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import { TeacherWorkspaceNavigation } from '../../src/ui/components/TeacherWorkspaceNavigation.tsx';
+import { TeacherWorkspaceNavigation } from '../../src/correction/ui/components/TeacherWorkspaceNavigation.tsx';
 
 describe('navigation entre la bibliothèque de devoirs et l’espace de correction', () => {
   it('permet de revenir à la bibliothèque depuis le fil d’Ariane', () => {

@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { biologyCampaignIssues, customCampaignIssues, diagramCampaignIssues } from '../../../src/domain/evaluation/evaluationCampaignIssues.ts';
-import { buildEvaluationIssueReport, countedUsableBiologyGrades, failureCategory } from '../../../src/domain/evaluation/evaluationIssueReport.ts';
-import type { DiagramLabArchiveEntry } from '../../../src/domain/evaluation/diagramLabHistory.ts';
-import type { BiologyRadarObservation } from '../../../src/domain/evaluation/biologyTeacherRadar.ts';
-import type { ModelEvaluationRecord } from '../../../src/domain/evaluation/modelEvaluation.ts';
+import { biologyCampaignIssues, customCampaignIssues, diagramCampaignIssues } from '../../../src/evaluation/domain/evaluationCampaignIssues.ts';
+import { buildEvaluationIssueReport, countedUsableBiologyGrades, failureCategory } from '../../../src/evaluation/domain/evaluationIssueReport.ts';
+import type { DiagramLabArchiveEntry } from '../../../src/evaluation/domain/diagramLabHistory.ts';
+import type { BiologyRadarObservation } from '../../../src/evaluation/domain/biologyTeacherRadar.ts';
+import type { ModelEvaluationRecord } from '../../../src/evaluation/domain/modelEvaluation.ts';
 
 const diagram = (experiments: unknown[], state = 'finished'): DiagramLabArchiveEntry => ({
   state,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildLocalDecisionBenchmark, type LocalBenchmarkTrace } from '../../../src/domain/evaluation/localDecisionBenchmark.ts';
-import type { Rubric } from '../../../src/domain/correction/rubric.ts';
+import { buildLocalDecisionBenchmark, type LocalBenchmarkTrace } from '../../../src/evaluation/domain/localDecisionBenchmark.ts';
+import type { Rubric } from '../../../src/correction/domain/rubric.ts';
 
 const rubric: Rubric = { title: 'Mitose', criteria: [
   { id: 'title', title: 'Titre global', description: '', maxPoints: 2, analysisMode: 'scientific-diagram' },

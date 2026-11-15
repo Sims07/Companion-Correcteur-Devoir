@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultAiModelConfiguration, parseAiModelConfiguration, parseAiModelProfiles } from '../src/domain/aiModelProfiles.ts';
+import { defaultAiModelConfiguration, parseAiModelConfiguration, parseAiModelProfiles } from '../src/shared/domain/aiModelProfiles.ts';
 
 describe('correction method backward compatibility', () => {
   it('preserves classic correction for every legacy configuration', () => {

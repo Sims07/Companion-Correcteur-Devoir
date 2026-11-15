@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cropStudentIdentityHeader } from '../../../src/adapters/ai/studentIdentityImage.ts';
+import { cropStudentIdentityHeader } from '../../../src/correction/adapters/ai/studentIdentityImage.ts';
 
 const image = { base64: 'aGVsbG8=', mimeType: 'image/jpeg', fileName: 'copie.jpg' };
 

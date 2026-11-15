@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createOllamaProvider } from '../src/adapters/ai/ollamaProvider.ts';
+import { createOllamaProvider } from '../src/correction/adapters/ai/ollamaProvider.ts';
 
 function streamResponse(content: string): Response {
   return new Response([

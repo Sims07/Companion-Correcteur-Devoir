@@ -2,8 +2,8 @@
 import { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { expect, it } from 'vitest';
-import { MethodRadarComparison } from '../../src/ui/components/MethodRadarComparison.tsx';
-import type { TimelinePoint } from '../../src/domain/evaluation/radarTimeline.ts';
+import { MethodRadarComparison } from '../../src/evaluation/ui/components/MethodRadarComparison.tsx';
+import type { TimelinePoint } from '../../src/evaluation/domain/radarTimeline.ts';
 
 it('compares distinct complete method radars and can isolate a targeted campaign without filling missing axes', async () => {
   const axes = ['Flèches','Relations','Stabilité'];

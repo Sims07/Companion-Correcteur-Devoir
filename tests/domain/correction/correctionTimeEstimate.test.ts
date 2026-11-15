@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { estimateRemainingCorrectionSeconds, type CorrectionTimingSample } from '../../../src/domain/correction/correctionTimeEstimate.ts';
+import { estimateRemainingCorrectionSeconds, type CorrectionTimingSample } from '../../../src/correction/domain/correctionTimeEstimate.ts';
 
 const history: CorrectionTimingSample[] = [
   { visionModel: 'vision:4b', analysisModel: 'analysis:4b', pageCount: 4, criterionCount: 8, readingSeconds: 40, analysisSeconds: 160, outcome: 'success', correctionMode: 'integrated' },

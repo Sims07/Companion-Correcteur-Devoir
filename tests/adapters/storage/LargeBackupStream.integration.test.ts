@@ -1,13 +1,13 @@
 import 'fake-indexeddb/auto';
 import { Blob as NodeBlob } from 'node:buffer';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { openDatabase } from '../../../src/adapters/storage/indexedDbMemory.ts';
+import { openDatabase } from '../../../src/shared/adapters/storage/indexedDbMemory.ts';
 import {
   createLocalBackup, type LocalBackup,
-} from '../../../src/adapters/storage/localBackup.ts';
+} from '../../../src/shared/adapters/storage/localBackup.ts';
 import {
   inspectLargeBackup, restoreLargeBackup, restoreInspectedBackupSettings,
-} from '../../../src/adapters/storage/largeBackupStream.ts';
+} from '../../../src/shared/adapters/storage/largeBackupStream.ts';
 
 class MemoryStorage {
   private entries = new Map<string, string>();

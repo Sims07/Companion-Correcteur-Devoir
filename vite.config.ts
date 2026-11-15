@@ -47,10 +47,10 @@ export default defineConfig({
       include: ['src/**/*.ts', 'src/**/*.tsx'],
       exclude: [
         '**/*.test.*',
-        'src/ports/**', // Type-only contracts do not represent executable behavior.
+        'src/**/ports/**', // Type-only contracts do not represent executable behavior.
         'src/main.tsx',
         // UI composition will be measured separately by browser E2E tests.
-        'src/ui/**',
+        'src/**/ui/**',
       ],
       reporter: ['text', 'text-summary', 'json-summary', 'html'],
       reportsDirectory: './coverage-unit',

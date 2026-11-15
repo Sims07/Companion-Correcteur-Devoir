@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { loadOnDemandModel } from '../../../src/adapters/ai/modelLoadClient.ts';
+import { loadOnDemandModel } from '../../../src/shared/adapters/ai/modelLoadClient.ts';
 
 describe('OpenAI-compatible on-demand model loading', () => {
   it('keeps Saluki 27B compatible with the existing endpoint and bearer token', async () => {

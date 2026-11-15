@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { createBackgroundCorrection, toBackgroundJobOverview } from '../../../src/domain/correction/backgroundCorrection.ts';
-import { ActiveCopyProcessingWorkspace } from '../../../src/ui/components/ActiveCopyProcessingWorkspace.tsx';
+import { createBackgroundCorrection, toBackgroundJobOverview } from '../../../src/correction/domain/backgroundCorrection.ts';
+import { ActiveCopyProcessingWorkspace } from '../../../src/correction/ui/components/ActiveCopyProcessingWorkspace.tsx';
 
 const job = createBackgroundCorrection({
   id: 'copy-b', assignmentId: 'biology', label: 'Copie en cours',

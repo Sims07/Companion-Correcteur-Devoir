@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { prepareSystemOneRubric, scoreSystemOneRubric } from '../../src/domain/correction/systemOneDecision.ts';
-import { PILOT_CASES, PILOT_RUBRIC } from '../../src/domain/evaluation/pilotEvaluationProtocol.ts';
+import { prepareSystemOneRubric, scoreSystemOneRubric } from '../../src/correction/domain/systemOneDecision.ts';
+import { PILOT_CASES, PILOT_RUBRIC } from '../../src/evaluation/domain/pilotEvaluationProtocol.ts';
 
 const choice = (value: string) => ({ type: 'choice' as const, choice: value, confidence: 0.9, probabilities: { [value]: 0.96 } });
 const pilotAnswers = (caseId: 'A' | 'B' | 'C', mistaken: string[] = []) => {

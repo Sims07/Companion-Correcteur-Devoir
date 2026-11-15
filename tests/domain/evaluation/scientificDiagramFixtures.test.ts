@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { readFile } from 'node:fs/promises';
-import type { ModelEvaluationRecord, ModelEvaluationResultSnapshot } from '../../../src/domain/evaluation/modelEvaluation.ts';
-import { diagramTargetKey } from '../../../src/domain/evaluation/scientificDiagramProtocol.ts';
-import { getRubricSubcriteria, validateRubric } from '../../../src/domain/correction/rubric.ts';
+import type { ModelEvaluationRecord, ModelEvaluationResultSnapshot } from '../../../src/evaluation/domain/modelEvaluation.ts';
+import { diagramTargetKey } from '../../../src/evaluation/domain/scientificDiagramProtocol.ts';
+import { getRubricSubcriteria, validateRubric } from '../../../src/correction/domain/rubric.ts';
 import {
   SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC, SCIENTIFIC_DIAGRAM_FIXTURES,
   SCIENTIFIC_DIAGRAM_BASE_CASE_IDS, SCIENTIFIC_DIAGRAM_POINTER_CASE_IDS, SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET,
   buildScientificDiagramFixtureReport,
-} from '../../../src/domain/evaluation/scientificDiagramFixtures.ts';
+} from '../../../src/evaluation/domain/scientificDiagramFixtures.ts';
 
 function record(status: 'success' | 'failed' = 'success'): ModelEvaluationRecord {
   const result: ModelEvaluationResultSnapshot = {
@@ -176,8 +176,8 @@ describe('jeu de dessins scientifiques A/B/C et contrôle de flèches D/E', () =
   });
   it('utilise des dessins D/E visuellement identiques hors extrémités de quatre traits de rappel', async () => {
     const [control, trap] = await Promise.all([
-      readFile(new URL('../../../src/assets/pilot/scientific-mitosis-labels-control.svg', import.meta.url), 'utf8'),
-      readFile(new URL('../../../src/assets/pilot/scientific-mitosis-labels-swapped.svg', import.meta.url), 'utf8'),
+      readFile(new URL('../../../src/evaluation/assets/pilot/scientific-mitosis-labels-control.svg', import.meta.url), 'utf8'),
+      readFile(new URL('../../../src/evaluation/assets/pilot/scientific-mitosis-labels-swapped.svg', import.meta.url), 'utf8'),
     ]);
     const line = /<line id="(pointer-[^"]+)" class="pointer" x1="(\d+)" y1="(\d+)" x2="(\d+)" y2="(\d+)"\/>/g;
     const arrows = (svg: string) => Object.fromEntries([...svg.matchAll(line)].map((m) =>

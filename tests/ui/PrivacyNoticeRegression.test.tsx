@@ -1,9 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import type { AiModelConfiguration } from '../../src/domain/aiModelProfiles.ts';
-import { ObservabilityDashboard } from '../../src/ui/ObservabilityDashboard.tsx';
-import { ScientificDiagramTeacherPanel } from '../../src/ui/components/ScientificDiagramTeacherPanel.tsx';
+import type { AiModelConfiguration } from '../../src/shared/domain/aiModelProfiles.ts';
+import { ObservabilityDashboard } from '../../src/shell/ui/ObservabilityDashboard.tsx';
+import { ScientificDiagramTeacherPanel } from '../../src/correction/ui/components/ScientificDiagramTeacherPanel.tsx';
 
 const source = (file: string): string => readFileSync(new URL(file, import.meta.url), 'utf8');
 
@@ -46,7 +46,7 @@ describe('parcours sans bandeaux de consentement ou de confidentialité répéti
   );
 
   it('ne montre aucune case de consentement dans le parcours Copies', () => {
-    const app = source('../../src/ui/App.tsx');
+    const app = source('../../src/shell/ui/App.tsx');
     expect(app).toContain('Correction directe du dessin, sans transcription OCR');
     expect(app).toContain('Voir le barème graphique');
     expect(app).not.toContain('diagram-assignment-consent');
@@ -60,14 +60,14 @@ describe('parcours sans bandeaux de consentement ou de confidentialité répéti
 
   it('ne réintroduit pas de messages serveur distant dans les outils et les campagnes de test', () => {
     const files = [
-      '../../src/ui/AssignmentsHome.tsx',
-      '../../src/ui/components/EvaluationProfilesDialog.tsx',
-      '../../src/ui/components/PilotEvaluationPanel.tsx',
-      '../../src/ui/components/RubricImportPanel.tsx',
-      '../../src/ui/components/ScientificDiagramLabHistory.tsx',
-      '../../src/ui/components/ScientificDiagramProtocolPanel.tsx',
-      '../../src/ui/components/ScientificDiagramTeacherPanel.tsx',
-      '../../src/ui/NetworkInspector.tsx',
+      '../../src/correction/ui/AssignmentsHome.tsx',
+      '../../src/evaluation/ui/components/EvaluationProfilesDialog.tsx',
+      '../../src/evaluation/ui/components/PilotEvaluationPanel.tsx',
+      '../../src/correction/ui/components/RubricImportPanel.tsx',
+      '../../src/evaluation/ui/components/ScientificDiagramLabHistory.tsx',
+      '../../src/evaluation/ui/components/ScientificDiagramProtocolPanel.tsx',
+      '../../src/correction/ui/components/ScientificDiagramTeacherPanel.tsx',
+      '../../src/shell/ui/NetworkInspector.tsx',
     ];
     for (const file of files) {
       const content = source(file);
@@ -87,7 +87,7 @@ describe('parcours sans bandeaux de consentement ou de confidentialité répéti
         'Préparation des images sur cet appareil',
       ]) expect(content, `${file} : ${phrase}`).not.toContain(phrase);
     }
-    expect(source('../../src/ui/components/PilotEvaluationPanel.tsx')).toContain('Lancer les 3 lectures (Vision seule)');
-    expect(source('../../src/ui/components/ScientificDiagramProtocolPanel.tsx')).toContain('Tester les 3 schémas en un clic');
+    expect(source('../../src/evaluation/ui/components/PilotEvaluationPanel.tsx')).toContain('Lancer les 3 lectures (Vision seule)');
+    expect(source('../../src/evaluation/ui/components/ScientificDiagramProtocolPanel.tsx')).toContain('Tester les 3 schémas en un clic');
   });
 });

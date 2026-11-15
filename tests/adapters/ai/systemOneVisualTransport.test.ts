@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { requestSystemOneDecision } from '../../../src/adapters/ai/systemOneTransport.ts';
+import { requestSystemOneDecision } from '../../../src/correction/adapters/ai/systemOneTransport.ts';
 
 const prepared = {
   state: 'Question scientifique et barème locaux',

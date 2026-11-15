@@ -1,9 +1,9 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import type { ModelEvaluationRecord } from '../../../src/domain/evaluation/modelEvaluation.ts';
-import type { QuestionContractRun } from '../../../src/domain/evaluation/questionContractPilot.ts';
-import type { QuestionContractRepeatabilityRun } from '../../../src/domain/evaluation/questionContractRepeatability.ts';
-import { BiologyRunMonitor } from '../../../src/ui/components/BiologyRunMonitor.tsx';
+import type { ModelEvaluationRecord } from '../../../src/evaluation/domain/modelEvaluation.ts';
+import type { QuestionContractRun } from '../../../src/evaluation/domain/questionContractPilot.ts';
+import type { QuestionContractRepeatabilityRun } from '../../../src/evaluation/domain/questionContractRepeatability.ts';
+import { BiologyRunMonitor } from '../../../src/evaluation/ui/components/BiologyRunMonitor.tsx';
 
 const record = (status: 'success' | 'failed', score: number | null): ModelEvaluationRecord =>
   ({ results: [{ status, score }] }) as unknown as ModelEvaluationRecord;

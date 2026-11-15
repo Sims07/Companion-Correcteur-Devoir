@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createOllamaProvider } from '../../../src/adapters/ai/ollamaProvider.ts';
-import { parseGradingProposal } from '../../../src/domain/correction/grading.ts';
-import { PILOT_CASES, PILOT_RUBRIC } from '../../../src/domain/evaluation/pilotEvaluationProtocol.ts';
-import type { Rubric } from '../../../src/domain/correction/rubric.ts';
+import { createOllamaProvider } from '../../../src/correction/adapters/ai/ollamaProvider.ts';
+import { parseGradingProposal } from '../../../src/correction/domain/grading.ts';
+import { PILOT_CASES, PILOT_RUBRIC } from '../../../src/evaluation/domain/pilotEvaluationProtocol.ts';
+import type { Rubric } from '../../../src/correction/domain/rubric.ts';
 
 const rubric: Rubric = {
   title: 'Photosynthèse',

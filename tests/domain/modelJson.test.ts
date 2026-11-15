@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseModelJson } from '../../src/domain/modelJson.ts';
+import { parseModelJson } from '../../src/shared/domain/modelJson.ts';
 
 describe('small-model JSON fixtures', () => {
   it.each([

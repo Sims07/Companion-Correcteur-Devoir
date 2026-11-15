@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { buildStudentIdentityPrompt, buildTeacherAnnotationPrompt, checkOllamaReady, createOllamaProvider, prewarmOllamaModel, unloadOllamaModel } from '../../../src/adapters/ai/ollamaProvider.ts';
-import type { OllamaSettings } from '../../../src/ports/aiProvider.ts';
+import { buildStudentIdentityPrompt, buildTeacherAnnotationPrompt, checkOllamaReady, createOllamaProvider, prewarmOllamaModel, unloadOllamaModel } from '../../../src/correction/adapters/ai/ollamaProvider.ts';
+import type { OllamaSettings } from '../../../src/correction/ports/aiProvider.ts';
 
 const settings: OllamaSettings = {
   endpoint: 'http://localhost:11434',

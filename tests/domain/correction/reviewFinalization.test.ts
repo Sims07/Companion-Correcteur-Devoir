@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { validateReviewedCorrection } from '../../../src/domain/correction/reviewFinalization.ts';
-import type { Rubric } from '../../../src/domain/correction/rubric.ts';
-import type { ReviewedCriterion } from '../../../src/domain/correction/grading.ts';
+import { validateReviewedCorrection } from '../../../src/correction/domain/reviewFinalization.ts';
+import type { Rubric } from '../../../src/correction/domain/rubric.ts';
+import type { ReviewedCriterion } from '../../../src/correction/domain/grading.ts';
 
 const rubric: Rubric = { title: 'Évaluation de biologie', criteria: [
   { id: 'text', title: 'Mécanisme de la mitose', description: '', maxPoints: 2 },

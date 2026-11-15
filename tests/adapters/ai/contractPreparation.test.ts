@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { prepareQuestionContracts } from '../../../src/adapters/ai/contractPreparation.ts';
-import { buildSubjectReferencePrompt } from '../../../src/adapters/ai/prompts/visionPrompts.ts';
+import { prepareQuestionContracts } from '../../../src/correction/adapters/ai/contractPreparation.ts';
+import { buildSubjectReferencePrompt } from '../../../src/correction/adapters/ai/prompts/visionPrompts.ts';
 const rubric = { title: 'Test', criteria: ['c1', 'c2'].map(id => ({ id, title: id, description: 'Relation attendue', maxPoints: 1 })) };
 const settings = { endpoint: 'http://localhost:11434', analysisModel: 'generative-model' };
 const sources = { subject: 'Question 1\nConsigne exacte', correction: '' };

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseArbitrationDecisions } from '../../../src/domain/correction/arbitrationDecision.ts';
+import { parseArbitrationDecisions } from '../../../src/correction/domain/arbitrationDecision.ts';
 
 const first = [{ criterionId: 'q1', points: 2 }, { criterionId: 'q2', points: 1 }];
 const second = [{ criterionId: 'q1', points: 4 }, { criterionId: 'q2', points: 3 }];

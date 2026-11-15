@@ -2,8 +2,8 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { DiagramLabArchiveEntry } from '../../../src/domain/evaluation/diagramLabHistory.ts';
-import { EvaluationCampaigns } from '../../../src/ui/components/EvaluationCampaigns.tsx';
+import type { DiagramLabArchiveEntry } from '../../../src/evaluation/domain/diagramLabHistory.ts';
+import { EvaluationCampaigns } from '../../../src/evaluation/ui/components/EvaluationCampaigns.tsx';
 
 const entry = {
   id: 'test-science', protocol: 'reference', createdAt: '2026-11-13T12:00:00Z',

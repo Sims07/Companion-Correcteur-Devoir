@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
-import { defaultAiModelConfiguration } from '../../src/domain/aiModelProfiles.ts';
+import { defaultAiModelConfiguration } from '../../src/shared/domain/aiModelProfiles.ts';
 import { chooseEvaluationModel } from './helpers/evaluation-models.ts';
 
 function fixtureV2(swapped: boolean) {

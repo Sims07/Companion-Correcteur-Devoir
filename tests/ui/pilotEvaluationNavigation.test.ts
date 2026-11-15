@@ -2,7 +2,7 @@
 import { act, createElement, type ComponentProps } from 'react';
 import { createRoot } from 'react-dom/client';
 import { expect, it, vi } from 'vitest';
-import { PilotEvaluationPanel } from '../../src/ui/components/PilotEvaluationPanel.tsx';
+import { PilotEvaluationPanel } from '../../src/evaluation/ui/components/PilotEvaluationPanel.tsx';
 
 it('keeps one biology objective visible, preserves repetition choices and leaves stop available after preparation', async () => {
   const container = document.createElement('div');

@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { buildBlindVisualObservationReport } from '../../src/domain/evaluation/scientificDiagramBlindGraph.ts';
-import { summarizeDiagramLabReport } from '../../src/domain/evaluation/diagramLabHistory.ts';
+import { buildBlindVisualObservationReport } from '../../src/evaluation/domain/scientificDiagramBlindGraph.ts';
+import { summarizeDiagramLabReport } from '../../src/evaluation/domain/diagramLabHistory.ts';
 import {
   buildDiagramLabRadar, diagnoseGraphRadarMeasurement, diagnoseUnmeasuredRadarAxis,
-} from '../../src/domain/evaluation/diagramLabRadar.ts';
-import { planMissingRadarAxis, planRadarModelEvaluation } from '../../src/domain/evaluation/diagramLabRadarLaunch.ts';
-import { DIAGRAM_SENSITIVITY_CASES, DIAGRAM_SENSITIVITY_TARGETS } from '../../src/domain/evaluation/scientificDiagramSensitivity.ts';
+} from '../../src/evaluation/domain/diagramLabRadar.ts';
+import { planMissingRadarAxis, planRadarModelEvaluation } from '../../src/evaluation/domain/diagramLabRadarLaunch.ts';
+import { DIAGRAM_SENSITIVITY_CASES, DIAGRAM_SENSITIVITY_TARGETS } from '../../src/evaluation/domain/scientificDiagramSensitivity.ts';
 
 const model = 'qwen3.5:4b';
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { queuedCopyThumbnailDimensions } from '../../src/ui/queuedCopyThumbnail.ts';
+import { queuedCopyThumbnailDimensions } from '../../src/correction/ui/queuedCopyThumbnail.ts';
 
 describe('memory-bounded batch page thumbnails', () => {
   it('preserves tiny scientific diagrams without unnecessary resampling', () => {

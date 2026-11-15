@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { describeLargeBackupFailure } from '../../../src/adapters/storage/largeBackupError.ts';
+import { describeLargeBackupFailure } from '../../../src/shared/adapters/storage/largeBackupError.ts';
 
 describe('large backup failure diagnostics', () => {
   it('reports quota errors even when Chrome provides an empty message', () => {

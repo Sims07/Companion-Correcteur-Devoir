@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createScientificDiagramAnalysisService } from '../../src/application/scientificDiagramAnalysisService.ts';
-import type { ScientificDiagramAnalyzer } from '../../src/ports/scientificDiagramAnalysis.ts';
+import { createScientificDiagramAnalysisService } from '../../src/correction/application/scientificDiagramAnalysisService.ts';
+import type { ScientificDiagramAnalyzer } from '../../src/correction/ports/scientificDiagramAnalysis.ts';
 
 const request = {
   images: [

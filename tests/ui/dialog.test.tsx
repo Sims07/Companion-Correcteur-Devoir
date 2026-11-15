@@ -1,7 +1,7 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { Dialog } from '../../src/ui/design-system/components/Dialog.tsx';
+import { Dialog } from '../../src/shared/ui/design-system/components/Dialog.tsx';
 
 describe('shared modal dialog', () => {
   it('labels the native dialog and gives teachers an explicit dismissal action', () => {

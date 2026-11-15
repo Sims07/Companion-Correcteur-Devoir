@@ -1,11 +1,11 @@
 import { expect, it } from 'vitest';
-import { evaluationPromptReferences } from '../../../src/domain/evaluation/evaluationPromptReferences.ts';
-import { buildRadarAnalysisExport } from '../../../src/domain/evaluation/radarAnalysisExport.ts';
-import { buildScientificDiagramFixtureReport } from '../../../src/domain/evaluation/scientificDiagramFixtures.ts';
-import { buildScientificDiagramProtocolReport } from '../../../src/domain/evaluation/scientificDiagramProtocol.ts';
-import { summarizeDiagramLabReport } from '../../../src/domain/evaluation/diagramLabHistory.ts';
-import { RADAR_PRESETS } from '../../../src/domain/evaluation/diagramLabRadar.ts';
-import type { BiologyRadarObservation } from '../../../src/domain/evaluation/biologyTeacherRadar.ts';
+import { evaluationPromptReferences } from '../../../src/evaluation/domain/evaluationPromptReferences.ts';
+import { buildRadarAnalysisExport } from '../../../src/evaluation/domain/radarAnalysisExport.ts';
+import { buildScientificDiagramFixtureReport } from '../../../src/evaluation/domain/scientificDiagramFixtures.ts';
+import { buildScientificDiagramProtocolReport } from '../../../src/evaluation/domain/scientificDiagramProtocol.ts';
+import { summarizeDiagramLabReport } from '../../../src/evaluation/domain/diagramLabHistory.ts';
+import { RADAR_PRESETS } from '../../../src/evaluation/domain/diagramLabRadar.ts';
+import type { BiologyRadarObservation } from '../../../src/evaluation/domain/biologyTeacherRadar.ts';
 
 it('keeps historical campaigns, failures and undecided marks across models, excluding personal trials', () => {
   const fixture = buildScientificDiagramFixtureReport([], 1, '2026-11-12T10:00:00Z');

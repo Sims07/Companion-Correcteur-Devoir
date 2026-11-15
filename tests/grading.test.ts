@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { parseGradingProposal, toReviewedCriteria } from '../src/domain/correction/grading.ts';
-import type { Rubric } from '../src/domain/correction/rubric.ts';
+import { parseGradingProposal, toReviewedCriteria } from '../src/correction/domain/grading.ts';
+import type { Rubric } from '../src/correction/domain/rubric.ts';
 
 const rubric: Rubric = {
   title: 'Biologie',

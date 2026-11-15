@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { SCIENTIFIC_DIAGRAM_FIXTURES, SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC, buildScientificDiagramFixtureReport } from '../src/domain/evaluation/scientificDiagramFixtures.ts';
-import { getRubricSubcriteria } from '../src/domain/correction/rubric.ts';
-import { buildDirectDiagramPrompt } from '../src/adapters/ai/prompts/directDiagramPrompt';
+import { SCIENTIFIC_DIAGRAM_FIXTURES, SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC, buildScientificDiagramFixtureReport } from '../src/evaluation/domain/scientificDiagramFixtures.ts';
+import { getRubricSubcriteria } from '../src/correction/domain/rubric.ts';
+import { buildDirectDiagramPrompt } from '../src/correction/adapters/ai/prompts/directDiagramPrompt.ts';
 
 describe('reviewed B reference, independent of model predictions', () => {
   const fixture = SCIENTIFIC_DIAGRAM_FIXTURES.find(f => f.id === 'B')!;

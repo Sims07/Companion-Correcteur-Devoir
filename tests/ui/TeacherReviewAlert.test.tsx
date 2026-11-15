@@ -2,7 +2,7 @@
 import { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { TeacherReviewAlert } from '../../src/ui/components/TeacherReviewAlert.tsx';
+import { TeacherReviewAlert } from '../../src/correction/ui/components/TeacherReviewAlert.tsx';
 
 describe('alerte de revue enseignant', () => {
   const roots: Array<ReturnType<typeof createRoot>> = [];

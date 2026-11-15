@@ -2,7 +2,7 @@
 import { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { describe, expect, it, vi } from 'vitest';
-import { EvaluationJourneyPicker } from '../../src/ui/components/EvaluationJourneyPicker.tsx';
+import { EvaluationJourneyPicker } from '../../src/evaluation/ui/components/EvaluationJourneyPicker.tsx';
 
 describe('EvaluationJourneyPicker', () => {
   it('offers distinct purposes, exposes the selection and prevents changing a running test', async () => {

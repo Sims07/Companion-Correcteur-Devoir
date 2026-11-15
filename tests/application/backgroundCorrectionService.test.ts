@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createBackgroundCorrectionService } from '../../src/application/backgroundCorrectionService.ts';
-import type { BackgroundCorrectionRepository } from '../../src/ports/backgroundCorrectionRepository.ts';
-import type { OllamaGateway } from '../../src/ports/correctionWorkspace.ts';
-import type { OllamaSettings } from '../../src/ports/aiProvider.ts';
+import { createBackgroundCorrectionService } from '../../src/correction/application/backgroundCorrectionService.ts';
+import type { BackgroundCorrectionRepository } from '../../src/correction/ports/backgroundCorrectionRepository.ts';
+import type { OllamaGateway } from '../../src/correction/ports/correctionWorkspace.ts';
+import type { OllamaSettings } from '../../src/correction/ports/aiProvider.ts';
 
 const settings: OllamaSettings = {
   endpoint: 'http://localhost:11434',

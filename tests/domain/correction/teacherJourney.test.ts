@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { getTeacherEntryStep } from '../../../src/domain/correction/teacherJourney.ts';
-import type { Rubric } from '../../../src/domain/correction/rubric.ts';
+import { getTeacherEntryStep } from '../../../src/correction/domain/teacherJourney.ts';
+import type { Rubric } from '../../../src/correction/domain/rubric.ts';
 
 const validRubric: Rubric = {
   title: 'Barème',

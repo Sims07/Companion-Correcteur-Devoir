@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { RADAR_AXES, type RadarAxisId, type RadarRankedCandidate } from '../../src/domain/evaluation/diagramLabRadar.ts';
-import { planRadarModelEvaluation, resolveModelProfile } from '../../src/domain/evaluation/diagramLabRadarLaunch.ts';
+import { RADAR_AXES, type RadarAxisId, type RadarRankedCandidate } from '../../src/evaluation/domain/diagramLabRadar.ts';
+import { planRadarModelEvaluation, resolveModelProfile } from '../../src/evaluation/domain/diagramLabRadarLaunch.ts';
 
 function candidate(model: string, measured: RadarAxisId[] = []): RadarRankedCandidate {
   const axes = Object.fromEntries(RADAR_AXES.map((axis) => [axis.id, {
