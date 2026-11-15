@@ -207,6 +207,12 @@ export function ScientificDiagramLabHistory({ initialReportId, revision, archive
   const [protocolFilter, setProtocolFilter] = useState<DiagramLabProtocol | 'all'>('all');
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(initialReportId ?? null);
+  useEffect(() => {
+    if (!initialReportId) return;
+    setSelectedId(initialReportId);
+    setProtocolFilter('all');
+    setSearch('');
+  }, [initialReportId]);
   const [comparisonId, setComparisonId] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
   const fileInput = useRef<HTMLInputElement>(null);
