@@ -320,7 +320,11 @@
 /* A compact, explicit ledger keeps successful calls distinct from usable axes. */
 .radar-method-audit { margin-top: 16px; }
 .radar-method-audit > p { margin: 6px 0 12px; color: var(--ds-color-text-muted); }
-.radar-method-audit-scroll { overflow-x: auto; }
+/* The table must scroll inside its flex item, not impose its min-content width
+   on the whole laboratory at mobile widths. */
+.lab-launch .radar-method-audit { flex: 1 1 100%; width: 100%; max-width: 100%; min-width: 0; }
+.radar-method-audit-scroll { width: 100%; max-width: 100%; min-width: 0; overflow-x: auto; }
+.radar-method-audit-scroll table { min-width: 500px; }
 .radar-method-audit table { width: 100%; border-collapse: collapse; font-size: .89rem; }
 .radar-method-audit th, .radar-method-audit td {
   padding: 9px 12px; border-bottom: 1px solid var(--ds-color-border);
