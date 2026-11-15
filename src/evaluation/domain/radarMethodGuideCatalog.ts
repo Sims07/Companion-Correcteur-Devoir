@@ -8,6 +8,7 @@ import {
 
 export type MethodGuideIllustration =
   | 'small-tips' | 'long-shafts' | 'direct-graph' | 'guided' | 'graph-first'
+  | 'relations-v2' | 'vision-analysis' | 'direct-grading' | 'thinking-grading' | 'systemone-grading'
   | 'question-contracts' | 'standard-rubric' | 'historical-pilot' | 'direct-correction';
 
 export interface MethodGuidePresentation {
@@ -68,6 +69,34 @@ export const SCIENCE_METHOD_PRESENTATION: Record<ScienceMethod, MethodGuidePrese
     visualFocus: 'Séparer observation et décision',
     visualCaption: 'Un graphe visuel erroné peut conduire à une décision erronée : la traçabilité ne suffit pas à garantir la justesse.',
   },
+  'graph-first-v2': {
+    title: 'Image → relations → correction (v2)',
+    summary: 'Décrit les relations légendes-structures avant de corriger.',
+    illustration: 'relations-v2',
+    visualFocus: 'Légendes, structures et relations',
+    visualCaption: 'Les liens extraits doivent correspondre aux traits visibles, pas seulement aux connaissances biologiques.',
+  },
+  'vision-then-analysis': {
+    title: 'Vision puis analyse — deux étapes',
+    summary: 'Un modèle lit les pixels, un autre corrige la transcription.',
+    illustration: 'vision-analysis',
+    visualFocus: 'Deux rôles distincts',
+    visualCaption: 'Le modèle d’analyse reçoit le texte de Vision mais ne peut pas contrôler lui-même le dessin.',
+  },
+  'direct-image-generative-thinking': {
+    title: 'Image → correction directe (Think ON)',
+    summary: 'Même correction directe, raisonnement Think demandé à Ollama.',
+    illustration: 'thinking-grading',
+    visualFocus: 'Raisonnement demandé au modèle',
+    visualCaption: 'Mêmes images et critères que Think OFF, mais avec le mode Think explicitement activé.',
+  },
+  'direct-image-systemone': {
+    title: 'Image → décisionnel System One',
+    summary: 'Un modèle décisionnel visuel reçoit directement la photo.',
+    illustration: 'systemone-grading',
+    visualFocus: 'Décision directe sans OCR',
+    visualCaption: 'Seul un modèle System One acceptant réellement des pixels peut utiliser ce parcours.',
+  },
 };
 
 export const BIOLOGY_METHOD_PRESENTATION: Record<BiologyMethodId, MethodGuidePresentation> = {
@@ -95,7 +124,9 @@ export const BIOLOGY_METHOD_PRESENTATION: Record<BiologyMethodId, MethodGuidePre
 };
 
 const scienceOrder: readonly ScienceMethod[] =
-  ['image-direct-v1', 'pixel-v1', 'leaders-v1', 'direct-v1', 'guided-v1', 'graph-first-v1'];
+  ['image-direct-v1', 'pixel-v1', 'leaders-v1', 'direct-v1', 'guided-v1', 'graph-first-v1',
+    'graph-first-v2', 'vision-then-analysis', 'direct-image-generative-thinking',
+    'direct-image-systemone'];
 
 /** Includes excluded methods and strategies with no archived score. */
 export function radarMethodGuideEntries(domain: RadarMethodDomain): MethodGuideEntry[] {
