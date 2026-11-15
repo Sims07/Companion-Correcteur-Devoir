@@ -202,7 +202,7 @@ describe('Ollama benchmark timing completeness', () => {
     expect(sumReportedProviderDurationForStage(runs, 'analysis')).toBe(82_420);
     expect(sumReportedProviderDurationForRuns(runs)).toBe(82_420);
     expect(sumReportedProviderDurationForStage(runs, 'reading')).toBeNull();
-    expect(sumReportedProviderDurationForRuns([...runs, { stage: 'analysis' as const, elapsedMs: 400 }])).toBeNull();
-    expect(sumReportedProviderDurationForRuns([{ stage: 'analysis', elapsedMs: 400, providerDurationMs: -2 }])).toBeNull();
+    expect(sumReportedProviderDurationForRuns([...runs, { stage: 'analysis' as const }])).toBeNull();
+    expect(sumReportedProviderDurationForRuns([{ stage: 'analysis', providerDurationMs: -2 }])).toBeNull();
   });
 });
