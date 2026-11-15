@@ -6,6 +6,7 @@ import { BlindGraphRunDetails } from './BlindGraphRunDetails.tsx';
 import { buildDiagramLabComparison } from '../../domain/diagramLabComparison.ts';
 import type { RadarMissingTestRequest } from '../../domain/diagramLabRadarLaunch.ts';
 import { buildDiagramLabRadar, type RadarModelConfiguration } from '../../domain/diagramLabRadar.ts';
+import { describeDiagramCampaign } from '../../domain/diagramCampaignVerdict.ts';
 import { summarizeDiagramLabReadiness } from '../../domain/diagramLabReadiness.ts';
 import { ScientificDiagramRadar } from './ScientificDiagramRadar.tsx';
 import { ZoomableImage } from '../../../shared/ui/components/ZoomableImage.tsx';
@@ -248,6 +249,13 @@ export function ScientificDiagramLabHistory({ initialReportId, revision, archive
   const radarCandidates = useMemo(() => buildDiagramLabRadar(entries, 'profile'), [entries]);
   const readiness = useMemo(() => summarizeDiagramLabReadiness(entries.length, radarCandidates), [entries, radarCandidates]);
   const selected = entries.find((item) => item.id === selectedId) ?? visible[0] ?? null;
+  const campaignResult = selected ? describeDiagramCampaign(selected) : null;
+  // The test banner deep-links to a specific archived report: place focus on
+  // its conclusion, not on the dense filters or the A/B/C fixture thumbnails.
+  useEffect(() => {
+    if (!initialReportId || selected?.id !== initialReportId) return;
+    document.getElementById('diagram-campaign-result-summary')?.focus();
+  }, [initialReportId, selected?.id]);
   const comparison = entries.find((item) => item.id === comparisonId) ?? null;
   const comparisonIssue = selected && comparison ? compareDiagramLabEntries(selected, comparison) : null;
   const comparisonRows = selected && comparison && !comparisonIssue ? buildDiagramLabComparison(selected, comparison) : [];
@@ -322,13 +330,34 @@ export function ScientificDiagramLabHistory({ initialReportId, revision, archive
               <p>{formatDate(selected.createdAt)} · {selected.localOnly ? 'Exécution locale' : 'Fournisseur distant sélectionné'} · {selected.state === 'running' ? 'En cours' : 'Dernier état sauvegardé'}</p></div>
             <Button variant="secondary" onClick={() => downloadScientificDiagramJson(selected.report, 'companion-laboratoire-' + selected.createdAt.slice(0, 10) + '.json')}>Exporter JSON</Button>
           </div>
+          {campaignResult && <section id="diagram-campaign-result-summary" tabIndex={-1}
+            className="diagram-campaign-result-summary" aria-label="Bilan du test sélectionné">
+            <p className="eyebrow">BILAN DE CETTE CAMPAGNE</p>
+            <h4>{campaignResult.battery}</h4>
+            <p><strong>Axe concerné : {campaignResult.axisLabel}.</strong> {campaignResult.explanation}</p>
+            <p className="diagram-campaign-passage">{campaignResult.passageStatus}</p>
+            <div className="diagram-campaign-scores" aria-label="Mesures de la campagne par configuration">
+              {campaignResult.scores.length ? campaignResult.scores.map((item, index) =>
+                <div key={item.profile + ':' + index}>
+                  <span>{item.profile}</span>
+                  <strong>{item.value === null ? 'Non mesuré' : item.value.toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + '/100'}</strong>
+                  {item.value === null && <small>{item.reason}</small>}
+                </div>) :
+                <div><span>{campaignResult.axisLabel}</span><strong>Non mesuré</strong></div>}
+            </div>
+            <p>{campaignResult.conclusion}</p>
+            {selected.protocol === 'graph' && <Button variant="secondary"
+              onClick={() => onViewChange('radar')}>Voir l’axe Qualité graphique dans le radar</Button>}
+          </section>}
           <div className="diagram-lab-kpis">
             <div><strong>{selected.experimentCount}</strong><span>Passages</span></div>
             <div><strong>{selected.successfulCount}</strong><span>Réponses valides</span></div>
             <div><strong>{selected.plannedRepetitions}</strong><span>Répétitions prévues</span></div>
             <div><strong>{selected.profiles.length}</strong><span>Configurations</span></div>
           </div>
-          <section className="diagram-lab-compare">
+
+          <ReportDetails key={selected.id + ':' + selected.report.format} entry={selected} />
+          <details className="diagram-lab-compare"><summary>Comparer avec une autre campagne (facultatif)</summary>
             <label>Comparer à un ancien essai
               <DesignSystemSelect value={comparisonId ?? ''} onChange={(event) => setComparisonId(event.currentTarget.value || null)}>
                 <option value="">Aucune comparaison</option>
@@ -356,8 +385,7 @@ export function ScientificDiagramLabHistory({ initialReportId, revision, archive
               </table></div> : <p>Pas encore de mesure commune ou exploitable dans ces deux rapports.</p>}
               <p>Les colonnes sont rapprochées lorsque le dessin, la configuration, la méthode et la stratégie coïncident. Une case « — » signifie que l’essai ne comporte pas cette mesure. Les variantes de consignes et les répétitions différentes ne constituent pas une comparaison strictement contrôlée.</p>
             </div>}
-          </section>
-          <ReportDetails key={selected.id + ':' + selected.report.format} entry={selected} />
+          </details>
         </article>}
       </div>}
     </>}
