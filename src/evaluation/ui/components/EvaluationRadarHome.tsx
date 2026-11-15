@@ -1,5 +1,6 @@
 import { buildRadarTimelineExport } from '../../domain/radarTimelineExport.ts';
-import { remainingScienceMethods, remainingBiologyMethods, type BiologyMethod } from '../../domain/radarRemainingMethods.ts';
+import { remainingBiologyMethods, type BiologyMethod } from '../../domain/radarRemainingMethods.ts';
+import { scienceMethodProgress } from '../../domain/radarMethodProgress.ts';
 import { biologyPoints, campaignGroups, scienceMethods, sciencePoints, trialSteps, type ScienceMethod, type TimelinePoint } from '../../domain/radarTimeline.ts';
 import { RadarTimeline } from './RadarTimeline.tsx';
 import { buildRadarAnalysisExport, isRadarBenchmark } from '../../domain/radarAnalysisExport.ts';
@@ -118,15 +119,17 @@ export function EvaluationRadarHome({
     isNativeDecisionModel(profile.configuration.visionModel));
   const [method, setMethod] = useState<ScienceMethod>('pixel-v1');
   const [bioMethod, setBioMethod] = useState<'standard' | 'contract'>('contract');
-  const missingScience = remainingScienceMethods(entries, selected);
-  const scienceBatchPlans = missingScience.flatMap(nextMethod => {
-    if (!sci) return [];
+  const scientificProgress = useMemo(() => scienceMethodProgress(entries, selected), [entries, selected]);
+  // Resume only missing batteries under the existing trial ID. A completed but
+  // indeterminate graph receives at most one different, targeted reading.
+  const scienceBatchPlans = scientificProgress.flatMap(progress => {
+    if (!sci || progress.complete || !progress.steps.length) return [];
     const request = resolveModelProfile(profiles, 'model', sci, {
       profileId: sci.profileId, profileName: sci.name, modelId: selected,
-      axis: 'graphics', steps: trialSteps(nextMethod),
+      axis: progress.missing[0] ?? 'graphics', steps: progress.steps,
     });
-    return request && profiles.some(profile => profile.id === request.profileId)
-      ? [{ method: nextMethod, request }] : [];
+    return request && request.steps.length && profiles.some(profile => profile.id === request.profileId)
+      ? [{ method: progress.method, request, trial: progress.trial }] : [];
   });
   const missingBiology = profile ? remainingBiologyMethods(history, selected, profile.id) : [];
 
@@ -137,11 +140,12 @@ export function EvaluationRadarHome({
     diagrams: campaignGroups(entries.filter(isRadarBenchmark), e => e.trial?.id ?? e.id).flatMap<TimelinePoint>(group => {
       const last = [...group].sort((a,b) => b.createdAt.localeCompare(a.createdAt))[0]!;
       const calculated = sciencePoints(group, weights);
-      return last.timeline?.map(p => {
-        const metadata = calculated.find(c => c.model === p.model);
-        return {...p, protocolLabel: metadata?.protocolLabel, comparisonBasis: metadata?.comparisonBasis,
-          batteryEngines: p.batteryEngines ?? metadata?.batteryEngines};
-      }) ?? calculated.map(p => ({ ...p, reconstructed: true }));
+      // Stored snapshots can predate later resumed batteries within the same
+      // trial. Recompute axes/score from archived evidence, not from a stale snapshot.
+      return calculated.map(point => {
+        const stored = last.timeline?.find(p => p.model === point.model);
+        return stored ? { ...stored, ...point } : { ...point, reconstructed: true };
+      });
     }),
     biology: campaignGroups(history, row => row.campaignId ?? row.id).flatMap(group => {
       const saved = group.flatMap(row => row.timeline ? [row.timeline] : []);
@@ -194,16 +198,44 @@ export function EvaluationRadarHome({
           onClick={() => launchChosen(lab)}>Évaluer avec cette méthode</Button>
         <Button variant="secondary" disabled={busy || (scientific ? !runScienceBatch || !scienceBatchPlans.length : !runBiologyBatch || !missingBiology.length)}
           onClick={() => {
-            if (scientific) runScienceBatch?.(scienceBatchPlans.map(({ method: nextMethod, request }) => ({
-              ...request, trial: { id: crypto.randomUUID(), method: nextMethod, weights },
+            if (scientific) runScienceBatch?.(scienceBatchPlans.map(({ method: nextMethod, request, trial }) => ({
+              ...request, trial: trial ?? { id: crypto.randomUUID(), method: nextMethod, weights },
             })));
             else if (profile) runBiologyBatch?.(profile.id, missingBiology);
           }}>Évaluer toutes les méthodes restantes ({scientific ? scienceBatchPlans.length : missingBiology.length})</Button>
       </div>
-      {scientific && missingScience.length > scienceBatchPlans.length &&
-        <p role="note">{missingScience.length - scienceBatchPlans.length} méthode(s) non compatibles avec la configuration du modèle : vérifiez les profils IA.</p>}
-      {(scientific ? !missingScience.length : profile && !missingBiology.length) &&
-        <p role="status">Toutes les méthodes de ce modèle ont déjà été évaluées.</p>}
+      {scientific && <section className="radar-method-audit" aria-label="État des cinq méthodes scientifiques">
+        <h3>Bilan de complétude par méthode</h3>
+        <p>Une campagne terminée n'est pas forcément un radar complet. Les relances ciblées
+          conservent le même essai et ne refont pas les batteries déjà exploitables.</p>
+        <div className="radar-method-audit-scroll"><table>
+          <thead><tr><th>Méthode</th><th>Passages réussis</th><th>Axes mesurés</th><th>État et diagnostic</th><th>Action</th></tr></thead>
+          <tbody>{scientificProgress.map(progress => {
+            const next = scienceBatchPlans.find(item => item.method === progress.method);
+            return <tr key={progress.method}>
+              <th scope="row">{progress.label}</th>
+              <td>{progress.successful}/{progress.planned}{progress.failed > 0 ? ' · ' + progress.failed + ' échec(s)' : ''}</td>
+              <td>{progress.measured}/9</td>
+              <td><strong>{progress.complete ? 'Complet' :
+                progress.interrupted ? 'Interrompu / partiel' :
+                !progress.trial ? 'Non testé' : next ? 'Partiel · à reprendre' : 'Partiel · bloqué'}</strong>
+                {!progress.complete && <details><summary>Pourquoi ?</summary><p>{progress.reason}</p></details>}
+              </td>
+              <td><Button variant="secondary" disabled={busy || !runScience || !next}
+                onClick={() => {
+                  if (!next) return;
+                  runScience({...next.request, trial: next.trial ??
+                    {id: crypto.randomUUID(), method: next.method, weights}});
+                }}>Relancer les manquants</Button></td>
+            </tr>;
+          })}</tbody>
+        </table></div>
+      </section>}
+      {scientific && scientificProgress.some(progress => !progress.complete && !scienceBatchPlans.some(plan => plan.method === progress.method)) &&
+        <p role="note">Certaines méthodes n'ont plus de relance automatique sûre ou n'ont pas de profil compatible.
+          Leur diagnostic reste consultable ci-dessus ; elles ne sont pas déclarées complètes.</p>}
+      {(scientific ? scientificProgress.every(progress => progress.complete) : profile && !missingBiology.length) &&
+        <p role="status">Toutes les méthodes de ce modèle possèdent un radar complet.</p>}
     </RadarTimeline>;
   }
   return (

@@ -4242,6 +4242,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
             // from the number of API calls or a notification saying "terminé".
             const archived = await diagramArchive.list();
             const outcome = radarEvaluationOutcome(request.trial ? archived.filter(entry => entry.trial?.id === request.trial!.id) : archived, request.modelId);
+            if (!outcome.complete && scienceMethodQueue.current && !failed.length) scienceMethodQueue.current.failures++;
             if (outcome.complete) return batteryStatus + 'Radar complet pour ' + request.profileName +
               ' : 9/9 caractéristiques mesurées.';
             return batteryStatus + 'Évaluation partielle pour ' + request.profileName + ' : ' +
