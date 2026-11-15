@@ -374,7 +374,7 @@ it('audits all six scientific methods and schedules only pending method trials f
   const analyse = [...node.querySelectorAll<HTMLButtonElement>('button')].find(button =>
     button.textContent?.trim() === 'Analyse des méthodes')!;
   await act(async () => analyse.click());
-  const audit = node.querySelector('section[aria-label="État des six méthodes scientifiques"]')!;
+  const audit = node.querySelector('section[aria-label="État des 6 méthodes scientifiques"]')!;
   expect(audit).toBeTruthy();
   expect(audit.querySelectorAll('tbody tr')).toHaveLength(6);
   expect(audit.textContent).toContain('Non testé');
