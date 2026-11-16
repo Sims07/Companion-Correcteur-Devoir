@@ -53,7 +53,7 @@ describe('scientific observation contract across grading routes', () => {
     expect(buildConciseScientificDiagramPrompt(request)).toContain('les uns sous les autres');
   });
   it('separates local biology, legend identity, main title and global scoring without ignoring handwritten labels', () => {
-    expect(SCIENTIFIC_DIAGRAM_OBSERVATION_RULES).toContain('titre PRINCIPAL');
+    expect(SCIENTIFIC_DIAGRAM_OBSERVATION_RULES).toContain('TITRE PRINCIPAL');
     expect(SCIENTIFIC_DIAGRAM_OBSERVATION_RULES).toContain('au SEIN de chaque sous-schéma');
     expect(SCIENTIFIC_DIAGRAM_OBSERVATION_RULES).toContain('applique chaque sous-critère du barème UNE SEULE FOIS');
     expect(SCIENTIFIC_DIAGRAM_OBSERVATION_RULES).toContain('une structure reconnaissable mais mal nommée'.replace('une', 'Une'));
