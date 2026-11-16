@@ -345,12 +345,12 @@ describe('compact direct diagram output', () => {
     const exhausted = new Response([
       JSON.stringify({ message: { thinking: 'Raisonnement interne', content: '' }, done: false }),
       JSON.stringify({ message: { content: '' }, done: true, done_reason: 'length', eval_count: 2048 }),
-    ].join('\\n') + '\\n');
+    ].join('\n') + '\n');
     const fetchMock = vi.fn().mockResolvedValue(exhausted);
     const diagnostics = vi.fn();
     await expect(createOllamaProvider({ endpoint: 'http://localhost:11434', analysisModel: 'qwen3.5:4b',
       correctionMethod: 'generative' }, fetchMock).generate(request, undefined, undefined, undefined, diagnostics))
-      .rejects.toThrow(/done_reason=length.*\\[diagram-output:generation-limit\\]/);
+      .rejects.toThrow(/done_reason=length.*\[diagram-output:generation-limit\]/);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(diagnostics).toHaveBeenCalledOnce();
     expect(diagnostics.mock.calls[0]![0]).toMatchObject({
