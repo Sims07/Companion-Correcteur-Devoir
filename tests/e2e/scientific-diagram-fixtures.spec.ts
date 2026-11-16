@@ -192,6 +192,10 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
   for (const req of systemOneRequests) {
     expect(req.imageCount).toBe(1);
     expect(req.questions.length).toBeGreaterThanOrEqual(19);
+    // The actual browser-to-model request must distinguish the collective title
+    // from the four captions placed beneath each phase drawing.
+    expect(req.state).toContain('TITRE PRINCIPAL');
+    expect(req.state).toContain('composition entière des quatre sous-schémas');
     expect(req.state).not.toContain('10/10');
     expect(req.state).not.toContain('9.84/10');
     expect(req.state).not.toContain('7.36/10');
