@@ -121,7 +121,7 @@ export function eraseTeacherInkPixels(
       relativeBlue - minimum,
     ]).hue;
     // Scanned red handwriting may shift towards orange as its opacity fades.
-    if (hueDistance(relativeHue, target.hue) > 48) continue;
+    if (hueDistance(relativeHue, target.hue) > 40) continue;
     // Very dark, nearly neutral student pencil must not be erased.
     if (Math.max(...pixel) < minimumDarkInkBrightness && candidate.saturation < 0.25) continue;
 
