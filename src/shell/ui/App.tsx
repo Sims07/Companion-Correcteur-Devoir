@@ -18,6 +18,7 @@ import { ContractPreparationPanel } from '../../correction/ui/components/Contrac
 import { QuestionContractEditor, QuestionScopePreview } from '../../correction/ui/components/QuestionContractEditor.tsx';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FilePicker } from '../../shared/ui/components/FilePicker.tsx';
+import { useScientificDiagramDraft } from '../../shared/ui/useScientificDiagramDraft.ts';
 import type { ScientificDiagramAnalysisService } from '../../correction/application/scientificDiagramAnalysisService.ts';
 import { DesignSystemSelect } from '../../shared/ui/components/DesignSystemSelect.tsx';
 import { CopyReviewHeader } from '../../correction/ui/components/CopyReviewHeader.tsx';
@@ -922,6 +923,59 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
   const [teacherQuestions, setTeacherQuestions] = useState('');
   const [reviewMessage, setReviewMessage] = useState('');
   const [isFinalized, setIsFinalized] = useState(false);
+  // Unlike queued copies, an individual foreground copy used to live only in
+  // React memory. Keep it in the same private IndexedDB draft store as the lab.
+  // The key is assignment-scoped so opening another devoir cannot lose it.
+  const foregroundDraftSnapshot = useMemo<AssignmentDraft>(() => ({
+    images: currentBackgroundJobId || isFinalized ? [] : images,
+    originalImages: currentBackgroundJobId || isFinalized ? [] : originalImages,
+    transcription: currentBackgroundJobId || isFinalized ? null : transcription,
+    subjectImages: currentBackgroundJobId || isFinalized ? [] : subjectImages,
+    subjectTranscription: currentBackgroundJobId || isFinalized ? null : subjectTranscription,
+    proposal: currentBackgroundJobId || isFinalized ? null : proposal,
+    review: currentBackgroundJobId || isFinalized ? [] : review,
+    teacherQuestions, studentLabel, studentIdentity,
+    currentCorrectionId: currentBackgroundJobId || isFinalized ? null : currentCorrectionId,
+    isFinalized: false, reviewMessage, detectTeacherAnnotations, teacherAnnotations,
+    scientificDiagramAnalysis: currentBackgroundJobId || isFinalized ? null : scientificDiagramAnalysis,
+    scientificPageClassifications: currentBackgroundJobId || isFinalized ? null : pageClassifications,
+    manualRotationAngles, annotationInkColor, annotationInkColorApplied,
+  }), [images, originalImages, transcription, subjectImages, subjectTranscription, proposal,
+    review, teacherQuestions, studentLabel, studentIdentity, currentCorrectionId, isFinalized,
+    reviewMessage, detectTeacherAnnotations, teacherAnnotations, scientificDiagramAnalysis,
+    pageClassifications, manualRotationAngles, annotationInkColor, annotationInkColorApplied,
+    currentBackgroundJobId]);
+  const foregroundDraft = useScientificDiagramDraft(
+    `foreground-correction:${activeAssignmentId}`, foregroundDraftSnapshot, saved => {
+      // Do not replace a copy already opened from the queue or the current
+      // session, especially while changing assignments.
+      if (!saved.images.length || currentBackgroundJobId || currentCorrectionId ||
+          isFinalized || images.length || assignmentDrafts[activeAssignmentId]?.images.length) return;
+      setImages(saved.images);
+      setOriginalImages(saved.originalImages?.length ? saved.originalImages : saved.images);
+      setTranscription(saved.transcription ?? null);
+      setSubjectImages(saved.subjectImages ?? []);
+      setSubjectTranscription(saved.subjectTranscription ?? null);
+      setProposal(saved.proposal ?? null);
+      setReview(saved.review ?? []);
+      setTeacherQuestions(saved.teacherQuestions ?? '');
+      setStudentLabel(saved.studentLabel ?? '');
+      setStudentIdentity(saved.studentIdentity ?? null);
+      setDetectTeacherAnnotations(saved.detectTeacherAnnotations ?? false);
+      setTeacherAnnotations(saved.teacherAnnotations ?? '');
+      setScientificDiagramAnalysis(saved.scientificDiagramAnalysis ?? null);
+      setPageClassifications(saved.scientificPageClassifications ?? null);
+      setManualRotationAngles(saved.manualRotationAngles ?? {});
+      setAnnotationInkColor(saved.annotationInkColor ?? 'none');
+      setAnnotationInkColorApplied(saved.annotationInkColorApplied ?? true);
+      setCopyOverviewFilter('all');
+      setCopyOverviewFilterTouched(false);
+      setReviewMessage('Copie retrouvée dans le stockage local. Vous pouvez reprendre ou relancer la correction.');
+      setError('');
+      setTeacherStep('overview');
+    },
+    interfaceMode === 'teacher' && !currentBackgroundJobId && !isFinalized,
+  );
 
   const [networkInitialFilter, setNetworkInitialFilter] = useState<'all' | 'error'>('all');
   const validation = useMemo(() => validateRubric(rubric), [rubric]);
@@ -1333,6 +1387,10 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
 
   async function importFiles(files: FileList | null) {
     if (!files?.length) return;
+    if (interfaceMode === 'teacher' && !foregroundDraft.ready) {
+      setError('Restauration locale de la copie en cours. Réessayez après le chargement.');
+      return;
+    }
     setError('');
     setReviewMessage('');
     try {
@@ -1455,6 +1513,18 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
   }
 
   async function gradeCopies(strategyOverride?: 'arbitrate-only') {
+    if (interfaceMode === 'teacher' && !currentBackgroundJobId && images.length > 0) {
+      // Commit all photo pages BEFORE the first network request. Otherwise a
+      // failed model call followed by Refresh can discard the only copy.
+      try {
+        await foregroundDraft.persistNow();
+      } catch (cause) {
+        setError('La copie ne peut pas être sauvegardée localement. La correction est suspendue pour éviter sa perte : ' +
+          (cause instanceof Error ? cause.message : String(cause)));
+        setTeacherStep('copy');
+        return;
+      }
+    }
     if (annotationInkColor !== 'none' && !annotationInkColorApplied) {
       setError('Prévisualisez puis appliquez le retrait de la couleur des annotations avant de lancer la lecture et la correction.');
       setTeacherStep('copy');
@@ -3184,6 +3254,9 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     try {
       await archiveService.saveCorrection(correction);
       if (currentBackgroundJobId) await backgroundService.markCompleted(currentBackgroundJobId);
+      // The validated correction is already stored in the archive. Do not
+      // resurrect its individual in-progress draft after a future refresh.
+      else void foregroundDraft.discard().catch(() => undefined);
       const memoryCorrectionId = getLocalMemoryCorrectionId();
       const decisionEntries = createDecisionMemoryEntries({
         correctionId: memoryCorrectionId ?? id,
@@ -3239,7 +3312,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     return {
       images, originalImages, transcription, subjectImages, subjectTranscription, proposal, review,
       teacherQuestions, studentLabel, studentIdentity, currentCorrectionId, isFinalized, reviewMessage, detectTeacherAnnotations, teacherAnnotations, scientificDiagramAnalysis, scientificPageClassifications: pageClassifications,
-      annotationInkColor, annotationInkColorApplied,
+      annotationInkColor, annotationInkColorApplied, manualRotationAngles,
     };
   }
 
@@ -3612,6 +3685,8 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
         transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty,
         transcriptionPenaltyParameter, transcriptionFrequencyPenalty,
       });
+      // The queued job now owns these image pages durably.
+      void foregroundDraft.discard().catch(() => undefined);
       setStudentLabel('');
     setStudentIdentity(null);
       setDetectTeacherAnnotations(false);
@@ -3817,6 +3892,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
           transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty,
           transcriptionPenaltyParameter, transcriptionFrequencyPenalty,
         });
+        void foregroundDraft.discard().catch(() => undefined);
         setBackgroundJobs(await loadQueueOverviews(activeAssignmentId));
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : 'Impossible de sauvegarder la copie avant de passer à la suivante.');
@@ -4074,6 +4150,22 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
         onOpenNextReviewCopy={() => { const next = copyNavigation.nextCopyToReview; if (next) void openCopyNavigationItem(next.id); }}
         onOpenCopy={(copyId) => { setShowAiSettings(false); void openCopyNavigationItem(copyId); }}
       />}
+      {interfaceMode === 'teacher' && !currentBackgroundJobId && !isFinalized && !showAiSettings && (
+        !foregroundDraft.ready
+          ? <p role="status" className="copy-overview-notice">Chargement de vos copies conservées localement…</p>
+          : foregroundDraft.error
+            ? <div role="alert" className="copy-overview-notice">
+                {foregroundDraft.error}
+                <button type="button" className="secondary-button" onClick={foregroundDraft.retry}>Réessayer la sauvegarde</button>
+              </div>
+            : images.length > 0
+              ? <p role="status" className="copy-overview-notice">
+                  {foregroundDraft.status === 'saved'
+                    ? 'Copie sauvegardée sur cet appareil · elle reste disponible après une erreur ou un rafraîchissement.'
+                    : 'Enregistrement local de la copie en cours…'}
+                </p>
+              : null
+      )}
       {interfaceMode === 'teacher' && isScientificDiagramAssignment && !showAiSettings && <section
         className="panel diagram-assignment-context" aria-label="Devoir de schéma scientifique">
         <div><p className="eyebrow">DEVOIR · SCHÉMA SCIENTIFIQUE</p>
@@ -4990,7 +5082,8 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
           <div className="panel-heading">{interfaceMode === 'diagnostic' && <span className="number">03</span>}<div><h3>Copie de l’étudiant</h3><p>Importez les pages d’un seul étudiant à la fois.</p></div></div>
           {interfaceMode === 'teacher' && <p className="hint student-identity-import-hint">Le nom sera recherché automatiquement dans l’en-tête de la copie après son import. Vous pourrez le vérifier et le corriger au moment de la vérification.</p>}
           <label className="upload-placeholder" htmlFor="copy-files"><span className="upload-icon">↑</span><strong>Choisir les pages de la copie</strong><p>JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier</p><span className="primary-button">Sélectionner les pages</span><span className="upload-note">Sélectionnez uniquement les pages d’un même étudiant. Les PDF sont convertis en images dans ce navigateur (10 pages max).</span></label>
-          <FilePicker id="copy-files" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" multiple onFilesSelected={(files) => { void importFiles(files); }} title="Déposer les pages de la copie ici" description="JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier" actionLabel="Choisir les fichiers" />
+          <FilePicker id="copy-files" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" multiple
+            disabled={interfaceMode === 'teacher' && !foregroundDraft.ready} onFilesSelected={(files) => { void importFiles(files); }} title="Déposer les pages de la copie ici" description="JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier" actionLabel="Choisir les fichiers" />
           {interfaceMode !== 'teacher' && <label className="analysis-thinking-option copy-annotation-option"><input type="checkbox" checked={autoBackgroundCorrection} onChange={(event) => { const enabled = event.target.checked; setAutoBackgroundCorrection(enabled); try { window.localStorage.setItem('companion-correcteur:auto-background-correction:v1', String(enabled)); } catch { /* Keep the current session preference if storage is unavailable. */ } void backgroundService.setAutomatic(enabled, { endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, correctionMethod, autoBackgroundCorrection: enabled, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty }, activeAssignmentId); }} /><span><strong>Démarrer automatiquement la correction des copies ajoutées</strong><small>Activé par défaut. Les copies sont corrigées l’une après l’autre. Vous gardez la main pour vérifier chaque proposition.</small></span></label>}
           {images.length > 0 && <div className="file-list"><strong>{images.length} page(s) prête(s) à analyser</strong>
              {interfaceMode === 'teacher' && <details className="copy-advanced-options copy-annotation-details"><summary>Annotations du professeur</summary><label className="analysis-thinking-option copy-annotation-option" htmlFor="copy-has-teacher-annotations"><input id="copy-has-teacher-annotations" type="checkbox" checked={detectTeacherAnnotations} onChange={(event) => setDetectTeacherAnnotations(event.target.checked)} /><span><strong>Cette copie contient déjà des annotations du professeur</strong><small>À activer uniquement pour cette copie si elle comporte des remarques, corrections, coches ou notes déjà inscrites. Leur détection reste locale et les points existants ne sont jamais additionnés automatiquement.</small></span></label></details>}{interfaceMode === 'teacher' && <details className="copy-advanced-options copy-annotation-details"><summary>Couleur des annotations</summary><div className="annotation-ink-color-control"><label className="field-label">Couleur des annotations du professeur</label><AnnotationInkColorPicker image={originalImages[0] ?? images[0]} preview={annotationInkColorPreview} selectedColor={annotationInkColor} onColorPick={(color) => { if (annotationInkColorApplied && annotationInkColor !== 'none') { setImages(originalImages); setManualRotationAngles({}); setPageClassifications(null); setScientificDiagramAnalysis(null); } setAnnotationInkColor(color); setAnnotationInkColorApplied(color === 'none'); setAnnotationInkColorPreview(null); if (color !== 'none') setDetectTeacherAnnotations(true); }} /><p className="hint">Le retrait est effectué dans le navigateur, sur la copie de travail uniquement. Les originaux restent conservés. Attention : tous les pixels de cette couleur sont concernés, y compris une éventuelle écriture de l’étudiant dans la même couleur. Vérifiez l’aperçu avant validation.</p>{annotationInkColor !== 'none' && !annotationInkColorApplied && <div className="annotation-ink-preview-actions"><button type="button" className="secondary-button" disabled={annotationInkColorBusy || !images.length} onClick={async () => { setAnnotationInkColorBusy(true); setError(''); try { const preview = await service.eraseTeacherAnnotationColor(images[0], annotationInkColor); setAnnotationInkColorPreview(preview); } catch (cause) { setError(cause instanceof Error ? cause.message : 'La prévisualisation du retrait des annotations a échoué.'); } finally { setAnnotationInkColorBusy(false); } }}>{annotationInkColorBusy ? 'Préparation…' : 'Prévisualiser le retrait'}</button>{annotationInkColorPreview && <><button type="button" className="primary-button" disabled={annotationInkColorBusy} onClick={async () => { setAnnotationInkColorBusy(true); try { const cleaned = await Promise.all(images.map((image) => service.eraseTeacherAnnotationColor(image, annotationInkColor))); setImages(cleaned); setAnnotationInkColorApplied(true); setAnnotationInkColorPreview(null); setTranscription(null); setPageClassifications(null); setScientificDiagramAnalysis(null); setProposal(null); setReview([]); setReviewMessage('Couleur des annotations retirée localement sur toutes les pages de la copie.'); } catch (cause) { setError(cause instanceof Error ? cause.message : 'Le retrait des annotations a échoué.'); } finally { setAnnotationInkColorBusy(false); } }}>Appliquer à toutes les pages</button></>}</div>}</div></details>}{interfaceMode === 'teacher' && <label className="analysis-thinking-option copy-annotation-option" htmlFor="auto-rotate-scientific-diagrams"><input id="auto-rotate-scientific-diagrams" type="checkbox" checked={autoRotateScientificDiagrams} onChange={(event) => { setAutoRotateScientificDiagrams(event.target.checked); try { window.localStorage.setItem('companion-correcteur:auto-rotate-diagrams:v1', String(event.target.checked)); } catch { setReviewMessage('Le réglage de rotation automatique ne peut pas être conservé dans le stockage local.'); } }} /><span><strong>Rotation automatique des schémas</strong><small>Désactivée par défaut. Lorsqu’elle est activée, chaque rotation est vérifiée par une seconde analyse d’orientation avant application ; sinon, une suggestion avant/après est proposée.</small></span></label>}{images.map((image, index) => <div className="file-row copy-image-row" key={`${image.fileName}-${index}`}><button type="button" className="copy-image-row-preview copy-image-preview-trigger" onClick={() => { setCopyViewerPage(index); }} aria-label={`Agrandir la page ${index + 1}`}><img src={`data:${image.mimeType};base64,${image.base64}`} alt={`Aperçu de la page ${index + 1}`} /><span>{image.fileName || `Page ${index + 1}`} · Agrandir</span></button>{originalImages[index] && originalImages[index].base64 !== image.base64 && <details className="original-image-details"><summary>Voir l’image originale non modifiée</summary><ZoomableImage src={`data:${originalImages[index].mimeType};base64,${originalImages[index].base64}`} alt={`Image originale non modifiée de la page ${index + 1}`} /></details>}{rotationSuggestions[index] && <div className="copy-rotation-suggestion" role="group" aria-label={`Suggestion de rotation pour la page ${index + 1}`}><strong>La page {index + 1} semble tournée de {rotationSuggestions[index].degrees}°</strong><div className="copy-rotation-suggestion-previews"><figure><ZoomableImage src={`data:${(originalImages[index] ?? image).mimeType};base64,${(originalImages[index] ?? image).base64}`} alt={`Page ${index + 1} avant rotation`} /><figcaption>Avant</figcaption></figure><figure><ZoomableImage src={`data:${rotationSuggestions[index].preview.mimeType};base64,${rotationSuggestions[index].preview.base64}`} alt={`Page ${index + 1} après rotation proposée`} /><figcaption>Après</figcaption></figure></div><div><button type="button" className="secondary-button" onClick={() => { void rotateCopyPage(index, rotationSuggestions[index].degrees); }}>Appliquer</button><button type="button" className="text-button" onClick={() => setRotationSuggestions((current) => { const next = { ...current }; delete next[index]; return next; })}>Ignorer</button></div></div>}<div className="copy-image-rotation-controls"><button type="button" className="text-button" aria-label={`Tourner la page ${index + 1} à gauche de 90 degrés`} disabled={isAnalyzing} onClick={() => { void rotateCopyPage(index, 270); }}>↶ 90°</button><button type="button" className="text-button" aria-label={`Tourner la page ${index + 1} à droite de 90 degrés`} disabled={isAnalyzing} onClick={() => { void rotateCopyPage(index, 90); }}>↷ 90°</button><button type="button" className="text-button" onClick={() => removeCopyPage(index)}>Retirer</button></div></div>)}<p className="copy-image-original-note">Les rotations s’appliquent uniquement à la copie de travail. Les images originales non modifiées sont conservées localement avec la correction.</p>{interfaceMode !== 'teacher' && <div className="copy-queue-actions"><button type="button" className="secondary-button" onClick={queueCurrentCopy} disabled={!images.length || Boolean(proposal) || isAnalyzing}>Mettre cette copie en file d’attente</button><button type="button" className="text-button" onClick={() => startNextCopy()}>Effacer cette copie</button></div>}</div>}
@@ -5209,7 +5302,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
           <label className="field-label" htmlFor="grading-question">Consigne / question de l’exercice</label>
           <textarea id="grading-question" rows={3} value={question} onChange={(event) => setQuestion(event.target.value)} />
         </details>
-        <button className="primary-button grade-button" aria-busy={busy} disabled={busy || !images.length || !gradingModelsReady || !validation.valid || !subjectReady} onClick={() => void gradeCopies()}>{busy ? (interfaceMode === 'teacher' ? analysisStage === 'checking' ? 'Préparation de la correction…' : analysisStage === 'reading' ? 'Lecture de la copie…' : 'Correction en cours…' : 'Analyse locale en cours…')  : interfaceMode === 'teacher' ? (isScientificDiagramAssignment ? 'Corriger le schéma' : 'Corriger') : transcription ? 'Relancer l’analyse sans relire les images' : 'Lire puis analyser les copies'}</button>
+        <button className="primary-button grade-button" aria-busy={busy} disabled={busy || !foregroundDraft.ready || !images.length || !gradingModelsReady || !validation.valid || !subjectReady} onClick={() => void gradeCopies()}>{busy ? (interfaceMode === 'teacher' ? analysisStage === 'checking' ? 'Préparation de la correction…' : analysisStage === 'reading' ? 'Lecture de la copie…' : 'Correction en cours…' : 'Analyse locale en cours…')  : interfaceMode === 'teacher' ? (isScientificDiagramAssignment ? 'Corriger le schéma' : 'Corriger') : transcription ? 'Relancer l’analyse sans relire les images' : 'Lire puis analyser les copies'}</button>
         {interfaceMode === 'teacher' && <p className="launch-footnote">Après l’analyse, la proposition est retenue automatiquement. Les alertes restent visibles et vous pouvez ajuster chaque note si nécessaire.</p>}
       </section>}
       {interfaceMode === 'teacher' && teacherStep === 'copy' && correctionSessionMode === 'individual' && <div className="teacher-copy-footer"><button type="button" className="secondary-button" onClick={() => setTeacherStep('rubric')}>← Revoir le barème</button><span>Une seule copie à la fois · ajustement facultatif des propositions</span></div>}

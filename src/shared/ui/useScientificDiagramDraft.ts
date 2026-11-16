@@ -1,77 +1,121 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  loadScientificDiagramDraft, saveScientificDiagramDraft, type ScientificDiagramDraftId,
+  loadScientificDiagramDraft, saveScientificDiagramDraft, clearScientificDiagramDraft, type ScientificDiagramDraftId,
 } from '../adapters/storage/scientificDiagramDraft.ts';
 import type { ImageInput } from '../domain/imageInput.ts';
 
 export type ScientificDiagramDraftStatus = 'restoring' | 'saving' | 'saved' | 'error';
 
 /**
- * Autosaves private images to IndexedDB, not localStorage (which is too small
- * for photo pages). Hydration MUST finish before the first autosave, otherwise
- * a refresh would overwrite the previous copy with the initial empty state.
- * Writes are serialized so a slow earlier write can never replace a newer one.
+ * Private images are saved in the browser's IndexedDB, never localStorage.
+ * Hydration is scoped to the exact draft ID: switching assignments must not
+ * overwrite a previously saved copy with another assignment's initial state.
+ * All writes, including the explicit pre-inference flush, are serialized.
  */
 export function useScientificDiagramDraft<T extends { images: ImageInput[] }>(
   id: ScientificDiagramDraftId, snapshot: T, onRestore: (saved: T) => void,
+  enabled = true,
 ) {
   const restoreCallback = useRef(onRestore);
   restoreCallback.current = onRestore;
-  const [ready, setReady] = useState(false);
+  const latestSnapshot = useRef(snapshot);
+  latestSnapshot.current = snapshot;
+  const [loadedId, setLoadedId] = useState<ScientificDiagramDraftId | null>(null);
   const [status, setStatus] = useState<ScientificDiagramDraftStatus>('restoring');
   const [error, setError] = useState('');
-  const [restored, setRestored] = useState(false);
+  const [restoredId, setRestoredId] = useState<ScientificDiagramDraftId | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const sequence = useRef(0);
   const writeQueue = useRef<Promise<void>>(Promise.resolve());
+  const pendingTimer = useRef<number | null>(null);
   const lastImages = useRef(snapshot.images);
-  const loadFailed = useRef(false);
+  const loadFailedId = useRef<ScientificDiagramDraftId | null>(null);
+  const ready = loadedId === id;
 
   useEffect(() => {
     let active = true;
+    loadFailedId.current = null;
     void loadScientificDiagramDraft<T>(id).then(saved => {
       if (!active || !saved || !Array.isArray(saved.images)) return;
       restoreCallback.current(saved);
-      if (saved.images.length > 0) setRestored(true);
+      setRestoredId(saved.images.length > 0 ? id : null);
     }).catch(cause => {
       if (!active) return;
-      loadFailed.current = true;
+      loadFailedId.current = id;
       setError('Lecture du brouillon local impossible : ' +
         (cause instanceof Error ? cause.message : String(cause)));
       setStatus('error');
     }).finally(() => {
-      if (active) setReady(true);
+      if (active) setLoadedId(id);
     });
     return () => { active = false; };
   }, [id]);
 
+  function enqueueWrite(writeId: ScientificDiagramDraftId, value: T, revision: number): Promise<void> {
+    const operation = writeQueue.current.then(() => saveScientificDiagramDraft(writeId, value));
+    writeQueue.current = operation.catch(() => undefined);
+    void operation.then(() => {
+      if (sequence.current === revision) setStatus('saved');
+    }).catch(cause => {
+      if (sequence.current !== revision) return;
+      setStatus('error');
+      setError('Impossible de sauvegarder la copie sur cet appareil : ' +
+        (cause instanceof Error ? cause.message : String(cause)));
+    });
+    return operation;
+  }
+
   useEffect(() => {
-    if (!ready || loadFailed.current) return;
+    if (!ready || !enabled || loadFailedId.current === id) return;
     const revision = ++sequence.current;
     const imageChanged = lastImages.current !== snapshot.images;
     lastImages.current = snapshot.images;
     setStatus('saving');
     setError('');
     const timer = window.setTimeout(() => {
-      // Never persist AI credentials; the caller provides only its local
-      // diagram draft, with no endpoint, token, or diagnostic network payload.
-      const operation = writeQueue.current.then(() => saveScientificDiagramDraft(id, snapshot));
-      writeQueue.current = operation.catch(() => undefined);
-      void operation.then(() => {
-        if (sequence.current === revision) setStatus('saved');
-      }).catch(cause => {
-        if (sequence.current !== revision) return;
-        setStatus('error');
-        setError('Impossible de sauvegarder la copie sur cet appareil : ' +
-          (cause instanceof Error ? cause.message : String(cause)));
-      });
+      pendingTimer.current = null;
+      void enqueueWrite(id, snapshot, revision);
     }, imageChanged ? 0 : 200);
-    return () => { window.clearTimeout(timer); };
-  }, [id, ready, retryCount, snapshot]);
+    pendingTimer.current = timer;
+    return () => {
+      window.clearTimeout(timer);
+      if (pendingTimer.current === timer) pendingTimer.current = null;
+    };
+  }, [id, ready, enabled, retryCount, snapshot]);
+
+  // The teacher must not start an expensive model request until the source
+  // images have been durably committed. This also guards an immediate refresh
+  // right after a failed request (before the autosave debounce has run).
+  async function persistNow(): Promise<void> {
+    if (!ready || !enabled || loadFailedId.current === id) {
+      throw new Error('Le chargement du brouillon local n’est pas terminé. Réessayez après sa restauration.');
+    }
+    const revision = ++sequence.current;
+    setStatus('saving');
+    setError('');
+    await enqueueWrite(id, latestSnapshot.current, revision);
+  }
+
+  async function discard(): Promise<void> {
+    if (!ready) throw new Error('Le chargement du brouillon local n’est pas terminé.');
+    const revision = ++sequence.current;
+    if (pendingTimer.current !== null) {
+      window.clearTimeout(pendingTimer.current);
+      pendingTimer.current = null;
+    }
+    const operation = writeQueue.current.then(() => clearScientificDiagramDraft(id));
+    writeQueue.current = operation.catch(() => undefined);
+    await operation;
+    if (sequence.current === revision) {
+      setStatus('saved');
+      setError('');
+      setRestoredId(null);
+    }
+  }
 
   return {
-    ready, restored, status, error,
+    ready, restored: restoredId === id, status, error, persistNow, discard,
     retry: () => setRetryCount(count => count + 1),
-    canUseDraft: ready && status === 'saved',
+    canUseDraft: ready && status === 'saved' && loadFailedId.current !== id,
   };
 }

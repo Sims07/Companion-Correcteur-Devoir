@@ -38,4 +38,23 @@ describe('brouillons locaux des schémas scientifiques (IndexedDB)', () => {
     await clearScientificDiagramDraft('teacher-direct');
     await clearScientificDiagramDraft('personal-lab');
   });
+  it('keeps separate foreground copies for two university assignments across remounts', async () => {
+    const first = 'foreground-correction:assignment-1' as const;
+    const second = 'foreground-correction:assignment-2' as const;
+    await clearScientificDiagramDraft(first);
+    await clearScientificDiagramDraft(second);
+    const draft1 = { images: [photo, { ...photo, fileName: 'copie-page-2.png' }],
+      originalImages: [photo], studentLabel: 'Copie de bio', manualRotationAngles: { 1: 90 } };
+    const draft2 = { images: [{ ...photo, fileName: 'autre-devoir.png', base64: 'SECOND_COPY' }],
+      originalImages: [], studentLabel: 'Autre étudiant', manualRotationAngles: {} };
+    await saveScientificDiagramDraft(first, draft1);
+    await saveScientificDiagramDraft(second, draft2);
+    expect(await loadScientificDiagramDraft(first)).toEqual(draft1);
+    expect(await loadScientificDiagramDraft(second)).toEqual(draft2);
+    await saveScientificDiagramDraft(first, { ...draft1, images: [] });
+    expect((await loadScientificDiagramDraft<typeof draft2>(second))?.images[0]?.base64).toBe('SECOND_COPY');
+    await clearScientificDiagramDraft(first);
+    await clearScientificDiagramDraft(second);
+  });
+
 });
