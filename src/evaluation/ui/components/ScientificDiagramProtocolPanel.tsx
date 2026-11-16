@@ -575,8 +575,7 @@ export function ScientificDiagramProtocolPanel({
             </div>
             <p>{fixture.description}</p>
             {fixture.classroomScenario && <p className="pilot-evaluation-hint"><strong>Image 100 % synthétique · référence non validée.</strong>{' '}
-              La copie privée ayant inspiré ce type d’erreur avait reçu {fixture.classroomScenario.privateInspirationScore}/10 ;
-              cette note historique ne constitue pas le corrigé de cette nouvelle image.
+              Ce résultat de référence concerne uniquement le nouveau dessin, pas une copie d’élève.
               Les critères attendus restent soumis à validation pédagogique.</p>}
             {fixture.classroomScenario && <details><summary>Erreurs à détecter dans ce cas synthétique</summary>
               <ul>{fixture.classroomScenario.expectedFindings.map((finding) => <li key={finding}>{finding}</li>)}</ul>
