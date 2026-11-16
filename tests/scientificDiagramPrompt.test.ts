@@ -28,7 +28,7 @@ describe('scientific diagram prompt and professor marks', () => {
     expect(prompt).toContain('ne déduis jamais automatiquement un demi-point');
     expect(prompt).toContain('origin=student-diagram');
     expect(prompt).toContain('un titre principal placé sous la composition');
-    expect(prompt).toContain('titre est au-dessus');
+    expect(prompt).toContain('titre décrit comme « au-dessus »');
   });
 
   it('keeps teachers rubric semantics in a compact local retry without resurrecting bounding boxes', () => {
