@@ -43,6 +43,30 @@ describe('barème enseignant du schéma scientifique', () => {
     expect(aligned?.description).toContain('Ne combiner ni pénaliser les légendes de panneaux différents');
   });
 
+  it('distingue titre principal et intitulés de phases sans annuler ses autres qualités si le titre est au-dessus', () => {
+    const title = SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC.criteria.find(c => c.id === 'title');
+    const byId = Object.fromEntries((title?.subcriteria ?? []).map(sub => [sub.id, sub]));
+    expect(byId['title-below']?.description).toContain('zéro uniquement à « placé en dessous »');
+    expect(byId['title-centered']?.description).toContain('sa position au-dessus n’invalide pas automatiquement');
+    expect(byId['title-emphasis']?.description).toContain('un nom de phase souligné');
+    expect(byId['title-horizontal']?.description).toContain('même si le titre est mal placé');
+    expect(byId['title-subject']?.description).toContain('la consigne imprimée');
+    expect(title?.description).toContain('ne mets pas toute la rubrique Titre à zéro');
+  });
+
+  it('sépare écriture horizontale, colonne locale et association texte-trait-cible des légendes', () => {
+    const legends = SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC.criteria.find(c => c.id === 'legends');
+    const byId = Object.fromEntries((legends?.subcriteria ?? []).map(sub => [sub.id, sub]));
+    expect(legends?.description).toContain('intitulés de phases');
+    expect(byId['legends-horizontal']?.description).toContain('pas la direction de leurs traits');
+    expect(byId['legends-aligned']?.description).toContain('Quand une seule légende est identifiable');
+    expect(byId['legends-aligned']?.description).toContain('Ne pas compter les noms de phases');
+    expect(byId['legends-visible']?.description).toContain('même si la bonne structure existe ailleurs');
+    expect(byId['legends-visible']?.description).toContain('croisement de traits');
+    expect(byId['legends-visible']?.description).toContain('sans pointe de flèche');
+    expect(byId['legends-visible']?.description).toContain('demander une vérification');
+  });
+
   it('conserves les 15 attendus observables et les 8 points exacts du barème professeur', () => {
     const rubric = SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC;
     expect(validateRubric(rubric)).toMatchObject({ valid: true, maximumPoints: 8 });

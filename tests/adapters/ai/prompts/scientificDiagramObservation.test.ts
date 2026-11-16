@@ -66,6 +66,28 @@ describe('scientific observation contract across grading routes', () => {
     expect(direct).toContain('sans prendre le nom pour une preuve de structure');
   });
 
+  it('transmits title-vs-caption and legend-vs-callout safeguards to all image grading routes', () => {
+    const direct = { question: request.question, rubric: JSON.stringify(request.rubric), images: request.images };
+    const prompts = [
+      buildDirectDiagramPrompt(direct),
+      buildDirectDiagramPrompt(direct, 'invalid-json'),
+      buildScientificDiagramPrompt(request),
+      buildScientificDiagramRepairPrompt(request, 'invalid-json', '{}'),
+      buildConciseScientificDiagramPrompt(request),
+      prepareSystemOneRubric({ criteria: request.rubric.criteria, question: request.question,
+        transcription: 'Schéma observé', visualEvidence: true }).state,
+    ];
+    for (const prompt of prompts) {
+      expect(prompt).toContain('un numéro de panneau');
+      expect(prompt).toContain('un intitulé LOCAL');
+      expect(prompt).toContain('zéro uniquement pour « placé en dessous »');
+      expect(prompt).toContain('Un seul');
+    }
+    expect(prompts[0]).toContain('attribue 0 UNIQUEMENT');
+    expect(prompts[2]).toContain('ses autres qualités sont à évaluer séparément');
+    expect(prompts[4]).toContain('titre PRINCIPAL placé sous l’ENSEMBLE');
+  });
+
   it.each(['direct', 'direct-repair', 'page', 'page-repair', 'concise'] as const)(
     'keeps visual grounding, source separation and rubric in %s', (route) => {
       const direct = { question: request.question, rubric: JSON.stringify(request.rubric), images: request.images };
