@@ -109,6 +109,48 @@ test('an individually corrected scientific diagram uses one direct image request
   expect(requests[0].options?.num_ctx).toBe(8192);
 });
 
+test('direct diagram grading keeps the original image on screen and does not claim zero pages were read', async ({ page }) => {
+  const requests: Record<string, any>[] = [];
+  await mockOllama(page, requests);
+  let releaseResponse: () => void = () => undefined;
+  const responseGate = new Promise<void>((resolve) => { releaseResponse = resolve; });
+  // Keep the local model busy while checking the real teacher-facing progress screen.
+  await page.route('http://localhost:11434/api/chat', async (route) => {
+    requests.push(route.request().postDataJSON() as Record<string, any>);
+    await responseGate;
+    await route.fulfill({
+      headers: { 'access-control-allow-origin': '*' },
+      contentType: 'application/x-ndjson',
+      body: JSON.stringify({ message: { content: diagramResult() } }) + '\n' +
+        JSON.stringify({ done: true, done_reason: 'stop', eval_count: 120 }) + '\n',
+    });
+  });
+  await page.goto('/');
+  await createDiagramAssignment(page, 'Schéma visible pendant la correction');
+  await page.locator('.copy-overview-heading').getByRole('button', { name: /Ajouter des copies/ }).click();
+  await page.getByRole('button', { name: 'Préparer manuellement une copie et ses pages' }).click();
+  await page.locator('#copy-files').setInputFiles({ name: 'schema-visible.png', mimeType: 'image/png', buffer: onePixelPng });
+  await page.getByRole('button', { name: 'Corriger le schéma' }).click();
+
+  try {
+    await expect.poll(() => requests.length).toBe(1);
+    // The direct path has no OCR reading stage and must not display a false green check.
+    await expect(page.locator('.teacher-progress-phases')).toContainText('Analyse directe du schéma');
+    await expect(page.locator('.teacher-progress-phases')).not.toContainText('Lecture de la copie');
+    await expect(page.locator('.teacher-progress-phases')).not.toContainText('0/1 pages lues');
+    await expect(page.locator('.teacher-progress-page-list')).toContainText('Page 1 / 1 · incluse dans l’analyse');
+    await expect(page.getByRole('heading', { name: 'Le schéma en cours de correction' })).toBeVisible();
+    const liveImage = page.getByRole('img', { name: 'Page 1 du schéma en cours de correction' });
+    await expect(liveImage).toBeVisible();
+    await expect(liveImage).toHaveAttribute('src', /^data:image\/png;base64,/);
+    await expect(page.locator('.live-transcription-panel')).toHaveCount(0);
+    expect(requests[0].messages?.[0]?.images).toHaveLength(1);
+  } finally {
+    releaseResponse();
+  }
+  await expect(page.locator('.review-main-column .review-card')).toHaveCount(3, { timeout: 30000 });
+});
+
 test('a large PNG copy is downsized on the multimodal wire but preserved locally for the teacher', async ({ page }) => {
   const requests: Record<string, any>[] = [];
   await mockOllama(page, requests);
