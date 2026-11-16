@@ -26,7 +26,7 @@ export interface RadarMissingTestRequest {
 }
 
 const ALL_METHODS: DiagramMethodSelection[] = [
-  'graph-first-v1', 'vision-then-analysis', 'direct-image-generative',
+  'graph-first-v1', 'direct-image-generative',
   'direct-image-generative-thinking', 'direct-image-systemone',
 ];
 
@@ -210,6 +210,9 @@ export function resolveModelProfile(
   const needsGrading = plan.steps.some((step) => step.protocol !== 'graph');
   const needsGraph = plan.steps.some((step) => step.protocol === 'graph');
   const requestedMethod = plan.steps.find(step => step.protocol !== 'graph' && step.method !== 'compare')?.method;
+  // Old exports retain this identifier, but new grading runs must never
+  // silently execute the retired transcription-based route.
+  if (requestedMethod === 'vision-then-analysis' || selectedStrategy === 'vision-then-analysis') return null;
   const graphModelFor = (profile: RadarModelConfiguration) => {
     const cfg = profile.configuration;
     const raw = cfg.visionModel.trim() || cfg.generativeModel?.trim() ||
@@ -232,18 +235,11 @@ export function resolveModelProfile(
     if (requestedMethod === 'direct-image-systemone')
       return !cfg.apiCompatible && (cfg.correctionMethod === 'decision' || cfg.correctionMethod === 'visual-decision') &&
         isVisualDecisionModel(cfg.analysisModel);
-    if (requestedMethod === 'vision-then-analysis')
-      return Boolean(cfg.visionModel.trim()) && (cfg.apiCompatible || !isNativeDecisionModel(cfg.visionModel));
-    if (cfg.correctionMethod === 'visual-decision') {
-      return !cfg.apiCompatible && isVisualDecisionModel(cfg.analysisModel);
-    }
-    if (cfg.correctionMethod === 'decision' && cfg.apiCompatible) return false;
-    const directGenerative = cfg.correctionMethod === 'generative' &&
-      (!cfg.visionModel.trim() || cfg.analysisModel.trim() === cfg.visionModel.trim());
-    if (directGenerative) return true;
-    // Never route D1/TEV1 as the OCR model via Ollama Chat.
-    return Boolean(cfg.visionModel.trim()) &&
-      (cfg.apiCompatible || !isNativeDecisionModel(cfg.visionModel));
+    // Never fall back to text transcription for a scientific image.
+    if (cfg.correctionMethod === 'generative') return true;
+    return !cfg.apiCompatible &&
+      (cfg.correctionMethod === 'decision' || cfg.correctionMethod === 'visual-decision') &&
+      isVisualDecisionModel(cfg.analysisModel);
   };
 
   // Prefer a single profile able to measure every missing axis. A decision LLM
@@ -258,14 +254,9 @@ export function resolveModelProfile(
   const steps = plan.steps.filter((step) =>
     step.protocol !== 'graph' || graphModelFor(matching) === candidate.id);
   if (!steps.length) return null;
-  // A generative model can examine the scientific fixtures directly when
-  // the saved profile has no separate Vision model. Never prepare an impossible
-  // Vision → analysis run: the UI previously navigated to Tests then stopped.
-  const method: DiagramMethodSelection = config.correctionMethod === 'visual-decision'
-    ? 'direct-image-systemone'
-    : config.correctionMethod === 'generative' &&
-      (!config.visionModel.trim() || config.analysisModel.trim() === config.visionModel.trim())
-        ? 'direct-image-generative' : 'vision-then-analysis';
+  // Every supported scientific grading route receives the original image.
+  const method: DiagramMethodSelection = config.correctionMethod === 'generative'
+    ? 'direct-image-generative' : 'direct-image-systemone';
   return {
     ...plan, profileId: matching.id, profileName: matching.name, modelId: candidate.id,
     steps: steps.map((step) => ({

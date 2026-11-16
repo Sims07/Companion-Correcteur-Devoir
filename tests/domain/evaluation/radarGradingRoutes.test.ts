@@ -16,7 +16,7 @@ const plan = (method: ScienceMethod) => ({
 
 describe('parcours réels de correction dans le Radar', () => {
   it.each([
-    'graph-first-v1', 'graph-first-v2', 'vision-then-analysis',
+    'graph-first-v1', 'graph-first-v2',
     'image-direct-v1', 'direct-image-generative-thinking',
   ] as const)('conserve le moteur %s pour chaque batterie de notation', method => {
     const result = resolveModelProfile([local], 'model', candidate, plan(method));
@@ -44,10 +44,13 @@ describe('parcours réels de correction dans le Radar', () => {
     expect(result?.steps.find(step => step.protocol === 'graph')?.graphVariant).toBe('pixel-arrows');
   });
 
-  it('ne permet pas une lecture Vision en deux temps sans modèle Vision', () => {
+  it('refuse un ancien plan Vision puis analyse, même avec un modèle Vision configuré', () => {
+    const withVision: RadarModelConfiguration = local;
     const withoutVision: RadarModelConfiguration = {
       ...local, configuration: { ...local.configuration, visionModel: '' },
     };
+    expect(resolveModelProfile([withVision], 'model', candidate, plan('vision-then-analysis')))
+      .toBeNull();
     expect(resolveModelProfile([withoutVision], 'model', candidate, plan('vision-then-analysis')))
       .toBeNull();
   });

@@ -19,6 +19,10 @@ export const scienceMethods = {
   'direct-image-systemone': { label: 'Image → décisionnel System One — sans OCR', graphVariant: 'baseline', promptMode: 'standard' },
 } as const;
 export type ScienceMethod = keyof typeof scienceMethods;
+/** Executable scientific methods; the retired two-stage method remains in
+ * scienceMethods for historical archives and previously exported trials. */
+export const ACTIVE_SCIENCE_METHOD_IDS: readonly ScienceMethod[] =
+  (Object.keys(scienceMethods) as ScienceMethod[]).filter(method => method !== 'vision-then-analysis');
 /** Canonical observed-method label, shared by history, comparisons and exclusions. */
 export function biologyRunMethodLabel(protocol: 'contract' | 'standard' | 'pilot', method: string, provider: string): string {
   const protocolLabel = ({ contract: 'Contrats par question', standard: 'Barème standard', pilot: 'Pilote' })[protocol];

@@ -87,12 +87,38 @@ test('D1 radar evaluation unloads the native model without calling unsupported C
   expect(requests.filter((req) => req.path === '/api/chat' && req.model === 'd1:3b')).toEqual([]);
 });
 
-test('D1 configured as its own Vision reader is rejected before any unsupported /api/chat call', async ({ page }) => {
-  const chatCalls: string[] = [];
+test('D1 with a legacy self-Vision setting uses native image decisions, never unsupported Chat', async ({ page }) => {
+  const calls: string[] = [];
   await page.route('http://localhost:11434/**', async (route) => {
-    if (new URL(route.request().url()).pathname === '/api/chat') chatCalls.push(route.request().url());
-    await route.fulfill({ status: 400, contentType: 'application/json',
-      body: JSON.stringify({ error: '"d1:3b" does not support chat' }) });
+    const request = route.request();
+    const path = new URL(request.url()).pathname;
+    calls.push(path);
+    const headers = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*',
+      'access-control-allow-methods': 'GET,POST,OPTIONS', 'content-type': 'application/json' };
+    if (request.method() === 'OPTIONS') {
+      await route.fulfill({ status: 204, headers }); return;
+    }
+    if (path === '/api/tags') {
+      await route.fulfill({ status: 200, headers, body: JSON.stringify({ models: [{ name: 'd1:3b' }] }) }); return;
+    }
+    if (path === '/api/ps') {
+      await route.fulfill({ status: 200, headers, body: JSON.stringify({ models: [] }) }); return;
+    }
+    if (path === '/api/show') {
+      await route.fulfill({ status: 200, headers, body: JSON.stringify({ capabilities: ['completion', 'vision'] }) }); return;
+    }
+    if (path === '/v1/systemone') {
+      const body = request.postDataJSON() as { questions?: Record<string, { criteria?: Record<string, string> }> };
+      const answers = Object.fromEntries(Object.entries(body.questions ?? {}).map(([id, question]) => {
+        const choice = Object.keys(question.criteria ?? {})[0] ?? 'present';
+        return [id, { type: 'choice', choice, probabilities: { [choice]: 1 }, confidence: 1 }];
+      }));
+      await route.fulfill({ status: 200, headers, body: JSON.stringify({ answers }) }); return;
+    }
+    if (path === '/api/generate') {
+      await route.fulfill({ status: 200, headers, body: JSON.stringify({ done: true }) }); return;
+    }
+    await route.fulfill({ status: 400, headers, body: JSON.stringify({ error: 'unsupported call' }) });
   });
   await page.goto('/');
   await page.evaluate((configuration) => {
@@ -107,10 +133,9 @@ test('D1 configured as its own Vision reader is rejected before any unsupported 
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
   const scientific = page.getByRole('region', { name: 'Tableau de bord des radars' })
     .getByRole('article', { name: 'Schémas scientifiques' });
-  await expect(scientific.getByRole('button', { name: 'Évaluer en schémas scientifiques' })).toBeDisabled();
-  await expect(scientific).toContainText('Modèle décisionnel utilisé en Vision');
-  await expect(scientific).toContainText('/api/chat');
-  expect(chatCalls).toEqual([]);
+  await scientific.getByRole('button', { name: 'Évaluer en schémas scientifiques' }).click();
+  await expect.poll(() => calls.includes('/v1/systemone'), { timeout: 30_000 }).toBe(true);
+  expect(calls).not.toContain('/api/chat');
 });
 
 test('the dashboard launches scientific batteries on a configured Ollama LAN host', async ({ page }) => {

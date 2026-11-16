@@ -23,7 +23,7 @@ export const SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC: Rubric = {
       id: 'title', title: 'Titre', description: SCIENTIFIC_DIAGRAM_MAIN_TITLE_RULE, maxPoints: 2,
       analysisMode: 'scientific-diagram',
       subcriteria: [
-        { id: 'title-below', title: 'Placé en dessous', description: 'Le titre PRINCIPAL commun aux quatre sous-schémas doit se trouver sous l’ensemble des quatre dessins, pas simplement sous une cellule. « Prophase », « Métaphase », « Anaphase », « Télophase » ou « Interphase » écrits sous les cellules sont des intitulés locaux, jamais le titre principal. Si le titre commun est au-dessus, attribuer zéro.', maxPoints: 0.33 },
+        { id: 'title-below', title: 'Placé en dessous', description: 'Le titre PRINCIPAL est évalué par rapport à la production complète, quel que soit le nombre de sous-schémas. Avec quatre panneaux, il doit se trouver sous l’ensemble des quatre dessins, pas simplement sous une cellule. « Prophase », « Métaphase », « Anaphase », « Télophase » ou « Interphase » écrits sous les cellules sont des intitulés locaux, jamais le titre principal. Si le titre commun est au-dessus, attribuer zéro.', maxPoints: 0.33 },
         { id: 'title-centered', title: 'centré', description: 'Évaluer le centrage du titre principal descriptif par rapport à toute la composition, pas celui des noms de phases.', maxPoints: 0.33 },
         { id: 'title-emphasis', title: 'Souligné ou encadré ou en majuscule', description: 'Observer uniquement le titre principal commun aux schémas, pas un intitulé local de phase.', maxPoints: 0.33 },
         { id: 'title-horizontal', title: 'Ecriture horizontale', description: 'Vérifier l’horizontalité du titre principal commun, et non celle des noms de phases placés sous les cellules.', maxPoints: 0.33 },
@@ -36,7 +36,7 @@ export const SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC: Rubric = {
       analysisMode: 'scientific-diagram',
       subcriteria: [
         { id: 'legends-horizontal', title: 'Ecriture horizontale', description: '', maxPoints: 0.66 },
-        { id: 'legends-aligned', title: 'Alignées en colonne', description: 'Pour un même schéma, les textes des légendes sont placés les uns sous les autres et alignés verticalement dans une même colonne. Des légendes côte à côte sur une même ligne ne satisfont pas ce critère. L’écriture horizontale des mots est évaluée séparément.', maxPoints: 0.66 },
+        { id: 'legends-aligned', title: 'Alignées en colonne', description: 'Évaluer les textes des légendes AU SEIN de chaque sous-schéma : ils sont placés les uns sous les autres, alignés verticalement dans une colonne. La disposition des sous-schémas en grille ne mesure pas l’alignement de leurs légendes. Des légendes côte à côte sur une même ligne dans un panneau ne forment pas une colonne ; l’écriture horizontale des mots est évaluée séparément. Ne combiner ni pénaliser les légendes de panneaux différents.', maxPoints: 0.66 },
         { id: 'legends-visible', title: 'Légendes reliées aux structures réellement visibles', description: 'Pour chaque légende du dessin observé au microscope, suivre son trait de rappel depuis le texte jusqu’à la structure touchée et vérifier que le nom correspond à cette structure. Un simple trait sans pointe de flèche suffit. Une légende correcte mais reliée à une mauvaise structure ne valide pas cet attendu ; si le trait est illisible, demander une vérification.', maxPoints: 0.68 },
       ],
     },

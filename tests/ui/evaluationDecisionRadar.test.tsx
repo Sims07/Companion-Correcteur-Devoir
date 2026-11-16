@@ -14,7 +14,8 @@ const profiles: AiModelProfile[] = ['d1:3b', 'tev1:4b'].map((model) => ({
 }));
 
 describe('decision models on the unchanged radar dashboard', () => {
-  it.each(['d1:3b', 'tev1:4b'])('launches the scientific and biology evaluations in one click each for %s', async (model) => {
+  it('launches scientific image decisions and biology evaluation in one click each for D1', async () => {
+    const model = 'd1:3b';
     const node = document.createElement('div');
     document.body.append(node);
     const root = createRoot(node);
@@ -36,9 +37,9 @@ describe('decision models on the unchanged radar dashboard', () => {
       expect(runScience.mock.calls[0]?.[0]).toMatchObject({
         modelId: model, profileId: 'decision-' + model,
         steps: [
-          { protocol: 'reference', method: 'vision-then-analysis' },
-          { protocol: 'arrows', method: 'vision-then-analysis' },
-          { protocol: 'semantic', method: 'vision-then-analysis' },
+          { protocol: 'reference', method: 'direct-image-systemone' },
+          { protocol: 'arrows', method: 'direct-image-systemone' },
+          { protocol: 'semantic', method: 'direct-image-systemone' },
         ],
       });
 
@@ -54,7 +55,40 @@ describe('decision models on the unchanged radar dashboard', () => {
       await act(async () => root.unmount());
       node.remove();
     }
-  });  it('explains why a D1-as-Vision setup cannot launch instead of triggering HTTP 400 repeatedly', async () => {
+  });
+
+  it('keeps TEV1 biology testing while refusing scientific image grading', async () => {
+    const node = document.createElement('div');
+    document.body.append(node);
+    const root = createRoot(node);
+    const runScience = vi.fn();
+    const runBiology = vi.fn();
+    try {
+      await act(async () => root.render(createElement(EvaluationRadarHome, {
+        entries: [], history: [], profiles, model: 'tev1:4b',
+        choose: vi.fn(), busy: false, manage: vi.fn(), details: vi.fn(),
+        campaigns: vi.fn(), runScience, runBiology,
+      })));
+      const science = node.querySelector('article[aria-label="Schémas scientifiques"]')!;
+      const button = [...science.querySelectorAll('button')].find(item =>
+        item.textContent?.includes('Évaluer en schémas scientifiques')) as HTMLButtonElement;
+      expect(button).toBeDefined();
+      expect(button.disabled).toBe(true);
+      expect(science.textContent).toContain('ne prend pas en charge directement les images scientifiques');
+      expect(runScience).not.toHaveBeenCalled();
+      const biology = node.querySelector('article[aria-label="Biologie"]')!;
+      const biologyButton = [...biology.querySelectorAll('button')].find(item =>
+        item.textContent?.includes('Évaluer en biologie')) as HTMLButtonElement;
+      expect(biologyButton.disabled).toBe(false);
+      await act(async () => biologyButton.click());
+      expect(runBiology).toHaveBeenCalledOnce();
+    } finally {
+      await act(async () => root.unmount());
+      node.remove();
+    }
+  });
+
+  it('does not depend on a separate Vision reader when D1 receives the image directly', async () => {
     const wrong: AiModelProfile = { ...profiles[0]!, configuration: {
       ...profiles[0]!.configuration, visionModel: 'd1:3b',
     } };
@@ -71,11 +105,12 @@ describe('decision models on the unchanged radar dashboard', () => {
       const article = node.querySelector('article[aria-label="Schémas scientifiques"]')!;
       const launch = [...article.querySelectorAll('button')].find((button) =>
         button.textContent?.includes('Évaluer en schémas scientifiques')) as HTMLButtonElement;
-      expect(launch.disabled).toBe(true);
-      expect(article.textContent).toContain('Modèle décisionnel utilisé en Vision');
-      expect(article.textContent).toContain('/api/chat');
+      expect(launch.disabled).toBe(false);
+      expect(article.textContent).not.toContain('/api/chat');
       await act(async () => launch.click());
-      expect(runScience).not.toHaveBeenCalled();
+      expect(runScience).toHaveBeenCalledOnce();
+      expect(runScience.mock.calls[0]?.[0].steps.every((step: {method:string}) =>
+        step.method === 'direct-image-systemone')).toBe(true);
     } finally {
       await act(async () => root.unmount());
       node.remove();

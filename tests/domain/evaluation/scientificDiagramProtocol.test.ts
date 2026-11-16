@@ -63,7 +63,9 @@ describe('protocole de schémas scientifiques', () => {
     expect(usesDirectDiagramVision(profile('tev1:4b'))).toBe(false);
     expect(usesDirectDiagramVision(profile('qwen3.5:4b', 'generative'))).toBe(false);
     expect(diagramProtocolProfileIssue({ ...profile('tev1:4b'),
-      configuration: { ...profile('tev1:4b').configuration, visionModel: '' } })).toContain('Vision');
+      configuration: { ...profile('tev1:4b').configuration, visionModel: '' } })).toContain('correction directe sur image');
+    expect(diagramProtocolProfileIssue({ ...profile('qwen3.5:4b', 'generative'),
+      configuration: { ...profile('qwen3.5:4b', 'generative').configuration, visionModel: '' } })).toBeNull();
     expect(diagramProtocolProfileIssue({ ...profile('d1:3b'),
       configuration: { ...profile('d1:3b').configuration, visionModel: '' } })).toBeNull();
     expect(diagramProtocolProfileIssue({ ...profile('d1:3b'),
@@ -73,17 +75,19 @@ describe('protocole de schémas scientifiques', () => {
   });
   it('propose uniquement les méthodes réellement compatibles avec chaque profil', () => {
     const generative = profile('qwen3.5:9b', 'generative');
-    expect(availableDiagramMethods(generative)).toEqual(['vision-then-analysis', 'direct-image-generative']);
+    expect(availableDiagramMethods(generative)).toEqual(['direct-image-generative']);
     expect(selectDiagramMethods(generative, 'direct-image-generative')).toEqual(['direct-image-generative']);
+    expect(selectDiagramMethods(generative, 'vision-then-analysis')).toEqual([]);
+    expect(diagramMethodIssue(generative, 'vision-then-analysis')).toContain('anciens résultats');
     expect(diagramMethodIssue(generative, 'direct-image-systemone')).toContain('System One');
 
     const remote = { ...generative, configuration: { ...generative.configuration,
       endpoint: 'https://ai.example/v1/chat/completions', apiCompatible: true } };
-    expect(selectDiagramMethods(remote, 'compare')).toEqual(['vision-then-analysis', 'direct-image-generative']);
+    expect(selectDiagramMethods(remote, 'compare')).toEqual(['direct-image-generative']);
     expect(diagramMethodIssue(remote, 'compare')).toBeNull();
 
     const qwen4b = profile('qwen3.5:4b', 'generative');
-    expect(selectDiagramMethods(qwen4b, 'compare')).toEqual(['vision-then-analysis', 'direct-image-generative']);
+    expect(selectDiagramMethods(qwen4b, 'compare')).toEqual(['direct-image-generative']);
     expect(selectDiagramMethods(qwen4b, 'compare-thinking')).toEqual([
       'direct-image-generative', 'direct-image-generative-thinking',
     ]);
@@ -104,10 +108,10 @@ describe('protocole de schémas scientifiques', () => {
     } }, 'direct-image-generative-thinking')).toEqual([]);
 
     const d1 = profile('d1:3b');
-    expect(selectDiagramMethods(d1, 'compare')).toEqual(['vision-then-analysis', 'direct-image-systemone']);
-    expect(selectDiagramMethods(profile('tev1:4b'), 'compare')).toEqual(['vision-then-analysis']);
+    expect(selectDiagramMethods(d1, 'compare')).toEqual(['direct-image-systemone']);
+    expect(selectDiagramMethods(profile('tev1:4b'), 'compare')).toEqual([]);
     expect(diagramMethodIssue(profile('tev1:4b'), 'direct-image-systemone')).toContain('TEV1');
-    expect(selectDiagramMethods(profile('clef-flash', 'visual-decision'), 'compare')).toEqual(['vision-then-analysis', 'direct-image-systemone']);
+    expect(selectDiagramMethods(profile('clef-flash', 'visual-decision'), 'compare')).toEqual(['direct-image-systemone']);
     const withoutVision = { ...d1, configuration: { ...d1.configuration, visionModel: '' } };
     expect(selectDiagramMethods(withoutVision, 'compare')).toEqual(['direct-image-systemone']);
   });
@@ -118,15 +122,15 @@ describe('protocole de schémas scientifiques', () => {
     } };
     expect(selectDiagramMethods(d1Reader, 'compare')).toEqual(['direct-image-systemone']);
     expect(selectDiagramMethods(d1Reader, 'vision-then-analysis')).toEqual([]);
-    expect(diagramMethodIssue(d1Reader, 'vision-then-analysis')).toContain('/api/chat');
+    expect(diagramMethodIssue(d1Reader, 'vision-then-analysis')).toContain('retirée');
     expect(diagramFailureCategory('Ollama HTTP 400 : "d1:3b" does not support chat')).toBe('unsupported-chat');
-    expect(diagramFailureCategory(diagramMethodIssue(d1Reader, 'vision-then-analysis')!)).toBe('unsupported-chat');
+    expect(diagramFailureCategory(diagramMethodIssue(d1Reader, 'vision-then-analysis')!)).not.toBe('unsupported-chat');
 
     const tevReader = { ...profile('tev1:4b'), configuration: {
       ...profile('tev1:4b').configuration, visionModel: 'tev1:4b',
     } };
     expect(selectDiagramMethods(tevReader, 'vision-then-analysis')).toEqual([]);
-    expect(diagramMethodIssue(tevReader, 'vision-then-analysis')).toContain('Vision');
+    expect(diagramMethodIssue(tevReader, 'vision-then-analysis')).toContain('retirée');
   });
 
     it('sépare les mesures des méthodes du même profil sans exporter de secret', () => {

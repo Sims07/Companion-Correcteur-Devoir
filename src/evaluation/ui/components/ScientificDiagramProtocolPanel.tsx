@@ -515,13 +515,12 @@ export function ScientificDiagramProtocolPanel({
         <option value="compare">Comparer toutes les méthodes compatibles (recommandé)</option>
         <option value="graph-first-v1">{diagramMethodLabels['graph-first-v1']}</option>
         <option value="graph-first-v2">{diagramMethodLabels['graph-first-v2']}</option>
-        <option value="vision-then-analysis">Vision puis analyse — 2 étapes</option>
         <option value="direct-image-generative">Image → modèle génératif — sans OCR, Think OFF</option>
         <option value="direct-image-generative-thinking">Image → modèle génératif — Think ON (Ollama compatible)</option>
         <option value="compare-thinking">Comparer génératif direct : Think OFF / ON (modèle compatible)</option>
         <option value="direct-image-systemone">Image → décisionnel System One — sans OCR</option>
       </DesignSystemSelect>
-      <details className="diagram-lab-explanation"><summary>Compatibilité et limites des méthodes</summary><p className="pilot-evaluation-hint">Les méthodes sont choisies dans ce laboratoire uniquement. Le choix habituel « Comparer toutes les méthodes » n’active jamais Think. L’option OFF / ON fonctionne avec tout modèle génératif Vision sur Ollama local qui prend en charge Think : le serveur est interrogé sur les capacités du modèle avant l’essai. Les niveaux nommés sont respectés quand Ollama en indique un. 4 096 tokens maximum par appel Think et 1 passage par défaut. Pensez à « Arrêter » si l’essai est trop long. Le rapport distingue Thinking demandé et trace réellement émise, sans enregistrer le raisonnement. D1/D3 compatibles peuvent comparer deux étapes et System One image ; TEV1 n’utilise l’image que via la transcription préalable.</p></details>
+      <details className="diagram-lab-explanation"><summary>Compatibilité et limites des méthodes</summary><p className="pilot-evaluation-hint">Les méthodes sont choisies dans ce laboratoire uniquement. Le choix habituel « Comparer toutes les méthodes » n’active jamais Think. L’option OFF / ON fonctionne avec tout modèle génératif Vision sur Ollama local qui prend en charge Think : le serveur est interrogé sur les capacités du modèle avant l’essai. Les niveaux nommés sont respectés quand Ollama en indique un. 4 096 tokens maximum par appel Think et 1 passage par défaut. Pensez à « Arrêter » si l’essai est trop long. Le rapport distingue Thinking demandé et trace réellement émise, sans enregistrer le raisonnement. Les modèles génératifs multimodaux reçoivent directement les images. Les modèles décisionnels compatibles image utilisent System One direct. Vision puis analyse est conservée uniquement dans les anciens rapports, pas dans les nouveaux tests.</p></details>
     </div>)}
     {(activeProtocol === 'reference' || activeProtocol === 'arrows' || activeProtocol === 'classroom') && <section id="evaluation-diagram-fixture-launch" className="diagram-protocol-fixtures" aria-label="Schémas de référence intégrés">
       <div className="diagram-protocol-fixtures-heading">
@@ -530,6 +529,18 @@ export function ScientificDiagramProtocolPanel({
           <p>A/B/C : difficulté progressive. D/E : <strong>mêmes mots et mêmes structures</strong>, mais quatre traits de rappel arrivent à la mauvaise structure en E. Ce sont de simples traits sans pointes de flèche, comme sur un dessin d’observation. Barème sur 10 points et références provisoires à valider par un enseignant. La différence attendue ne sera jamais envoyée au modèle.</p>
         </div>
       </div>
+      <details className="diagram-lab-rubric" aria-label="Barème utilisé pour les batteries scientifiques">
+        <summary>Voir le barème utilisé (10 points · 19 sous-critères)</summary>
+        <p>Ce barème est transmis aux modèles pour A/B/C, D/E et R1/R2/R3. Les 2 points de compréhension portent sur la mitose végétale. Les références restent provisoires et ne sont jamais envoyées aux modèles.</p>
+        {SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC.criteria.map((criterion) => <section key={criterion.id} className="diagram-lab-rubric-group">
+          <h5>{criterion.title} · {criterion.maxPoints} points</h5>
+          {criterion.description && <p>{criterion.description}</p>}
+          <ul>{getRubricSubcriteria(criterion).map((sub) => <li key={sub.id}>
+            <div><strong>{sub.title}</strong><span>{sub.maxPoints.toFixed(2)} pt</span></div>
+            <p>{sub.description || 'Critère évalué selon son intitulé.'}</p>
+          </li>)}</ul>
+        </section>)}
+      </details>
       <div className="diagram-fixture-run-controls">
         <div className="pilot-evaluation-actions">
           <label htmlFor="diagram-fixture-repeat-count">Passages par schéma</label>
@@ -919,8 +930,24 @@ export function ScientificDiagramProtocolPanel({
             src={'data:' + image.mimeType + ';base64,' + image.base64}
             alt={'Page ' + (index + 1) + (image.fileName ? ' — ' + image.fileName : '')} />)}
         </div>}
-        <FilePicker id="diagram-protocol-rubric" title="Barème du professeur (JSON)" description="Par défaut : 15 attendus visuels, 8 points. Importez un barème propre au sujet pour évaluer aussi la compréhension." accept=".json,application/json" disabled={busy || uploading} onFilesSelected={(files) => { void importRubric(files); }} />
-        <p className="pilot-evaluation-hint">Barème actif : <strong>{rubric.title}</strong> — {validation.maximumPoints} points, {targets.length} attendu{targets.length > 1 ? 's' : ''}. Les 2 points « Compréhension » de l’exemple sont exclus par défaut : ils nécessitent des structures attendues propres au schéma.</p>
+        <div className="diagram-personal-setup" role="group" aria-label="Modèle de barème pour le schéma personnel">
+          <button type="button" className="secondary-button" disabled={busy || uploading}
+            aria-pressed={rubric.title === SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC.title}
+            onClick={() => { setRubric(structuredClone(SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC)); setGold({}); onClearReport(); }}>
+            Dessin scientifique · 8 points
+          </button>
+          <button type="button" className="secondary-button" disabled={busy || uploading}
+            aria-pressed={rubric.title === SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC.title}
+            onClick={() => { setRubric(structuredClone(SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC)); setGold({}); onClearReport(); }}>
+            Mitose végétale · 10 points
+          </button>
+        </div>
+        <FilePicker id="diagram-protocol-rubric" title="Barème du professeur (JSON)" description="Ou importez un barème propre au sujet : les critères du professeur priment sur les modèles intégrés." accept=".json,application/json" disabled={busy || uploading} onFilesSelected={(files) => { void importRubric(files); }} />
+        <p className="pilot-evaluation-hint">Barème actif : <strong>{rubric.title}</strong> — {validation.maximumPoints} points, {targets.length} attendu{targets.length > 1 ? 's' : ''}. {rubric.title === SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC.title
+          ? 'Le modèle générique ne note pas la compréhension : ces attendus dépendent du sujet.'
+          : rubric.title === SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC.title
+            ? 'Les 2 points de compréhension de ce modèle concernent spécifiquement la mitose végétale.'
+            : 'Les attendus sont ceux du barème importé par le professeur.'}</p>
         <label htmlFor="diagram-protocol-context">Contexte biologique du dessin (facultatif pour les seuls critères de présentation)</label>
         <TextArea id="diagram-protocol-context" rows={2} disabled={busy} value={context}
           onChange={(event) => { setContext(event.currentTarget.value); onClearReport(); }}

@@ -1,6 +1,6 @@
 import { buildDiagramLabRadar, diagnoseGraphRadarMeasurement, RADAR_AXES, type RadarAxisId } from './diagramLabRadar.ts';
 import type { DiagramLabArchiveEntry, DiagramLabProtocol } from './diagramLabHistory.ts';
-import { scienceMethods, trialSteps, type RadarTrial, type ScienceMethod } from './radarTimeline.ts';
+import { ACTIVE_SCIENCE_METHOD_IDS, scienceMethods, trialSteps, type RadarTrial, type ScienceMethod } from './radarTimeline.ts';
 import type { RadarTestStep } from './diagramLabRadarLaunch.ts';
 
 const protocols = ['reference', 'arrows', 'semantic', 'graph'] as const;
@@ -32,7 +32,7 @@ function modelRuns(entry: DiagramLabArchiveEntry, model: string) {
  * fictitious complete radar; resuming a trial retains its ID and its earlier valid batteries.
  * The UI can display blocked measurements instead of quietly scheduling another 23 calls. */
 export function scienceMethodProgress(entries: readonly DiagramLabArchiveEntry[], model: string): ScienceMethodProgress[] {
-  return (Object.keys(scienceMethods) as ScienceMethod[]).map(method => {
+  return ACTIVE_SCIENCE_METHOD_IDS.map(method => {
     const groups = new Map<string, DiagramLabArchiveEntry[]>();
     for (const entry of entries) {
       if (entry.trial?.method !== method || !modelRuns(entry, model).length) continue;
