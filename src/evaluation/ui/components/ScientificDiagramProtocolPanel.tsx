@@ -943,7 +943,11 @@ export function ScientificDiagramProtocolPanel({
           </button>
         </div>
         <FilePicker id="diagram-protocol-rubric" title="Barème du professeur (JSON)" description="Ou importez un barème propre au sujet : les critères du professeur priment sur les modèles intégrés." accept=".json,application/json" disabled={busy || uploading} onFilesSelected={(files) => { void importRubric(files); }} />
-        <p className="pilot-evaluation-hint">Barème actif : <strong>{rubric.title}</strong> — {validation.maximumPoints} points, {targets.length} attendu{targets.length > 1 ? 's' : ''}. Les 2 points « Compréhension » de l’exemple sont exclus par défaut : ils nécessitent des structures attendues propres au schéma.</p>
+        <p className="pilot-evaluation-hint">Barème actif : <strong>{rubric.title}</strong> — {validation.maximumPoints} points, {targets.length} attendu{targets.length > 1 ? 's' : ''}. {rubric.title === SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC.title
+          ? 'Le modèle générique ne note pas la compréhension : ces attendus dépendent du sujet.'
+          : rubric.title === SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC.title
+            ? 'Les 2 points de compréhension de ce modèle concernent spécifiquement la mitose végétale.'
+            : 'Les attendus sont ceux du barème importé par le professeur.'}</p>
         <label htmlFor="diagram-protocol-context">Contexte biologique du dessin (facultatif pour les seuls critères de présentation)</label>
         <TextArea id="diagram-protocol-context" rows={2} disabled={busy} value={context}
           onChange={(event) => { setContext(event.currentTarget.value); onClearReport(); }}
