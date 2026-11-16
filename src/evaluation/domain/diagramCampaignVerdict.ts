@@ -4,6 +4,7 @@ import { diagramLabProtocolLabels, type DiagramLabArchiveEntry, type DiagramLabP
 const axes: Record<DiagramLabProtocol, RadarAxisId | null> = {
   reference: 'graphics',
   arrows: 'arrows',
+  classroom: 'graphics',
   semantic: 'biology',
   graph: 'relations',
   personal: null,
@@ -11,6 +12,7 @@ const axes: Record<DiagramLabProtocol, RadarAxisId | null> = {
 
 const explanations: Record<DiagramLabProtocol, string> = {
   reference: 'Cette batterie A/B/C mesure la qualité graphique : présentation, légendes et justesse visuelle. Les notes de référence sont celles des schémas, pas celles du modèle.',
+  classroom: 'Cette batterie R1/R2/R3 contient des dessins entièrement synthétiques inspirés d’erreurs de classe. Les références restent provisoires et distinctes des notes historiques du professeur.',
   arrows: 'Cette batterie D/E vérifie le sens des flèches et les destinations des traits de rappel. Elle ne constitue pas une mesure de qualité graphique A/B/C.',
   semantic: 'Cette batterie S0–S5 contrôle la compréhension des modifications biologiques. Elle ne constitue pas une mesure de qualité graphique A/B/C.',
   graph: 'Cette batterie S0–S5 contrôle le graphe des relations et les destinations des flèches. Elle ne mesure pas la qualité graphique A/B/C.',
