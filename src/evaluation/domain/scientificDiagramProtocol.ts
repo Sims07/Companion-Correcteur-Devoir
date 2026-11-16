@@ -2,7 +2,7 @@ import { evaluationPromptReferences } from './evaluationPromptReferences.ts';
 import { sumReportedProviderDurationForRuns } from './modelEvaluation.ts';
 import type { AiModelProfile } from '../../shared/domain/aiModelProfiles.ts';
 import type { ModelEvaluationRecord, ModelEvaluationResultSnapshot } from './modelEvaluation.ts';
-import { getRubricSubcriteria, type Rubric, isNativeDecisionModel, isVisualDecisionModel } from '../../correction/api/index.ts';
+import { getRubricSubcriteria, type Rubric, isVisualDecisionModel } from '../../correction/api/index.ts';
 import { extractSystemOneDecisions, type VisualChoice } from './visualDecisionEvaluation.ts';
 import { isSupportedPilotProfile, isLoopbackPilotEndpoint } from './pilotEvaluationProtocol.ts';
 
@@ -68,18 +68,13 @@ export function diagramMethodIssue(profile: AiModelProfile, selection: DiagramMe
   if (!isSupportedPilotProfile(profile)) return 'Adresse de serveur invalide : ' + profile.name;
   if (!profile.configuration.analysisModel.trim()) return 'Modèle d’analyse manquant : ' + profile.name;
   if ((selection === 'graph-first-v1' || selection === 'graph-first-v2') && profile.configuration.correctionMethod !== 'generative') return 'La lecture du graphe et sa correction nécessitent un modèle génératif avec vision.';
-  if (selection === 'vision-then-analysis' && !profile.configuration.apiCompatible
-    && isNativeDecisionModel(profile.configuration.visionModel)) {
-    return 'Modèle décisionnel utilisé en Vision : « ' + profile.configuration.visionModel
-      + ' » ne prend pas en charge le chat (/api/chat). Choisissez un modèle Vision génératif pour lire les images, puis D1 pour les décisions System One.';
-  }
   if (selectDiagramMethods(profile, selection).length) return null;
   // Preserve the actionable incompatibility explanation if an obsolete or
   // misconfigured profile explicitly requests image-based System One.
   if (profile.configuration.correctionMethod === 'visual-decision'
     && !isVisualDecisionModel(profile.configuration.analysisModel)) {
     return /^tev1(?::|$)/i.test(profile.configuration.analysisModel)
-      ? 'TEV1 ne prend pas en charge les images via System One. Choisissez Vision puis TEV1 texte ou un modèle visuel compatible.'
+      ? 'TEV1 ne prend pas en charge les images via System One. Pour un schéma scientifique, choisissez un modèle visuel compatible.'
       : 'Ce modèle ne peut pas recevoir directement le schéma via System One : ' + profile.name;
   }
   if (selection === 'compare-thinking' || selection === 'direct-image-generative-thinking') {
@@ -89,9 +84,7 @@ export function diagramMethodIssue(profile: AiModelProfile, selection: DiagramMe
     ? 'Le parcours génératif direct exige une configuration générative et un modèle acceptant les images : ' + profile.name
     : selection === 'direct-image-systemone'
       ? 'Le parcours System One image exige un modèle Ollama décisionnel compatible avec les images (pas TEV1) : ' + profile.name
-      : selection === 'vision-then-analysis'
-        ? 'Le parcours en deux étapes exige un modèle Vision et une analyse compatibles : ' + profile.name
-        : 'Aucun parcours de schéma disponible pour la configuration : ' + profile.name;
+      : 'Aucun parcours de schéma disponible pour la configuration : ' + profile.name;
 }
 
 
@@ -108,11 +101,12 @@ export function diagramProtocolProfileIssue(profile: AiModelProfile): string | n
   }
   if (config.correctionMethod === 'visual-decision' && !isVisualDecisionModel(config.analysisModel)) {
     return /^tev1(?::|$)/i.test(config.analysisModel)
-      ? 'TEV1 ne prend pas en charge les images via System One. Pour un appel direct, choisissez Clef-Flash ; sinon utilisez Vision puis TEV1.'
+      ? 'TEV1 ne prend pas en charge les images via System One. Choisissez un modèle décisionnel visuel ou un génératif multimodal.'
       : 'Décision directe sur image indisponible pour « ' + config.analysisModel + ' ». Choisissez un modèle compatible, par exemple Clef-Flash.';
   }
-  if (!usesDirectDiagramVision(profile) && !config.visionModel.trim()) {
-    return 'Modèle Vision manquant pour le parcours en deux étapes : ' + profile.name;
+  if (config.correctionMethod === 'generative') return null;
+  if (!usesDirectDiagramVision(profile)) {
+    return 'Le modèle décisionnel ne prend pas en charge la correction directe sur image : ' + profile.name;
   }
   return null;
 }
