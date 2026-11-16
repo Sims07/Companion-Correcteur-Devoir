@@ -41,6 +41,10 @@ describe('three synthetic classroom mitosis examples', () => {
     expect(classroomScenarioSvg('R3')).toContain('membrane nucléaire');
     expect(classroomScenarioSvg('R1')).not.toContain('INTERPHASE');
     expect(classroomScenarioSvg('R2')).toContain('INTERPHASE');
+    // If the rubric deducts alignment points, the visual fault must exist.
+    expect(classroomScenarioSvg('R1')).not.toContain('x="416" y="157"');
+    expect(classroomScenarioSvg('R2')).toContain('x="416" y="157"');
+    expect(classroomScenarioSvg('R3')).toContain('x="418" y="157"');
   });
 
   it('keeps a separate transparent provisional 19-target gold, not teacher marks copied to new images', () => {
