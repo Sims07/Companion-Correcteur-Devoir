@@ -13,6 +13,7 @@ const BIOLOGY_KEY = 'companion:biology-teacher-radar:v1';
 const STORES = [
   'local-memory', 'local-corrections', 'model-evaluations', 'diagnostic-history',
   'diagram-lab-archive', 'background-corrections', 'background-transcriptions',
+  'scientific-diagram-drafts',
 ] as const;
 type Store = typeof STORES[number];
 
@@ -253,7 +254,18 @@ async function scanBackup(file: Blob, onRecord?: RecordHandler, progress?: Progr
   }
   if (!localStorageFound || !indexedDbFound || !storesFound ||
     databaseName !== DB_NAME || !Number.isInteger(databaseVersion) ||
-    (databaseVersion as number) < 1 || Object.keys(storeCounts).length !== STORES.length) {
+    (databaseVersion as number) < 1) {
+    throw new Error('Structure de sauvegarde invalide.');
+  }
+  // The streaming importer also accepts valid seven-store backups from
+  // IndexedDB v6; the draft store did not exist when they were exported.
+  const legacy = (databaseVersion as number) < 7 &&
+    Object.keys(storeCounts).length === STORES.length - 1 &&
+    !Object.hasOwn(storeCounts, 'scientific-diagram-drafts') &&
+    STORES.filter(store => store !== 'scientific-diagram-drafts').every(store => Object.hasOwn(storeCounts, store));
+  if (legacy) storeCounts['scientific-diagram-drafts'] = 0;
+  if (Object.keys(storeCounts).length !== STORES.length ||
+      !STORES.every(store => Object.hasOwn(storeCounts, store))) {
     throw new Error('Structure de sauvegarde invalide.');
   }
   return {
