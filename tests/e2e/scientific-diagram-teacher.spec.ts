@@ -86,6 +86,29 @@ test.beforeEach(async ({ page }, testInfo) => {
     : configuration);
 });
 
+test('an individually corrected scientific diagram uses one direct image request without any Vision classification', async ({ page }) => {
+  const requests: Record<string, any>[] = [];
+  await mockOllama(page, requests);
+  await page.goto('/');
+  await createDiagramAssignment(page, 'Mitose directe individuelle');
+
+  await page.locator('.copy-overview-heading').getByRole('button', { name: /Ajouter des copies/ }).click();
+  await page.getByRole('button', { name: 'Préparer manuellement une copie et ses pages' }).click();
+  await expect(page.getByRole('heading', { name: 'Ajouter une copie' })).toBeVisible();
+  await page.locator('#copy-files').setInputFiles({ name: 'mitose.png', mimeType: 'image/png', buffer: onePixelPng });
+  const correct = page.getByRole('button', { name: 'Corriger le schéma' });
+  await expect(correct).toBeEnabled();
+  await correct.click();
+
+  await expect(page.locator('.copy-review-header-score')).toContainText('0 / 8', { timeout: 30000 });
+  expect(requests).toHaveLength(1);
+  expect(requests[0].model).toBe('qwen3.5:4b');
+  expect(requests[0].messages?.[0]?.images).toHaveLength(1);
+  expect(String(requests[0].messages[0].content)).toContain('BARÈME ENSEIGNANT');
+  expect(String(requests[0].messages[0].content)).not.toContain('Classer la page');
+  expect(requests[0].options?.num_ctx).toBe(8192);
+});
+
 test('a diagram devoir has the normal library, several copies, review rail and locally archived corrections', async ({ page }) => {
   const requests: Record<string, any>[] = [];
   await mockOllama(page, requests);
