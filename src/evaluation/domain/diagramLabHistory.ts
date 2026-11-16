@@ -9,11 +9,12 @@ export type DiagramLabReport =
   | ReturnType<typeof buildScientificDiagramSensitivityReport>
   | ReturnType<typeof buildBlindVisualObservationReport>;
 
-export type DiagramLabProtocol = 'reference' | 'arrows' | 'semantic' | 'graph' | 'personal';
+export type DiagramLabProtocol = 'reference' | 'arrows' | 'classroom' | 'semantic' | 'graph' | 'personal';
 
 export const diagramLabProtocolLabels: Record<DiagramLabProtocol, string> = {
   reference: 'Qualité graphique · A/B/C',
   arrows: 'Traits de rappel · D/E',
+  classroom: 'Observations synthétiques · R1/R2/R3',
   semantic: 'Compréhension biologique · S0–S5',
   graph: 'Graphe des relations · S0–S5',
   personal: 'Ancien essai libre',
@@ -41,7 +42,9 @@ export interface DiagramLabArchiveEntry {
 export function summarizeDiagramLabReport(report: DiagramLabReport, state: DiagramLabArchiveEntry['state']): DiagramLabArchiveEntry {
   const isFixture = report.format === 'companion-scientific-diagram-fixture-report';
   const protocol: DiagramLabProtocol = isFixture
-    ? report.cases.some((item) => (item.caseId === 'D' || item.caseId === 'E') && item.experiments.length > 0) ? 'arrows' : 'reference'
+    ? report.cases.some((item) => (item.caseId === 'R1' || item.caseId === 'R2' || item.caseId === 'R3') && item.experiments.length > 0)
+      ? 'classroom' : report.cases.some((item) => (item.caseId === 'D' || item.caseId === 'E') && item.experiments.length > 0)
+        ? 'arrows' : 'reference'
     : report.format === 'companion-scientific-diagram-sensitivity-report' ? 'semantic'
     : report.format === 'companion-scientific-diagram-blind-graph-report' ? 'graph' : 'personal';
   const experimentMetadata = 'cases' in report
