@@ -118,10 +118,10 @@
 .diagram-sensitivity-grid .diagram-fixture-card-body { gap: var(--ds-space-1); }
 .diagram-sensitivity-grid .diagram-fixture-card-body p { margin: 0; }
 
-/* Four compact protocol choices; the selected test content is the only full workspace. */
+/* Five equally sized protocol choices, also on narrow screens. */
 .diagram-lab-catalog {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 0;
   padding: 3px;
   margin: var(--ds-space-1) 0;
