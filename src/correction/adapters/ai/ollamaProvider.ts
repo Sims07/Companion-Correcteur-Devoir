@@ -405,12 +405,27 @@ export function createOllamaProvider(
       // teacher's original copy, or the high-resolution pages kept for zoom/review.
       // This also covers legacy queued copies that contain unscaled PNG/JPEG pages.
       if (request.images?.length || request.subjectImages?.length || request.teacherAnnotationImages?.length || request.identityImage) {
+        const cache = new WeakMap<import('../../ports/aiProvider.ts').ImageInput, import('../../ports/aiProvider.ts').ImageInput>();
+        const prepareImage = async (image: import('../../ports/aiProvider.ts').ImageInput) => {
+          const cached = cache.get(image);
+          if (cached) return cached;
+          const prepared = await resizeVisionImage(image, undefined, signal);
+          cache.set(image, prepared);
+          return prepared;
+        };
+        // Sequential decoding avoids opening ten full-resolution bitmaps at once on
+        // memory-limited local machines; identity/copy references can share a result.
+        const preparePages = async (pages: import('../../ports/aiProvider.ts').ImageInput[]) => {
+          const prepared = [];
+          for (const image of pages) prepared.push(await prepareImage(image));
+          return prepared;
+        };
         request = {
           ...request,
-          ...(request.images ? { images: await Promise.all(request.images.map((image) => resizeVisionImage(image, undefined, signal))) } : {}),
-          ...(request.subjectImages ? { subjectImages: await Promise.all(request.subjectImages.map((image) => resizeVisionImage(image, undefined, signal))) } : {}),
-          ...(request.teacherAnnotationImages ? { teacherAnnotationImages: await Promise.all(request.teacherAnnotationImages.map((image) => resizeVisionImage(image, undefined, signal))) } : {}),
-          ...(request.identityImage ? { identityImage: await resizeVisionImage(request.identityImage, undefined, signal) } : {}),
+          ...(request.images ? { images: await preparePages(request.images) } : {}),
+          ...(request.subjectImages ? { subjectImages: await preparePages(request.subjectImages) } : {}),
+          ...(request.teacherAnnotationImages ? { teacherAnnotationImages: await preparePages(request.teacherAnnotationImages) } : {}),
+          ...(request.identityImage ? { identityImage: await prepareImage(request.identityImage) } : {}),
         };
       }
 
