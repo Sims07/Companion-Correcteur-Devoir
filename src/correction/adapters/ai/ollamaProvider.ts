@@ -18,6 +18,7 @@ import { normalizeGradeScore, sumGradeScores } from '../../../shared/domain/scor
 import { getRubricSubcriteria, type RubricCriterion } from '../../domain/rubric.ts';
 import { parseStudentIdentityResponse } from '../../domain/studentIdentity.ts';
 import { buildIncrementalCriterionPrompt } from './gradingPrompts.ts';
+import { SCIENTIFIC_DIAGRAM_MAIN_TITLE_RULE } from '../../domain/scientificDiagramObservation.ts';
 import { resolveCloseDiagnosticCriteria } from '../../domain/diagnosticResolution.ts';
 import { parseArbitrationDecisions } from '../../domain/arbitrationDecision.ts';
 import { parseModelJson } from '../../../shared/domain/modelJson.ts';
@@ -886,7 +887,10 @@ export function createOllamaProvider(
           const transcriptionLimit = Math.min(2048, Math.max(128, Math.floor(settings.transcriptionTokenLimit ?? 2048)));
           const pageTranscription = await sendStream(
             visionModel,
-            buildTranscriptionPrompt(visionModel, settings.transcriptionPromptMode) + (rubricCriteriaForSchema.some(c => c.correctionContract?.question)
+            buildTranscriptionPrompt(visionModel, settings.transcriptionPromptMode)
+              + (rubricCriteriaForSchema.some(c => c.analysisMode === 'scientific-diagram')
+                ? '\n' + SCIENTIFIC_DIAGRAM_MAIN_TITLE_RULE + '\nLors de la transcription, indique la position relative du titre principal (au-dessus/sous l’ensemble) et des noms de phases sous leurs cellules uniquement si visible ; ne déduis aucune position non observée.' : '')
+              + (rubricCriteriaForSchema.some(c => c.correctionContract?.question)
               ? '\nSi un numéro de question est clairement visible, conserve-le sur une ligne « Question N ». Sépare l’énoncé imprimé de la réponse manuscrite par « Réponse : ». Ne crée aucun numéro ni réponse absents. Une suite de réponse sur une autre page reste une suite : ne répète pas les repères si aucun nouveau numéro n’est visible.' : ''),
             [providerImage(image)],
             undefined,

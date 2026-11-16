@@ -223,7 +223,7 @@ describe('OpenAI scientific diagram adapter', () => {
     expect(trace.requestPayload).not.toContain('cG5n');
     expect(trace.requestPayload).toContain('"messages"');
     expect(trace.requestMetadata).toMatchObject({ provider: 'ollama', imageCount: 1 });
-    expect(trace).toMatchObject({ promptId: 'diagram.scientific-analysis', promptVersion: 7 });
+    expect(trace).toMatchObject({ promptId: 'diagram.scientific-analysis', promptVersion: 8 });
     expect(getNetworkRequestMetadata(fetchMock.mock.calls[0][1])).toMatchObject({
       intent: 'Analyser les schémas scientifiques',
     });
@@ -243,7 +243,7 @@ describe('OpenAI scientific diagram adapter', () => {
     expect(item.required).toContain('origin');
     expect(item.required).toContain('uncertainty');
     expect(item.properties.origin.enum).toEqual(['student-diagram', 'printed-subject', 'uncertain']);
-    expect(body.messages[0].content).toContain('une légende de phase ne constitue pas à elle seule un titre global');
+    expect(body.messages[0].content).toContain('un titre principal placé sous la composition');
   });
 
   it('uses native Ollama chat and a JSON Schema for local diagram analysis too', async () => {

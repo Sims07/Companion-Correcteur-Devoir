@@ -1,4 +1,5 @@
 import { validateRubric, type Rubric } from './rubric.ts';
+import { SCIENTIFIC_DIAGRAM_MAIN_TITLE_RULE } from './scientificDiagramObservation.ts';
 
 /** Faithful copy of the professor's observable dimensions. The 2-point
  * "Compréhension" criterion is excluded until diagram-specific expectations
@@ -19,15 +20,15 @@ export const SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC: Rubric = {
       ],
     },
     {
-      id: 'title', title: 'Titre', description: '', maxPoints: 2,
+      id: 'title', title: 'Titre', description: SCIENTIFIC_DIAGRAM_MAIN_TITLE_RULE, maxPoints: 2,
       analysisMode: 'scientific-diagram',
       subcriteria: [
-        { id: 'title-below', title: 'Placé en dessous', description: '', maxPoints: 0.33 },
-        { id: 'title-centered', title: 'centré', description: '', maxPoints: 0.33 },
-        { id: 'title-emphasis', title: 'Souligné ou encadré ou en majuscule', description: '', maxPoints: 0.33 },
-        { id: 'title-horizontal', title: 'Ecriture horizontale', description: '', maxPoints: 0.33 },
-        { id: 'title-subject', title: 'Sujet entièrement précisé ( type de cellule, organe, organisme)', description: '', maxPoints: 0.33 },
-        { id: 'title-section', title: 'Indique s\'il y a une coupe réalisée', description: '', maxPoints: 0.35 },
+        { id: 'title-below', title: 'Placé en dessous', description: 'Le titre PRINCIPAL commun aux quatre sous-schémas doit se trouver sous l’ensemble des quatre dessins, pas simplement sous une cellule. « Prophase », « Métaphase », « Anaphase », « Télophase » ou « Interphase » écrits sous les cellules sont des intitulés locaux, jamais le titre principal. Si le titre commun est au-dessus, attribuer zéro.', maxPoints: 0.33 },
+        { id: 'title-centered', title: 'centré', description: 'Évaluer le centrage du titre principal descriptif par rapport à toute la composition, pas celui des noms de phases.', maxPoints: 0.33 },
+        { id: 'title-emphasis', title: 'Souligné ou encadré ou en majuscule', description: 'Observer uniquement le titre principal commun aux schémas, pas un intitulé local de phase.', maxPoints: 0.33 },
+        { id: 'title-horizontal', title: 'Ecriture horizontale', description: 'Vérifier l’horizontalité du titre principal commun, et non celle des noms de phases placés sous les cellules.', maxPoints: 0.33 },
+        { id: 'title-subject', title: 'Sujet entièrement précisé ( type de cellule, organe, organisme)', description: 'Contrôler que le titre principal de l’ensemble précise le type de cellule, l’organe et l’organisme ; les simples noms des phases ne suffisent pas.', maxPoints: 0.33 },
+        { id: 'title-section', title: 'Indique s\'il y a une coupe réalisée', description: 'Rechercher la mention de coupe dans le titre principal de l’ensemble des dessins, pas dans les intitulés de phases.', maxPoints: 0.35 },
       ],
     },
     {

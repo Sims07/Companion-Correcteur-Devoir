@@ -6,15 +6,16 @@ describe('stable prompt metadata', () => {
   it('tracks distinct prompts for local decision, native System One and vision diagrams', () => {
     expect(promptTrace('decision.chat')).toEqual({ promptId: 'decision.chat', promptVersion: 1 });
     expect(promptTrace('decision.system-one')).toEqual({ promptId: 'decision.system-one', promptVersion: 7 });
-    expect(promptTrace('decision.system-one-visual').promptVersion).toBe(6);
-    expect(promptTrace('diagram.direct-grading').promptVersion).toBe(6);
-    expect(promptTrace('diagram.direct-repair').promptVersion).toBe(6);
-    expect(promptTrace('diagram.scientific-analysis')).toEqual({ promptId: 'diagram.scientific-analysis', promptVersion: 7 });
+    expect(promptTrace('decision.system-one-visual').promptVersion).toBe(7);
+    expect(promptTrace('diagram.direct-grading').promptVersion).toBe(7);
+    expect(promptTrace('diagram.direct-repair').promptVersion).toBe(7);
+    expect(promptTrace('diagram.scientific-analysis')).toEqual({ promptId: 'diagram.scientific-analysis', promptVersion: 8 });
     expect(promptTrace('vision.copy-transcription').promptId).not.toBe(promptTrace('grading.incremental').promptId);
+    expect(promptTrace('vision.copy-transcription').promptVersion).toBe(3);
   });
 
   it('identifies runs after restoring the earlier incremental instructions', () => {
-    expect(promptTrace('grading.incremental')).toEqual({ promptId: 'grading.incremental', promptVersion: 5 });
+    expect(promptTrace('grading.incremental')).toEqual({ promptId: 'grading.incremental', promptVersion: 6 });
   });
 
   it('always publishes a positive integer revision, without copies or user data in its registry', () => {

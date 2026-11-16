@@ -42,6 +42,21 @@ describe('compact criterion grading prompts', () => {
 
 
 
+  it('applies the four-panel main-title rule only to the matching incremental rubric', () => {
+    const title = buildIncrementalCriterionPrompt(sharedContext, {
+      id: 'title', title: 'Titre', description: '', maxPoints: 0.33,
+      subcriteria: [{ id: 'title-below', title: 'Placé en dessous', description: '', maxPoints: 0.33 }],
+    });
+    expect(title).toContain('TITRE PRINCIPAL');
+    expect(title).toContain('composition entière des quatre sous-schémas');
+    expect(title).toContain('« Prophase »');
+    const other = buildIncrementalCriterionPrompt(sharedContext, {
+      id: 'title', title: 'Titre', description: '', maxPoints: 0.33,
+      subcriteria: [{ id: 'title-text', title: 'Texte', description: '', maxPoints: 0.33 }],
+    });
+    expect(other).not.toContain('TITRE PRINCIPAL');
+  });
+
   it('keeps the whole teacher-and-student context as a shared prefix before each different criterion', () => {
     const first = buildIncrementalCriterionPrompt(sharedContext, {
       id: 'mitosis', title: 'Mitose', description: 'Étapes', maxPoints: 2,

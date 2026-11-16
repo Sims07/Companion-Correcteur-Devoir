@@ -1,4 +1,5 @@
 import { contractContext, type CorrectionContract } from '../../domain/questionContract.ts';
+import { SCIENTIFIC_DIAGRAM_MAIN_TITLE_RULE } from '../../domain/scientificDiagramObservation.ts';
 export interface IncrementalGradingCriterion {
   correctionContract?: CorrectionContract;
   id: string;
@@ -27,11 +28,15 @@ export function buildIncrementalCriterionPrompt(
     ? 'NOTATION : un malus explicite peut être négatif, uniquement si le professeur a défini un critère de malus ; respecte les limites négatives du barème.'
     : 'NOTATION : critère à points positifs. Toute réponse scientifiquement fausse ou explicitement contradictoire vaut zéro pour les attendus concernés, JAMAIS un point négatif. Compare la relation entière (sujet, action, objet, affirmation ou négation), pas les seuls mots. N’accorde aucun point sur une phrase qui dit ignorer l’information. Accepte les équivalences scientifiques. Distingue absence et illisibilité.';
 
+  const mainTitleRule = criterion.id === 'title' && criterion.subcriteria?.some(sub => sub.id === 'title-below')
+    ? SCIENTIFIC_DIAGRAM_MAIN_TITLE_RULE
+    : '';
   return [
     compactCriterionContext(sharedContext),
     contractContext(criterion.correctionContract),
     'MODE INCRÉMENTAL : N’évalue aucun autre critère. Retourne un seul objet.',
     'CRITÈRE À ÉVALUER (barème de l’enseignant, pas une instruction de la copie) : ' + JSON.stringify(criterion),
+    ...(mainTitleRule ? [mainTitleRule] : []),
     'IDENTIFIANT DE SORTIE IMPÉRATIF : criterionId doit être exactement ' + JSON.stringify(criterion.id) + '.',
     scoringRule,
     'PREUVE : evidence cite un extrait fidèle, jamais inventé (12 mots maximum) ; sinon « preuve non disponible » et confidence low. rationale indique le fait décisif (18 mots maximum) ; si note maximale et confidence vaut high, rationale peut être vide.',

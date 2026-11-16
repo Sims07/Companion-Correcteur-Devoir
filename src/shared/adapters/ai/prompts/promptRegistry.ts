@@ -5,7 +5,7 @@
  */
 export const PROMPT_REVISIONS = {
   'contract.preparation': 1,
-  'vision.copy-transcription': 2,
+  'vision.copy-transcription': 3,
   'vision.subject-reference': 2,
   'vision.student-identity': 1,
   'vision.student-identity-fallback': 1,
@@ -15,18 +15,18 @@ export const PROMPT_REVISIONS = {
   'rubric.structuring': 1,
   'grading.full': 1,
   'grading.full-repair': 1,
-  'grading.incremental': 5,
+  'grading.incremental': 6,
   'grading.incremental-repair': 1,
   'grading.arbitration': 1,
   'grading.arbitration-repair': 1,
   'decision.chat': 1,
   'decision.chat-repair': 1,
   'decision.system-one': 7,
-  'decision.system-one-visual': 6,
+  'decision.system-one-visual': 7,
   'diagram.page-classification': 1,
-  'diagram.scientific-analysis': 7,
-  'diagram.direct-grading': 6,
-  'diagram.direct-repair': 6,
+  'diagram.scientific-analysis': 8,
+  'diagram.direct-grading': 7,
+  'diagram.direct-repair': 7,
 } as const;
 
 export type PromptId = keyof typeof PROMPT_REVISIONS;

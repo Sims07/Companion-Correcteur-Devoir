@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { expectedDecisionTargets, prepareSystemOneCriterion, prepareSystemOneRubric, scoreSystemOneCriterion, isNativeDecisionModel, findLiteralStudentEvidence, systemOnePointChoices } from '../../../src/correction/domain/systemOneDecision.ts';
 import type { RubricCriterion } from '../../../src/correction/domain/rubric.ts';
+import { SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC } from '../../../src/correction/domain/scientificDiagramRubric.ts';
 
 const rubric: RubricCriterion = {
   id: 'q1-photosynthese', title: 'Q1 – Photosynthèse', maxPoints: 5,
@@ -57,6 +58,17 @@ describe('real System One decisions', () => {
     });
     expect(Object.keys(visual.questions)).toEqual(['alignment', 'expected_1', 'expected_2']);
     expect(visual.state).toContain('ÉVALUATION EXPÉRIMENTALE');
+  });
+
+  it('sends the main-title vs phase-caption distinction to visual System One decisions', () => {
+    const title = SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC.criteria.find(c => c.id === 'title')!;
+    const prepared = prepareSystemOneRubric({
+      criteria: [title], question: 'Quatre dessins de mitose', transcription: '', visualEvidence: true,
+    });
+    expect(prepared.state).toContain('TITRE PRINCIPAL');
+    expect(prepared.state).toContain('composition entière des quatre sous-schémas');
+    expect(prepared.questions.expected_1.instructions).toContain('sous l’ensemble des quatre dessins');
+    expect(prepared.questions.expected_1.instructions).toContain('Prophase');
   });
 
   it('reuses all explicitly weighted multiline teacher expectations without creating implicit weights', () => {

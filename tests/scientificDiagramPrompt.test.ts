@@ -27,7 +27,8 @@ describe('scientific diagram prompt and professor marks', () => {
     expect(prompt).not.toContain('arrows-relations');
     expect(prompt).toContain('ne déduis jamais automatiquement un demi-point');
     expect(prompt).toContain('origin=student-diagram');
-    expect(prompt).toContain('une légende de phase ne constitue pas à elle seule un titre global');
+    expect(prompt).toContain('un titre principal placé sous la composition');
+    expect(prompt).toContain('titre décrit comme « au-dessus »');
   });
 
   it('keeps teachers rubric semantics in a compact local retry without resurrecting bounding boxes', () => {
@@ -47,6 +48,7 @@ describe('scientific diagram prompt and professor marks', () => {
     expect(prompt).toContain('Visible à la télophase');
     expect(prompt).not.toContain('bounds');
     expect(prompt).toContain('summary ≤ 10 mots');
+    expect(prompt).toContain('titre principal commun aux quatre dessins');
   });
 
   it('instructs Vision to ignore correction marks and request teacher review when they overlap a diagram', () => {
