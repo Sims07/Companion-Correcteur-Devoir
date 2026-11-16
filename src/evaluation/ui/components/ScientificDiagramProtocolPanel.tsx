@@ -930,7 +930,19 @@ export function ScientificDiagramProtocolPanel({
             src={'data:' + image.mimeType + ';base64,' + image.base64}
             alt={'Page ' + (index + 1) + (image.fileName ? ' — ' + image.fileName : '')} />)}
         </div>}
-        <FilePicker id="diagram-protocol-rubric" title="Barème du professeur (JSON)" description="Par défaut : 15 attendus visuels, 8 points. Importez un barème propre au sujet pour évaluer aussi la compréhension." accept=".json,application/json" disabled={busy || uploading} onFilesSelected={(files) => { void importRubric(files); }} />
+        <div className="diagram-personal-setup" role="group" aria-label="Modèle de barème pour le schéma personnel">
+          <button type="button" className="secondary-button" disabled={busy || uploading}
+            aria-pressed={rubric.title === SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC.title}
+            onClick={() => { setRubric(structuredClone(SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC)); setGold({}); onClearReport(); }}>
+            Dessin scientifique · 8 points
+          </button>
+          <button type="button" className="secondary-button" disabled={busy || uploading}
+            aria-pressed={rubric.title === SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC.title}
+            onClick={() => { setRubric(structuredClone(SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC)); setGold({}); onClearReport(); }}>
+            Mitose végétale · 10 points
+          </button>
+        </div>
+        <FilePicker id="diagram-protocol-rubric" title="Barème du professeur (JSON)" description="Ou importez un barème propre au sujet : les critères du professeur priment sur les modèles intégrés." accept=".json,application/json" disabled={busy || uploading} onFilesSelected={(files) => { void importRubric(files); }} />
         <p className="pilot-evaluation-hint">Barème actif : <strong>{rubric.title}</strong> — {validation.maximumPoints} points, {targets.length} attendu{targets.length > 1 ? 's' : ''}. Les 2 points « Compréhension » de l’exemple sont exclus par défaut : ils nécessitent des structures attendues propres au schéma.</p>
         <label htmlFor="diagram-protocol-context">Contexte biologique du dessin (facultatif pour les seuls critères de présentation)</label>
         <TextArea id="diagram-protocol-context" rows={2} disabled={busy} value={context}
