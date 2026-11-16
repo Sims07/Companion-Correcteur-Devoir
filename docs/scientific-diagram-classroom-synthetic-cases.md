@@ -1,39 +1,42 @@
-# Batterie R1/R2/R3 — mitose végétale, profils de corrections de classe (16/11/2026)
+# Batterie R1/R2/R3 — dessins de mitose synthétiques, style copie au crayon
 
-## Origine et confidentialité
+## Images réellement utilisées
 
-Trois copies privées annotées par un professeur ont été **examinées comme inspirations pédagogiques**. Le dépôt ne contient **aucune photographie, partie d’image, écriture manuscrite, nom, date, note manuscrite, commentaire littéral du professeur ou fichier original**. Les figures livrées sont des illustrations vectorielles inédites et déterministes produites pour l'application. Elles sont créées à partir de scénarios généraux (oubli d'une phase, pointage faux, membrane nucléaire en métaphase) plutôt que du tracé d'un élève.
+Les trois figures de cette batterie sont **les trois dessins générés précédemment** dans la conversation, et non des SVG redessinés dans le code. Les PNG synthétiques ont été encodés en WebP haute qualité pour être embarqués dans la PWA :
 
-Dans l'application, les SVG sont convertis **localement en PNG avant l'analyse**, comme pour D/E. L'image n'est pas transmise en tant que code SVG au modèle. Les tests automatisés et le rapport exporté n'incluent jamais les copies privées.
+| Cas | Image dans le dépôt | Dimensions | Référence provisoire du nouveau dessin |
+|---|---|---:|---:|
+| R1 | `classroom-mitosis-r1.webp` | 744 × 510 | 9,17/10 |
+| R2 | `classroom-mitosis-r2.webp` | 746 × 509 | 7,16/10 |
+| R3 | `classroom-mitosis-r3.webp` | 814 × 487 | 8,01/10 |
 
-## Distinction essentielle entre notes
+Les visuels conservent le crayon, les hachures, les textes manuscrits synthétiques et les imperfections graphiques. Ils sont importés directement comme fichiers WebP dans le laboratoire et dans l'historique. **Aucun générateur SVG n'est utilisé pour R1/R2/R3**. Les anciens cas D/E, qui sont une paire de contrôle indépendante, restent inchangés.
 
-| Cas synthétique | Score de référence du *nouveau dessin*, calculé sur le barème actuel | Point majeur à vérifier |
-|---|---:|---|
-| R1 | 9,50/10, provisoire | Interphase obligatoire absente ; autres phases et légendes lisibles |
-| R2 | 5,30/10, provisoire | Pointage « cytoplasme » vers le noyau, paroi simplifiée et télophase sans cloison |
-| R3 | 6,67/10, provisoire | Interphase absente, membrane nucléaire représentée en métaphase et microtubules légendés |
+## Confidentialité
 
-**Aucune note individuelle provenant des copies privées n’est enregistrée dans le dépôt.** Les notes synthétiques ne sont pas une reproduction numérique du jugement d'un enseignant. Chaque sous-critère est explicite dans \`scientificDiagramFixtures.ts\` et la fiche UI. Avant de s'appuyer sur ces valeurs comme référence scientifique validée, faire arbitrer les 19 sous-critères des trois dessins par deux enseignants, idéalement en aveugle.
+Leur inspiration vient de remarques pédagogiques faites sur trois copies privées ; **aucune photographie de copie, aucun tracé original, aucune identité, aucune annotation manuscrite réelle et aucune note individuelle de l'enseignant n'ont été ajoutés au dépôt**. Les images sont les créations synthétiques précédemment produites, pas des anonymisations ni des retouches des feuilles d'élèves.
 
-## Pourquoi ces dessins sont différents des pilotes historiques
+Les trois images utilisées pour les essais sont embarquées localement dans l'application. Il n'y a aucun service d'images externe. La destination des appels aux modèles demeure celle explicitement choisie dans le profil IA (par exemple Ollama local).
 
-- A/B/C contrôlent la qualité graphique globale sur des exemples artificiels de trois niveaux.
-- D/E isolent le défaut de destination de traits de rappel sur deux images contrôlées.
-- **R1/R2/R3** apportent trois profils pédagogiques composés, inspirés de défauts réellement soulignés en classe. Ils ne sont pas de nouvelles copies anonymisées et n'ont aucune identité source.
+## Ce qui est réellement visible dans les trois dessins
 
-La suite R1/R2/R3 est une batterie distincte dans **Tests → Schémas scientifiques → Cas de classe synthétiques**. On peut lancer un seul dessin, les trois en un clic, et faire 1, 3 ou 5 répétitions. Les méthodes du laboratoire restent disponibles. Les rapports vont dans l'historique sous \`classroom\`, sans effacer les batteries A/B/C et D/E.
+- **R1** : prophase, métaphase, anaphase et télophase ; interphase pourtant obligatoire absente. Le titre est placé au-dessus, et non en dessous comme l'exige le barème de présentation courant.
+- **R2** : interphase, prophase, anaphase et télophase. En interphase, une légende « chromosome » désigne le contenu du noyau sans chromosome individualisé ; en anaphase, le pointage « membrane plasmique » sur le bord est discutable ; la télophase ne montre pas de cloison centrale clairement identifiable. Les légendes, notamment « cytoplasme », ne doivent **pas** être déclarées fausses sur la seule base d'une erreur qui figurait dans l'ancien SVG.
+- **R3** : pas d'interphase ; l'enveloppe nucléaire est représentée et légendée en métaphase ; les « microtubules » sont mentionnés sans structure nettement identifiable à l'extrémité du trait. Le titre comporte bien une coupe de racine de jacinthe, mais il se trouve au-dessus du dessin.
 
-## Prise en compte dans les radars
+Les notes de référence sont recalculées à partir des **19 sous-critères du pilote sur ces nouveaux pixels**, et restent **provisoires, non validées par un professeur**. L'application ne doit pas les présenter comme les véritables notes des copies privées.
 
-Le radar n'agrège que les séries \`R1\`, \`R2\`, \`R3\` **complètes et techniquement réussies**, sans changer l'identification des 9 axes. Les décisions du nouveau jeu apportent de la preuve aux axes « Qualité graphique », « Précision », « Couverture », « Stabilité » (si 3 répétitions) et « Performance » (si les durées natives sont disponibles). Les scores « Qualité graphique » et « Précision » utilisent le nombre total d'attendus plutôt que la moyenne de notes par dessin ; la provenance synthétique provisoire est annoncée dans le détail de l'axe.
+## Historique et radars
 
-Une sortie sans décision, une série partielle, un modèle indisponible ou une lecture indécidable ne doit pas être présentée comme un score vérifié. Les rapports historiques restent conservés et les scores historiques ne sont pas recopiés dans les références des dessins R1/R2/R3.
+Le protocole de référence passe de **v8 (dessins vectoriels)** à **v9 (les trois images WebP réalistes)**. Les anciens rapports sont conservés dans l'historique, mais leurs images supprimées ne sont pas remplacées silencieusement par de nouvelles ; le lecteur affiche un avertissement. Les expériences v8 ne participent plus aux radars v9.
+
+Seules les séries R1/R2/R3 complètes et réussies sont agrégées aux mesures de qualité graphique et de précision. Les tests conservent les règles existantes pour les mesures non exploitables, les durées natives et les répétitions.
 
 ## Vérification
 
-- Tests unitaires : absence d'images privées et de métadonnées personnelles, quatre panneaux, erreur attendue par cas, 19 références explicites, distinction des notes.
-- Tests d'intégration des radars : agrégation A/B/C + R1/R2/R3, non-écrasement de la batterie ancienne, exclusion des séries incomplètes, caractère non global du score.
-- Test de parcours : affichage des trois cartes, prévisualisations, avertissement sur la référence provisoire, accès au lancement de la suite.
+- Empreintes SHA-256 des trois fichiers WebP et en-têtes raster, pour prévenir un retour accidentel des illustrations SVG.
+- Tests unitaires de présence/absence des phases et de calibration des 19 critères.
+- Tests de radar couvrant l'exclusion des anciennes séries v8, la combinaison avec A/B/C et l'exclusion des séries incomplètes.
+- Test navigateur des trois images réellement décodées (dimensions originales), et de leur affichage dans le parcours R1/R2/R3.
 
-**Limite** : ces trois figures synthétiques simplifient nécessairement la richesse des traits de crayon humains. Un résultat élevé sur ces figures ne démontre pas la fiabilité sur des copies réelles. Ne jamais ajouter les photos privées au dépôt ou dans les fixtures pour combler cet écart.
+**Limite** : une bonne note d'IA sur ces images synthétiques ne prouve pas sa fiabilité sur des photos de copies réelles. Une validation indépendante des 19 points par un enseignant reste requise. Le critère général « Compréhension » du pilote ne permet pas, à lui seul, de sanctionner chaque incohérence spécifique à une phase, par exemple l'enveloppe nucléaire en métaphase : ces erreurs doivent aussi être signalées dans la revue scientifique.
