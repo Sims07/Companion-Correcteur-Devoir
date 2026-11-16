@@ -28,6 +28,26 @@ describe('reviewed B reference, independent of model predictions', () => {
     expect(fixture.referenceReview!.notes['title-section']).toContain('applicabilité');
     expect(fixture.referenceReview!.notes['drawing-clean']).toContain('couleur seule');
   });
+  it('keeps below-title reference absent for R1/R2/R3 despite local phase captions below the cells', () => {
+    const cases = SCIENTIFIC_DIAGRAM_FIXTURES.filter(c => ['R1', 'R2', 'R3'].includes(c.id));
+    expect(cases).toHaveLength(3);
+    for (const item of cases) {
+      expect(item.referencePoints['title::title-below']).toBe(0);
+      expect(item.gold['title::title-below']).toBe('absent');
+      expect(item.referenceReview?.notes['title-below']).toContain('au-dessus');
+    }
+    for (const id of ['D', 'E']) {
+      expect(SCIENTIFIC_DIAGRAM_FIXTURES.find(c => c.id === id)?.gold['title::title-below']).toBe('present');
+    }
+    const prompt = buildDirectDiagramPrompt({
+      question: 'Dessiner quatre phases de mitose',
+      rubric: JSON.stringify(SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC),
+    });
+    expect(prompt).toContain('noms des phases');
+    expect(prompt).toContain('titre est au-dessus');
+    expect(prompt).toContain('position relative à toute la composition');
+  });
+
   it('versions the revised ground truth and exports its provisional rationale', () => {
     const report = buildScientificDiagramFixtureReport([], 1, '2026-11-08');
     expect(report.version).toBe(9);
