@@ -7,7 +7,7 @@ test('all scientific protocol buttons are reachable before the image catalog, on
   await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: 'Schémas scientifiques' }).click();
   const panel = page.getByRole('region', { name: 'Protocole schémas scientifiques', exact: true });
   const choices = panel.getByRole('tablist', { name: 'Protocoles automatiques des schémas scientifiques' });
-  await expect(choices.getByRole('tab')).toHaveCount(4);
+  await expect(choices.getByRole('tab')).toHaveCount(5);
   await expect(panel.getByText('3 schémas · présentation, légendes et justesse')).toBeVisible();
   for (const [label, action] of [
     [/Qualité graphique/, /Tester les 3 schémas en un clic/],
@@ -29,7 +29,7 @@ test('all scientific protocol buttons are reachable before the image catalog, on
   });
   expect(positions.controls).toBeLessThan(positions.preview);
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(choices.getByRole('tab')).toHaveCount(4);
+  await expect(choices.getByRole('tab')).toHaveCount(5);
   const overflow = await page.evaluate(() => {
     const width = document.documentElement.clientWidth;
     return {
