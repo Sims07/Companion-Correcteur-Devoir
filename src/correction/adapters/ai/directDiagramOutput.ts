@@ -23,6 +23,19 @@ export function directDiagramSchema(criteria: RubricCriterion[]) {
   }))) });
 }
 
+/** Reserve enough JSON output for every scored leaf without changing the transcription budget.
+ * Keep a conservative ceiling for local vision models on memory-limited machines. */
+export function directDiagramGenerationTokenLimit(criteria: RubricCriterion[], thinking = false): number {
+  if (thinking) return 4096;
+  const scoredLeaves = criteria.reduce(
+    (total, criterion) => total + Math.max(1, getRubricSubcriteria(criterion).length), 0,
+  );
+  // Eight short observations fit the baseline. Larger scientific rubrics need
+  // more room for their independently justified marks (19 leaves => 3072).
+  const estimated = 2048 + Math.max(0, scoredLeaves - 8) * 80;
+  return Math.min(3584, Math.ceil(estimated / 512) * 512);
+}
+
 function record(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
