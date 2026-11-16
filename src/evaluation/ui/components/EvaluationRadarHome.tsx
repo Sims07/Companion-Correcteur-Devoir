@@ -5,7 +5,7 @@ import {
   methodIsActive, observedRadarMethodId, saveRadarMethodExclusions, toggleRadarMethodExclusion,
 } from '../../domain/radarMethodExclusions.ts';
 import { scienceMethodProgress } from '../../domain/radarMethodProgress.ts';
-import { biologyPoints, biologyRunMethodLabel, campaignGroups, scienceMethods, sciencePoints, trialSteps, type ScienceMethod, type TimelinePoint } from '../../domain/radarTimeline.ts';
+import { biologyPoints, biologyRunMethodLabel, campaignGroups, scienceMethods, ACTIVE_SCIENCE_METHOD_IDS, sciencePoints, trialSteps, type ScienceMethod, type TimelinePoint } from '../../domain/radarTimeline.ts';
 import { RadarTimeline } from './RadarTimeline.tsx';
 import { buildRadarAnalysisExport, isRadarBenchmark } from '../../domain/radarAnalysisExport.ts';
 import { downloadJson } from '../../../shared/ui/downloadJson.ts';
@@ -128,8 +128,8 @@ export function EvaluationRadarHome({
     (profile.configuration.apiCompatible || !isVisualDecisionModel(profile.configuration.analysisModel)));
   const [method, setMethod] = useState<ScienceMethod>('pixel-v1');
   const [bioMethod, setBioMethod] = useState<'standard' | 'contract'>('contract');
-  const activeScienceMethod = enabled('diagrams', method) ? method
-    : (Object.keys(scienceMethods) as ScienceMethod[]).find(id => enabled('diagrams', id));
+  const activeScienceMethod = ACTIVE_SCIENCE_METHOD_IDS.includes(method) && enabled('diagrams', method) ? method
+    : ACTIVE_SCIENCE_METHOD_IDS.find(id => enabled('diagrams', id));
   const activeBioMethodAllowed = (id: 'standard' | 'contract') => enabled('biology', id) &&
     (!profile || enabled('biology', observedRadarMethodId('biology', biologyRunMethodLabel(
       id, profile.configuration.correctionMethod,
@@ -218,8 +218,8 @@ export function EvaluationRadarHome({
         {scientific ? <select value={activeScienceMethod ?? ''} disabled={!activeScienceMethod}
           onChange={e => { setMethod(e.target.value as ScienceMethod); markChosen(lab); }}>
           {!activeScienceMethod && <option value="">Aucune méthode active</option>}
-          {Object.entries(scienceMethods).map(([id, item]) =>
-            <option key={id} value={id} disabled={!enabled('diagrams', id)}>{item.label}{!enabled('diagrams', id) ? ' (exclue)' : ''}</option>)}
+          {ACTIVE_SCIENCE_METHOD_IDS.map(id =>
+            <option key={id} value={id} disabled={!enabled('diagrams', id)}>{scienceMethods[id].label}{!enabled('diagrams', id) ? ' (exclue)' : ''}</option>)}
         </select> : <select value={activeBioMethod ?? ''} disabled={!activeBioMethod}
           onChange={e => { setBioMethod(e.target.value as typeof bioMethod); markChosen(lab); }}>
           {!activeBioMethod && <option value="">Aucune méthode active</option>}
@@ -240,7 +240,7 @@ export function EvaluationRadarHome({
             else if (profile) runBiologyBatch?.(profile.id, missingBiology);
           }}>Évaluer toutes les méthodes restantes ({scientific ? scienceBatchPlans.length : missingBiology.length})</Button>
       </div>
-      {scientific && <section className="radar-method-audit" aria-label={'État des ' + Object.keys(scienceMethods).length + ' méthodes scientifiques'}>
+      {scientific && <section className="radar-method-audit" aria-label={'État des ' + ACTIVE_SCIENCE_METHOD_IDS.length + ' méthodes scientifiques'}>
         <h3>Bilan de complétude par méthode</h3>
         <p>Une campagne terminée n'est pas forcément un radar complet. Les relances ciblées
           conservent le même essai et ne refont pas les batteries déjà exploitables.</p>
