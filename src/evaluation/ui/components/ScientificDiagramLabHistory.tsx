@@ -11,7 +11,9 @@ import { summarizeDiagramLabReadiness } from '../../domain/diagramLabReadiness.t
 import { ScientificDiagramRadar } from './ScientificDiagramRadar.tsx';
 import { ZoomableImage } from '../../../shared/ui/components/ZoomableImage.tsx';
 import { assessDiagramDecision, type DiagramDecisionStatus } from '../../domain/diagramDecisionComparison.ts';
-import { classroomScenarioPreview } from '../../domain/scientificDiagramClassroomCases.ts';
+import classroomR1Url from '../../assets/pilot/classroom-mitosis-r1.webp';
+import classroomR2Url from '../../assets/pilot/classroom-mitosis-r2.webp';
+import classroomR3Url from '../../assets/pilot/classroom-mitosis-r3.webp';
 import { SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC } from '../../domain/scientificDiagramFixtures.ts';
 import { scientificDiagramSensitivityPreviewUrl } from '../../domain/scientificDiagramSensitivity.ts';
 import cleanDiagramUrl from '../../assets/pilot/scientific-mitosis-10.webp';
@@ -23,7 +25,7 @@ import swappedPointerDiagramUrl from '../../assets/pilot/scientific-mitosis-labe
 const fixturePreviews = {
   A: cleanDiagramUrl, B: intermediateDiagramUrl, C: poorDiagramUrl,
   D: correctPointerDiagramUrl, E: swappedPointerDiagramUrl,
-  R1: classroomScenarioPreview('R1'), R2: classroomScenarioPreview('R2'), R3: classroomScenarioPreview('R3'),
+  R1: classroomR1Url, R2: classroomR2Url, R3: classroomR3Url,
 };
 import { DesignSystemSelect } from '../../../shared/ui/components/DesignSystemSelect.tsx';
 import { Button } from '../../../shared/ui/design-system/index.ts';
