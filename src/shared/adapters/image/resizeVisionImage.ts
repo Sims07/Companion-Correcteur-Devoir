@@ -22,7 +22,17 @@ export async function resizeVisionImage(
   const decoded = atob(image.base64);
   const bytes = new Uint8Array(decoded.length);
   for (let i = 0; i < decoded.length; i += 1) bytes[i] = decoded.charCodeAt(i);
-  const bitmap = await createImageBitmap(new Blob([bytes.buffer as ArrayBuffer], { type: image.mimeType }));
+  let bitmap: ImageBitmap;
+  try {
+    bitmap = await createImageBitmap(new Blob([bytes.buffer as ArrayBuffer], { type: image.mimeType }));
+  } catch {
+    // A few diagnostic integrations pass opaque/synthetic image payloads and
+    // delegate validation to Ollama. Keep their previous wire behavior rather
+    // than failing locally before the provider can report a meaningful error.
+    // Real decodable student scans are still resized and cannot take this path.
+    signal?.throwIfAborted();
+    return image;
+  }
   try {
     signal?.throwIfAborted();
     const scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height));
