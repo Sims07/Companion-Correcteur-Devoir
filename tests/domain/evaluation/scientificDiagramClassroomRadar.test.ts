@@ -27,7 +27,7 @@ function battery(kind: 'reference' | 'classroom', missing?: string): DiagramLabA
     profiles: ['Qwen'], plannedRepetitions: 1, experimentCount: cases.length,
     successfulCount: cases.length, localOnly: true,
     report: {
-      format: 'companion-scientific-diagram-fixture-report', version: 8,
+      format: 'companion-scientific-diagram-fixture-report', version: 9,
       createdAt: '2026-11-16T10:00:00Z', plannedRepetitions: 1, localOnly: true,
       cases,
     } as unknown as DiagramLabArchiveEntry['report'],
@@ -56,6 +56,16 @@ describe('synthetic classroom battery feeds radar without contaminating the old 
     expect(radar.axes.graphics.evidence.map(item => item.protocol)).toEqual(['reference']);
     expect(radar.axes.precision.value).toBe(100);
   });
+  it('archives old SVG benchmark results but never mixes them with current raster truth', () => {
+    const oldVector = structuredClone(battery('classroom'));
+    (oldVector.report as { version: number }).version = 8;
+    expect(buildDiagramLabRadar([oldVector], 'model')).toEqual([]);
+    const current = buildDiagramLabRadar([battery('reference'), oldVector], 'model')[0]!;
+    expect(current.axes.graphics.value).toBe(100);
+    expect(current.axes.graphics.evidence.map(item => item.protocol)).toEqual(['reference']);
+    expect(current.axes.precision.value).toBe(100);
+  });
+
   it('allows the classroom battery alone to be visible but never a full global score', () => {
     const radar = buildDiagramLabRadar([battery('classroom')], 'model')[0]!;
     expect(radar.axes.graphics.value).toBeCloseTo(98.2, 1);
