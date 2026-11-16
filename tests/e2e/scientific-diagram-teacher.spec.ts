@@ -109,6 +109,49 @@ test('an individually corrected scientific diagram uses one direct image request
   expect(requests[0].options?.num_ctx).toBe(8192);
 });
 
+test('a large PNG copy is downsized on the multimodal wire but preserved locally for the teacher', async ({ page }) => {
+  const requests: Record<string, any>[] = [];
+  await mockOllama(page, requests);
+  await page.goto('/');
+  await createDiagramAssignment(page, 'Grande copie scientifique');
+
+  const originalBase64 = await page.evaluate(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 2600;
+    canvas.height = 1800;
+    const ctx = canvas.getContext('2d')!;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, 2600, 1800);
+    ctx.fillStyle = '#111111';
+    ctx.font = '60px sans-serif';
+    ctx.fillText('Mitose', 100, 100);
+    ctx.strokeRect(200, 200, 1000, 800);
+    return canvas.toDataURL('image/png').split(',')[1]!;
+  });
+  await page.locator('.copy-overview-heading').getByRole('button', { name: /Ajouter des copies/ }).click();
+  await page.getByRole('button', { name: 'Préparer manuellement une copie et ses pages' }).click();
+  await page.locator('#copy-files').setInputFiles({
+    name: 'grand-schema.png', mimeType: 'image/png', buffer: Buffer.from(originalBase64, 'base64'),
+  });
+  await page.getByRole('button', { name: 'Corriger le schéma' }).click();
+  await expect(page.locator('.copy-review-header-score')).toContainText('0 / 8', { timeout: 30000 });
+
+  expect(requests).toHaveLength(1);
+  const sent = requests[0].messages?.[0]?.images?.[0] as string;
+  expect(sent).toBeTruthy();
+  expect(sent).not.toBe(originalBase64);
+  const dimensions = await page.evaluate(async (base64) => {
+    const image = new Image();
+    image.src = 'data:image/jpeg;base64,' + base64;
+    await image.decode();
+    return [image.naturalWidth, image.naturalHeight];
+  }, sent);
+  expect(dimensions).toEqual([1300, 900]);
+  // The teacher can still see the original PNG, not the reduced network payload.
+  const copyImage = page.locator('.review-source-pane img').first();
+  await expect(copyImage).toHaveAttribute('src', /^data:image\/png;base64,/);
+});
+
 test('a diagram devoir has the normal library, several copies, review rail and locally archived corrections', async ({ page }) => {
   const requests: Record<string, any>[] = [];
   await mockOllama(page, requests);
