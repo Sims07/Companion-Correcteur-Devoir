@@ -9,8 +9,6 @@ export const CLASSROOM_CASE_IDS = ['R1', 'R2', 'R3'] as const;
 export interface ClassroomScenario {
   id: ClassroomCaseId;
   label: string;
-  /** Historical teacher score belongs ONLY to the private inspiration, not to this SVG. */
-  privateInspirationScore: number;
   expectedFindings: readonly string[];
   phases: readonly ('interphase' | 'prophase' | 'metaphase' | 'anaphase' | 'telophase')[];
   synthetic: true;
@@ -20,7 +18,7 @@ export interface ClassroomScenario {
 export const CLASSROOM_SCENARIOS: readonly ClassroomScenario[] = [
   {
     id: 'R1', label: 'R1 — présentation soignée, étape oubliée',
-    privateInspirationScore: 9.5, synthetic: true, teacherValidated: false,
+    synthetic: true, teacherValidated: false,
     phases: ['prophase', 'metaphase', 'anaphase', 'telophase'],
     expectedFindings: [
       'Interphase obligatoire absente malgré quatre panneaux correctement dessinés.',
@@ -30,7 +28,7 @@ export const CLASSROOM_SCENARIOS: readonly ClassroomScenario[] = [
   },
   {
     id: 'R2', label: 'R2 — confusions de structures et de pointage',
-    privateInspirationScore: 5.75, synthetic: true, teacherValidated: false,
+    synthetic: true, teacherValidated: false,
     phases: ['anaphase', 'interphase', 'prophase', 'telophase'],
     expectedFindings: [
       'Paroi représentée par un contour simple, non par un double trait.',
@@ -41,7 +39,7 @@ export const CLASSROOM_SCENARIOS: readonly ClassroomScenario[] = [
   },
   {
     id: 'R3', label: 'R3 — erreurs propres à la métaphase',
-    privateInspirationScore: 6.75, synthetic: true, teacherValidated: false,
+    synthetic: true, teacherValidated: false,
     phases: ['prophase', 'metaphase', 'anaphase', 'telophase'],
     expectedFindings: [
       'Interphase obligatoire absente.',
