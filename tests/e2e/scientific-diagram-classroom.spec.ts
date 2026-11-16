@@ -15,7 +15,7 @@ test('classroom synthetic suite is separated from A/B/C and D/E and ready for on
   await expect(cards.getByText('R1 — présentation soignée, étape oubliée')).toBeVisible();
   await expect(cards.getByText('R2 — confusions de structures et de pointage')).toBeVisible();
   await expect(cards.getByText('R3 — erreurs propres à la métaphase')).toBeVisible();
-  await expect(cards.getByText(/ne constitue pas le corrigé de cette nouvelle image/)).toHaveCount(3);
+  await expect(cards.getByText(/concerne uniquement le nouveau dessin/)).toHaveCount(3);
   await expect(cards.getByText('5.3/10 attendu')).toBeVisible();
   await expect(cards.getByText('6.67/10 attendu')).toBeVisible();
   const images = cards.locator('img');
