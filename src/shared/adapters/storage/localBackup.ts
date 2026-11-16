@@ -8,6 +8,7 @@ const DATABASE_NAME = 'companion-correcteur-devoir';
 const STORES = [
   'local-memory', 'local-corrections', 'model-evaluations', 'diagnostic-history',
   'diagram-lab-archive', 'background-corrections', 'background-transcriptions',
+  'scientific-diagram-drafts',
 ] as const;
 type StoreName = typeof STORES[number];
 type StorageAccess = Pick<Storage, 'length' | 'key' | 'getItem' | 'setItem' | 'removeItem'>;
@@ -64,6 +65,14 @@ export function validateLocalBackup(value: unknown): LocalBackup {
     }
   }
   const stores = value.indexedDb.stores;
+  // Backups produced before the local scientific-draft store was added are
+  // still valid. Import them as an empty new store without removing any copy.
+  const isLegacyBackup = (value.indexedDb.version as number) < 7 &&
+    Object.keys(stores).length === STORES.length - 1 &&
+    !Object.prototype.hasOwnProperty.call(stores, 'scientific-diagram-drafts') &&
+    STORES.filter(store => store !== 'scientific-diagram-drafts')
+      .every(store => Object.prototype.hasOwnProperty.call(stores, store));
+  if (isLegacyBackup) stores['scientific-diagram-drafts'] = [];
   if (Object.keys(stores).length !== STORES.length ||
       STORES.some((store) => !Object.prototype.hasOwnProperty.call(stores, store))) {
     throw new Error('La sauvegarde ne contient pas toutes les catégories de données attendues.');
