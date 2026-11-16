@@ -54,7 +54,7 @@ async function readRecord(store: string, id: string): Promise<unknown> {
 beforeEach(async () => { settings.clear(); await clearDatabase(); });
 
 describe('portable local backup (localhost to PWA)', () => {
-  it('exports all seven IndexedDB stores with archived photos and only Companion settings', async () => {
+  it('exports all eight IndexedDB stores including draft photos and only Companion settings', async () => {
     settings.setItem('companion-correcteur:assignments:v1', JSON.stringify([{ id: 'assignment-1', title: 'Biologie' }]));
     settings.setItem('companion:scientific-lab-radar-model:v1', 'qwen3.5:4b');
     settings.setItem('other-application:password', 'DO_NOT_EXPORT');
@@ -62,17 +62,51 @@ describe('portable local backup (localhost to PWA)', () => {
     await saveRecord('diagram-lab-archive', { id: 'diagram-1', createdAt: '2026-11-12', result: { score: 8 } });
     await saveRecord('model-evaluations', { id: 'evaluation-1', images: [{ base64: 'RADAR_IMAGE' }], score: 5 });
     await saveRecord('background-transcriptions', { fingerprint: 'image-hash', transcription: 'Texte scientifique' });
+    await saveRecord('scientific-diagram-drafts', { id: 'personal-lab', draft: { images: [
+      { mimeType: 'image/png', base64: 'PRIVATE_PERSONAL_DRAFT' },
+    ], context: 'Examen' } });
     const backup = await createLocalBackup(settings);
     expect(backup.format).toBe('companion-correcteur-local-backup');
-    expect(backup.indexedDb.version).toBe(6);
-    expect(Object.keys(backup.indexedDb.stores)).toHaveLength(7);
+    expect(backup.indexedDb.version).toBe(7);
+    expect(Object.keys(backup.indexedDb.stores)).toHaveLength(8);
+    expect(backup.indexedDb.stores['scientific-diagram-drafts'][0]).toMatchObject({
+      id: 'personal-lab', draft: { images: [{ base64: 'PRIVATE_PERSONAL_DRAFT' }] },
+    });
     expect(backup.indexedDb.stores['local-corrections'][0]).toMatchObject({
       snapshot: { images: [{ base64: 'PRIVATE_COPY_IMAGE' }] },
     });
     expect(backup.indexedDb.stores['background-transcriptions'][0]).toMatchObject({ fingerprint: 'image-hash' });
     expect(JSON.stringify(backup)).toContain('RADAR_IMAGE');
     expect(JSON.stringify(backup)).not.toContain('DO_NOT_EXPORT');
-    expect(summarizeLocalBackup(backup)).toMatchObject({ recordCount: 4, settingCount: 2 });
+    expect(summarizeLocalBackup(backup)).toMatchObject({ recordCount: 5, settingCount: 2 });
+  });
+
+  it('imports a legacy v6 archive without wiping new scientific drafts', async () => {
+    const current = await createLocalBackup(settings);
+    const old = structuredClone(current);
+    old.indexedDb.version = 6;
+    delete (old.indexedDb.stores as unknown as Record<string, unknown>)['scientific-diagram-drafts'];
+    const restored = parseLocalBackup(JSON.stringify(old));
+    expect(restored.indexedDb.stores['scientific-diagram-drafts']).toEqual([]);
+    await saveRecord('scientific-diagram-drafts', { id: 'personal-lab',
+      draft: { images: [{ base64: 'DRAFT_ALREADY_ON_TARGET' }] } });
+    await restoreLocalBackup(restored, 'merge', settings);
+    expect(await readRecord('scientific-diagram-drafts', 'personal-lab')).toMatchObject({
+      draft: { images: [{ base64: 'DRAFT_ALREADY_ON_TARGET' }] },
+    });
+  });
+
+  it('restores exported scientific drafts to a fresh installation', async () => {
+    await saveRecord('scientific-diagram-drafts', { id: 'teacher-direct',
+      draft: { images: [{ mimeType: 'image/png', base64: 'COPY_TO_TRANSFER' }],
+        rubric: { title: 'Barème', criteria: [] } } });
+    const file = JSON.stringify(await createLocalBackup(settings));
+    await clearDatabase();
+    const imported = await restoreLocalBackup(parseLocalBackup(file), 'merge', settings);
+    expect(imported.recordsImported).toBeGreaterThan(0);
+    expect(await readRecord('scientific-diagram-drafts', 'teacher-direct')).toMatchObject({
+      draft: { images: [{ base64: 'COPY_TO_TRANSFER' }] },
+    });
   });
 
   it('restores archived copies, scientific tests, transcriptions and settings into a fresh origin', async () => {
