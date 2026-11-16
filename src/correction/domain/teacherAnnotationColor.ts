@@ -70,18 +70,96 @@ export function sampleTeacherPaperColor(pixels: Uint8ClampedArray, width: number
   return [0, 1, 2].map((channel) => median(candidates.map((sample) => sample[channel]))) as [number, number, number];
 }
 
-/** Replace pixels matching the sampled ink hue (or grayscale tone) with the sampled paper tone. */
-export function eraseTeacherInkPixels(pixels: Uint8ClampedArray, paper: Rgb, color: Exclude<TeacherAnnotationInkColor, 'none'>): Uint8ClampedArray {
+/**
+ * Remove a selected teacher ink color, including its low-saturation scanner/JPEG
+ * fringes. Compare chroma relative to the sampled paper, rather than requiring
+ * the original vivid ink saturation: pale orange/red edges can be almost white.
+ *
+ * Weak fringes are removed only next to confidently colored ink. Neutral
+ * graphite and unrelated paper texture stay unchanged; the source is immutable.
+ * Dimensions are optional for existing pixel-only callers, but the image adapter
+ * passes them to enable the bounded (2 px) fringe cleanup.
+ */
+export function eraseTeacherInkPixels(
+  pixels: Uint8ClampedArray,
+  paper: Rgb,
+  color: Exclude<TeacherAnnotationInkColor, 'none'>,
+  width?: number,
+  height?: number,
+): Uint8ClampedArray {
   const result = new Uint8ClampedArray(pixels);
-  const target = toHsv(parseRgb(color));
-  for (let index = 0; index < result.length; index += 4) {
-    const pixel: Rgb = [result[index], result[index + 1], result[index + 2]];
+  const selected = parseRgb(color);
+  const target = toHsv(selected);
+  // A pale sampled pink is still colored ink, not a grayscale annotation.
+  const neutralTarget = Math.max(...selected) - Math.min(...selected) <= 2;
+  const pixelCount = Math.floor(pixels.length / 4);
+  const solid = new Uint8Array(pixelCount);
+  const fringe = new Uint8Array(pixelCount);
+  const minimumDarkInkBrightness = Math.max(...paper) * 0.60;
+
+  for (let position = 0; position < pixelCount; position += 1) {
+    const offset = position * 4;
+    const pixel: Rgb = [pixels[offset], pixels[offset + 1], pixels[offset + 2]];
     const candidate = toHsv(pixel);
-    const matches = target.saturation < 0.14
-      ? candidate.saturation < 0.16 && Math.abs(candidate.value - target.value) <= 0.24
-      : candidate.saturation >= Math.max(0.16, target.saturation * 0.5) && hueDistance(candidate.hue, target.hue) <= 24;
-    if (!matches) continue;
-    result[index] = paper[0]; result[index + 1] = paper[1]; result[index + 2] = paper[2]; result[index + 3] = 255;
+    if (neutralTarget) {
+      // Preserve the existing explicit neutral-ink behavior.
+      if (candidate.saturation < 0.16 && Math.abs(candidate.value - target.value) <= 0.24) solid[position] = 1;
+      continue;
+    }
+
+    // Remove the intrinsic cast of warm or slightly tinted paper.
+    const relativeRed = pixel[0] - paper[0];
+    const relativeGreen = pixel[1] - paper[1];
+    const relativeBlue = pixel[2] - paper[2];
+    const minimum = Math.min(relativeRed, relativeGreen, relativeBlue);
+    const maximum = Math.max(relativeRed, relativeGreen, relativeBlue);
+    const relativeChroma = maximum - minimum;
+    if (relativeChroma < 3) continue;
+    const relativeHue = toHsv([
+      relativeRed - minimum,
+      relativeGreen - minimum,
+      relativeBlue - minimum,
+    ]).hue;
+    // Scanned red handwriting may shift towards orange as its opacity fades.
+    if (hueDistance(relativeHue, target.hue) > 48) continue;
+    // Very dark, nearly neutral student pencil must not be erased.
+    if (Math.max(...pixel) < minimumDarkInkBrightness && candidate.saturation < 0.25) continue;
+
+    if (relativeChroma >= 8 || (relativeChroma >= 5 && candidate.saturation >= 0.16)) {
+      solid[position] = 1;
+    } else {
+      // Faint antialiasing is only erased where anchored to actual colored ink.
+      fringe[position] = 1;
+    }
+  }
+
+  const erased = new Uint8Array(solid);
+  if (width && height && Number.isInteger(width) && Number.isInteger(height) && width > 0 && height > 0 && width * height === pixelCount && !neutralTarget) {
+    for (let position = 0; position < pixelCount; position += 1) {
+      if (!solid[position]) continue;
+      const x = position % width;
+      const y = Math.floor(position / width);
+      for (let dy = -2; dy <= 2; dy += 1) {
+        const ny = y + dy;
+        if (ny < 0 || ny >= height) continue;
+        for (let dx = -2; dx <= 2; dx += 1) {
+          if (dx * dx + dy * dy > 8) continue;
+          const nx = x + dx;
+          if (nx < 0 || nx >= width) continue;
+          const neighbor = ny * width + nx;
+          if (fringe[neighbor]) erased[neighbor] = 1;
+        }
+      }
+    }
+  }
+
+  for (let position = 0; position < pixelCount; position += 1) {
+    if (!erased[position]) continue;
+    const offset = position * 4;
+    result[offset] = paper[0];
+    result[offset + 1] = paper[1];
+    result[offset + 2] = paper[2];
+    result[offset + 3] = 255;
   }
   return result;
 }
