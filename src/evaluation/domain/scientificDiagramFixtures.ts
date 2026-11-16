@@ -26,8 +26,8 @@ export const SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC: Rubric = {
       description: 'Interphase obligatoire, télophase avec phragmoplaste visible, et deux autres étapes distinctes parmi prophase, métaphase, anaphase.',
       analysisMode: 'scientific-diagram',
       subcriteria: [
-        { id: 'understanding-interphase', title: 'Interphase représentée', description: 'Au moins une cellule végétale en interphase identifiable, avec noyau non divisé.', maxPoints: 0.5 },
-        { id: 'understanding-telophase', title: 'Télophase avec phragmoplaste visible', description: 'Deux noyaux reformés et une structure de cloisonnement identifiable (phragmoplaste / plaque cellulaire naissante). Une simple étiquette sans dessin ne suffit pas.', maxPoints: 0.5 },
+        { id: 'understanding-interphase', title: 'Interphase représentée', description: 'Au moins une cellule végétale avec noyau intact et chromatine non condensée, sans chromosomes individualisés. Une prophase avec chromosomes condensés, même dans un noyau encore entier, ne valide PAS l’interphase. Vérifier le dessin, pas seulement le nom de la phase.', maxPoints: 0.5 },
+        { id: 'understanding-telophase', title: 'Télophase avec phragmoplaste visible', description: 'Deux noyaux reformés ET une structure centrale de cloisonnement identifiable (phragmoplaste / plaque cellulaire naissante). Deux masses nucléaires ou la seule légende « phragmoplaste » sans structure dessinée ne suffisent pas.', maxPoints: 0.5 },
         { id: 'understanding-other-one', title: 'Première phase supplémentaire de mitose', description: 'Au moins une phase identifiable parmi prophase, métaphase et anaphase, distincte de l’interphase et de la télophase.', maxPoints: 0.5 },
         { id: 'understanding-other-two', title: 'Deuxième phase supplémentaire distincte', description: 'Au moins deux phases différentes et identifiables parmi prophase, métaphase et anaphase. Ne pas compter deux fois la même phase.', maxPoints: 0.5 },
       ],
