@@ -1,7 +1,7 @@
 import type { AiModelConfiguration } from '../../shared/domain/aiModelProfiles.ts';
 import { parseGradingProposal, type GradingProposal } from '../domain/grading.ts';
 import { validateRubric, type Rubric } from '../domain/rubric.ts';
-import type { ImageInput } from '../ports/aiProvider.ts';
+import type { DiagnosticModelResult, ImageInput } from '../ports/aiProvider.ts';
 import type { CorrectionWorkspaceService } from './correctionWorkspaceService.ts';
 export { isLoopbackDiagramEndpoint, directDiagramAssignmentIssue } from '../domain/directDiagramAssignment.ts';
 
@@ -11,6 +11,7 @@ export interface DirectScientificDiagramRequest {
   question: string;
   configuration: AiModelConfiguration;
   signal?: AbortSignal;
+  onDiagnosticResult?: (result: DiagnosticModelResult) => void;
 }
 
 /** Teacher-facing, single-pass diagram grading. Reuses the same strictly
@@ -21,7 +22,7 @@ export async function correctScientificDiagramDirect(
   gateway: Pick<CorrectionWorkspaceService, 'checkReady' | 'createProvider'>,
   request: DirectScientificDiagramRequest,
 ): Promise<GradingProposal> {
-  const { images, rubric, question, configuration, signal } = request;
+  const { images, rubric, question, configuration, signal, onDiagnosticResult } = request;
   if (!images.length) throw new Error('Ajoutez une photo ou un PDF du schéma.');
   const validation = validateRubric(rubric);
   if (!validation.valid) throw new Error(validation.errors.join(' '));
@@ -55,7 +56,7 @@ export async function correctScientificDiagramDirect(
     images,
     directGenerativeVision: true,
     // A scientific diagram is deliberately not transcribed first.
-  }, undefined, undefined, undefined, undefined, undefined, undefined, undefined, signal);
+  }, undefined, undefined, undefined, onDiagnosticResult, undefined, undefined, undefined, signal);
 
   if (signal?.aborted) throw new DOMException('Traitement interrompu.', 'AbortError');
   return parseGradingProposal(raw, rubric);

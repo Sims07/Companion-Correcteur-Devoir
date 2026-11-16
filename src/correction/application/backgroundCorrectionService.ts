@@ -68,7 +68,7 @@ export interface BackgroundCorrectionService {
   saveReviewDraft(jobId: string, reviewDraft: BackgroundCorrectionJob['reviewDraft'], teacherQuestionsDraft: string): Promise<void>;
   markCompleted(jobId: string): Promise<void>;
   remove(jobId: string): Promise<void>;
-  retry(jobId: string, settings: OllamaSettings): Promise<void>;
+  retry(jobId: string, settings: OllamaSettings, gradingFlow?: BackgroundCorrectionJob['gradingFlow']): Promise<void>;
   setAutomatic(enabled: boolean, settings: OllamaSettings, assignmentId: string): Promise<void>;
 }
 
@@ -755,10 +755,10 @@ export function createBackgroundCorrectionService(
       const job = await readStoredJob(jobId);
       if (job) await persist({ ...job, status: 'completed', updatedAt: new Date().toISOString() });
     },
-    async retry(jobId, settings) {
+    async retry(jobId, settings, gradingFlow) {
       const job = await readStoredJob(jobId);
       if (!job || !['failed', 'needs-review', 'reviewing'].includes(job.status)) return;
-      if (job.gradingFlow === 'scientific-diagram-direct') {
+      if ((gradingFlow ?? job.gradingFlow) === 'scientific-diagram-direct') {
         const issue = directDiagramAssignmentIssue(job.rubric, {
           endpoint: settings.endpoint, analysisModel: settings.analysisModel ?? job.analysisModel,
           correctionMethod: settings.correctionMethod ?? job.correctionMethod ?? 'generative',
@@ -767,6 +767,9 @@ export function createBackgroundCorrectionService(
       }
       await persist({
         ...job,
+        // Migrate previously queued copies when their assignment now uses direct image grading.
+        // Never infer this from scientific rubric items: ordinary assignments can mix text and diagrams.
+        ...(gradingFlow ? { gradingFlow } : {}),
         transcription: null,
         transcriptionPageNumbers: undefined,
         subjectTranscription: undefined,

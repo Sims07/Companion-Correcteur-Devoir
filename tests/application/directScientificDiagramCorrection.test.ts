@@ -19,17 +19,22 @@ const configuration = {
 
 describe('correction directe de schéma', () => {
   it('lance une analyse distante sans demander d’autorisation au professeur', async () => {
-    const generate = vi.fn(async (_request: unknown) => JSON.stringify({
+    const onDiagnosticResult = vi.fn();
+    const generate = vi.fn(async (_request: unknown, _chunk?: unknown, _stage?: unknown, _transcription?: unknown, reportDiagnostic?: (result: unknown) => void) => {
+      reportDiagnostic?.({ kind: 'model', model: 'vision-model', raw: '{}', elapsedMs: 1 });
+      return JSON.stringify({
       summary: 'Observation effectuée',
       criteria: [{ criterionId: 'drawing', points: 1, rationale: 'Partiellement correct', evidence: 'Trait visible', confidence: 'high' }],
       finalScore: 1,
-    }));
+      });
+    });
     const checkReady = vi.fn(async () => undefined);
     const createProvider = vi.fn(() => ({ generate }));
     const gateway = { checkReady, createProvider } as unknown as Pick<CorrectionWorkspaceService, 'checkReady' | 'createProvider'>;
 
-    const proposal = await correctScientificDiagramDirect(gateway, { images, rubric, question: 'Observer le trait', configuration });
+    const proposal = await correctScientificDiagramDirect(gateway, { images, rubric, question: 'Observer le trait', configuration, onDiagnosticResult });
 
+    expect(onDiagnosticResult).toHaveBeenCalledWith(expect.objectContaining({ kind: 'model', model: 'vision-model' }));
     expect(proposal.finalScore).toBe(1);
     expect(checkReady).toHaveBeenCalledWith(expect.objectContaining({ endpoint: configuration.endpoint, model: 'vision-model' }));
     expect(generate).toHaveBeenCalledTimes(1);

@@ -6,12 +6,13 @@ import { buildArbitrationPrompt, buildArbitrationRepairPrompt, buildIncrementalG
 import { buildSubjectReferencePrompt, buildStudentIdentityFallbackPrompt, buildTeacherAnnotationRepairPrompt, buildRubricPageTranscriptionPrompt } from './prompts/visionPrompts.ts';
 import { buildFullGradingPrompt } from './prompts/fullGradingPrompt.ts';
 import { buildDirectDiagramPrompt, buildDirectDiagramPointRepairPrompt, buildDirectDiagramPointsRepairPrompt } from './prompts/directDiagramPrompt.ts';
+import { resizeVisionImage } from '../../../shared/adapters/image/resizeVisionImage.ts';
 import { directDiagramSchema, parseDirectDiagramOutput, findInvalidDiagramPoints, directDiagramPointRepairSchema, directDiagramPointsRepairSchema, applyDirectDiagramPointRepair, applyDirectDiagramPointsRepair, diagramInvalidPointMarkers } from './directDiagramOutput.ts';
 import { buildTranscriptionPrompt, buildStudentIdentityPrompt, buildTeacherAnnotationPrompt } from './prompts/visionPrompts.ts';
 import { requireCorrectionMethodAvailable } from '../../../shared/domain/correctionMethod.ts';
 import { isVisualDecisionModel, prepareSystemOneRubric, scoreSystemOneRubric } from '../../domain/systemOneDecision.ts';
 import { requestSystemOneDecision } from './systemOneTransport.ts';
-import type { CriterionAnalysisUpdate, DiagnosticModelResult, GradingProgressEvent, GradingProvider, GradingRequest, OllamaModel, OllamaSettings } from '../../ports/aiProvider.ts';
+import type { CriterionAnalysisUpdate, DiagnosticModelResult, GradingProgressEvent, GradingProvider, GradingRequest, ImageInput, OllamaModel, OllamaSettings } from '../../ports/aiProvider.ts';
 import { parseGradingProposal } from '../../domain/grading.ts';
 import { reconcileIncrementalScore } from '../../domain/incrementalGradingReconciliation.ts';
 import { normalizeGradeScore, sumGradeScores } from '../../../shared/domain/scorePrecision.ts';
@@ -391,7 +392,7 @@ export function createOllamaProvider(
           throw new Error('Pour ce test, transcrivez le sujet de référence séparément avant la décision sur image.');
         }
       }
-      const providerImage = (image: import('../../ports/aiProvider.ts').ImageInput) => settings.apiCompatible
+      const providerImage = (image: ImageInput) => settings.apiCompatible
         ? `data:${image.mimeType};base64,${image.base64}`
         : image.base64;
       if (!visionModel && !request.transcription && !directVisualDecision && !directGenerativeVision) throw new Error('Choisissez un modèle de lecture pour transcrire les images.');
@@ -399,6 +400,34 @@ export function createOllamaProvider(
 
       if (!request.question.trim()) throw new Error('La consigne de correction est vide.');
       if (!request.transcription && !request.images?.length) throw new Error('Ajoutez au moins une photo ou un PDF avant de lancer la correction.');
+
+      // Prepare smaller image payloads only for LLM transport. Never mutate the
+      // teacher's original copy, or the high-resolution pages kept for zoom/review.
+      // This also covers legacy queued copies that contain unscaled PNG/JPEG pages.
+      if (request.images?.length || request.subjectImages?.length || request.teacherAnnotationImages?.length || request.identityImage) {
+        const cache = new WeakMap<ImageInput, ImageInput>();
+        const prepareImage = async (image: ImageInput) => {
+          const cached = cache.get(image);
+          if (cached) return cached;
+          const prepared = await resizeVisionImage(image, undefined, signal);
+          cache.set(image, prepared);
+          return prepared;
+        };
+        // Sequential decoding avoids opening ten full-resolution bitmaps at once on
+        // memory-limited local machines; identity/copy references can share a result.
+        const preparePages = async (pages: ImageInput[]): Promise<ImageInput[]> => {
+          const prepared: ImageInput[] = [];
+          for (const image of pages) prepared.push(await prepareImage(image));
+          return prepared;
+        };
+        request = {
+          ...request,
+          ...(request.images ? { images: await preparePages(request.images) } : {}),
+          ...(request.subjectImages ? { subjectImages: await preparePages(request.subjectImages) } : {}),
+          ...(request.teacherAnnotationImages ? { teacherAnnotationImages: await preparePages(request.teacherAnnotationImages) } : {}),
+          ...(request.identityImage ? { identityImage: await prepareImage(request.identityImage) } : {}),
+        };
+      }
 
       const buildPrompt = (transcription?: string, subjectTranscription?: string) => buildFullGradingPrompt(request, transcription, subjectTranscription);
 
@@ -1357,7 +1386,6 @@ export function createOllamaProvider(
 
 
 import { validateRubric, type Rubric } from '../../domain/rubric.ts';
-import type { ImageInput } from '../../ports/aiProvider.ts';
 import type { ImportedRubric, RubricImportProgress } from '../../ports/correctionWorkspace.ts';
 
 function rubricSlug(value: string, index: number): string {

@@ -1,4 +1,5 @@
 import { arrowContext } from '../../../shared/adapters/image/arrowContext.ts';
+import { resizeVisionImage, VISION_CLASSIFICATION_MAX_DIMENSION } from '../../../shared/adapters/image/resizeVisionImage.ts';
 import { promptTrace } from '../../../shared/adapters/ai/prompts/promptRegistry.ts';
 import { classificationPrompt, buildScientificDiagramPrompt, buildScientificDiagramRepairPrompt, buildConciseScientificDiagramPrompt } from './prompts/scientificDiagramPrompts.ts';
 export { buildScientificDiagramPrompt } from './prompts/scientificDiagramPrompts.ts';
@@ -166,6 +167,7 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
       const classifications = [];
       for (const [index, image] of request.images.entries()) {
         if (request.signal?.aborted) throw new DOMException('Traitement interrompu.', 'AbortError');
+        const compactImage = await resizeVisionImage(image, VISION_CLASSIFICATION_MAX_DIMENSION, request.signal);
         const prompt = classificationPrompt(index + 1), schema = buildScientificPageClassificationSchema(), startedAt = Date.now();
         let lastRequestStartedAt = startedAt;
         let raw = '';
@@ -178,8 +180,8 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
               stream: false,
               ...(local ? { think: false } : { generation_token_parameter: 'max_tokens' as const }),
               format: schema,
-              options: { temperature: 0, num_predict: 1024 },
-              messages: [{ role: 'user', content, imageDetail: 'high' as const, images: [local ? image.base64 : 'data:' + image.mimeType + ';base64,' + image.base64] }],
+              options: { temperature: 0, num_predict: 1024, ...(local ? { num_ctx: 8192 } : {}) },
+              messages: [{ role: 'user', content, imageDetail: 'high' as const, images: [local ? compactImage.base64 : 'data:' + compactImage.mimeType + ';base64,' + compactImage.base64] }],
             };
             if (local) requestPayload = JSON.stringify({ ...body, messages: body.messages.map((message) => ({ ...message, images: ['[IMAGE REDACTED]'] })) });
             const pageNumber = index + 1;
@@ -236,7 +238,8 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
       const startedAt = Date.now();
       let lastRequestStartedAt = startedAt;
       let raw = '';
-      const hints = await arrowContext(request.images, request.pageNumbers, request.signal);
+      const preparedImages = await Promise.all(request.images.map((image) => resizeVisionImage(image, undefined, request.signal)));
+      const hints = await arrowContext(preparedImages, request.pageNumbers, request.signal);
       let prompt = buildScientificDiagramPrompt(request) + hints;
 
       const send = async (promptOverride?: string, scopedRequest: ScientificDiagramAnalysisRequest = request) => {
@@ -253,7 +256,7 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
             content: prompt,
             // Scientific drawing quality depends on retaining the highest available image detail.
             imageDetail: 'high',
-            images: request.images.map((image) => local ? image.base64 : 'data:' + image.mimeType + ';base64,' + image.base64),
+            images: preparedImages.map((image) => local ? image.base64 : 'data:' + image.mimeType + ';base64,' + image.base64),
           }],
         };
         const post = (format: unknown) => {

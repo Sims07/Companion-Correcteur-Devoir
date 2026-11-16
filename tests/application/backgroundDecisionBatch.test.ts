@@ -61,10 +61,39 @@ function createHarness(method: 'decision' | 'generative', analysisModel: string)
     endpoint: 'http://localhost:11434', visionModel: 'qwen3.5:4b', analysisModel,
     correctionMethod: method, autoBackgroundCorrection: false,
   };
-  return { service: createBackgroundCorrectionService(repository, workspace), job, generate, settings };
+  return { service: createBackgroundCorrectionService(repository, workspace), job, jobs, generate, settings };
 }
 
 describe('background correction: native decision batching', () => {
+  it('retries a legacy scientific-diagram copy through direct grading, not Vision classification', async () => {
+    const { service, job, jobs, generate, settings } = createHarness('generative', 'qwen3.5:4b');
+    const diagramRubric = {
+      title: 'Schéma scientifique',
+      criteria: criteria.map((criterion) => ({ ...criterion, analysisMode: 'scientific-diagram' as const })),
+    };
+    await service.enqueue({ ...job, rubric: diagramRubric }, settings);
+    const saved = jobs.get(job.id)!;
+    // Older entries were created before gradingFlow was persisted.
+    expect(saved.gradingFlow).toBeUndefined();
+    jobs.set(job.id, { ...saved, status: 'failed', error: 'La détection Vision de la page 1 a échoué (HTTP 400).' });
+
+    await service.retry(job.id, settings, 'scientific-diagram-direct');
+
+    expect(generate).toHaveBeenCalledTimes(1);
+    expect(generate.mock.calls[0]![0]).toMatchObject({
+      directGenerativeVision: true,
+      images: job.images,
+    });
+    const [updated] = await service.listJobs(job.assignmentId);
+    expect(updated).toMatchObject({
+      gradingFlow: 'scientific-diagram-direct',
+      status: 'ready',
+      transcription: null,
+      error: null,
+      completedCriteria: 2,
+    });
+  });
+
   it.each([
     { method: 'decision' as const, model: 'd3:4b', expectedCalls: 1, expectedRubricSizes: [2] },
     { method: 'decision' as const, model: 'qwen3.5:4b', expectedCalls: 1, expectedRubricSizes: [2] },
