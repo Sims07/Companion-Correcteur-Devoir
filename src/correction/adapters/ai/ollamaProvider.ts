@@ -1386,7 +1386,6 @@ export function createOllamaProvider(
 
 
 import { validateRubric, type Rubric } from '../../domain/rubric.ts';
-import type { ImageInput } from '../../ports/aiProvider.ts';
 import type { ImportedRubric, RubricImportProgress } from '../../ports/correctionWorkspace.ts';
 
 function rubricSlug(value: string, index: number): string {
