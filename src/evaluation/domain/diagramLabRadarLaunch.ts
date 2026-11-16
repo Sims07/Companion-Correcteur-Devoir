@@ -210,6 +210,9 @@ export function resolveModelProfile(
   const needsGrading = plan.steps.some((step) => step.protocol !== 'graph');
   const needsGraph = plan.steps.some((step) => step.protocol === 'graph');
   const requestedMethod = plan.steps.find(step => step.protocol !== 'graph' && step.method !== 'compare')?.method;
+  // Old exports retain this identifier, but new grading runs must never
+  // silently execute the retired transcription-based route.
+  if (requestedMethod === 'vision-then-analysis' || selectedStrategy === 'vision-then-analysis') return null;
   const graphModelFor = (profile: RadarModelConfiguration) => {
     const cfg = profile.configuration;
     const raw = cfg.visionModel.trim() || cfg.generativeModel?.trim() ||
