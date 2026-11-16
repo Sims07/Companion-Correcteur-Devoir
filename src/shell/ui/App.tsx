@@ -18,6 +18,7 @@ import { ContractPreparationPanel } from '../../correction/ui/components/Contrac
 import { QuestionContractEditor, QuestionScopePreview } from '../../correction/ui/components/QuestionContractEditor.tsx';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FilePicker } from '../../shared/ui/components/FilePicker.tsx';
+import { useScientificDiagramDraft } from '../../shared/ui/useScientificDiagramDraft.ts';
 import type { ScientificDiagramAnalysisService } from '../../correction/application/scientificDiagramAnalysisService.ts';
 import { DesignSystemSelect } from '../../shared/ui/components/DesignSystemSelect.tsx';
 import { CopyReviewHeader } from '../../correction/ui/components/CopyReviewHeader.tsx';
@@ -922,6 +923,58 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
   const [teacherQuestions, setTeacherQuestions] = useState('');
   const [reviewMessage, setReviewMessage] = useState('');
   const [isFinalized, setIsFinalized] = useState(false);
+  // Unlike queued copies, an individual foreground copy used to live only in
+  // React memory. Keep it in the same private IndexedDB draft store as the lab.
+  // The key is assignment-scoped so opening another devoir cannot lose it.
+  const foregroundDraftSnapshot = useMemo<AssignmentDraft>(() => ({
+    images: currentBackgroundJobId || isFinalized ? [] : images,
+    originalImages: currentBackgroundJobId || isFinalized ? [] : originalImages,
+    transcription: currentBackgroundJobId || isFinalized ? null : transcription,
+    subjectImages: currentBackgroundJobId || isFinalized ? [] : subjectImages,
+    subjectTranscription: currentBackgroundJobId || isFinalized ? null : subjectTranscription,
+    proposal: currentBackgroundJobId || isFinalized ? null : proposal,
+    review: currentBackgroundJobId || isFinalized ? [] : review,
+    teacherQuestions, studentLabel, studentIdentity,
+    currentCorrectionId: currentBackgroundJobId || isFinalized ? null : currentCorrectionId,
+    isFinalized: false, reviewMessage, detectTeacherAnnotations, teacherAnnotations,
+    scientificDiagramAnalysis: currentBackgroundJobId || isFinalized ? null : scientificDiagramAnalysis,
+    scientificPageClassifications: currentBackgroundJobId || isFinalized ? null : pageClassifications,
+    manualRotationAngles, annotationInkColor, annotationInkColorApplied,
+  }), [images, originalImages, transcription, subjectImages, subjectTranscription, proposal,
+    review, teacherQuestions, studentLabel, studentIdentity, currentCorrectionId, isFinalized,
+    reviewMessage, detectTeacherAnnotations, teacherAnnotations, scientificDiagramAnalysis,
+    pageClassifications, manualRotationAngles, annotationInkColor, annotationInkColorApplied,
+    currentBackgroundJobId]);
+  const foregroundDraft = useScientificDiagramDraft(
+    `foreground-correction:${activeAssignmentId}`, foregroundDraftSnapshot, saved => {
+      // Do not replace a copy already opened from the queue or the current
+      // session, especially while changing assignments.
+      if (!saved.images.length || currentBackgroundJobId || currentCorrectionId ||
+          isFinalized || images.length || assignmentDrafts[activeAssignmentId]?.images.length) return;
+      setImages(saved.images);
+      setOriginalImages(saved.originalImages?.length ? saved.originalImages : saved.images);
+      setTranscription(saved.transcription ?? null);
+      setSubjectImages(saved.subjectImages ?? []);
+      setSubjectTranscription(saved.subjectTranscription ?? null);
+      setProposal(saved.proposal ?? null);
+      setReview(saved.review ?? []);
+      setTeacherQuestions(saved.teacherQuestions ?? '');
+      setStudentLabel(saved.studentLabel ?? '');
+      setStudentIdentity(saved.studentIdentity ?? null);
+      setDetectTeacherAnnotations(saved.detectTeacherAnnotations ?? false);
+      setTeacherAnnotations(saved.teacherAnnotations ?? '');
+      setScientificDiagramAnalysis(saved.scientificDiagramAnalysis ?? null);
+      setPageClassifications(saved.scientificPageClassifications ?? null);
+      setManualRotationAngles(saved.manualRotationAngles ?? {});
+      setAnnotationInkColor(saved.annotationInkColor ?? 'none');
+      setAnnotationInkColorApplied(saved.annotationInkColorApplied ?? true);
+      setCopyOverviewFilter('all');
+      setCopyOverviewFilterTouched(false);
+      setReviewMessage('Copie retrouvée dans le stockage local. Vous pouvez reprendre ou relancer la correction.');
+      setError('');
+      setTeacherStep('overview');
+    },
+  );
 
   const [networkInitialFilter, setNetworkInitialFilter] = useState<'all' | 'error'>('all');
   const validation = useMemo(() => validateRubric(rubric), [rubric]);
@@ -1455,6 +1508,18 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
   }
 
   async function gradeCopies(strategyOverride?: 'arbitrate-only') {
+    if (interfaceMode === 'teacher' && !currentBackgroundJobId && images.length > 0) {
+      // Commit all photo pages BEFORE the first network request. Otherwise a
+      // failed model call followed by Refresh can discard the only copy.
+      try {
+        await foregroundDraft.persistNow();
+      } catch (cause) {
+        setError('La copie ne peut pas être sauvegardée localement. La correction est suspendue pour éviter sa perte : ' +
+          (cause instanceof Error ? cause.message : String(cause)));
+        setTeacherStep('copy');
+        return;
+      }
+    }
     if (annotationInkColor !== 'none' && !annotationInkColorApplied) {
       setError('Prévisualisez puis appliquez le retrait de la couleur des annotations avant de lancer la lecture et la correction.');
       setTeacherStep('copy');
@@ -3239,7 +3304,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     return {
       images, originalImages, transcription, subjectImages, subjectTranscription, proposal, review,
       teacherQuestions, studentLabel, studentIdentity, currentCorrectionId, isFinalized, reviewMessage, detectTeacherAnnotations, teacherAnnotations, scientificDiagramAnalysis, scientificPageClassifications: pageClassifications,
-      annotationInkColor, annotationInkColorApplied,
+      annotationInkColor, annotationInkColorApplied, manualRotationAngles,
     };
   }
 
@@ -4074,6 +4139,22 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
         onOpenNextReviewCopy={() => { const next = copyNavigation.nextCopyToReview; if (next) void openCopyNavigationItem(next.id); }}
         onOpenCopy={(copyId) => { setShowAiSettings(false); void openCopyNavigationItem(copyId); }}
       />}
+      {interfaceMode === 'teacher' && !currentBackgroundJobId && !isFinalized && !showAiSettings && (
+        !foregroundDraft.ready
+          ? <p role="status" className="copy-overview-notice">Chargement de vos copies conservées localement…</p>
+          : foregroundDraft.error
+            ? <div role="alert" className="copy-overview-notice">
+                {foregroundDraft.error}
+                <button type="button" className="secondary-button" onClick={foregroundDraft.retry}>Réessayer la sauvegarde</button>
+              </div>
+            : images.length > 0
+              ? <p role="status" className="copy-overview-notice">
+                  {foregroundDraft.status === 'saved'
+                    ? 'Copie sauvegardée sur cet appareil · elle reste disponible après une erreur ou un rafraîchissement.'
+                    : 'Enregistrement local de la copie en cours…'}
+                </p>
+              : null
+      )}
       {interfaceMode === 'teacher' && isScientificDiagramAssignment && !showAiSettings && <section
         className="panel diagram-assignment-context" aria-label="Devoir de schéma scientifique">
         <div><p className="eyebrow">DEVOIR · SCHÉMA SCIENTIFIQUE</p>
@@ -5209,7 +5290,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
           <label className="field-label" htmlFor="grading-question">Consigne / question de l’exercice</label>
           <textarea id="grading-question" rows={3} value={question} onChange={(event) => setQuestion(event.target.value)} />
         </details>
-        <button className="primary-button grade-button" aria-busy={busy} disabled={busy || !images.length || !gradingModelsReady || !validation.valid || !subjectReady} onClick={() => void gradeCopies()}>{busy ? (interfaceMode === 'teacher' ? analysisStage === 'checking' ? 'Préparation de la correction…' : analysisStage === 'reading' ? 'Lecture de la copie…' : 'Correction en cours…' : 'Analyse locale en cours…')  : interfaceMode === 'teacher' ? (isScientificDiagramAssignment ? 'Corriger le schéma' : 'Corriger') : transcription ? 'Relancer l’analyse sans relire les images' : 'Lire puis analyser les copies'}</button>
+        <button className="primary-button grade-button" aria-busy={busy} disabled={busy || !foregroundDraft.ready || !images.length || !gradingModelsReady || !validation.valid || !subjectReady} onClick={() => void gradeCopies()}>{busy ? (interfaceMode === 'teacher' ? analysisStage === 'checking' ? 'Préparation de la correction…' : analysisStage === 'reading' ? 'Lecture de la copie…' : 'Correction en cours…' : 'Analyse locale en cours…')  : interfaceMode === 'teacher' ? (isScientificDiagramAssignment ? 'Corriger le schéma' : 'Corriger') : transcription ? 'Relancer l’analyse sans relire les images' : 'Lire puis analyser les copies'}</button>
         {interfaceMode === 'teacher' && <p className="launch-footnote">Après l’analyse, la proposition est retenue automatiquement. Les alertes restent visibles et vous pouvez ajuster chaque note si nécessaire.</p>}
       </section>}
       {interfaceMode === 'teacher' && teacherStep === 'copy' && correctionSessionMode === 'individual' && <div className="teacher-copy-footer"><button type="button" className="secondary-button" onClick={() => setTeacherStep('rubric')}>← Revoir le barème</button><span>Une seule copie à la fois · ajustement facultatif des propositions</span></div>}
