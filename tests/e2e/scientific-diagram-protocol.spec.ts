@@ -3,6 +3,34 @@ import { expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import { SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC } from '../../src/evaluation/domain/scientificDiagramFixtures.ts';
 
+test('scientific batteries explain the exact 10-point rubric and personal diagrams can choose 8 or 10 points', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' })
+    .getByRole('button', { name: 'Tests', exact: true }).click();
+  await page.getByRole('group', { name: 'Parcours de test' })
+    .getByRole('button', { name: /Schémas scientifiques/ }).click();
+  const panel = page.getByRole('region', { name: 'Protocole schémas scientifiques' });
+  const fixtureRubric = panel.locator('details.diagram-lab-rubric');
+  await fixtureRubric.locator('summary').click();
+  await expect(fixtureRubric.locator('section.diagram-lab-rubric-group')).toHaveCount(4);
+  await expect(fixtureRubric.locator('li')).toHaveCount(19);
+  await expect(fixtureRubric).toContainText('titre PRINCIPAL');
+  await expect(fixtureRubric).toContainText('La disposition des sous-schémas en grille');
+  await expect(fixtureRubric).toContainText('chromatine non condensée');
+  await panel.locator('details.diagram-lab-legacy > summary').click();
+  const presets = panel.getByRole('group', { name: 'Modèle de barème pour le schéma personnel' });
+  const standard = presets.getByRole('button', { name: /Dessin scientifique · 8 points/ });
+  const mitosis = presets.getByRole('button', { name: /Mitose végétale · 10 points/ });
+  await expect(standard).toHaveAttribute('aria-pressed', 'true');
+  await mitosis.click();
+  await expect(mitosis).toHaveAttribute('aria-pressed', 'true');
+  await expect(panel.getByText('19 attendus', { exact: false })).toBeVisible();
+  await standard.click();
+  await expect(standard).toHaveAttribute('aria-pressed', 'true');
+  await expect(panel.getByText('15 attendus', { exact: false })).toBeVisible();
+});
+
 test('Qwen direct diagram repairs missing evidence and exports all 19 decisions without OCR', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('companion-correcteur:ollama-profiles:v1', JSON.stringify([{
     id: 'qwen-direct', name: 'Qwen direct', mode: 'single', updatedAt: '2026-11-08T00:00:00Z',
@@ -152,7 +180,8 @@ test('the scientific-diagram lab exposes an explicit multimodal comparison indep
   await expect(panel.getByRole('tab', { name: /Qualité graphique/ })).toHaveAttribute('aria-selected', 'true');
   // The advanced personal-copy workflow remains intact but is intentionally collapsed.
   await panel.locator('details.diagram-lab-legacy > summary').click();
-  await expect(panel.getByText('Vision puis analyse / Image → génératif direct', { exact: false })).toBeVisible();
+  await expect(panel.getByText('Image → génératif direct', { exact: false })).toBeVisible();
+  await expect(method.locator('option[value="vision-then-analysis"]')).toHaveCount(0);
 
   await method.selectOption('direct-image-generative');
   await expect(method).toHaveValue('direct-image-generative');
