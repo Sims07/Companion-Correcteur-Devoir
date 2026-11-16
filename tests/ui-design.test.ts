@@ -144,7 +144,12 @@ describe('UI design system', () => {
 
   it('keeps the original copy beside progressive criterion results during teacher analysis', () => {
     expect(appComponent).toContain('className="live-copy-preview panel"');
-    expect(appComponent).toContain('className="live-copy-layout"');
+    expect(appComponent).toContain('live-copy-layout is-direct-diagram');
+    expect(appComponent).toContain("analysisStage === 'reading' || isScientificDiagramAssignment");
+    expect(appComponent).toContain('Analyse directe du schéma');
+    expect(appComponent).toContain('Le schéma en cours de correction');
+    expect(appComponent).toContain('!isScientificDiagramAssignment && <details className="live-transcription-panel');
+    expect(correctionFlowStylesheet).toContain('.live-copy-layout.is-direct-diagram');
     expect(appComponent).toContain('Page ${index + 1} de la copie en cours de lecture');
     expect(appComponent).toContain('className="live-transcription-panel teacher-transcription-details"');
     expect(appComponent).toContain('Afficher la transcription');

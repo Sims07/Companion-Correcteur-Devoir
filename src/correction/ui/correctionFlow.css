@@ -829,6 +829,8 @@
 .live-preview-heading p:not(.eyebrow){margin:0;color:var(--flow-muted);font-size:12px;line-height:1.6}
 .live-preview-state{flex:none;padding:7px 10px;border:1px solid var(--flow-border);border-radius:999px;background:var(--flow-surface-soft);font-size:10px;font-weight:700}
 .live-copy-layout{display:grid;grid-template-columns:minmax(180px,.8fr) minmax(0,1.2fr);gap:16px;align-items:start}
+.live-copy-layout.is-direct-diagram{grid-template-columns:minmax(0,1fr)}
+.live-copy-layout.is-direct-diagram .live-copy-page img{max-height:min(70vh,760px)}
 .live-copy-pages{display:grid;gap:12px;min-width:0}
 .live-copy-page{margin:0;padding:9px;border:1px solid var(--flow-border);border-radius:12px;background:var(--flow-surface-soft);box-shadow:0 2px 8px #17231b0a}
 .live-copy-page img{display:block;width:100%;max-height:440px;object-fit:contain;border-radius:6px;background:white}
