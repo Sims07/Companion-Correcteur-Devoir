@@ -529,6 +529,18 @@ export function ScientificDiagramProtocolPanel({
           <p>A/B/C : difficulté progressive. D/E : <strong>mêmes mots et mêmes structures</strong>, mais quatre traits de rappel arrivent à la mauvaise structure en E. Ce sont de simples traits sans pointes de flèche, comme sur un dessin d’observation. Barème sur 10 points et références provisoires à valider par un enseignant. La différence attendue ne sera jamais envoyée au modèle.</p>
         </div>
       </div>
+      <details className="diagram-lab-rubric" aria-label="Barème utilisé pour les batteries scientifiques">
+        <summary>Voir le barème utilisé (10 points · 19 sous-critères)</summary>
+        <p>Ce barème est transmis aux modèles pour A/B/C, D/E et R1/R2/R3. Les 2 points de compréhension portent sur la mitose végétale. Les références restent provisoires et ne sont jamais envoyées aux modèles.</p>
+        {SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC.criteria.map((criterion) => <section key={criterion.id} className="diagram-lab-rubric-group">
+          <h5>{criterion.title} · {criterion.maxPoints} points</h5>
+          {criterion.description && <p>{criterion.description}</p>}
+          <ul>{getRubricSubcriteria(criterion).map((sub) => <li key={sub.id}>
+            <div><strong>{sub.title}</strong><span>{sub.maxPoints.toFixed(2)} pt</span></div>
+            <p>{sub.description || 'Critère évalué selon son intitulé.'}</p>
+          </li>)}</ul>
+        </section>)}
+      </details>
       <div className="diagram-fixture-run-controls">
         <div className="pilot-evaluation-actions">
           <label htmlFor="diagram-fixture-repeat-count">Passages par schéma</label>
