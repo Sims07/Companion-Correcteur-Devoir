@@ -36,7 +36,7 @@ export const SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC: Rubric = {
       analysisMode: 'scientific-diagram',
       subcriteria: [
         { id: 'legends-horizontal', title: 'Ecriture horizontale', description: '', maxPoints: 0.66 },
-        { id: 'legends-aligned', title: 'Alignées en colonne', description: 'Pour un même schéma, les textes des légendes sont placés les uns sous les autres et alignés verticalement dans une même colonne. Des légendes côte à côte sur une même ligne ne satisfont pas ce critère. L’écriture horizontale des mots est évaluée séparément.', maxPoints: 0.66 },
+        { id: 'legends-aligned', title: 'Alignées en colonne', description: 'Évaluer les textes des légendes AU SEIN de chaque sous-schéma : ils sont placés les uns sous les autres, alignés verticalement dans une colonne. La disposition des sous-schémas en grille ne mesure pas l’alignement de leurs légendes. Des légendes côte à côte dans un panneau ne forment pas une colonne ; l’écriture horizontale des mots est un autre critère. Ne combiner ni pénaliser les légendes de panneaux différents.', maxPoints: 0.66 },
         { id: 'legends-visible', title: 'Légendes reliées aux structures réellement visibles', description: 'Pour chaque légende du dessin observé au microscope, suivre son trait de rappel depuis le texte jusqu’à la structure touchée et vérifier que le nom correspond à cette structure. Un simple trait sans pointe de flèche suffit. Une légende correcte mais reliée à une mauvaise structure ne valide pas cet attendu ; si le trait est illisible, demander une vérification.', maxPoints: 0.68 },
       ],
     },
