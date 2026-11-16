@@ -106,14 +106,19 @@ function panel(phase: Phase, variant: ClassroomCaseId, index: number): string {
     ? path('M49 72 Q62 48 105 60 L294 63 Q329 76 311 125 L325 206 Q306 235 271 223 L80 220 Q39 219 49 170 Z', 3.6)
     : path('M55 70 Q63 62 85 63 L289 65 Q317 67 315 91 L314 198 Q315 224 292 225 L73 223 Q51 223 53 198 Z', 2.6);
   const wall = !rough ? path('M65 79 L303 78 L301 212 L65 211 Z', 2.1) : '';
-  let legends = path('M292 110 L375 110', 2);
+  // Start each leader line on the actual named structure (not on the cell wall).
+  const firstTarget = phase === 'interphase' ? [174, 140]
+    : phase === 'prophase' ? [199, 122]
+      : phase === 'metaphase' ? [208, 137]
+        : phase === 'anaphase' ? [218, 133] : [236, 140];
+  let legends = path('M' + firstTarget[0] + ' ' + firstTarget[1] + ' L375 110', 2);
   legends += label(380, 115, phase === 'interphase' ? 'noyau' : phase === 'telophase' ? 'noyau fils' : 'chromosomes');
   if (variant === 'R2' && phase === 'interphase') {
     // Endpoint of the cytoplasm leader is deliberately in the nucleus.
     legends += path('M174 145 L375 150', 2);
     legends += label(380, 157, 'cytoplasme');
   } else if (variant === 'R3' && phase === 'metaphase') {
-    legends += path('M245 144 L375 151', 2);
+    legends += path('M260 140 L375 151', 2);
     legends += label(380, 157, 'membrane nucléaire');
     legends += path('M282 185 L375 187', 2);
     legends += label(380, 194, 'microtubules');
