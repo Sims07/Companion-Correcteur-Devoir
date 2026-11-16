@@ -34,6 +34,15 @@ describe('barème enseignant du schéma scientifique', () => {
     expect(sub.reduce((sum, item) => sum + item.maxPoints, 0)).toBeCloseTo(2);
   });
 
+  it('interprets a column per panel rather than the grid of panels', () => {
+    const legends = SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC.criteria.find(c => c.id === 'legends');
+    const aligned = legends?.subcriteria?.find(s => s.id === 'legends-aligned');
+    expect(aligned?.maxPoints).toBe(0.66);
+    expect(aligned?.description).toContain('AU SEIN de chaque sous-schéma');
+    expect(aligned?.description).toContain('La disposition des sous-schémas en grille');
+    expect(aligned?.description).toContain('Ne combiner ni pénaliser les légendes de panneaux différents');
+  });
+
   it('conserves les 15 attendus observables et les 8 points exacts du barème professeur', () => {
     const rubric = SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC;
     expect(validateRubric(rubric)).toMatchObject({ valid: true, maximumPoints: 8 });
