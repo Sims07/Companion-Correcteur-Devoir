@@ -44,8 +44,8 @@ describe('reviewed B reference, independent of model predictions', () => {
       rubric: JSON.stringify(SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC),
     });
     expect(prompt).toContain('noms des phases');
-    expect(prompt).toContain('titre est au-dessus');
-    expect(prompt).toContain('position relative à toute la composition');
+    expect(prompt).toContain('titre principal est au-dessus');
+    expect(prompt).toContain('compare la position de ce titre descriptif avec la composition ENTIÈRE');
   });
 
   it('versions the revised ground truth and exports its provisional rationale', () => {
