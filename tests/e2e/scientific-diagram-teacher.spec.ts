@@ -100,7 +100,7 @@ test('an individually corrected scientific diagram uses one direct image request
   await expect(correct).toBeEnabled();
   await correct.click();
 
-  await expect(page.locator('.copy-review-header-score')).toContainText('0 / 8', { timeout: 30000 });
+  await expect(page.locator('.review-main-column .review-card')).toHaveCount(3, { timeout: 30000 });
   expect(requests).toHaveLength(1);
   expect(requests[0].model).toBe('qwen3.5:4b');
   expect(requests[0].messages?.[0]?.images).toHaveLength(1);
@@ -134,7 +134,7 @@ test('a large PNG copy is downsized on the multimodal wire but preserved locally
     name: 'grand-schema.png', mimeType: 'image/png', buffer: Buffer.from(originalBase64, 'base64'),
   });
   await page.getByRole('button', { name: 'Corriger le schéma' }).click();
-  await expect(page.locator('.copy-review-header-score')).toContainText('0 / 8', { timeout: 30000 });
+  await expect(page.locator('.review-main-column .review-card')).toHaveCount(3, { timeout: 30000 });
 
   expect(requests).toHaveLength(1);
   const sent = requests[0].messages?.[0]?.images?.[0] as string;
