@@ -2,19 +2,19 @@
 
 ## Origine et confidentialité
 
-Trois copies privées annotées par un professeur ont été **examinées une seule fois comme inspirations pédagogiques**. Le dépôt ne contient **aucune photographie, partie d’image, écriture manuscrite, nom, date, note manuscrite, commentaire littéral du professeur ou fichier original**. Les figures livrées sont des illustrations vectorielles inédites et déterministes produites pour l'application. Elles sont créées à partir de scénarios généraux (oubli d'une phase, pointage faux, membrane nucléaire en métaphase) plutôt que du tracé d'un élève.
+Trois copies privées annotées par un professeur ont été **examinées comme inspirations pédagogiques**. Le dépôt ne contient **aucune photographie, partie d’image, écriture manuscrite, nom, date, note manuscrite, commentaire littéral du professeur ou fichier original**. Les figures livrées sont des illustrations vectorielles inédites et déterministes produites pour l'application. Elles sont créées à partir de scénarios généraux (oubli d'une phase, pointage faux, membrane nucléaire en métaphase) plutôt que du tracé d'un élève.
 
 Dans l'application, les SVG sont convertis **localement en PNG avant l'analyse**, comme pour D/E. L'image n'est pas transmise en tant que code SVG au modèle. Les tests automatisés et le rapport exporté n'incluent jamais les copies privées.
 
 ## Distinction essentielle entre notes
 
-| Cas synthétique | Score observé sur une copie privée, non réutilisable comme vérité terrain | Score de référence du *nouveau dessin*, calculé sur le barème actuel | Point majeur à vérifier |
-|---|---:|---:|---|
-| R1 | 9,5/10 | 9,50/10, provisoire | Interphase obligatoire absente ; autres phases et légendes lisibles |
-| R2 | 5,75/10 | 5,30/10, provisoire | Pointage « cytoplasme » vers le noyau, paroi simplifiée et télophase sans cloison |
-| R3 | 6,75/10 | 6,67/10, provisoire | Interphase absente, membrane nucléaire représentée en métaphase et microtubules légendés |
+| Cas synthétique | Score de référence du *nouveau dessin*, calculé sur le barème actuel | Point majeur à vérifier |
+|---|---:|---|
+| R1 | 9,50/10, provisoire | Interphase obligatoire absente ; autres phases et légendes lisibles |
+| R2 | 5,30/10, provisoire | Pointage « cytoplasme » vers le noyau, paroi simplifiée et télophase sans cloison |
+| R3 | 6,67/10, provisoire | Interphase absente, membrane nucléaire représentée en métaphase et microtubules légendés |
 
-**Les deux colonnes de notes ne sont pas interchangeables.** Les notes synthétiques ne sont pas une reproduction numérique du jugement d'un enseignant. Chaque sous-critère est explicite dans \`scientificDiagramFixtures.ts\` et la fiche UI. Avant de s'appuyer sur ces valeurs comme référence scientifique validée, faire arbitrer les 19 sous-critères des trois dessins par deux enseignants, idéalement en aveugle.
+**Aucune note individuelle provenant des copies privées n’est enregistrée dans le dépôt.** Les notes synthétiques ne sont pas une reproduction numérique du jugement d'un enseignant. Chaque sous-critère est explicite dans \`scientificDiagramFixtures.ts\` et la fiche UI. Avant de s'appuyer sur ces valeurs comme référence scientifique validée, faire arbitrer les 19 sous-critères des trois dessins par deux enseignants, idéalement en aveugle.
 
 ## Pourquoi ces dessins sont différents des pilotes historiques
 
