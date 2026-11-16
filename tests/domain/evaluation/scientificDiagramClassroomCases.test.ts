@@ -13,7 +13,6 @@ describe('three synthetic classroom mitosis examples', () => {
   it('uses original deterministic artwork and never copies a private worksheet or its teacher grading', () => {
     expect(CLASSROOM_CASE_IDS).toEqual(['R1', 'R2', 'R3']);
     expect(SCIENTIFIC_DIAGRAM_CLASSROOM_CASE_IDS).toEqual(CLASSROOM_CASE_IDS);
-    expect(CLASSROOM_SCENARIOS.map(c => c.privateInspirationScore)).toEqual([9.5, 5.75, 6.75]);
     const svgs = CLASSROOM_CASE_IDS.map(classroomScenarioSvg);
     expect(new Set(svgs).size).toBe(3);
     for (const [index, id] of CLASSROOM_CASE_IDS.entries()) {
@@ -50,8 +49,8 @@ describe('three synthetic classroom mitosis examples', () => {
     const cases = SCIENTIFIC_DIAGRAM_FIXTURES.filter(c => c.classroomScenario);
     expect(cases.map(c => c.id)).toEqual(['R1', 'R2', 'R3']);
     expect(cases.map(c => c.referenceScore)).toEqual([9.5, 5.3, 6.67]);
-    expect(cases.map(c => c.classroomScenario!.privateInspirationScore)).toEqual([9.5, 5.75, 6.75]);
     expect(cases.map(c => c.classroomScenario!.teacherValidated)).toEqual([false, false, false]);
+    expect(cases.every(c => !('privateInspirationScore' in c.classroomScenario!))).toBe(true);
     for (const item of cases) {
       expect(Object.keys(item.gold)).toEqual(expectedKeys);
       expect(Object.keys(item.referencePoints)).toEqual(expectedKeys);
@@ -62,7 +61,7 @@ describe('three synthetic classroom mitosis examples', () => {
     expect(cases[2]?.referencePoints['understanding::understanding-interphase']).toBe(0);
     const report = buildScientificDiagramFixtureReport([], 1, '2026-11-16T10:00:00Z');
     expect(report.cases.find(c => c.caseId === 'R2')?.classroomScenario)
-      .toMatchObject({ origin: 'entirely-synthetic', teacherValidated: false, privateInspirationScore: 5.75 });
+      .toMatchObject({ origin: 'entirely-synthetic', teacherValidated: false });
     expect(report.localOnly).toBe(true);
     expect(report.limitations).toMatch(/références R1\/R2\/R3 restent non validées/);
   });
