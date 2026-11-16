@@ -5221,31 +5221,37 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
           <div className="teacher-progress-heading"><div><p className="eyebrow">ESPACE ENSEIGNANT</p><h2>Correction en cours</h2></div><span className="step-count">{estimatedRemainingSeconds === null ? `${formatElapsed(elapsedSeconds)} écoulées` : `Environ ${Math.ceil(estimatedRemainingSeconds / 60)} min restantes · ${formatElapsed(elapsedSeconds)} écoulées`}</span></div>
           <div className="teacher-progress-phases" aria-label="Progression de la correction">
             <div className={analysisStage === 'checking' ? 'teacher-progress-phase current' : 'teacher-progress-phase complete'}><span>{analysisStage === 'checking' ? '1' : '✓'}</span><div><strong>Préparation</strong><small>{analysisStage === 'checking' ? 'Préparation du traitement' : 'Terminée'}</small></div></div>
+            {isScientificDiagramAssignment ? (
+              <div className={analysisStage === 'grading' ? 'teacher-progress-phase current' : 'teacher-progress-phase'}><span>2</span><div><strong>Analyse directe du schéma</strong><small>{analysisStage === 'grading' ? `${images.length} page${images.length > 1 ? 's' : ''} en cours d’analyse` : 'À venir'}</small></div></div>
+            ) : <>
             <div className={analysisStage === 'reading' ? 'teacher-progress-phase current' : analysisStage === 'grading' ? 'teacher-progress-phase complete' : 'teacher-progress-phase'}><span>{analysisStage === 'grading' ? '✓' : '2'}</span><div><strong>Lecture de la copie</strong><small>{analysisStage === 'reading' ? `Lecture · page ${Object.keys(pageProgress).length ? Math.max(...Object.keys(pageProgress).map(Number)) : 1}/${images.length}` : analysisStage === 'grading' ? `${Object.values(pageProgress).filter((status) => status === 'completed' || status === 'doubtful').length}/${images.length} pages lues` : 'À venir'}</small></div></div>
             <div className={analysisStage === 'grading' ? 'teacher-progress-phase current' : 'teacher-progress-phase'}><span>3</span><div><strong>Correction</strong><small>{analysisStage === 'grading' ? `Critère ${criterionProgressPosition?.index ?? Math.min(rubric.criteria.length, Object.values(criterionStatuses).filter((status) => status === 'completed').length + (activeCriterionId ? 1 : 0))}/${criterionProgressPosition?.total ?? rubric.criteria.length}` : 'À venir'}</small></div></div>
+            </>}
           </div>
           {((analysisStage === 'reading' && !modelResponseStarted && lastModelLoadDurationMs === null && Object.keys(pageProgress).length <= 1) || (analysisStage === 'grading' && !modelResponseStarted && lastModelLoadDurationMs === null && !Object.values(criterionStatuses).includes('completed'))) && <p className="teacher-progress-hint">{analysisStage === 'reading' ? 'Chargement du modèle de lecture, cela peut prendre quelques minutes' : 'Chargement du modèle d’analyse, cela peut prendre quelques minutes'} · {formatElapsed(elapsedSeconds)} écoulées.</p>}
           {criterionProgressMessage && !criterionProgressMessage.startsWith('Chargement du modèle') && <p className="teacher-progress-hint">{criterionProgressMessage}</p>}
           {lastModelLoadDurationMs !== null && <p className="teacher-progress-hint">Chargement réel du modèle : {formatElapsed(Math.round(lastModelLoadDurationMs / 1000))}.</p>}
-          <div className="teacher-progress-page-list" aria-label="État de lecture des pages">{images.map((image, index) => { const status = pageProgress[index + 1]; return <span className={status === 'doubtful' ? 'is-doubtful' : status === 'completed' ? 'is-complete' : ''} key={`${image.fileName}-${index}`}>{status === 'completed' ? '✓' : status === 'doubtful' ? '!' : '·'} Page {index + 1}</span>; })}</div>
+          {isScientificDiagramAssignment ?
+            <div className="teacher-progress-page-list" aria-label="Pages prises en compte dans la correction directe">{images.map((image, index) => <span key={`${image.fileName}-${index}`}>Page {index + 1} / {images.length} · incluse dans l’analyse</span>)}</div>
+            : <div className="teacher-progress-page-list" aria-label="État de lecture des pages">{images.map((image, index) => { const status = pageProgress[index + 1]; return <span className={status === 'doubtful' ? 'is-doubtful' : status === 'completed' ? 'is-complete' : ''} key={`${image.fileName}-${index}`}>{status === 'completed' ? '✓' : status === 'doubtful' ? '!' : '·'} Page {index + 1}</span>; })}</div>}
           <div className="context-stop-action"><button type="button" className="context-stop-button" onClick={() => { void stopCurrentOperations(); }} disabled={isStoppingOperation}>{isStoppingOperation ? 'Arrêt en cours…' : 'Arrêter cette correction'}</button></div>
           {Object.entries(pageProgress).filter(([, status]) => status === 'doubtful').map(([page]) => <p className="teacher-progress-warning" key={page}>Page {page} : lecture douteuse. <button type="button" className="text-button" onClick={() => setCopyViewerPage(Number(page) - 1)}>Voir la page</button> avant de valider la correction.</p>)}
         </div>
         <div className="analysis-timer" aria-label={`Temps écoulé : ${formatElapsed(elapsedSeconds)}`}><span>TEMPS ÉCOULÉ</span><strong>{formatElapsed(elapsedSeconds)}</strong></div>
       </section>}
 
-      {isAnalyzing && interfaceMode === 'teacher' && analysisStage === 'reading' && <section className="live-copy-preview panel" aria-labelledby="live-copy-preview-title">
-        <div className="live-preview-heading"><div><p className="eyebrow">ÉTAPE 1 · LECTURE</p><h3 id="live-copy-preview-title">La copie en cours de lecture</h3><p>Consultez les pages et le texte reconnu côte à côte.</p></div><span className="live-preview-state">Lecture en cours</span></div>
-        <div className="live-copy-layout">
+      {isAnalyzing && interfaceMode === 'teacher' && (analysisStage === 'reading' || isScientificDiagramAssignment) && <section className="live-copy-preview panel" aria-labelledby="live-copy-preview-title">
+        <div className="live-preview-heading"><div><p className="eyebrow">{isScientificDiagramAssignment ? 'ÉTAPE 2 · ANALYSE VISUELLE' : 'ÉTAPE 1 · LECTURE'}</p><h3 id="live-copy-preview-title">{isScientificDiagramAssignment ? 'Le schéma en cours de correction' : 'La copie en cours de lecture'}</h3><p>{isScientificDiagramAssignment ? 'La copie originale reste visible pendant toute l’analyse directe, sans transcription OCR.' : 'Consultez les pages et le texte reconnu côte à côte.'}</p></div><span className="live-preview-state">{isScientificDiagramAssignment ? 'Analyse visuelle en cours' : 'Lecture en cours'}</span></div>
+        <div className={isScientificDiagramAssignment ? "live-copy-layout is-direct-diagram" : "live-copy-layout"}>
           <div className="live-copy-pages" aria-label="Pages de la copie importée">
             {images.map((image, index) => <figure className="live-copy-page" key={image.fileName + '-' + index}>
-              <ZoomableImage src={`data:${image.mimeType};base64,${image.base64}`} alt={`Page ${index + 1} de la copie en cours de lecture`} />
+              <ZoomableImage src={`data:${image.mimeType};base64,${image.base64}`} alt={isScientificDiagramAssignment ? `Page ${index + 1} du schéma en cours de correction` : `Page ${index + 1} de la copie en cours de lecture`} />
               <figcaption><span>PAGE {index + 1}</span><span>{image.fileName || `Page ${index + 1}`}</span></figcaption>
             </figure>)}
           </div>
-          <details className="live-transcription-panel teacher-transcription-details"><summary><span className="live-panel-icon" aria-hidden="true">Aa</span><strong>Afficher la transcription</strong><small>{transcription ? 'Texte disponible' : 'En attente de lecture'}</small></summary>
+          {!isScientificDiagramAssignment && <details className="live-transcription-panel teacher-transcription-details"><summary><span className="live-panel-icon" aria-hidden="true">Aa</span><strong>Afficher la transcription</strong><small>{transcription ? 'Texte disponible' : 'En attente de lecture'}</small></summary>
             {transcription ? <pre className="live-transcription-text">{transcription}</pre> : <div className="live-transcription-placeholder" role="status"><span className="live-text-skeleton" /><span className="live-text-skeleton short" /><span className="live-text-skeleton" /><p>Le texte apparaîtra après la lecture.</p></div>}
-          </details>
+          </details>}
         </div>
       </section>}
 
