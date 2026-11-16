@@ -204,7 +204,7 @@ test('a missing radar axis leads directly to its automatic fixture battery on th
   await page.evaluate(async ({ entry, profile, alternateProfile }) => {
     localStorage.setItem('companion-correcteur:ollama-profiles:v1', JSON.stringify([profile, alternateProfile]));
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
-      const request = indexedDB.open('companion-correcteur-devoir', 6);
+      const request = indexedDB.open('companion-correcteur-devoir', 7);
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
@@ -322,7 +322,7 @@ test('qwen-like 7/9 radar targets A/B/C x3 to fill graphics and stability in one
   await page.evaluate(async ({ entries: saved, profile: savedProfile }) => {
     localStorage.setItem('companion-correcteur:ollama-profiles:v1', JSON.stringify([savedProfile]));
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
-      const request = indexedDB.open('companion-correcteur-devoir', 6);
+      const request = indexedDB.open('companion-correcteur-devoir', 7);
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
