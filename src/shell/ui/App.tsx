@@ -88,7 +88,7 @@ import { shouldRetryInvalidDiagramRecord } from '../../evaluation/domain/diagram
 import type { DiagramLabArchiveRepository } from '../../evaluation/ports/diagramLabArchiveRepository.ts';
 import { initialAssignmentRubric, type AssignmentKind } from '../../correction/domain/assignmentKind.ts';
 import { buildDiagramReview } from '../../correction/domain/diagramTeacherReview.ts';
-import { directDiagramAssignmentIssue } from '../../correction/application/directScientificDiagramCorrection.ts';
+import { correctScientificDiagramDirect, directDiagramAssignmentIssue } from '../../correction/application/directScientificDiagramCorrection.ts';
 import { SCIENTIFIC_DIAGRAM_PROTOCOL_ID, buildScientificDiagramProtocolReport, diagramMethodIssue, diagramMethodLabels, selectDiagramMethods, usesDirectDiagramVision, type DiagramMethod, type DiagramMethodSelection, type DiagramProtocolCount } from '../../evaluation/domain/scientificDiagramProtocol.ts';
 import { SCIENTIFIC_DIAGRAM_FIXTURE_CONTEXT, SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC, buildScientificDiagramFixtureReport, type ScientificDiagramFixtureId, type ScientificDiagramFixtureRun } from '../../evaluation/domain/scientificDiagramFixtures.ts';
 import { DIAGRAM_SENSITIVITY_CASE_IDS, DIAGRAM_SENSITIVITY_CONTEXT, DIAGRAM_SENSITIVITY_RUBRIC, buildScientificDiagramSensitivityReport, type DiagramSensitivityCaseId, type DiagramSensitivityRun, type DiagramSensitivityPromptMode } from '../../evaluation/domain/scientificDiagramSensitivity.ts';
@@ -1533,7 +1533,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
           ? 'TEV1 ne prend pas en charge les photos via System One. Choisissez « Décisionnelle — Vision puis System One texte » ou un modèle visuel comme Clef-Flash.'
           : 'Le modèle d’analyse ne prend pas en charge l’entrée image System One. Sélectionnez un modèle compatible comme Clef-Flash.');
       }
-      if (!apiCompatible && strategyOverride !== 'arbitrate-only') {
+      if (!apiCompatible && strategyOverride !== 'arbitrate-only' && !isScientificDiagramAssignment) {
         const modelsToCheck = new Set<string>();
         if (isFreshCorrection && correctionMethod !== 'visual-decision' && visionModel.trim()) modelsToCheck.add(visionModel.trim());
         if (gradingRubric.criteria.length > 0 && analysisModel.trim()) modelsToCheck.add(analysisModel.trim());
@@ -1541,7 +1541,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
           await service.checkReady({ endpoint, apiCompatible: false, model });
         }
       }
-      if (correctionMethod !== 'visual-decision' && shouldRunTeacherScientificDiagramWorkflow(interfaceMode) && diagramRubric.criteria.length > 0) {
+      if (!isScientificDiagramAssignment && correctionMethod !== 'visual-decision' && shouldRunTeacherScientificDiagramWorkflow(interfaceMode) && diagramRubric.criteria.length > 0) {
         if (correctionMode === 'separate' && !effectiveSubjectTranscription) {
           if (!subjectImages.length) throw new Error('Importez le sujet de référence avant la notation des schémas.');
           setCriterionProgressMessage('Lecture du sujet de référence avant la notation des schémas…');
@@ -1659,7 +1659,27 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
       }
       if (shouldRunTextGrading && correctionMethod !== 'visual-decision' && correctionMode === 'separate' && !subjectImages.length && (isFreshCorrection || !subjectTranscription)) throw new Error('Importez le sujet de référence pour ce mode de correction.');
       let textProposal: GradingProposal | null = null;
-      if (shouldRunTextGrading) {
+      if (isScientificDiagramAssignment) {
+        if (diagramIssue) throw new Error(diagramIssue);
+        analysisStartedAt = Date.now();
+        setAnalysisStage('grading');
+        setCriterionProgressMessage('Analyse directe des dessins par le modèle génératif…');
+        textProposal = await correctScientificDiagramDirect(service, {
+          images,
+          rubric,
+          question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }),
+          configuration: {
+            ...defaultAiModelConfiguration,
+            endpoint, apiCompatible, apiKey, visionModel, analysisModel,
+            analysisThinking, correctionMethod,
+          },
+          signal: abortController.signal,
+          onDiagnosticResult: captureDiagramDiagnostic,
+        });
+        analysisDurationMs = Math.max(0, Date.now() - analysisStartedAt);
+        setAnalysisElapsedMs(analysisDurationMs);
+        setCriterionProgressMessage('Correction directe disponible : vérifiez les propositions du modèle.');
+      } else if (shouldRunTextGrading) {
         const gradingTranscription = isFreshCorrection ? null : transcription;
         const directGradingTranscription = correctionMethod === 'visual-decision' ? null : gradingTranscription;
         let latestStudentTranscription: string | null = directGradingTranscription;
@@ -1757,7 +1777,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
         setTeacherStep('review');
         setCriterionProgressMessage('Les critères graphiques sont évalués directement sur les schémas ; les critères textuels sans page rédigée restent à vérifier.');
       }
-      const parsed = interfaceMode === 'teacher' && correctionMethod !== 'visual-decision'
+      const parsed = isScientificDiagramAssignment ? textProposal : interfaceMode === 'teacher' && correctionMethod !== 'visual-decision'
         ? (correctionMethod === 'decision'
           ? mergeDecisionScientificDiagramCriteria(rubric, textProposal, diagramAnalysisResult)
           : mergeScientificDiagramCriteria(rubric, textProposal, diagramAnalysisResult))
