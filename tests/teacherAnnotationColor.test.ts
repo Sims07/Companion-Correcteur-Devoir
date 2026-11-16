@@ -53,3 +53,63 @@ describe('teacher annotation color removal', () => {
     expect(sampleTeacherPaperColor(new Uint8ClampedArray(), 0, 0)).toEqual([255, 255, 255]);
   });
 });
+
+
+describe('low-saturation teacher annotation outlines', () => {
+  const pixel = (data: Uint8ClampedArray, width: number, x: number, y: number) =>
+    [...data.slice((y * width + x) * 4, (y * width + x + 1) * 4)];
+
+  it('removes vivid ink, pastel contours and adjacent nearly-white antialiasing without erasing student pencil', () => {
+    const width = 9, height = 3;
+    const paper = [254, 254, 254] as const;
+    const source = new Uint8ClampedArray(width * height * 4);
+    for (let index = 0; index < source.length; index += 4) source.set([254, 254, 254, 255], index);
+    const set = (x: number, y: number, rgb: readonly number[]) =>
+      source.set([...rgb, 255], (y * width + x) * 4);
+    set(1, 1, [240, 187, 164]); // Professor's colored line
+    set(2, 1, [254, 245, 238]); // Pale orange outline: the old threshold missed it
+    set(3, 1, [255, 252, 250]); // Nearly-white scanned halo next to real color
+    set(5, 1, [35, 35, 35]); // Student graphite
+    set(8, 1, [255, 252, 250]); // Isolated tinted paper must not be erased
+    const original = [...source];
+
+    const output = eraseTeacherInkPixels(source, paper, 'red', width, height);
+    expect(pixel(output, width, 1, 1)).toEqual([254, 254, 254, 255]);
+    expect(pixel(output, width, 2, 1)).toEqual([254, 254, 254, 255]);
+    expect(pixel(output, width, 3, 1)).toEqual([254, 254, 254, 255]);
+    expect(pixel(output, width, 5, 1)).toEqual([35, 35, 35, 255]);
+    expect(pixel(output, width, 8, 1)).toEqual([255, 252, 250, 255]);
+    expect([...source]).toEqual(original);
+  });
+
+  it('recognizes pale pink picked from the image as chromatic ink, not a grayscale pencil', () => {
+    const paper = [254, 254, 254] as const;
+    const source = rgba(254, 245, 238);
+    expect([...eraseTeacherInkPixels(source, paper, '#fff5ef', 1, 1)]).toEqual([254, 254, 254, 255]);
+  });
+
+  it('accounts for warm paper when separating faint red marks from background', () => {
+    const paper = [244, 237, 228] as const;
+    const source = new Uint8ClampedArray([
+      244, 237, 228, 255, // Warm paper remains unchanged
+      250, 225, 211, 255, // Red/orange ink relative to paper
+      54, 53, 52, 255, // Dark neutral graphite
+    ]);
+    const output = eraseTeacherInkPixels(source, paper, '#f6a48f', 3, 1);
+    expect([...output]).toEqual([
+      244, 237, 228, 255,
+      244, 237, 228, 255,
+      54, 53, 52, 255,
+    ]);
+  });
+
+  it('leaves light grayscale pencil and a different colored annotation untouched', () => {
+    const source = new Uint8ClampedArray([
+      207, 207, 207, 255,
+      255, 0, 0, 255,
+      0, 0, 255, 255,
+    ]);
+    expect([...eraseTeacherInkPixels(source, [254, 254, 254], 'red', 3, 1)])
+      .toEqual([207, 207, 207, 255, 254, 254, 254, 255, 0, 0, 255, 255]);
+  });
+});

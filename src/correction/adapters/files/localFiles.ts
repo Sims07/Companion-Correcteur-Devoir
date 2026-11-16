@@ -127,7 +127,7 @@ export async function eraseTeacherAnnotationColor(image: ImageInput, color: Excl
     context.drawImage(bitmap, 0, 0);
     const frame = context.getImageData(0, 0, canvas.width, canvas.height);
     const paper = sampleTeacherPaperColor(frame.data, canvas.width, canvas.height);
-    frame.data.set(eraseTeacherInkPixels(frame.data, paper, color));
+    frame.data.set(eraseTeacherInkPixels(frame.data, paper, color, canvas.width, canvas.height));
     context.putImageData(frame, 0, 0);
     return dataUrlToImage(canvas.toDataURL('image/png'), image.fileName ?? 'page nettoyée');
   } finally {
