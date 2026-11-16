@@ -1,5 +1,5 @@
 const DATABASE_NAME = 'companion-correcteur-devoir';
-const DATABASE_VERSION = 6;
+const DATABASE_VERSION = 7;
 export const STORE_NAME = 'local-memory';
 export const CORRECTION_STORE_NAME = 'local-corrections';
 export const MODEL_EVALUATION_STORE_NAME = 'model-evaluations';
@@ -7,6 +7,7 @@ export const DIAGNOSTIC_HISTORY_STORE_NAME = 'diagnostic-history';
 const DIAGRAM_LAB_STORE = 'diagram-lab-archive';
 export const BACKGROUND_CORRECTION_STORE_NAME = 'background-corrections';
 export const BACKGROUND_TRANSCRIPTION_STORE_NAME = 'background-transcriptions';
+export const SCIENTIFIC_DIAGRAM_DRAFT_STORE_NAME = 'scientific-diagram-drafts';
 
 export function openDatabase(): Promise<IDBDatabase> {
   if (typeof indexedDB === 'undefined') return Promise.reject(new Error('IndexedDB n’est pas disponible dans cet environnement.'));
@@ -38,6 +39,9 @@ export function openDatabase(): Promise<IDBDatabase> {
       }
       if (!database.objectStoreNames.contains(BACKGROUND_TRANSCRIPTION_STORE_NAME)) {
         database.createObjectStore(BACKGROUND_TRANSCRIPTION_STORE_NAME, { keyPath: 'fingerprint' });
+      }
+      if (!database.objectStoreNames.contains(SCIENTIFIC_DIAGRAM_DRAFT_STORE_NAME)) {
+        database.createObjectStore(SCIENTIFIC_DIAGRAM_DRAFT_STORE_NAME, { keyPath: 'id' });
       }
       if (!database.objectStoreNames.contains(DIAGRAM_LAB_STORE)) {
         const store = database.createObjectStore(DIAGRAM_LAB_STORE, { keyPath: 'id' });

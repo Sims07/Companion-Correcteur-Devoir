@@ -105,6 +105,32 @@ describe('streaming backup import for Chromium memory limits', () => {
     expect(await record('copy-after-settings')).toBeUndefined();
   }, 60_000);
 
+  it('streams scientific draft pages and accepts legacy seven-store backups', async () => {
+    const newer = await createLocalBackup(settings);
+    newer.indexedDb.stores['scientific-diagram-drafts'] = [{
+      id: 'personal-lab', draft: { images: [{ mimeType: 'image/png', base64: 'PRIVATE_DRAFT_IMAGE' }] },
+    }];
+    const inspection = await inspectLargeBackup(toBlob(newer));
+    expect(inspection.summary.storeCounts['scientific-diagram-drafts']).toBe(1);
+    await restoreLargeBackup(toBlob(newer), inspection, 'merge', undefined, settings);
+    const database = await openDatabase();
+    const restored = await new Promise<{ draft: { images: Array<{ base64: string }> } }>((resolve, reject) => {
+      const req = database.transaction('scientific-diagram-drafts', 'readonly')
+        .objectStore('scientific-diagram-drafts').get('personal-lab');
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    database.close();
+    expect(restored.draft.images[0]?.base64).toBe('PRIVATE_DRAFT_IMAGE');
+
+    const old = await createLocalBackup(settings);
+    old.indexedDb.version = 6;
+    delete (old.indexedDb.stores as unknown as Record<string, unknown>)['scientific-diagram-drafts'];
+    const oldInspection = await inspectLargeBackup(toBlob(old));
+    expect(oldInspection.summary.storeCounts['scientific-diagram-drafts']).toBe(0);
+    await restoreLargeBackup(toBlob(old), oldInspection, 'merge', undefined, settings);
+  });
+
   it('rejects malformed large backups before any local data is written', async () => {
     const backup = await createLocalBackup(settings);
     backup.indexedDb.stores['local-corrections'] = [

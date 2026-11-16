@@ -60,7 +60,8 @@ describe('read-only IndexedDB storage telemetry', () => {
     expect(snapshot.originUsageBytes).toBe(3145728);
     expect(snapshot.originQuotaBytes).toBe(10485760);
     expect(snapshot.persistent).toBe(false);
-    expect(snapshot.stores).toHaveLength(7);
+    expect(snapshot.stores).toHaveLength(8);
+    expect(snapshot.stores.map(store => store.store)).toContain('scientific-diagram-drafts');
     expect(snapshot.warnings).toEqual([]);
     expect(JSON.stringify(snapshot)).not.toContain('SECRET_STUDENT_COPY');
   });

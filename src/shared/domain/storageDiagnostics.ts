@@ -21,6 +21,7 @@ const LABELS: Record<string,string> = {
   'local-corrections': 'Copies et corrections',
   'background-corrections': 'Corrections en attente',
   'background-transcriptions': 'Transcriptions temporaires',
+  'scientific-diagram-drafts': 'Brouillons de schémas scientifiques',
   'model-evaluations': 'Évaluations de modèles',
   'diagnostic-history': 'Traces techniques',
   'local-memory': 'Mémoire locale',

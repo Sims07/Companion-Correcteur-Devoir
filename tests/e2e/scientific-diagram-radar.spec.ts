@@ -53,7 +53,7 @@ test('benchmark radar ranks complete scientific candidates and reveals the origi
   await page.getByRole('button', { name: 'Évaluer les modèles' }).waitFor();
   await page.evaluate(async (items) => {
     const database = await new Promise<IDBDatabase>((resolve, reject) => {
-      const request = indexedDB.open('companion-correcteur-devoir', 6);
+      const request = indexedDB.open('companion-correcteur-devoir', 7);
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });

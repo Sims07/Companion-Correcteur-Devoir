@@ -2,7 +2,7 @@ import { LocalArrowExperiment } from './LocalArrowExperiment.tsx';
 import { downloadJson as downloadScientificDiagramJson } from '../../../shared/ui/downloadJson.ts';
 import { BlindGraphRunDetails } from './BlindGraphRunDetails.tsx';
 import { ZoomableImage } from '../../../shared/ui/components/ZoomableImage.tsx';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { AiModelProfile } from '../../../shared/domain/aiModelProfiles.ts';
 import { radarPlanDescription, RADAR_TEST_PROTOCOL_NAMES, type RadarMissingTestRequest, type RadarTestStep } from '../../domain/diagramLabRadarLaunch.ts';
 import { describeRadarBattery, radarBatteryEngine } from '../../domain/radarBatteryExecution.ts';
@@ -13,6 +13,7 @@ import { getRubricSubcriteria, validateRubric } from '../../../correction/api/in
 import { Button, TextArea } from '../../../shared/ui/design-system/index.ts';
 import { DesignSystemSelect } from '../../../shared/ui/components/DesignSystemSelect.tsx';
 import { FilePicker } from '../../../shared/ui/components/FilePicker.tsx';
+import { useScientificDiagramDraft } from '../../../shared/ui/useScientificDiagramDraft.ts';
 import cleanDiagramUrl from '../../assets/pilot/scientific-mitosis-10.webp';
 import intermediateDiagramUrl from '../../assets/pilot/scientific-mitosis-5.webp';
 import poorDiagramUrl from '../../assets/pilot/scientific-mitosis-0.webp';
@@ -194,11 +195,26 @@ export function ScientificDiagramProtocolPanel({
   const [diagnosticCopyMessage, setDiagnosticCopyMessage] = useState('');
   const [autoSequenceRunning, setAutoSequenceRunning] = useState(false);
   const [activeAutoStep, setActiveAutoStep] = useState<RadarTestStep | null>(null);
+  // Persist only the teacher-provided personal exercise. Bundled synthetic
+  // fixtures and historical test results have separate storage.
+  const personalSnapshot = useMemo(() => ({
+    images, rubric, context, gold, repetitions, methodSelection,
+  }), [images, rubric, context, gold, repetitions, methodSelection]);
+  const personalDraft = useScientificDiagramDraft('personal-lab', personalSnapshot, saved => {
+    setImages(saved.images);
+    setRubric(saved.rubric);
+    setContext(saved.context ?? '');
+    setGold(saved.gold ?? {});
+    setRepetitions(saved.repetitions ?? 1);
+    setMethodSelection(saved.methodSelection === 'vision-then-analysis'
+      ? 'compare' : saved.methodSelection ?? 'compare');
+    if (saved.images.length) setMessage('Schéma personnel retrouvé sur cet appareil. Vous pouvez relancer l’analyse.');
+  });
   const targets = rubric.criteria.flatMap((criterion) =>
     getRubricSubcriteria(criterion).map((item) => ({ criterion, item, key: diagramTargetKey(criterion.id, item.id) })));
   const validation = validateRubric(rubric);
   const profileIssues = selectedProfiles.map((profile) => diagramMethodIssue(profile, methodSelection)).filter((issue): issue is string => Boolean(issue));
-  const canRun = !busy && !uploading && !fixtureLoading && !sensitivityLoading && !blindGraphLoading && images.length > 0 && validation.valid && selectedProfiles.length > 0 && profileIssues.length === 0;
+  const canRun = personalDraft.canUseDraft && !busy && !uploading && !fixtureLoading && !sensitivityLoading && !blindGraphLoading && images.length > 0 && validation.valid && selectedProfiles.length > 0 && profileIssues.length === 0;
   const canRunFixtures = !busy && !uploading && !fixtureLoading && !sensitivityLoading && !blindGraphLoading && selectedProfiles.length > 0 && profileIssues.length === 0;
   const blindGraphIssue = selectedProfiles.length === 0
     ? 'Sélectionnez au moins une configuration dans « Configurations à exécuter » plus haut.'
@@ -427,11 +443,12 @@ export function ScientificDiagramProtocolPanel({
   async function importImages(files: FileList | null) {
     if (!files?.length || busy || uploading) return;
     setUploading(true);
-    setImages([]);
-    onClearReport();
+    // An import failure must not wipe an earlier teacher copy.
     try {
       const prepared = await onPrepareImages(Array.from(files));
+      if (!prepared.length) throw new Error('Aucune page exploitable.');
       setImages(prepared);
+      onClearReport();
       setMessage(prepared.length + ' page(s) préparée(s). Vous pouvez lancer une analyse unique ou choisir plusieurs passages.');
     } catch (cause) {
       setMessage('Lecture impossible : ' + (cause instanceof Error ? cause.message : String(cause)));
@@ -925,6 +942,18 @@ export function ScientificDiagramProtocolPanel({
         <h4>1. Schéma et barème</h4>
         <FilePicker id="diagram-protocol-photos" title="Schéma à analyser" description="Photo(s) ou PDF du même schéma ; pages conservées ensemble dans un seul essai" accept="image/png,image/jpeg,image/webp,application/pdf,.pdf" multiple disabled={busy || uploading} onFilesSelected={(files) => { void importImages(files); }} />
         <p className="pilot-evaluation-hint">{uploading ? 'Préparation…' : images.length ? images.length + ' page(s) prêtes' : 'Aucune image fournie.'}</p>
+        {!personalDraft.ready && <p role="status" className="pilot-evaluation-hint">Recherche du schéma personnel sauvegardé…</p>}
+        {personalDraft.ready && personalDraft.status === 'saving' && <p role="status" className="pilot-evaluation-hint">Sauvegarde locale du schéma en cours…</p>}
+        {personalDraft.ready && personalDraft.status === 'saved' && images.length > 0 &&
+          <p role="status" className="pilot-evaluation-hint">Schéma sauvegardé sur cet appareil · conservé après rafraîchissement ou erreur IA.</p>}
+        {personalDraft.error && <div role="alert" className="pilot-evaluation-hint">
+          {personalDraft.error}
+          <Button variant="secondary" onClick={personalDraft.retry}>Réessayer la sauvegarde</Button>
+        </div>}
+        {images.length > 0 && <Button variant="secondary" disabled={busy || uploading}
+          onClick={() => { setImages([]); setGold({}); onClearReport(); setMessage('Schéma personnel retiré du brouillon local.'); }}>
+          Retirer le schéma local
+        </Button>}
         {images.length > 0 && <div className="diagram-personal-previews" aria-label="Pages importées">
           {images.map((image, index) => <ZoomableImage key={index}
             src={'data:' + image.mimeType + ';base64,' + image.base64}
@@ -998,7 +1027,7 @@ export function ScientificDiagramProtocolPanel({
         <p>Choisissez un modèle IA enregistré pour pouvoir lancer l’analyse.</p>
         {onManageProfiles && <Button variant="secondary" onClick={onManageProfiles}>Choisir un modèle à tester</Button>}
       </div>}
-      {!images.length && <p className="pilot-evaluation-hint">Importez d’abord le schéma à analyser (image ou PDF).</p>}
+      {!images.length && <p className="pilot-evaluation-hint">Importez d’abord le schéma à analyser (image ou PDF). La copie sera conservée localement pour pouvoir recommencer après une erreur.</p>}
       {!validation.valid && <p role="status" className="pilot-evaluation-hint">Le barème doit être valide pour lancer le test.</p>}
       {profileIssues.map((issue) => <p className="pilot-evaluation-hint" role="status" key={issue}>{issue}</p>)}
       <div className="pilot-evaluation-actions">

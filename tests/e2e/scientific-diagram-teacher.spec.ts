@@ -223,6 +223,13 @@ test('a failed diagram image call becomes À reprendre and retry restores an unv
   await page.locator('.copy-overview-heading').getByRole('button', { name: /Démarrer les corrections/ }).click();
   await expect(page.locator('.copy-overview-grid .correction-series-card.is-to-retry')).toHaveCount(1, { timeout: 30000 });
   await expect(page.locator('.copy-overview-grid .correction-series-card').first()).toContainText('À reprendre');
+  // The failed copy and the original image must survive a complete reload.
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Mes devoirs' })).toBeVisible();
+  await page.locator('.assignment-overview-card').filter({ hasText: 'Schémas à relancer' })
+    .getByRole('button', { name: /Reprendre le devoir|Ouvrir le devoir/ }).click();
+  await expect(page.locator('.copy-overview-grid .correction-series-card.is-to-retry')).toHaveCount(1);
+  await expect(page.locator('.copy-overview-grid .correction-series-card.is-to-retry')).toContainText('étudiant.png');
   failed = false;
   await page.locator('.copy-overview-grid .correction-series-card.is-to-retry').getByRole('button', { name: 'Relancer' }).click();
   await expect(page.locator('.copy-overview-grid .correction-series-card.is-to-review')).toHaveCount(1, { timeout: 30000 });
