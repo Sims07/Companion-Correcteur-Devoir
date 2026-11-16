@@ -8,7 +8,7 @@ test('exports data from localhost and restores it without overwriting unrelated 
   await page.goto('/');
   await page.evaluate(async () => {
     localStorage.setItem('companion-correcteur:assignment-title:v1', 'Ancien devoir de biologie');
-    const request = indexedDB.open('companion-correcteur-devoir', 6);
+    const request = indexedDB.open('companion-correcteur-devoir', 7);
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
@@ -44,7 +44,7 @@ test('exports data from localhost and restores it without overwriting unrelated 
 
   await page.evaluate(async () => {
     localStorage.removeItem('companion-correcteur:assignment-title:v1');
-    const req = indexedDB.open('companion-correcteur-devoir', 6);
+    const req = indexedDB.open('companion-correcteur-devoir', 7);
     const db = await new Promise<IDBDatabase>((resolve) => { req.onsuccess = () => resolve(req.result); });
     await new Promise<void>((resolve) => {
       const tx = db.transaction('model-evaluations', 'readwrite');
@@ -64,7 +64,7 @@ test('exports data from localhost and restores it without overwriting unrelated 
   await panel.getByRole('button', { name: 'Restaurer la sauvegarde' }).click();
   await expect(panel.getByText(/Restauration terminée : 1 enregistrement/)).toBeVisible();
   const result = await page.evaluate(async () => {
-    const req = indexedDB.open('companion-correcteur-devoir', 6);
+    const req = indexedDB.open('companion-correcteur-devoir', 7);
     const db = await new Promise<IDBDatabase>((resolve) => { req.onsuccess = () => resolve(req.result); });
     const tx = db.transaction('model-evaluations', 'readonly');
     const store = tx.objectStore('model-evaluations');
@@ -189,7 +189,7 @@ test('Chromium imports a large real JSON backup without constructing a whole-fil
   await panel.getByRole('button', { name: 'Restaurer la sauvegarde' }).click();
   await expect(panel.getByText(/Restauration terminée/)).toBeVisible({ timeout: 60_000 });
   const restored = await page.evaluate(async () => {
-    const req = indexedDB.open('companion-correcteur-devoir', 6);
+    const req = indexedDB.open('companion-correcteur-devoir', 7);
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
@@ -254,7 +254,7 @@ test('Chromium worker restores a 72 MB image-heavy backup and data survives relo
       .toBeVisible({ timeout: 120_000 });
     await page.reload();
     const restored = await page.evaluate(async () => {
-      const request = indexedDB.open('companion-correcteur-devoir', 6);
+      const request = indexedDB.open('companion-correcteur-devoir', 7);
       const db = await new Promise<IDBDatabase>((resolve, reject) => {
         request.onsuccess = () => resolve(request.result);
         request.onerror = () => reject(request.error);
