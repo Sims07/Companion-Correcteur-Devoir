@@ -974,6 +974,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
       setError('');
       setTeacherStep('overview');
     },
+    !currentBackgroundJobId && !isFinalized,
   );
 
   const [networkInitialFilter, setNetworkInitialFilter] = useState<'all' | 'error'>('all');
@@ -3249,6 +3250,9 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     try {
       await archiveService.saveCorrection(correction);
       if (currentBackgroundJobId) await backgroundService.markCompleted(currentBackgroundJobId);
+      // The validated correction is already stored in the archive. Do not
+      // resurrect its individual in-progress draft after a future refresh.
+      else void foregroundDraft.discard().catch(() => undefined);
       const memoryCorrectionId = getLocalMemoryCorrectionId();
       const decisionEntries = createDecisionMemoryEntries({
         correctionId: memoryCorrectionId ?? id,
@@ -3677,6 +3681,8 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
         transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty,
         transcriptionPenaltyParameter, transcriptionFrequencyPenalty,
       });
+      // The queued job now owns these image pages durably.
+      void foregroundDraft.discard().catch(() => undefined);
       setStudentLabel('');
     setStudentIdentity(null);
       setDetectTeacherAnnotations(false);
@@ -3882,6 +3888,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
           transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty,
           transcriptionPenaltyParameter, transcriptionFrequencyPenalty,
         });
+        void foregroundDraft.discard().catch(() => undefined);
         setBackgroundJobs(await loadQueueOverviews(activeAssignmentId));
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : 'Impossible de sauvegarder la copie avant de passer à la suivante.');
