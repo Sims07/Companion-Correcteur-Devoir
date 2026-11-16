@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  loadScientificDiagramDraft, saveScientificDiagramDraft, type ScientificDiagramDraftId,
+  loadScientificDiagramDraft, saveScientificDiagramDraft, clearScientificDiagramDraft, type ScientificDiagramDraftId,
 } from '../adapters/storage/scientificDiagramDraft.ts';
 import type { ImageInput } from '../domain/imageInput.ts';
 
@@ -14,6 +14,7 @@ export type ScientificDiagramDraftStatus = 'restoring' | 'saving' | 'saved' | 'e
  */
 export function useScientificDiagramDraft<T extends { images: ImageInput[] }>(
   id: ScientificDiagramDraftId, snapshot: T, onRestore: (saved: T) => void,
+  enabled = true,
 ) {
   const restoreCallback = useRef(onRestore);
   restoreCallback.current = onRestore;
@@ -26,6 +27,7 @@ export function useScientificDiagramDraft<T extends { images: ImageInput[] }>(
   const [retryCount, setRetryCount] = useState(0);
   const sequence = useRef(0);
   const writeQueue = useRef<Promise<void>>(Promise.resolve());
+  const pendingTimer = useRef<number | null>(null);
   const lastImages = useRef(snapshot.images);
   const loadFailedId = useRef<ScientificDiagramDraftId | null>(null);
   const ready = loadedId === id;
@@ -64,23 +66,28 @@ export function useScientificDiagramDraft<T extends { images: ImageInput[] }>(
   }
 
   useEffect(() => {
-    if (!ready || loadFailedId.current === id) return;
+    if (!ready || !enabled || loadFailedId.current === id) return;
     const revision = ++sequence.current;
     const imageChanged = lastImages.current !== snapshot.images;
     lastImages.current = snapshot.images;
     setStatus('saving');
     setError('');
     const timer = window.setTimeout(() => {
+      pendingTimer.current = null;
       void enqueueWrite(id, snapshot, revision);
     }, imageChanged ? 0 : 200);
-    return () => { window.clearTimeout(timer); };
-  }, [id, ready, retryCount, snapshot]);
+    pendingTimer.current = timer;
+    return () => {
+      window.clearTimeout(timer);
+      if (pendingTimer.current === timer) pendingTimer.current = null;
+    };
+  }, [id, ready, enabled, retryCount, snapshot]);
 
   // The teacher must not start an expensive model request until the source
   // images have been durably committed. This also guards an immediate refresh
   // right after a failed request (before the autosave debounce has run).
   async function persistNow(): Promise<void> {
-    if (!ready || loadFailedId.current === id) {
+    if (!ready || !enabled || loadFailedId.current === id) {
       throw new Error('Le chargement du brouillon local n’est pas terminé. Réessayez après sa restauration.');
     }
     const revision = ++sequence.current;
@@ -89,8 +96,25 @@ export function useScientificDiagramDraft<T extends { images: ImageInput[] }>(
     await enqueueWrite(id, latestSnapshot.current, revision);
   }
 
+  async function discard(): Promise<void> {
+    if (!ready) throw new Error('Le chargement du brouillon local n’est pas terminé.');
+    const revision = ++sequence.current;
+    if (pendingTimer.current !== null) {
+      window.clearTimeout(pendingTimer.current);
+      pendingTimer.current = null;
+    }
+    const operation = writeQueue.current.then(() => clearScientificDiagramDraft(id));
+    writeQueue.current = operation.catch(() => undefined);
+    await operation;
+    if (sequence.current === revision) {
+      setStatus('saved');
+      setError('');
+      setRestoredId(null);
+    }
+  }
+
   return {
-    ready, restored: restoredId === id, status, error, persistNow,
+    ready, restored: restoredId === id, status, error, persistNow, discard,
     retry: () => setRetryCount(count => count + 1),
     canUseDraft: ready && status === 'saved' && loadFailedId.current !== id,
   };
