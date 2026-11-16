@@ -18,32 +18,34 @@ const profiles = (model: string, method = 'decision', vision = 'qwen3.5:4b') => 
 }];
 
 describe('one-click decision model radar planning', () => {
-  it.each(['d1:3b', 'tev1:4b'])(
-    'launches the same Vision-to-decision grading protocols for %s without borrowing graph scores',
-    (model) => {
-      const selected = candidate(model);
-      const plan = resolveModelProfile(profiles(model), 'model', selected, planRadarModelEvaluation(selected));
-      expect(plan).not.toBeNull();
-      expect(plan?.profileId).toBe('profile-' + model);
-      expect(plan?.modelId).toBe(model);
-      expect(plan?.steps.map((step) => [step.protocol, step.repetitions, step.method])).toEqual([
-        ['reference', 3, 'vision-then-analysis'],
-        ['arrows', 1, 'vision-then-analysis'],
-        ['semantic', 1, 'vision-then-analysis'],
-      ]);
-      expect(plan?.steps.some((step) => step.protocol === 'graph')).toBe(false);
-    },
-  );
+  it('launches image-native D1 without borrowing graph scores', () => {
+    const selected = candidate('d1:3b');
+    const plan = resolveModelProfile(profiles('d1:3b'), 'model', selected, planRadarModelEvaluation(selected));
+    expect(plan).not.toBeNull();
+    expect(plan?.profileId).toBe('profile-d1:3b');
+    expect(plan?.modelId).toBe('d1:3b');
+    expect(plan?.steps.map((step) => [step.protocol, step.repetitions, step.method])).toEqual([
+      ['reference', 3, 'direct-image-systemone'],
+      ['arrows', 1, 'direct-image-systemone'],
+      ['semantic', 1, 'direct-image-systemone'],
+    ]);
+    expect(plan?.steps.some((step) => step.protocol === 'graph')).toBe(false);
+  });
 
-  it('never sends D1 to Ollama Chat as the Vision reader, and prefers a valid saved reader', () => {
+  it('does not plan scientific grading for text-only TEV1 despite a separate Vision model', () => {
+    const selected = candidate('tev1:4b');
+    expect(resolveModelProfile(profiles('tev1:4b'), 'model', selected, planRadarModelEvaluation(selected)))
+      .toBeNull();
+  });
+
+  it('does not use a configured OCR model when launching native D1 image decisions', () => {
     const selected = candidate('d1:3b');
     const plan = planRadarModelEvaluation(selected);
-    const wrong = profiles('d1:3b', 'decision', 'd1:3b')[0]!;
-    const correct = { ...profiles('d1:3b', 'decision', 'qwen3.5:4b')[0]!, id: 'd1-with-qwen-reader' };
-    expect(resolveModelProfile([wrong], 'model', selected, plan)).toBeNull();
-    const resolved = resolveModelProfile([wrong, correct], 'model', selected, plan);
-    expect(resolved?.profileId).toBe('d1-with-qwen-reader');
-    expect(resolved?.steps.every((step) => step.method === 'vision-then-analysis')).toBe(true);
+    const noReader = profiles('d1:3b', 'decision', 'd1:3b')[0]!;
+    const withReader = { ...profiles('d1:3b', 'decision', 'qwen3.5:4b')[0]!, id: 'd1-with-qwen-reader' };
+    const resolved = resolveModelProfile([noReader, withReader], 'model', selected, plan);
+    expect(resolved?.profileId).toBe('profile-d1:3b');
+    expect(resolved?.steps.every((step) => step.method === 'direct-image-systemone')).toBe(true);
     expect(resolved?.steps.some((step) => step.protocol === 'graph')).toBe(false);
   });
 
