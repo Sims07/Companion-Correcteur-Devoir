@@ -51,7 +51,8 @@ describe('launch missing radar tests', () => {
 
   it('preserves method identity and avoids claiming grading evidence for blind graph algorithms', () => {
     const grader = candidate({}, 'vision-then-analysis');
-    expect(planMissingRadarAxis(grader, 'arrows', 'method')?.steps[0]?.method).toBe('vision-then-analysis');
+    // Historical two-stage campaigns remain readable but are never relaunchable.
+    expect(planMissingRadarAxis(grader, 'arrows', 'method')).toBeNull();
     expect(planMissingRadarAxis(grader, 'relations', 'method')).toBeNull();
     expect(planMissingRadarAxis(grader, 'robustness', 'method')).toBeNull();
     const graph = candidate({}, 'blind-graph');
@@ -82,6 +83,14 @@ describe('launch missing radar tests', () => {
       { ...candidate(), id: 'vision:4b', weightedScore: null }, plan, 'image-direct-v1');
     expect(withoutGraph?.steps.map(step => step.protocol)).toEqual(['reference', 'arrows', 'semantic']);
     expect(withoutGraph?.steps.every(step => step.method === 'direct-image-generative')).toBe(true);
+    // A different saved OCR/vision model does not change the direct image engine.
+    const implicit = { axis: 'graphics' as const, profileId: 'saved-profile', profileName: 'Qwen Vision',
+      steps: [{ protocol: 'reference' as const, repetitions: 1 as const,
+        method: 'compare' as const, promptMode: 'standard' as const,
+        graphVariant: 'baseline' as const, zoom: false }] };
+    const fallback = resolveModelProfile([profiles[0]!], 'model',
+      { ...candidate(), id: 'vision:4b', weightedScore: null }, implicit);
+    expect(fallback?.steps[0]?.method).toBe('direct-image-generative');
   });
 
   it('rejects an explicit direct-image benchmark for a decision-only profile', () => {
