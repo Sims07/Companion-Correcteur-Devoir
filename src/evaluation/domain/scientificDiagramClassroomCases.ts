@@ -113,16 +113,16 @@ function panel(phase: Phase, variant: ClassroomCaseId, index: number): string {
   legends += label(380, 115, phase === 'interphase' ? 'noyau' : phase === 'telophase' ? 'noyau fils' : 'chromosomes');
   if (variant === 'R2' && phase === 'interphase') {
     // Endpoint of the cytoplasm leader is deliberately in the nucleus.
-    legends += path('M174 145 L375 150', 2);
-    legends += label(380, 157, 'cytoplasme');
+    legends += path('M174 145 L412 150', 2);
+    legends += label(416, 157, 'cytoplasme');
   } else if (variant === 'R3' && phase === 'metaphase') {
-    legends += path('M260 140 L375 151', 2);
-    legends += label(380, 157, 'membrane nucléaire');
+    legends += path('M260 140 L413 151', 2);
+    legends += label(418, 157, 'membrane nucléaire');
     legends += path('M282 185 L375 187', 2);
     legends += label(380, 194, 'microtubules');
   } else {
-    legends += path('M311 192 L375 151', 2);
-    legends += label(380, 157, rough ? 'membrane' : 'paroi cellulaire');
+    legends += path('M311 192 L' + (rough ? 412 : 375) + ' 151', 2);
+    legends += label(rough ? 416 : 380, 157, rough ? 'membrane' : 'paroi cellulaire');
   }
   return '<g transform="translate(' + tx + ' ' + ty + ')">' +
     '<rect x="8" y="10" width="570" height="294" fill="none" stroke="#e6e6e6" stroke-width="1.5"/>' +
