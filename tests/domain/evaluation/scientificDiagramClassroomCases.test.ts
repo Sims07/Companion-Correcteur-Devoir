@@ -19,7 +19,7 @@ describe('three synthetic classroom mitosis examples', () => {
       const svg = svgs[index]!;
       expect(svg).toMatch(/^<svg /);
       expect(svg).toContain('<rect width="1240" height="840" fill="#fff"/>');
-      expect(svg).not.toMatch(/<image|data:image\/png|data:image\/jpeg|marker-end|<marker|Nom[s]? ?Pr[ée]nom|correcteur|9,5\/10|5,75\/10|6,75\/10/i);
+      expect(svg).not.toMatch(/<image|data:image\/png|data:image\/jpeg|marker-end|<marker|Nom[s]? ?Pr[ée]nom|correcteur|\d+(?:[,\.]\d+)?\/10/i);
       expect((svg.match(/Dessin|Mitose|Mitoses/g) ?? []).length).toBeGreaterThan(0);
       expect((svg.match(/<g transform=/g) ?? []).length).toBe(4);
       expect(classroomScenarioPreview(id)).toContain('data:image/svg+xml;charset=utf-8,');
