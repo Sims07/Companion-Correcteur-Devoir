@@ -1021,8 +1021,8 @@ describe('Ollama generation cancellation', () => {
     }));
     const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', model: 'llava' }, fetchMock);
     const generation = provider.generate(request, undefined, undefined, undefined, undefined, undefined, undefined, undefined, controller.signal);
-    await Promise.resolve();
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    // Image preparation is async: wait until transport is active before aborting.
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     const requestSignal = fetchMock.mock.calls[0][1]?.signal;
     expect(requestSignal).toBeInstanceOf(AbortSignal);
     expect(requestSignal).not.toBe(controller.signal);
