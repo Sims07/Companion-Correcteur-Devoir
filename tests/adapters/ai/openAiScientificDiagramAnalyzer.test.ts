@@ -259,7 +259,7 @@ describe('OpenAI scientific diagram adapter', () => {
     expect(item.required).toContain('origin');
     expect(item.required).toContain('uncertainty');
     expect(item.properties.origin.enum).toEqual(['student-diagram', 'printed-subject', 'uncertain']);
-    expect(body.messages[0].content).toContain('un titre principal placé sous la composition');
+    expect(body.messages[0].content).toContain('titre principal descriptif de l’ENSEMBLE de la composition');
   });
 
   it('uses native Ollama chat and a JSON Schema for local diagram analysis too', async () => {

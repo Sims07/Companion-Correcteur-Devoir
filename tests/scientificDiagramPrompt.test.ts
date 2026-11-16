@@ -27,8 +27,8 @@ describe('scientific diagram prompt and professor marks', () => {
     expect(prompt).not.toContain('arrows-relations');
     expect(prompt).toContain('ne déduis jamais automatiquement un demi-point');
     expect(prompt).toContain('origin=student-diagram');
-    expect(prompt).toContain('un titre principal placé sous la composition');
-    expect(prompt).toContain('titre décrit comme « au-dessus »');
+    expect(prompt).toContain('titre principal descriptif de l’ENSEMBLE de la composition');
+    expect(prompt).toContain('Si le titre commun est au-dessus');
   });
 
   it('keeps teachers rubric semantics in a compact local retry without resurrecting bounding boxes', () => {
@@ -48,7 +48,7 @@ describe('scientific diagram prompt and professor marks', () => {
     expect(prompt).toContain('Visible à la télophase');
     expect(prompt).not.toContain('bounds');
     expect(prompt).toContain('summary ≤ 10 mots');
-    expect(prompt).toContain('titre principal commun aux quatre dessins');
+    expect(prompt).toContain('titre PRINCIPAL placé sous l’ENSEMBLE');
   });
 
   it('instructs Vision to ignore correction marks and request teacher review when they overlap a diagram', () => {
