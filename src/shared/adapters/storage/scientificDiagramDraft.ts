@@ -17,8 +17,9 @@ export async function loadScientificDiagramDraft<T>(id: ScientificDiagramDraftId
   const database = await openDatabase();
   try {
     const transaction = database.transaction(SCIENTIFIC_DIAGRAM_DRAFT_STORE, 'readonly');
-    const record = (await requestToPromise(transaction.objectStore(SCIENTIFIC_DIAGRAM_DRAFT_STORE).get(id)))
-      as StoredScientificDiagramDraft<T> | undefined;
+    const record = await requestToPromise<StoredScientificDiagramDraft<T> | undefined>(
+      transaction.objectStore(SCIENTIFIC_DIAGRAM_DRAFT_STORE).get(id),
+    );
     return record?.draft ?? null;
   } finally {
     database.close();
