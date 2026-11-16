@@ -7,7 +7,7 @@ import { buildSubjectReferencePrompt, buildStudentIdentityFallbackPrompt, buildT
 import { buildFullGradingPrompt } from './prompts/fullGradingPrompt.ts';
 import { buildDirectDiagramPrompt, buildDirectDiagramPointRepairPrompt, buildDirectDiagramPointsRepairPrompt } from './prompts/directDiagramPrompt.ts';
 import { resizeVisionImage } from '../../../shared/adapters/image/resizeVisionImage.ts';
-import { directDiagramSchema, parseDirectDiagramOutput, findInvalidDiagramPoints, directDiagramPointRepairSchema, directDiagramPointsRepairSchema, applyDirectDiagramPointRepair, applyDirectDiagramPointsRepair, diagramInvalidPointMarkers } from './directDiagramOutput.ts';
+import { directDiagramSchema, parseDirectDiagramOutput, findInvalidDiagramPoints, directDiagramPointRepairSchema, directDiagramPointsRepairSchema, applyDirectDiagramPointRepair, applyDirectDiagramPointsRepair, diagramInvalidPointMarkers, directDiagramGenerationTokenLimit } from './directDiagramOutput.ts';
 import { buildTranscriptionPrompt, buildStudentIdentityPrompt, buildTeacherAnnotationPrompt } from './prompts/visionPrompts.ts';
 import { requireCorrectionMethodAvailable } from '../../../shared/domain/correctionMethod.ts';
 import { isVisualDecisionModel, prepareSystemOneRubric, scoreSystemOneRubric } from '../../domain/systemOneDecision.ts';
@@ -709,13 +709,17 @@ export function createOllamaProvider(
             };
             lastDiagnosticMetrics = metrics;
             if (!tracking.deferResult) {
-              onDiagnosticResult?.({ ...metrics, raw: metrics.promptId === 'vision.copy-transcription' ? '' : result.content, ...(!result.content.trim() ? { error: 'Ollama a retourné une réponse vide.' } : {}) });
+              onDiagnosticResult?.({ ...metrics, raw: metrics.promptId === 'vision.copy-transcription' ? '' : result.content, ...(!result.content.trim() ? { error: result.doneReason === 'length' ? 'Limite de génération atteinte sans réponse finale.' : 'Ollama a retourné une réponse vide.' } : {}) });
               diagnosticResultEmitted = true;
             }
           }
           if (result.doneReason) tracking?.onDoneReason?.(result.doneReason);
           if (result.doneReason === 'length' && !tracking?.allowTruncated) {
             throw new Error(`Analyse incomplète : ${providerName} a atteint la limite de génération (done_reason=length, num_predict=${tracking?.generationTokenLimit ?? 2048}). La réponse partielle n’est pas exploitable comme correction. Réduisez la longueur des données ou relancez avec un budget adapté.`);
+          }
+          if (!result.content.trim() && result.doneReason === 'length') {
+            const isDirectDiagram = tracking?.promptId === 'diagram.direct-grading' || tracking?.promptId === 'diagram.direct-repair';
+            throw new Error(`Limite de génération atteinte sans réponse finale (done_reason=length, num_predict=${tracking?.generationTokenLimit ?? 2048}).${isDirectDiagram ? ' [diagram-output:generation-limit]' : ''} Réessayez avec un modèle plus rapide ou un barème plus court ; aucune note n’a été attribuée.`);
           }
           if (!result.content.trim()) {
             throw new Error(result.thinkingPresent
@@ -755,6 +759,8 @@ export function createOllamaProvider(
         if (rubricCriteriaForSchema.length) {
           const schema = directDiagramSchema(rubricCriteriaForSchema);
           let repairReason: string | undefined;
+          const directThinking = settings.thinkingLevel ?? settings.thinking ?? false;
+          const directGenerationBudget = directDiagramGenerationTokenLimit(rubricCriteriaForSchema, Boolean(directThinking));
           let pointRepair: {
             originalRaw: string;
             issues: NonNullable<ReturnType<typeof findInvalidDiagramPoints>>;
@@ -776,14 +782,19 @@ export function createOllamaProvider(
                   ? directDiagramPointRepairSchema(targeted.issues[0]!.maximum)
                   : directDiagramPointsRepairSchema(targeted.issues)
                 : schema,
-              settings.thinkingLevel ?? settings.thinking ?? false,
+              directThinking,
               { kind: 'model', stage: 'analysis', temperature: 0,
-                generationTokenLimit: settings.thinking ? 4096 : 2048,
+                generationTokenLimit: directGenerationBudget,
                 promptId: attempt === 0 ? 'diagram.direct-grading' : 'diagram.direct-repair',
                 allowTruncated: true, onDoneReason: reason => { doneReason = reason; },
                 intent: attempt === 0 ? 'Évaluer les attendus du schéma' : 'Réparer uniquement les notes invalides du schéma' });
+            // A token-limit stop is not a defective mark: retrying the entire
+            // multimodal rubric would spend another full model generation.
+            // Keep the partial answer in diagnostics, but never infer a grade.
+            if (doneReason === 'length') {
+              throw new Error('Limite de génération atteinte pour le schéma [diagram-output:generation-limit]. Aucune note n’a été attribuée ; réessayez avec un modèle plus rapide ou un barème plus court.');
+            }
             try {
-              if (doneReason === 'length') throw new Error('Limite de génération atteinte [diagram-output:generation-limit].');
               return targeted
                 ? onlyOne
                   ? applyDirectDiagramPointRepair(targeted.originalRaw, raw, targeted.issues[0]!, rubricCriteriaForSchema)
