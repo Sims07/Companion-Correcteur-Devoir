@@ -1,5 +1,14 @@
+/** The assessed title describes the entire composite figure, never a phase caption. */
+export const SCIENTIFIC_DIAGRAM_MAIN_TITLE_RULE = [
+  'TITRE PRINCIPAL (si le barème évalue un titre) : repère le texte qui nomme et décrit le sujet de l’ENSEMBLE des dessins, pas les intitulés locaux de sous-schémas.',
+  'Dans une composition de quatre cellules illustrant la mitose, « Prophase », « Métaphase », « Anaphase », « Télophase » ou « Interphase » placés sous chaque cellule sont des noms de phases : ce ne sont PAS le titre principal.',
+  '« Titre placé en dessous » est satisfait uniquement si le titre descriptif commun est placé SOUS la composition entière des quatre sous-schémas. Un nom de phase sous sa cellule ne prouve rien sur cette position. Si le titre principal est au-dessus des quatre dessins, ce sous-critère vaut zéro même si chaque phase a un intitulé dessous.',
+  'Évalue le centrage, le soulignement ou encadrement, l’horizontalité, le sujet et la mention de coupe sur CE MÊME titre principal ; ne récupère pas ces propriétés des noms de phases. Dans la preuve, identifie le texte principal et sa position par rapport à l’ensemble, pas seulement « titre présent ». Si titre et position ne sont pas discernables, signale le doute.',
+].join(' ');
+
 /** Shared reading rules, without a biological answer key or output-format assumptions. */
 export const SCIENTIFIC_DIAGRAM_OBSERVATION_RULES = [
+  SCIENTIFIC_DIAGRAM_MAIN_TITLE_RULE,
   'LECTURE DU DESSIN : observe les relations avant de les comparer au barème. Une étiquette identifie un élément ; elle ne prouve ni sa structure ni une connexion.',
   'TRAITS DE RAPPEL DES LÉGENDES (si le barème demande leur correspondance) : dans un dessin scientifique d’observation au microscope, une légende est reliée à une structure par un simple trait, SANS pointe de flèche nécessaire. Pars du texte, identifie SON trait, suis-le physiquement jusqu’à son extrémité dans le dessin, reconnais la structure réellement touchée et compare-la au mot écrit. Une étiquette juste mais reliée à une mauvaise structure est incorrecte, même si la bonne structure est visible ailleurs. Un croisement de traits ne crée pas de connexion. Si l’extrémité ou la structure est illisible, demande une vérification sans valider par défaut.',
   'FLÈCHES DE RELATION (uniquement si le schéma comporte réellement des flèches directionnelles à évaluer) : repère les deux extrémités, suis le trait continu, puis localise la pointe et sa cible réelle. Ne déduis jamais le sens de l’ordre des mots, de la disposition gauche-droite ou de tes connaissances scientifiques. Ne transforme jamais un trait de rappel sans pointe en flèche biologique.',
