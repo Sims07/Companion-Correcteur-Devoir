@@ -63,7 +63,9 @@ describe('protocole de schémas scientifiques', () => {
     expect(usesDirectDiagramVision(profile('tev1:4b'))).toBe(false);
     expect(usesDirectDiagramVision(profile('qwen3.5:4b', 'generative'))).toBe(false);
     expect(diagramProtocolProfileIssue({ ...profile('tev1:4b'),
-      configuration: { ...profile('tev1:4b').configuration, visionModel: '' } })).toContain('Vision');
+      configuration: { ...profile('tev1:4b').configuration, visionModel: '' } })).toContain('correction directe sur image');
+    expect(diagramProtocolProfileIssue({ ...profile('qwen3.5:4b', 'generative'),
+      configuration: { ...profile('qwen3.5:4b', 'generative').configuration, visionModel: '' } })).toBeNull();
     expect(diagramProtocolProfileIssue({ ...profile('d1:3b'),
       configuration: { ...profile('d1:3b').configuration, visionModel: '' } })).toBeNull();
     expect(diagramProtocolProfileIssue({ ...profile('d1:3b'),
