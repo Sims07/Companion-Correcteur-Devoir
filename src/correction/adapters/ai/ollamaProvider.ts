@@ -6,6 +6,7 @@ import { buildArbitrationPrompt, buildArbitrationRepairPrompt, buildIncrementalG
 import { buildSubjectReferencePrompt, buildStudentIdentityFallbackPrompt, buildTeacherAnnotationRepairPrompt, buildRubricPageTranscriptionPrompt } from './prompts/visionPrompts.ts';
 import { buildFullGradingPrompt } from './prompts/fullGradingPrompt.ts';
 import { buildDirectDiagramPrompt, buildDirectDiagramPointRepairPrompt, buildDirectDiagramPointsRepairPrompt } from './prompts/directDiagramPrompt.ts';
+import { resizeVisionImage } from '../../../shared/adapters/image/resizeVisionImage.ts';
 import { directDiagramSchema, parseDirectDiagramOutput, findInvalidDiagramPoints, directDiagramPointRepairSchema, directDiagramPointsRepairSchema, applyDirectDiagramPointRepair, applyDirectDiagramPointsRepair, diagramInvalidPointMarkers } from './directDiagramOutput.ts';
 import { buildTranscriptionPrompt, buildStudentIdentityPrompt, buildTeacherAnnotationPrompt } from './prompts/visionPrompts.ts';
 import { requireCorrectionMethodAvailable } from '../../../shared/domain/correctionMethod.ts';
@@ -399,6 +400,19 @@ export function createOllamaProvider(
 
       if (!request.question.trim()) throw new Error('La consigne de correction est vide.');
       if (!request.transcription && !request.images?.length) throw new Error('Ajoutez au moins une photo ou un PDF avant de lancer la correction.');
+
+      // Prepare smaller image payloads only for LLM transport. Never mutate the
+      // teacher's original copy, or the high-resolution pages kept for zoom/review.
+      // This also covers legacy queued copies that contain unscaled PNG/JPEG pages.
+      if (request.images?.length || request.subjectImages?.length || request.teacherAnnotationImages?.length || request.identityImage) {
+        request = {
+          ...request,
+          ...(request.images ? { images: await Promise.all(request.images.map((image) => resizeVisionImage(image, undefined, signal))) } : {}),
+          ...(request.subjectImages ? { subjectImages: await Promise.all(request.subjectImages.map((image) => resizeVisionImage(image, undefined, signal))) } : {}),
+          ...(request.teacherAnnotationImages ? { teacherAnnotationImages: await Promise.all(request.teacherAnnotationImages.map((image) => resizeVisionImage(image, undefined, signal))) } : {}),
+          ...(request.identityImage ? { identityImage: await resizeVisionImage(request.identityImage, undefined, signal) } : {}),
+        };
+      }
 
       const buildPrompt = (transcription?: string, subjectTranscription?: string) => buildFullGradingPrompt(request, transcription, subjectTranscription);
 
