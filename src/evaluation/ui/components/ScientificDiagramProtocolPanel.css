@@ -77,6 +77,17 @@
 }
 .diagram-fixture-card-title span { font-weight: 700; font-variant-numeric: tabular-nums; }
 .diagram-fixture-card-body p { font-size: .82rem; }
+.diagram-lab-rubric { border: 1px solid var(--ds-color-border); border-radius: var(--ds-radius-md); padding: var(--ds-space-3); }
+.diagram-lab-rubric > summary { cursor: pointer; font-weight: 700; }
+.diagram-lab-rubric > p { font-size: .85rem; margin: var(--ds-space-3) 0; }
+.diagram-lab-rubric-group { border-top: 1px solid var(--ds-color-border); padding-top: var(--ds-space-3); margin-top: var(--ds-space-3); }
+.diagram-lab-rubric-group h5 { margin: 0 0 var(--ds-space-2); font-size: .94rem; }
+.diagram-lab-rubric-group > p, .diagram-lab-rubric-group li p { color: var(--ds-color-text-muted); font-size: .83rem; margin: 3px 0 var(--ds-space-2); }
+.diagram-lab-rubric-group ul { margin: 0; padding: 0; list-style: none; }
+.diagram-lab-rubric-group li { padding: var(--ds-space-2) 0; border-top: 1px solid var(--ds-color-border); }
+.diagram-lab-rubric-group li > div { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: var(--ds-space-2); font-size: .87rem; }
+.diagram-lab-rubric-group li span { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.diagram-personal-setup [aria-pressed="true"] { border-color: var(--ds-color-text); font-weight: 700; }
 .diagram-fixture-run-controls { display: grid; gap: var(--ds-space-2); }
 .diagram-fixture-run-controls .pilot-evaluation-actions { align-items: center; }
 @media (max-width: 850px) {
