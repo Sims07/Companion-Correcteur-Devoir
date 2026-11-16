@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { AiModelConfiguration, AiModelProfile } from '../../../shared/domain/aiModelProfiles.ts';
 import type { GradingProposal } from '../../domain/grading.ts';
 import { validateRubric, type Rubric } from '../../domain/rubric.ts';
@@ -11,6 +11,7 @@ import { Button, TextArea } from '../../../shared/ui/design-system/index.ts';
 import { DesignSystemSelect } from '../../../shared/ui/components/DesignSystemSelect.tsx';
 import { FilePicker } from '../../../shared/ui/components/FilePicker.tsx';
 import { CopyPageViewer } from './CopyPageViewer.tsx';
+import { useScientificDiagramDraft } from '../../../shared/ui/useScientificDiagramDraft.ts';
 import './ScientificDiagramTeacherPanel.css';
 
 export interface ScientificDiagramTeacherPanelProps {
@@ -22,8 +23,20 @@ export interface ScientificDiagramTeacherPanelProps {
   onOpenSettings: () => void;
 }
 
-/** A deliberately short teacher journey. It never stores images or auto-accepts
- * scores: this is a standalone evaluation of one scientific drawing.
+interface TeacherDiagramDraft {
+  images: ImageInput[];
+  originals: ImageInput[];
+  angles: Record<number, number>;
+  rubric: Rubric;
+  question: string;
+  selectedProfileId: string;
+  proposal: GradingProposal | null;
+  completedAt: string;
+  usedModel: string;
+}
+
+/** Teacher review never auto-accepts the grade. The draft and its image pages
+ * are saved locally so a failed call, navigation or reload can be resumed.
  */
 export function ScientificDiagramTeacherPanel({
   profiles, currentConfiguration, onPrepareImages, onRotateImage, onRun, onOpenSettings,
@@ -47,6 +60,25 @@ export function ScientificDiagramTeacherPanel({
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const abortRef = useRef<AbortController | null>(null);
+  const draftSnapshot = useMemo<TeacherDiagramDraft>(() => ({
+    images, originals: originals.current, angles, rubric, question, selectedProfileId,
+    proposal, completedAt, usedModel,
+  }), [images, angles, rubric, question, selectedProfileId, proposal, completedAt, usedModel]);
+  const draft = useScientificDiagramDraft<TeacherDiagramDraft>('teacher-direct', draftSnapshot, saved => {
+    setImages(saved.images);
+    originals.current = saved.originals?.length === saved.images.length ? saved.originals : saved.images;
+    setAngles(saved.angles ?? {});
+    setRubric(saved.rubric);
+    setQuestion(saved.question ?? '');
+    setSelectedProfileId(saved.selectedProfileId ?? '');
+    setProposal(saved.proposal ?? null);
+    setCompletedAt(saved.completedAt ?? '');
+    setUsedModel(saved.usedModel ?? '');
+    setPageIndex(0);
+    setMessage(saved.images.length
+      ? 'Copie retrouvée dans le stockage local. Vous pouvez relancer la correction.'
+      : '');
+  });
 
   useEffect(() => () => abortRef.current?.abort(), []);
   useEffect(() => {
@@ -61,8 +93,8 @@ export function ScientificDiagramTeacherPanel({
   const validation = validateRubric(rubric);
   const review = buildDiagramReview(rubric, proposal);
   const compatible = configuration.correctionMethod === 'generative' && Boolean(configuration.analysisModel.trim());
-  const canRun = !running && !uploading && !rotating && images.length > 0 && validation.valid
-    && compatible;
+  const canRun = draft.canUseDraft && !running && !uploading && !rotating
+    && images.length > 0 && validation.valid && compatible;
 
   function invalidate() {
     setProposal(null);
@@ -73,18 +105,17 @@ export function ScientificDiagramTeacherPanel({
 
   async function addImages(files: FileList | null) {
     if (!files?.length || running || uploading || rotating || rotationBusyRef.current) return;
-    invalidate();
-    setImages([]);
-    originals.current = [];
-    setAngles({});
-    setPageIndex(0);
-    setViewerPage(null);
+    // Keep the previous copy on screen and in IndexedDB if a new import fails.
     setUploading(true);
     try {
       const prepared = await onPrepareImages(Array.from(files));
       if (!prepared.length) throw new Error('Aucune page exploitable.');
+      invalidate();
       originals.current = prepared;
       setImages(prepared);
+      setAngles({});
+      setPageIndex(0);
+      setViewerPage(null);
       setMessage(prepared.length + ' page(s) du schéma prête(s).');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Impossible de préparer les images.');
@@ -148,6 +179,17 @@ export function ScientificDiagramTeacherPanel({
     }
   }
 
+  function discardCopy() {
+    if (running || uploading || rotating || !draft.ready) return;
+    invalidate();
+    originals.current = [];
+    setImages([]);
+    setAngles({});
+    setPageIndex(0);
+    setViewerPage(null);
+    setMessage('Copie retirée du brouillon local.');
+  }
+
   function exportResult() {
     if (!proposal) return;
     // The export intentionally includes neither the original images, their
@@ -180,7 +222,7 @@ export function ScientificDiagramTeacherPanel({
     <header className="diagram-teacher-heading">
       <div><p className="eyebrow">ESPACE ENSEIGNANT · BIOLOGIE</p>
         <h2>Corriger un schéma scientifique</h2>
-        <p>Le schéma reste visible pendant la correction et la relecture des critères.</p>
+        <p>Le schéma reste visible pendant la correction et la relecture des critères. Les photos et le barème sont sauvegardés sur cet appareil.</p>
       </div>
       <span className="step-count">MODE EXPÉRIMENTAL</span>
     </header>
@@ -194,6 +236,8 @@ export function ScientificDiagramTeacherPanel({
             disabled={running || uploading || rotating} onFilesSelected={(files) => { void addImages(files); }} />
           <p className="hint">{uploading ? 'Préparation des images…'
             : images.length ? images.length + ' page(s) sélectionnée(s)' : 'Aucune image sélectionnée.'}</p>
+          {images.length > 0 && <Button variant="secondary" disabled={running || uploading || rotating}
+            onClick={discardCopy}>Retirer la copie locale</Button>}
           <details className="diagram-teacher-options">
             <summary>Barème personnel et contexte <span>Facultatif</span></summary>
             <FilePicker id="teacher-diagram-rubric" title="Importer mon barème (JSON)"
@@ -226,6 +270,13 @@ export function ScientificDiagramTeacherPanel({
           </div>
         </div>
       </div>
+      {!draft.ready && <p role="status" className="hint">Recherche d’une copie sauvegardée localement…</p>}
+      {draft.ready && draft.status === 'saving' && <p role="status" className="hint">Sauvegarde locale de la copie…</p>}
+      {draft.ready && draft.status === 'saved' && images.length > 0 &&
+        <p role="status" className="hint">Copie sauvegardée sur cet appareil · disponible après rafraîchissement.</p>}
+      {draft.error && <div role="alert" className="diagram-teacher-error">{draft.error}
+        <Button variant="secondary" onClick={draft.retry}>Réessayer la sauvegarde</Button>
+      </div>}
       {error && <p className="diagram-teacher-error" role="alert">{error}</p>}
       {message && <p className="diagram-teacher-message" role="status">{message}</p>}
     </section>
