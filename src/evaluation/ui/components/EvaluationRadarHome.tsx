@@ -12,7 +12,7 @@ import { downloadJson } from '../../../shared/ui/downloadJson.ts';
 import { Button } from '../../../shared/ui/design-system/index.ts';
 import { useMemo, useState } from 'react';
 import type { AiModelProfile } from '../../../shared/domain/aiModelProfiles.ts';
-import { isNativeDecisionModel } from '../../../correction/api/index.ts';
+import { isVisualDecisionModel } from '../../../correction/api/index.ts';
 import type { DiagramLabArchiveEntry } from '../../domain/diagramLabHistory.ts';
 import {
   buildDiagramLabRadar,
@@ -122,11 +122,10 @@ export function EvaluationRadarHome({
   const graphDiagnostic = sci?.axes.relations.value === null
     ? diagnoseGraphRadarMeasurement(eligibleEntries, selected) : null;
   const plan = sci && resolveModelProfile(profiles, 'model', sci, planRadarModelEvaluation(sci, eligibleEntries));
-  const misconfiguredDecisionVision = profiles.some((profile) =>
+  const nonVisualDecision = profiles.some((profile) =>
     profile.configuration.analysisModel === selected &&
-    profile.configuration.correctionMethod === 'decision' &&
-    !profile.configuration.apiCompatible &&
-    isNativeDecisionModel(profile.configuration.visionModel));
+    (profile.configuration.correctionMethod === 'decision' || profile.configuration.correctionMethod === 'visual-decision') &&
+    (profile.configuration.apiCompatible || !isVisualDecisionModel(profile.configuration.analysisModel)));
   const [method, setMethod] = useState<ScienceMethod>('pixel-v1');
   const [bioMethod, setBioMethod] = useState<'standard' | 'contract'>('contract');
   const activeScienceMethod = enabled('diagrams', method) ? method
@@ -444,7 +443,7 @@ export function EvaluationRadarHome({
                   </p>
                 )}
               <div className="radar-home-actions">
-                {(scientific ? (explicitMethod.diagrams || (count < total && (Boolean(plan) || misconfiguredDecisionVision))) : true) && (
+                {(scientific ? (explicitMethod.diagrams || (count < total && (Boolean(plan) || nonVisualDecision))) : true) && (
                   <Button
                     disabled={
                       busy || !(scientific ? activeScienceMethod && canLaunchScience(chosenSciencePlan) : profile && activeBioMethod)
@@ -477,8 +476,8 @@ export function EvaluationRadarHome({
                         : 'Évaluer en ' + (scientific ? 'schémas scientifiques' : 'biologie')}
                   </Button>
                 )}
-                {scientific && !plan && misconfiguredDecisionVision && !busy && (
-                  <small role="alert">Modèle décisionnel utilisé en Vision : ce modèle ne prend pas en charge /api/chat. Choisissez un lecteur Vision génératif dans « Gérer les configurations ».</small>
+                {scientific && !plan && nonVisualDecision && !busy && (
+                  <small role="note">Ce modèle décisionnel ne prend pas en charge directement les images scientifiques. Choisissez un modèle multimodal génératif ou un décisionnel visuel compatible.</small>
                 )}
                 {ids.length > 0 && (
                   <Button variant="secondary" onClick={() => campaigns(domain, selected, ids)}>Voir les campagnes</Button>
