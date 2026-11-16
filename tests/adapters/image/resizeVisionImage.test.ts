@@ -57,6 +57,15 @@ describe('request-only scientific image resizing', () => {
     expect(close).toHaveBeenCalledOnce();
   });
 
+  it('retains opaque diagnostic image bytes when the browser cannot decode synthetic fixtures', async () => {
+    const decode = vi.fn().mockRejectedValue(new DOMException('Invalid image', 'InvalidStateError'));
+    vi.stubGlobal('createImageBitmap', decode);
+    const toDataURL = vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL');
+    await expect(resizeVisionImage(original)).resolves.toBe(original);
+    expect(decode).toHaveBeenCalledOnce();
+    expect(toDataURL).not.toHaveBeenCalled();
+  });
+
   it('cancels without leaking an unneeded upload', async () => {
     const controller = new AbortController();
     controller.abort();
