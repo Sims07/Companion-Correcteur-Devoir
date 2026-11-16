@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { directDiagramSchema, parseDirectDiagramOutput, findSingleInvalidDiagramPoint, applyDirectDiagramPointRepair } from '../../../src/correction/adapters/ai/directDiagramOutput.ts';
+import { directDiagramSchema, parseDirectDiagramOutput, findSingleInvalidDiagramPoint, applyDirectDiagramPointRepair, directDiagramGenerationTokenLimit } from '../../../src/correction/adapters/ai/directDiagramOutput.ts';
 import { createOllamaProvider } from '../../../src/correction/adapters/ai/ollamaProvider.ts';
 import { diagramAnalysisDiagnostics, diagramFailureCategory } from '../../../src/evaluation/domain/scientificDiagramProtocol.ts';
 import { SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC } from '../../../src/evaluation/domain/scientificDiagramFixtures.ts';
@@ -292,6 +292,7 @@ describe('compact direct diagram output', () => {
     const fetchMock = vi.fn(async () => stream(JSON.stringify(answer()), 'length'));
     await expect(createOllamaProvider({ endpoint: 'http://localhost:11434', analysisModel: 'qwen3.5:9b',
       correctionMethod: 'generative' }, fetchMock).generate(request)).rejects.toThrow('[diagram-output:generation-limit]');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
   it('does not retry a failed HTTP request', async () => {
     const fetchMock = vi.fn(async () => new Response('unavailable', { status: 503 }));
@@ -317,4 +318,44 @@ describe('compact direct diagram output', () => {
     expect(parsed.criteria[0].confidence).toBe('low');
     expect(parsed.criteria[0].questionForTeacher).toContain('photo');
   });
+
+  it('reserves more generation tokens for the 19 real scientific subcriteria, not transcription', async () => {
+    const rubric = SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC;
+    expect(directDiagramGenerationTokenLimit(criteria)).toBe(2048);
+    expect(directDiagramGenerationTokenLimit(rubric.criteria)).toBe(3072);
+    expect(directDiagramGenerationTokenLimit(rubric.criteria, true)).toBe(4096);
+
+    const scores = Object.fromEntries(rubric.criteria.map(criterion => [criterion.id, {
+      evidence: 'Observations visuelles', confidence: 'high', questionForTeacher: '',
+      subcriteria: Object.fromEntries(criterion.subcriteria!.map(subcriterion => [
+        subcriterion.id, { points: 0, evidence: 'Élément absent' },
+      ])),
+    }]));
+    const fetchMock = vi.fn().mockResolvedValueOnce(stream(JSON.stringify({ criteria: scores })));
+    await createOllamaProvider({ endpoint: 'http://localhost:11434', analysisModel: 'qwen3.5:4b',
+      correctionMethod: 'generative' }, fetchMock).generate({ ...request, rubric: JSON.stringify(rubric) });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const body = JSON.parse(fetchMock.mock.calls[0]![1].body);
+    expect(body.options.num_predict).toBe(3072);
+    expect(body.think).toBe(false);
+    expect(body.options.num_ctx).toBe(8192);
+  });
+
+  it('reports an empty thinking-only generation as a token-limit failure without a costly second image evaluation', async () => {
+    const exhausted = new Response([
+      JSON.stringify({ message: { thinking: 'Raisonnement interne', content: '' }, done: false }),
+      JSON.stringify({ message: { content: '' }, done: true, done_reason: 'length', eval_count: 2048 }),
+    ].join('\n') + '\n');
+    const fetchMock = vi.fn().mockResolvedValue(exhausted);
+    const diagnostics = vi.fn();
+    await expect(createOllamaProvider({ endpoint: 'http://localhost:11434', analysisModel: 'qwen3.5:4b',
+      correctionMethod: 'generative' }, fetchMock).generate(request, undefined, undefined, undefined, diagnostics))
+      .rejects.toThrow(/done_reason=length.*\[diagram-output:generation-limit\]/);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(diagnostics).toHaveBeenCalledOnce();
+    expect(diagnostics.mock.calls[0]![0]).toMatchObject({
+      doneReason: 'length', error: 'Limite de génération atteinte sans réponse finale.',
+    });
+  });
+
 });
