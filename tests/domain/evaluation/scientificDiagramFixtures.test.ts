@@ -48,6 +48,17 @@ describe('jeu de dessins scientifiques A/B/C et contrôle des traits de rappel D
     expect(SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC.criteria.at(-1)?.subcriteria?.map((s) => s.maxPoints))
       .toEqual([0.5, 0.5, 0.5, 0.5]);
   });
+  it('explains why an intact nucleus is not sufficient to validate interphase', () => {
+    const comprehension = SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC.criteria.find(c => c.id === 'understanding');
+    const interphase = comprehension?.subcriteria?.find(s => s.id === 'understanding-interphase');
+    const telophase = comprehension?.subcriteria?.find(s => s.id === 'understanding-telophase');
+    expect(interphase?.description).toContain('chromatine non condensée');
+    expect(interphase?.description).toContain('ne valide PAS l’interphase');
+    expect(telophase?.description).toContain('structure centrale de cloisonnement');
+    expect(interphase?.maxPoints).toBe(0.5);
+    expect(telophase?.maxPoints).toBe(0.5);
+  });
+
   it('couvre chaque sous-critère par une décision et un pointage sans interpolation ni arrondi caché', () => {
     const keys = SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC.criteria.flatMap((criterion) =>
       getRubricSubcriteria(criterion).map((sub) => diagramTargetKey(criterion.id, sub.id)));
