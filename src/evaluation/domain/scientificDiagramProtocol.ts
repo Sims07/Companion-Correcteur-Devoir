@@ -31,9 +31,8 @@ export function availableDiagramMethods(profile: AiModelProfile): DiagramMethod[
   if (!isSupportedPilotProfile(profile) || !config.analysisModel.trim()) return [];
   if (config.apiCompatible && config.correctionMethod !== 'generative') return [];
   const methods: DiagramMethod[] = [];
-  if (config.visionModel.trim() && (config.apiCompatible || !isNativeDecisionModel(config.visionModel))) {
-    methods.push('vision-then-analysis');
-  }
+  // Vision → transcription → analyse discards the diagram geometry. Preserve
+  // its identifier to read historical reports, but never schedule new runs.
   if (config.correctionMethod === 'generative') methods.push('direct-image-generative');
   if (!config.apiCompatible && (config.correctionMethod === 'decision' || config.correctionMethod === 'visual-decision')
       && isVisualDecisionModel(config.analysisModel)) methods.push('direct-image-systemone');
@@ -63,6 +62,9 @@ export function selectDiagramMethods(profile: AiModelProfile, selection: Diagram
 }
 
 export function diagramMethodIssue(profile: AiModelProfile, selection: DiagramMethodSelection): string | null {
+  if (selection === 'vision-then-analysis') {
+    return 'Vision puis analyse a été retirée des tests de schémas scientifiques : la transcription perd les relations visuelles. Les anciens résultats restent consultables.';
+  }
   if (!isSupportedPilotProfile(profile)) return 'Adresse de serveur invalide : ' + profile.name;
   if (!profile.configuration.analysisModel.trim()) return 'Modèle d’analyse manquant : ' + profile.name;
   if ((selection === 'graph-first-v1' || selection === 'graph-first-v2') && profile.configuration.correctionMethod !== 'generative') return 'La lecture du graphe et sa correction nécessitent un modèle génératif avec vision.';
