@@ -178,7 +178,7 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
               stream: false,
               ...(local ? { think: false } : { generation_token_parameter: 'max_tokens' as const }),
               format: schema,
-              options: { temperature: 0, num_predict: 1024 },
+              options: { temperature: 0, num_predict: 1024, ...(local ? { num_ctx: 8192 } : {}) },
               messages: [{ role: 'user', content, imageDetail: 'high' as const, images: [local ? image.base64 : 'data:' + image.mimeType + ';base64,' + image.base64] }],
             };
             if (local) requestPayload = JSON.stringify({ ...body, messages: body.messages.map((message) => ({ ...message, images: ['[IMAGE REDACTED]'] })) });
