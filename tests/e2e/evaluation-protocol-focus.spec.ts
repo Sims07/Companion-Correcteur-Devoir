@@ -12,6 +12,7 @@ test('all scientific protocol buttons are reachable before the image catalog, on
   for (const [label, action] of [
     [/Qualité graphique/, /Tester les 3 schémas en un clic/],
     [/Traits de rappel/, /Tester les traits D\/E en un clic/],
+    [/Cas de classe synthétiques/, /Tester les 3 cas de classe synthétiques/],
     [/Compréhension biologique/, /Tester les 6 variantes sémantiques/],
     [/Graphe des relations/, /Extraire les relations des 6 schémas/],
   ] as const) {
