@@ -86,7 +86,7 @@ test('foreground correction draft is stored separately for each assignment', asy
 
   await page.reload();
   await expect(page.locator('.assignment-overview-card').filter({ hasText: 'Deuxième devoir indépendant' })).toBeVisible();
-  const first = page.locator('.assignment-overview-card').first();
+  const first = page.locator('.assignment-overview-card').filter({ hasNotText: 'Deuxième devoir indépendant' }).first();
   await first.getByRole('button', { name: /Reprendre le devoir|Ouvrir le devoir/ }).click();
   await expect(page.locator('.copy-overview-grid .correction-series-card').filter({ hasText: 'devoir-1.png' }))
     .toHaveCount(1);
