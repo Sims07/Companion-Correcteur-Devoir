@@ -2,10 +2,10 @@ import { openDatabase, requestToPromise, transactionToPromise } from './indexedD
 
 /**
  * Photos stay in this browser's IndexedDB and are never synced or included in
- * evaluation reports. The two workspaces have independent draft slots.
+ * evaluation reports. Each workspace and foreground assignment has its own slot.
  */
 export const SCIENTIFIC_DIAGRAM_DRAFT_STORE = 'scientific-diagram-drafts';
-export type ScientificDiagramDraftId = 'teacher-direct' | 'personal-lab';
+export type ScientificDiagramDraftId = 'teacher-direct' | 'personal-lab' | `foreground-correction:${string}`;
 
 interface StoredScientificDiagramDraft<T> {
   id: ScientificDiagramDraftId;
