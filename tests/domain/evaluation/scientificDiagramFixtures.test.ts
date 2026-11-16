@@ -5,7 +5,7 @@ import { diagramTargetKey } from '../../../src/evaluation/domain/scientificDiagr
 import { getRubricSubcriteria, validateRubric } from '../../../src/correction/domain/rubric.ts';
 import {
   SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC, SCIENTIFIC_DIAGRAM_FIXTURES,
-  SCIENTIFIC_DIAGRAM_BASE_CASE_IDS, SCIENTIFIC_DIAGRAM_POINTER_CASE_IDS, SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET,
+  SCIENTIFIC_DIAGRAM_BASE_CASE_IDS, SCIENTIFIC_DIAGRAM_POINTER_CASE_IDS, SCIENTIFIC_DIAGRAM_CLASSROOM_CASE_IDS, SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET,
   buildScientificDiagramFixtureReport,
 } from '../../../src/evaluation/domain/scientificDiagramFixtures.ts';
 
@@ -52,9 +52,10 @@ describe('jeu de dessins scientifiques A/B/C et contrôle des traits de rappel D
     const keys = SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC.criteria.flatMap((criterion) =>
       getRubricSubcriteria(criterion).map((sub) => diagramTargetKey(criterion.id, sub.id)));
     expect(keys).toHaveLength(19);
-    expect(SCIENTIFIC_DIAGRAM_FIXTURES.map((fixture) => fixture.referenceScore)).toEqual([9.84, 7.36, 0.66, 9.34, 8.66]);
+    expect(SCIENTIFIC_DIAGRAM_FIXTURES.map((fixture) => fixture.referenceScore)).toEqual([9.84, 7.36, 0.66, 9.34, 8.66, 9.5, 5.3, 6.67]);
     expect(SCIENTIFIC_DIAGRAM_BASE_CASE_IDS).toEqual(['A', 'B', 'C']);
     expect(SCIENTIFIC_DIAGRAM_POINTER_CASE_IDS).toEqual(['D', 'E']);
+    expect(SCIENTIFIC_DIAGRAM_CLASSROOM_CASE_IDS).toEqual(['R1', 'R2', 'R3']);
     for (const fixture of SCIENTIFIC_DIAGRAM_FIXTURES) {
       expect(Object.keys(fixture.gold)).toEqual(keys);
       expect(Object.keys(fixture.referencePoints)).toEqual(keys);
@@ -109,7 +110,7 @@ describe('jeu de dessins scientifiques A/B/C et contrôle des traits de rappel D
       expectedPoints: { [horizontal]: 0.33, [emphasis]: 0.33, [subject]: 0 },
       gold: { [horizontal]: 'present', [emphasis]: 'present', [subject]: 'absent' },
     });
-    expect(report.version).toBe(7);
+    expect(report.version).toBe(8);
     expect(report.limitations).toContain('C=0,66/10');
     expect(report.limitations).toContain('anciens rapports et archives');
   });
@@ -119,7 +120,7 @@ describe('jeu de dessins scientifiques A/B/C et contrôle des traits de rappel D
       { caseId: 'B', repetition: 1, record: record('failed') },
     ], 3, '2026-11-07T20:10:00Z');
     expect(report.cases.map((item) => [item.caseId, item.referenceScore]))
-      .toEqual([['A', 9.84], ['B', 7.36], ['C', 0.66], ['D', 9.34], ['E', 8.66]]);
+      .toEqual([['A', 9.84], ['B', 7.36], ['C', 0.66], ['D', 9.34], ['E', 8.66], ['R1', 9.5], ['R2', 5.3], ['R3', 6.67]]);
     expect(report.cases[0]?.summaries[0]).toMatchObject({ runsCompleted: 1, complete: false });
     expect(report.cases[1]?.summaries[0]).toMatchObject({ runsCompleted: 1, successfulRuns: 0, accuracyPercent: null });
     expect(report.cases[2]?.summaries).toEqual([]);
@@ -173,8 +174,8 @@ describe('jeu de dessins scientifiques A/B/C et contrôle des traits de rappel D
     }
     const report = buildScientificDiagramFixtureReport(
       [{ caseId: 'E', repetition: 1, record: record() }], 1, '2026-11-08T23:00:00Z');
-    expect(report.version).toBe(7);
-    expect(report.protocolId).toBe('scientific-diagram-generated-a-b-c-plus-label-pointers-v7');
+    expect(report.version).toBe(8);
+    expect(report.protocolId).toBe('scientific-diagram-generated-a-b-c-plus-label-pointers-classroom-v8');
     expect(report.cases.find((item) => item.caseId === 'E')?.labelPointerChallenge)
       .toMatchObject({ expected: 'incorrect', criterionKey: SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET });
     expect(report.cases.filter((item) => item.caseId === 'D' || item.caseId === 'E')

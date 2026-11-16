@@ -18,7 +18,8 @@ import intermediateDiagramUrl from '../../assets/pilot/scientific-mitosis-5.webp
 import poorDiagramUrl from '../../assets/pilot/scientific-mitosis-0.webp';
 import correctPointerDiagramUrl from '../../assets/pilot/scientific-mitosis-labels-control.svg';
 import swappedPointerDiagramUrl from '../../assets/pilot/scientific-mitosis-labels-swapped.svg';
-import { SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC, SCIENTIFIC_DIAGRAM_FIXTURES, SCIENTIFIC_DIAGRAM_BASE_CASE_IDS, SCIENTIFIC_DIAGRAM_POINTER_CASE_IDS, type ScientificDiagramFixtureId, type buildScientificDiagramFixtureReport } from '../../domain/scientificDiagramFixtures.ts';
+import { classroomScenarioPreview } from '../../domain/scientificDiagramClassroomCases.ts';
+import { SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC, SCIENTIFIC_DIAGRAM_FIXTURES, SCIENTIFIC_DIAGRAM_BASE_CASE_IDS, SCIENTIFIC_DIAGRAM_POINTER_CASE_IDS, SCIENTIFIC_DIAGRAM_CLASSROOM_CASE_IDS, type ScientificDiagramFixtureId, type buildScientificDiagramFixtureReport } from '../../domain/scientificDiagramFixtures.ts';
 import { DIAGRAM_SENSITIVITY_CASES, DIAGRAM_SENSITIVITY_CASE_IDS, scientificDiagramSensitivitySvg, scientificDiagramSensitivityPreviewUrl, diagramSensitivityContext,
   type DiagramSensitivityCaseId, type DiagramSensitivityPromptMode, type buildScientificDiagramSensitivityReport } from '../../domain/scientificDiagramSensitivity.ts';
 import {
@@ -53,6 +54,7 @@ export { downloadScientificDiagramJson };
 const fixtureImageUrls: Record<ScientificDiagramFixtureId, string> = {
   A: cleanDiagramUrl, B: intermediateDiagramUrl, C: poorDiagramUrl,
   D: correctPointerDiagramUrl, E: swappedPointerDiagramUrl,
+  R1: classroomScenarioPreview('R1'), R2: classroomScenarioPreview('R2'), R3: classroomScenarioPreview('R3'),
 };
 
 /** Vector test images are rasterized on this device before entering the
@@ -61,7 +63,7 @@ async function prepareBundledDiagramFile(id: ScientificDiagramFixtureId): Promis
   const response = await fetch(fixtureImageUrls[id], { cache: 'force-cache' });
   if (!response.ok) throw new Error('Image intégrée indisponible pour le cas ' + id);
   const blob = await response.blob();
-  if (id !== 'D' && id !== 'E') {
+  if (id === 'A' || id === 'B' || id === 'C') {
     return new File([blob], 'mitose-' + id + '.webp', { type: 'image/webp' });
   }
   const blobUrl = URL.createObjectURL(blob);
@@ -179,7 +181,7 @@ export function ScientificDiagramProtocolPanel({
   const [sensitivityMessage, setSensitivityMessage] = useState('');
   const [sensitivityPromptSelection, setSensitivityPromptSelection] = useState<'standard' | 'guided' | 'compare'>('standard');
   const [methodSelection, setMethodSelection] = useState<DiagramMethodSelection>('compare');
-  const [activeProtocol, setActiveProtocol] = useState<'reference' | 'arrows' | 'semantic' | 'graph'>('reference');
+  const [activeProtocol, setActiveProtocol] = useState<'reference' | 'arrows' | 'classroom' | 'semantic' | 'graph'>('reference');
   const autoClaimed = useRef<number | null>(null);
   const autoStopRequested = useRef(false);
   function stopProtocol() {
@@ -479,6 +481,7 @@ export function ScientificDiagramProtocolPanel({
       {([
         ['reference', 'FORME', 'Qualité graphique', 'A/B/C · Présentation et justesse', '3 dessins'],
         ['arrows', 'LÉGENDES', 'Traits de rappel', 'D/E · Destinations des traits', '2 dessins'],
+        ['classroom', 'OBSERVATION', 'Cas de classe synthétiques', 'R1/R2/R3 · Erreurs de copies', '3 dessins'],
         ['semantic', 'BIOLOGIE', 'Compréhension biologique', 'S0–S5 · Relations fausses et témoins', '6 dessins'],
         ['graph', 'GRAPHE', 'Graphe des relations', 'S0–S5 · Lecture sans barème', '6 dessins'],
       ] as const).map(([id, number, title, subtitle, count]) =>
@@ -489,7 +492,7 @@ export function ScientificDiagramProtocolPanel({
         </button>)}
     </div>
 
-    <p className="diagram-lab-protocol-summary" role="status">{({ reference: '3 schémas · présentation, légendes et justesse', arrows: '2 schémas · traits corrects D et cibles incorrectes E', semantic: '6 variantes · erreurs biologiques et faux rejets', graph: '6 schémas · relations sans barème' } as const)[activeProtocol]}</p>
+    <p className="diagram-lab-protocol-summary" role="status">{({ reference: '3 schémas · présentation, légendes et justesse', arrows: '2 schémas · traits corrects D et cibles incorrectes E', classroom: '3 dessins entièrement synthétiques · références provisoires, aucune copie privée', semantic: '6 variantes · erreurs biologiques et faux rejets', graph: '6 schémas · relations sans barème' } as const)[activeProtocol]}</p>
     {activeProtocol !== 'graph' && (autoSequenceRunning && activeAutoStep
       ? <div className="diagram-fixture-run-controls diagram-lab-method diagram-lab-auto-engine" role="status"
         aria-label="Moteur de la batterie automatique">
@@ -518,10 +521,10 @@ export function ScientificDiagramProtocolPanel({
       </DesignSystemSelect>
       <details className="diagram-lab-explanation"><summary>Compatibilité et limites des méthodes</summary><p className="pilot-evaluation-hint">Les méthodes sont choisies dans ce laboratoire uniquement. Le choix habituel « Comparer toutes les méthodes » n’active jamais Think. L’option OFF / ON fonctionne avec tout modèle génératif Vision sur Ollama local qui prend en charge Think : le serveur est interrogé sur les capacités du modèle avant l’essai. Les niveaux nommés sont respectés quand Ollama en indique un. 4 096 tokens maximum par appel Think et 1 passage par défaut. Pensez à « Arrêter » si l’essai est trop long. Le rapport distingue Thinking demandé et trace réellement émise, sans enregistrer le raisonnement. D1/D3 compatibles peuvent comparer deux étapes et System One image ; TEV1 n’utilise l’image que via la transcription préalable.</p></details>
     </div>)}
-    {(activeProtocol === 'reference' || activeProtocol === 'arrows') && <section id="evaluation-diagram-fixture-launch" className="diagram-protocol-fixtures" aria-label="Schémas de référence intégrés">
+    {(activeProtocol === 'reference' || activeProtocol === 'arrows' || activeProtocol === 'classroom') && <section id="evaluation-diagram-fixture-launch" className="diagram-protocol-fixtures" aria-label="Schémas de référence intégrés">
       <div className="diagram-protocol-fixtures-heading">
         <div>
-          <h4>{activeProtocol === 'arrows' ? 'Traits de rappel : témoin D et dessin E aux cibles incorrectes' : 'Qualité graphique : trois niveaux de référence A/B/C'}</h4>
+          <h4>{activeProtocol === 'arrows' ? 'Traits de rappel : témoin D et dessin E aux cibles incorrectes' : activeProtocol === 'classroom' ? 'Trois cas inspirés de corrections scolaires — dessins 100 % synthétiques' : 'Qualité graphique : trois niveaux de référence A/B/C'}</h4>
           <p>A/B/C : difficulté progressive. D/E : <strong>mêmes mots et mêmes structures</strong>, mais quatre traits de rappel arrivent à la mauvaise structure en E. Ce sont de simples traits sans pointes de flèche, comme sur un dessin d’observation. Barème sur 10 points et références provisoires à valider par un enseignant. La différence attendue ne sera jamais envoyée au modèle.</p>
         </div>
       </div>
@@ -536,6 +539,10 @@ export function ScientificDiagramProtocolPanel({
           </DesignSystemSelect>
           {activeProtocol === 'reference' && <Button disabled={!canRunFixtures} onClick={() => { void runPreparedFixtures(SCIENTIFIC_DIAGRAM_BASE_CASE_IDS); }}>
             Tester les 3 schémas en un clic
+          </Button>}
+          {activeProtocol === 'classroom' && <Button disabled={!canRunFixtures}
+            onClick={() => { void runPreparedFixtures(SCIENTIFIC_DIAGRAM_CLASSROOM_CASE_IDS); }}>
+            Tester les 3 cas de classe synthétiques
           </Button>}
           {activeProtocol === 'arrows' && <Button variant="secondary" disabled={!canRunFixtures}
             onClick={() => { void runPreparedFixtures(SCIENTIFIC_DIAGRAM_POINTER_CASE_IDS); }}>
@@ -558,7 +565,8 @@ export function ScientificDiagramProtocolPanel({
       <div className="diagram-fixture-grid">
         {SCIENTIFIC_DIAGRAM_FIXTURES.filter((fixture) => activeProtocol === 'reference'
           ? fixture.id === 'A' || fixture.id === 'B' || fixture.id === 'C'
-          : fixture.id === 'D' || fixture.id === 'E').map((fixture) => <article key={fixture.id} className="diagram-fixture-card">
+          : activeProtocol === 'classroom' ? SCIENTIFIC_DIAGRAM_CLASSROOM_CASE_IDS.some(id => fixture.id === id)
+            : fixture.id === 'D' || fixture.id === 'E').map((fixture) => <article key={fixture.id} className="diagram-fixture-card">
           <ZoomableImage src={fixtureImageUrls[fixture.id]} alt={'Schéma de mitose végétale — ' + fixture.label} />
           <div className="diagram-fixture-card-body">
             <div className="diagram-fixture-card-title">
@@ -566,6 +574,12 @@ export function ScientificDiagramProtocolPanel({
               <span>{fixture.referenceScore}/10 attendu</span>
             </div>
             <p>{fixture.description}</p>
+            {fixture.classroomScenario && <p className="pilot-evaluation-hint"><strong>Image 100 % synthétique · référence non validée.</strong>{' '}
+              Ce résultat de référence concerne uniquement le nouveau dessin, pas une copie d’élève.
+              Les critères attendus restent soumis à validation pédagogique.</p>}
+            {fixture.classroomScenario && <details><summary>Erreurs à détecter dans ce cas synthétique</summary>
+              <ul>{fixture.classroomScenario.expectedFindings.map((finding) => <li key={finding}>{finding}</li>)}</ul>
+            </details>}
             {fixture.layoutObservation && <p>
               <strong>Alignement en colonne : {fixture.layoutObservation.points}/{fixture.layoutObservation.maximumPoints} pt.</strong>{' '}
               {fixture.layoutObservation.reason}

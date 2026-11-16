@@ -3,9 +3,9 @@ import { DIAGRAM_SENSITIVITY_CASES, DIAGRAM_SENSITIVITY_TARGETS } from './scient
 import { diagramLabProtocolLabels, type DiagramLabArchiveEntry, type DiagramLabProtocol } from './diagramLabHistory.ts';
 
 export const RADAR_AXES = [
-  { id: 'graphics', label: 'Qualité graphique', short: 'Graphisme', detail: 'Accord des décisions visuelles avec les références A/B/C.' },
+  { id: 'graphics', label: 'Qualité graphique', short: 'Graphisme', detail: 'Accord avec A/B/C et, lorsqu’elle est exécutée, la batterie de dessins entièrement synthétiques R1/R2/R3 (référence provisoire).' },
   { id: 'arrows', label: 'Correspondance des légendes', short: 'Légendes', detail: 'Destination réelle de chaque trait de rappel des dessins au microscope D/E, sans pointe de flèche requise.' },
-  { id: 'precision', label: 'Précision de lecture', short: 'Précision', detail: 'Décisions visuelles exactes sur les campagnes complètes A/B/C et D/E. Chaque attendu compte une fois par passage : ce score mesure la justesse, pas seulement les réponses renseignées.' },
+  { id: 'precision', label: 'Précision de lecture', short: 'Précision', detail: 'Décisions visuelles exactes sur les campagnes complètes A/B/C, D/E et R1/R2/R3. Chaque attendu compte une fois par passage : ce score mesure la justesse, pas seulement les réponses renseignées.' },
   { id: 'biology', label: 'Cohérence biologique', short: 'Biologie', detail: 'Mutations S1/S2/S3 détectées après observation correcte du témoin S0.' },
   { id: 'relations', label: 'Lecture des relations', short: 'Relations', detail: 'Extraction indépendante : mutations reconnues et relations correctes préservées.' },
   { id: 'robustness', label: 'Robustesse aux pièges', short: 'Robustesse', detail: 'Absence de faux rejets sur les relations valides et de faux positifs sur les témoins.' },
@@ -157,7 +157,7 @@ function flatten(entry: DiagramLabArchiveEntry): Reading[] {
 }
 
 const requiredCases: Record<Exclude<DiagramLabProtocol, 'personal'>, readonly string[]> = {
-  reference: ['A', 'B', 'C'], arrows: ['D', 'E'],
+  reference: ['A', 'B', 'C'], arrows: ['D', 'E'], classroom: ['R1', 'R2', 'R3'],
   semantic: ['S0', 'S1', 'S2', 'S3', 'S4', 'S5'],
   graph: ['S0', 'S1', 'S2', 'S3', 'S4', 'S5'],
 };
@@ -287,20 +287,33 @@ function stabilityFraction(battery: Battery): Fraction | null {
 
 function makeCandidateAxes(batteries: Map<DiagramLabProtocol, Battery>, stabilityBatteries: Map<DiagramLabProtocol, Battery>, relationsBattery?: Battery): Record<RadarAxisId, RadarAxisScore> {
   const reference = batteries.get('reference') ?? null;
+  const classroom = batteries.get('classroom') ?? null;
   const arrows = batteries.get('arrows') ?? null;
   const semantic = batteries.get('semantic') ?? null;
   const graph = batteries.get('graph') ?? null;
-  const valid = [reference, arrows, semantic, graph].filter((value): value is Battery => value !== null);
+  const valid = [reference, classroom, arrows, semantic, graph].filter((value): value is Battery => value !== null);
   const sem = semantic ? sensitivityFractions(semantic.readings) : null;
   const gr = graph ? sensitivityFractions(graph.readings) : null;
   const measurableGraph = relationsBattery ?? graph;
   const relationFractions = measurableGraph ? sensitivityFractions(measurableGraph.readings) : null;
-  const graphics = fromFraction(reference, 'Accord avec A/B/C', reference ? goldAccuracy(reference) : null, 'A/B/C non exécutés ou sans décision exploitable.');
+  // Recompute from underlying counts; never average cohorts with different sizes.
+  const graphicEvidence = [reference, classroom].filter((battery): battery is Battery => battery !== null)
+    .map((battery) => ({ battery, fraction: goldAccuracy(battery) }))
+    .filter((value): value is { battery: Battery; fraction: Fraction } => value.fraction !== null);
+  const graphicsCount = graphicEvidence.reduce((sum, item) => sum + item.fraction.n, 0);
+  const graphicsTotal = graphicEvidence.reduce((sum, item) => sum + item.fraction.d, 0);
+  const graphics: RadarAxisScore = graphicsTotal > 0
+    ? { value: percent(graphicsCount, graphicsTotal),
+        reason: classroom ? 'Accord A/B/C et R1/R2/R3 (référence synthétique provisoire).'
+          : 'Accord avec A/B/C',
+        evidence: graphicEvidence.map(({ battery, fraction }) =>
+          evidence(battery, fraction.label, fraction.n, fraction.d)) }
+    : empty('A/B/C ou R1/R2/R3 non exécutés ou sans décision exploitable.');
   const arrowScore = fromFraction(arrows, 'Correspondance sur D/E', arrows ? goldAccuracy(arrows, SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET) : null, 'Paire D/E non complète ou sans décision sur les traits de rappel.');
   // Aggregate labelled decisions, not per-drawing or per-campaign percentages.
   // A complete D/E campaign alone can populate this axis from old archives;
   // A/B/C contributes its 19 targets per drawing when a complete series exists.
-  const precisionBatteries = [reference, arrows].filter((battery): battery is Battery => battery !== null)
+  const precisionBatteries = [reference, arrows, classroom].filter((battery): battery is Battery => battery !== null)
     .map((battery) => ({ battery, fraction: goldAccuracy(battery) }))
     .filter((item): item is { battery: Battery; fraction: Fraction } => item.fraction !== null);
   const precisionCorrect = precisionBatteries.reduce((sum, item) => sum + item.fraction.n, 0);
@@ -575,7 +588,7 @@ export function diagnoseUnmeasuredRadarAxis(
           : axis === 'relations' ? 'graph' : null;
   const relevant = [...entries].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     .filter((entry) => entry.protocol !== 'personal' && (protocol === null || entry.protocol === protocol)
-      && (axis !== 'precision' || entry.protocol === 'reference' || entry.protocol === 'arrows')
+      && (axis !== 'precision' || entry.protocol === 'reference' || entry.protocol === 'arrows' || entry.protocol === 'classroom')
       && (axis !== 'stability' || entry.plannedRepetitions >= 3))
     .map((entry) => ({
       entry, rows: flatten(entry).filter((row) => typeof row.model === 'string' && row.model.trim() === modelId),
@@ -584,7 +597,7 @@ export function diagnoseUnmeasuredRadarAxis(
   if (!relevant) {
     return axis === 'stability'
       ? 'Aucune série de trois passages enregistrée pour ce LLM.'
-      : axis === 'precision' ? 'Aucune campagne complète A/B/C ou D/E exploitable pour ce LLM.'
+      : axis === 'precision' ? 'Aucune campagne complète A/B/C, D/E ou R1/R2/R3 exploitable pour ce LLM.'
       : protocol !== null
         ? 'Aucune campagne ' + diagramLabProtocolLabels[protocol] + ' enregistrée pour ce LLM.'
         : 'Aucune preuve suffisante pour cet axe dans les campagnes enregistrées.';
