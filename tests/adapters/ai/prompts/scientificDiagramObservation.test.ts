@@ -81,7 +81,7 @@ describe('scientific observation contract across grading routes', () => {
       expect(prompt).toContain('un numéro de panneau');
       expect(prompt).toContain('un intitulé LOCAL');
       expect(prompt).toContain('zéro uniquement pour « placé en dessous »');
-      expect(prompt).toContain('Un seul');
+      expect(prompt).toContain('Si une seule légende est visible');
     }
     expect(prompts[0]).toContain('attribue 0 UNIQUEMENT');
     expect(prompts[2]).toContain('ses autres qualités sont à évaluer séparément');
