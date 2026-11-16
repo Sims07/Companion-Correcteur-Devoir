@@ -73,8 +73,24 @@ describe('OpenAI scientific diagram adapter', () => {
     expect(body.think).toBe(false);
     expect(body).not.toHaveProperty('keep_alive');
     expect(body.options.num_predict).toBe(1024);
+    expect(body.options.num_ctx).toBe(8192);
     expect(body.format.properties.kind.enum).toEqual(['text', 'scientific-diagram', 'mixed', 'ambiguous']);
     expect(body.format.properties.suggestedRotation.enum).toEqual([0, 90, 180, 270]);
+  });
+
+  it('classifies large scientific pages when the image needs over 4096 context tokens', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (_url, init) => {
+      const body = JSON.parse(String(init?.body));
+      // Reproduce an Ollama response for the 4379-token request from a teacher copy.
+      if ((body.options?.num_ctx ?? 4096) < 4379) {
+        return new Response('{"error":"request (4379 tokens) exceeds the available context size (4096 tokens)"}', { status: 400 });
+      }
+      return new Response(JSON.stringify({ message: { content: '{"pageNumber":1,"kind":"scientific-diagram","confidence":0.95,"reason":"mitose"}' } }), { status: 200 });
+    });
+    const result = await createOpenAiScientificDiagramAnalyzer(fetchMock).classifyPages({ ...request, apiCompatible: false });
+    expect(result[0]).toMatchObject({ kind: 'scientific-diagram', confidence: 0.95 });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).options.num_ctx).toBe(8192);
   });
 
   it('repairs malformed classification JSON once, records both attempts and does not hide the cause', async () => {
