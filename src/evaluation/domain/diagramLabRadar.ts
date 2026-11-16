@@ -421,6 +421,10 @@ export function buildDiagramLabRadar(
     // arrowheaded images as evidence for the new leader-line benchmark.
     if (entry.protocol === 'arrows' && entry.report.format === 'companion-scientific-diagram-fixture-report'
       && typeof entry.report.version === 'number' && entry.report.version < 7) continue;
+    // v8 R1/R2/R3 used vector drawings with a different visual gold.
+    // Keep those reports in history, but never mix their measurements with v9 raster images.
+    if (entry.protocol === 'classroom' && entry.report.format === 'companion-scientific-diagram-fixture-report'
+      && entry.report.version !== 9) continue;
     const rows = flatten(entry);
     const participant = new Map<string, Reading[]>();
     for (const row of rows) {

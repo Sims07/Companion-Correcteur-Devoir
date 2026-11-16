@@ -16,14 +16,21 @@ test('classroom synthetic suite is separated from A/B/C and D/E and ready for on
   await expect(cards.getByText('R2 — confusions de structures et de pointage')).toBeVisible();
   await expect(cards.getByText('R3 — erreurs propres à la métaphase')).toBeVisible();
   await expect(cards.getByText(/concerne uniquement le nouveau dessin/)).toHaveCount(3);
-  await expect(cards.getByText('5.3/10 attendu')).toBeVisible();
-  await expect(cards.getByText('6.67/10 attendu')).toBeVisible();
+  await expect(cards.getByText('7.16/10 attendu')).toBeVisible();
+  await expect(cards.getByText('8.01/10 attendu')).toBeVisible();
   const images = cards.locator('img');
   await expect(images).toHaveCount(3);
   await expect.poll(async () => images.evaluateAll(nodes =>
     nodes.filter(img => img instanceof HTMLImageElement && img.complete && img.naturalWidth > 0).length
   )).toBe(3);
-  await expect(images.first()).toHaveAttribute('src', /^data:image\/svg\+xml/);
+  for (const image of await images.all()) {
+    await expect(image).toHaveAttribute('src', /classroom-mitosis-r[123]\.webp/);
+  }
+  const dimensions = await images.evaluateAll(elements => elements.map(element => {
+    const img = element as HTMLImageElement;
+    return { width: img.naturalWidth, height: img.naturalHeight };
+  }));
+  expect(dimensions).toEqual([{ width: 744, height: 510 }, { width: 746, height: 509 }, { width: 814, height: 487 }]);
   await expect(cards.getByRole('button', { name: 'Tester ce schéma' })).toHaveCount(3);
   // No configured profile: a real test must not claim to run.
   await expect(panel.getByRole('button', { name: 'Tester les 3 cas de classe synthétiques' })).toBeDisabled();

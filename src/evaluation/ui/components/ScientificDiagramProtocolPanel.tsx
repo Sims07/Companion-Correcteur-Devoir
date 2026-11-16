@@ -18,7 +18,9 @@ import intermediateDiagramUrl from '../../assets/pilot/scientific-mitosis-5.webp
 import poorDiagramUrl from '../../assets/pilot/scientific-mitosis-0.webp';
 import correctPointerDiagramUrl from '../../assets/pilot/scientific-mitosis-labels-control.svg';
 import swappedPointerDiagramUrl from '../../assets/pilot/scientific-mitosis-labels-swapped.svg';
-import { classroomScenarioPreview } from '../../domain/scientificDiagramClassroomCases.ts';
+import classroomR1Url from '../../assets/pilot/classroom-mitosis-r1.webp';
+import classroomR2Url from '../../assets/pilot/classroom-mitosis-r2.webp';
+import classroomR3Url from '../../assets/pilot/classroom-mitosis-r3.webp';
 import { SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC, SCIENTIFIC_DIAGRAM_FIXTURES, SCIENTIFIC_DIAGRAM_BASE_CASE_IDS, SCIENTIFIC_DIAGRAM_POINTER_CASE_IDS, SCIENTIFIC_DIAGRAM_CLASSROOM_CASE_IDS, type ScientificDiagramFixtureId, type buildScientificDiagramFixtureReport } from '../../domain/scientificDiagramFixtures.ts';
 import { DIAGRAM_SENSITIVITY_CASES, DIAGRAM_SENSITIVITY_CASE_IDS, scientificDiagramSensitivitySvg, scientificDiagramSensitivityPreviewUrl, diagramSensitivityContext,
   type DiagramSensitivityCaseId, type DiagramSensitivityPromptMode, type buildScientificDiagramSensitivityReport } from '../../domain/scientificDiagramSensitivity.ts';
@@ -54,16 +56,16 @@ export { downloadScientificDiagramJson };
 const fixtureImageUrls: Record<ScientificDiagramFixtureId, string> = {
   A: cleanDiagramUrl, B: intermediateDiagramUrl, C: poorDiagramUrl,
   D: correctPointerDiagramUrl, E: swappedPointerDiagramUrl,
-  R1: classroomScenarioPreview('R1'), R2: classroomScenarioPreview('R2'), R3: classroomScenarioPreview('R3'),
+  R1: classroomR1Url, R2: classroomR2Url, R3: classroomR3Url,
 };
 
-/** Vector test images are rasterized on this device before entering the
- * normal image-preparation path. Models receive PNG pixels, not SVG markup. */
+/** Bundled raster art is passed directly to the normal image preparer.
+ * Only the old D/E SVG controls require device-local rasterization. */
 async function prepareBundledDiagramFile(id: ScientificDiagramFixtureId): Promise<File> {
   const response = await fetch(fixtureImageUrls[id], { cache: 'force-cache' });
   if (!response.ok) throw new Error('Image intégrée indisponible pour le cas ' + id);
   const blob = await response.blob();
-  if (id === 'A' || id === 'B' || id === 'C') {
+  if (id !== 'D' && id !== 'E') {
     return new File([blob], 'mitose-' + id + '.webp', { type: 'image/webp' });
   }
   const blobUrl = URL.createObjectURL(blob);

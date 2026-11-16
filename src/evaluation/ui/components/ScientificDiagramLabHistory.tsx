@@ -11,7 +11,9 @@ import { summarizeDiagramLabReadiness } from '../../domain/diagramLabReadiness.t
 import { ScientificDiagramRadar } from './ScientificDiagramRadar.tsx';
 import { ZoomableImage } from '../../../shared/ui/components/ZoomableImage.tsx';
 import { assessDiagramDecision, type DiagramDecisionStatus } from '../../domain/diagramDecisionComparison.ts';
-import { classroomScenarioPreview } from '../../domain/scientificDiagramClassroomCases.ts';
+import classroomR1Url from '../../assets/pilot/classroom-mitosis-r1.webp';
+import classroomR2Url from '../../assets/pilot/classroom-mitosis-r2.webp';
+import classroomR3Url from '../../assets/pilot/classroom-mitosis-r3.webp';
 import { SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC } from '../../domain/scientificDiagramFixtures.ts';
 import { scientificDiagramSensitivityPreviewUrl } from '../../domain/scientificDiagramSensitivity.ts';
 import cleanDiagramUrl from '../../assets/pilot/scientific-mitosis-10.webp';
@@ -23,7 +25,7 @@ import swappedPointerDiagramUrl from '../../assets/pilot/scientific-mitosis-labe
 const fixturePreviews = {
   A: cleanDiagramUrl, B: intermediateDiagramUrl, C: poorDiagramUrl,
   D: correctPointerDiagramUrl, E: swappedPointerDiagramUrl,
-  R1: classroomScenarioPreview('R1'), R2: classroomScenarioPreview('R2'), R3: classroomScenarioPreview('R3'),
+  R1: classroomR1Url, R2: classroomR2Url, R3: classroomR3Url,
 };
 import { DesignSystemSelect } from '../../../shared/ui/components/DesignSystemSelect.tsx';
 import { Button } from '../../../shared/ui/design-system/index.ts';
@@ -120,7 +122,9 @@ export function ReportDetails({ entry }: { entry: DiagramLabArchiveEntry }) {
     {report.cases.filter((item) => item.caseId === (activeCase || report.cases.find((c) => c.experiments.length)?.caseId))
       .map((item) => <section key={item.caseId} className="diagram-lab-case-detail">
         <div className="diagram-lab-case-image">
-          <ZoomableImage src={fixturePreviews[item.caseId]} alt={'Schéma de référence ' + item.caseId} />
+          {entry.protocol === 'classroom' && report.version < 9
+            ? <p role="note">Ancien essai R1/R2/R3 avec dessins vectoriels : visuel retiré, mesures conservées uniquement dans l’historique. Rejouer le cas raster pour une comparaison actuelle.</p>
+            : <ZoomableImage src={fixturePreviews[item.caseId]} alt={'Schéma de référence ' + item.caseId} />}
           <h4>{item.label} · note attendue {item.referenceScore}/10</h4>
         </div>
         {item.experiments.some((run) => run.diagnostics?.invalidPoints?.length) && <div className="diagram-protocol-diagnostic">

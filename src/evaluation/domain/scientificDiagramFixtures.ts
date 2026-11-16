@@ -152,28 +152,26 @@ function makeCase(id: ScientificDiagramFixtureId, label: string, description: st
 
 
 /**
- * Provisional reference for completely new deterministic drawings. Never copy
- * the numerical mark awarded to the original private worksheet into the gold.
+ * Provisional rubric calibrated against the actual generated raster images.
+ * v8 SVG reference allocations are not interchangeable with these drawings.
+ * The scores are hypotheses until an educator reviews all 19 targets.
  */
 function classroomCalibration(id: ClassroomCaseId): Record<string, number> {
   const base = Object.fromEntries(SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC.criteria.flatMap(criterion =>
     getRubricSubcriteria(criterion).map(sub => [sub.id, sub.maxPoints])));
-  if (id === 'R1') return { ...base, 'understanding-interphase': 0 };
+  if (id === 'R1') return {
+    ...base, 'title-below': 0, 'understanding-interphase': 0,
+  };
   if (id === 'R2') return {
     ...base,
     'drawing-lines': 0.33, 'drawing-clean': 0.33, 'drawing-proportions': 0.33,
-    'drawing-neighbors': 0, 'title-below': 0, 'title-centered': 0,
-    'title-emphasis': 0, 'title-subject': 0.17, 'title-section': 0,
-    'legends-aligned': 0.33, 'legends-visible': 0,
-    'understanding-telophase': 0,
+    'title-below': 0, 'title-subject': 0, 'title-section': 0,
+    'legends-visible': 0.34, 'understanding-telophase': 0,
   };
   return {
     ...base,
-    'drawing-lines': 0.33, 'drawing-clean': 0.33,
-    'drawing-proportions': 0.33, 'title-below': 0, 'title-emphasis': 0,
-    'title-subject': 0.17, 'title-section': 0,
-    'legends-aligned': 0.33, 'legends-visible': 0.34,
-    'understanding-interphase': 0,
+    'drawing-lines': 0.33, 'drawing-clean': 0.33, 'drawing-proportions': 0.5,
+    'title-below': 0, 'legends-visible': 0.34, 'understanding-interphase': 0,
   };
 }
 
@@ -190,7 +188,10 @@ const classroomFixtures: ScientificDiagramFixtureCase[] = CLASSROOM_SCENARIOS.ma
       'understanding-interphase': scenario.phases.includes('interphase')
         ? 'Interphase présente.' : 'Interphase exigée absente malgré quatre panneaux.',
       'legends-visible': scenario.expectedFindings.join(' '),
-      'title-subject': 'Les conventions de présentation du barème sont évaluées séparément de la biologie.',
+      'title-below': 'Dans les trois nouveaux dessins raster, le titre est placé au-dessus des cellules.',
+      'title-subject': scenario.id === 'R2'
+        ? 'Le titre indique la mitose mais pas la cellule, l’organe et l’organisme.'
+        : 'Le titre identifie la cellule et la coupe, appréciation provisoire.',
     },
   },
 }));
@@ -389,10 +390,10 @@ export function buildScientificDiagramFixtureReport(
   });
   return {
     format: 'companion-scientific-diagram-fixture-report' as const,
-    version: 8,
+    version: 9,
     diagnosticSchemaVersion: 1,
     pairedDiagnostics,
-    protocolId: 'scientific-diagram-generated-a-b-c-plus-label-pointers-classroom-v8',
+    protocolId: 'scientific-diagram-generated-a-b-c-plus-label-pointers-classroom-raster-v9',
     createdAt,
     plannedRepetitions,
     rubric: structuredClone(SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC),
@@ -400,7 +401,7 @@ export function buildScientificDiagramFixtureReport(
     localOnly: runs.every(({ record }) => record.configurations.every((config) => {
       try { return ['localhost', '127.0.0.1', '[::1]'].includes(new URL(config.endpoint).hostname); } catch { return false; }
     })),
-    limitations: 'Huit dessins synthétiques (A/B/C, paire contrôlée D/E, batterie R1/R2/R3), références PROVISOIRES non validées par un enseignant. A=9,84/10, B=7,36/10, C=0,66/10, D=9,34/10, E=8,66/10. Revue du 12 novembre 2026 : A perd 0,16 point au titre incomplet (cellule végétale et coupe indiquées, mais organe et organisme absents) ; C gagne 0,33 point au titre souligné, en plus de son orientation horizontale déjà reconnue le 11 novembre. Le contenu « cellule ? » reste insuffisant et ne valide pas le sujet du titre. Les autres appréciations de C, notamment la qualité des légendes, restent à arbitrer par un enseignant. Les anciens rapports et archives conservent leurs références d’origine pour traçabilité ; le radar recalcule la justesse A/B/C sur les décisions sauvegardées en utilisant la référence v7 lorsque les 19 critères sont identiques. D et E perdent chacun 0,66 point au critère « Légendes alignées en colonne », car leurs légendes sont en lignes. D/E utilisent désormais des traits de rappel sans pointe de flèche, conformément aux dessins d’observation. Les deux images ne diffèrent que par quatre destinations de traits : seul le critère « Légendes : structures visibles et traits de rappel corrects » (0,68 point) change entre D et E. Les résultats D/E de la version 6 ne sont pas directement comparables à ceux de la version 7 (dessins de test modifiés). Ces pénalités suivent le barème du pilote, mais les notes totales restent des références provisoires à confirmer par un enseignant. R1/R2/R3 sont des dessins complètement nouveaux : aucune copie ou annotation privée n’est incluse. Aucune note de copie privée n’est stockée dans ce protocole ; les références R1/R2/R3 restent non validées par un enseignant. Les images, clés, endpoints et réponses brutes ne sont jamais exportés.',
+    limitations: 'Huit dessins synthétiques (A/B/C, paire contrôlée D/E, batterie R1/R2/R3), références PROVISOIRES non validées par un enseignant. A=9,84/10, B=7,36/10, C=0,66/10, D=9,34/10, E=8,66/10. Revue du 12 novembre 2026 : A perd 0,16 point au titre incomplet (cellule végétale et coupe indiquées, mais organe et organisme absents) ; C gagne 0,33 point au titre souligné, en plus de son orientation horizontale déjà reconnue le 11 novembre. Le contenu « cellule ? » reste insuffisant et ne valide pas le sujet du titre. Les autres appréciations de C, notamment la qualité des légendes, restent à arbitrer par un enseignant. Les anciens rapports et archives conservent leurs références d’origine pour traçabilité ; le radar recalcule la justesse A/B/C sur les décisions sauvegardées en utilisant la référence v7 lorsque les 19 critères sont identiques. D et E perdent chacun 0,66 point au critère « Légendes alignées en colonne », car leurs légendes sont en lignes. D/E utilisent désormais des traits de rappel sans pointe de flèche, conformément aux dessins d’observation. Les deux images ne diffèrent que par quatre destinations de traits : seul le critère « Légendes : structures visibles et traits de rappel corrects » (0,68 point) change entre D et E. Les résultats D/E de la version 6 ne sont pas directement comparables à ceux de la version 7 (dessins de test modifiés). Ces pénalités suivent le barème du pilote, mais les notes totales restent des références provisoires à confirmer par un enseignant. R1/R2/R3 sont les trois images raster générées précédemment, intégrées au format WebP haute qualité : aucune copie ou annotation privée n’est incluse. Les anciennes références de la version 8 basées sur des SVG ne sont pas comparables à ces images (version 9). Aucune note de copie privée n’est stockée dans ce protocole ; les références R1/R2/R3 restent non validées par un enseignant. Les images, clés, endpoints et réponses brutes ne sont jamais exportés.',
     cases,
   };
 }
