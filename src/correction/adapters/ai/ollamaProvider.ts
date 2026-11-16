@@ -12,7 +12,7 @@ import { buildTranscriptionPrompt, buildStudentIdentityPrompt, buildTeacherAnnot
 import { requireCorrectionMethodAvailable } from '../../../shared/domain/correctionMethod.ts';
 import { isVisualDecisionModel, prepareSystemOneRubric, scoreSystemOneRubric } from '../../domain/systemOneDecision.ts';
 import { requestSystemOneDecision } from './systemOneTransport.ts';
-import type { CriterionAnalysisUpdate, DiagnosticModelResult, GradingProgressEvent, GradingProvider, GradingRequest, OllamaModel, OllamaSettings } from '../../ports/aiProvider.ts';
+import type { CriterionAnalysisUpdate, DiagnosticModelResult, GradingProgressEvent, GradingProvider, GradingRequest, ImageInput, OllamaModel, OllamaSettings } from '../../ports/aiProvider.ts';
 import { parseGradingProposal } from '../../domain/grading.ts';
 import { reconcileIncrementalScore } from '../../domain/incrementalGradingReconciliation.ts';
 import { normalizeGradeScore, sumGradeScores } from '../../../shared/domain/scorePrecision.ts';
@@ -392,7 +392,7 @@ export function createOllamaProvider(
           throw new Error('Pour ce test, transcrivez le sujet de référence séparément avant la décision sur image.');
         }
       }
-      const providerImage = (image: import('../../ports/aiProvider.ts').ImageInput) => settings.apiCompatible
+      const providerImage = (image: ImageInput) => settings.apiCompatible
         ? `data:${image.mimeType};base64,${image.base64}`
         : image.base64;
       if (!visionModel && !request.transcription && !directVisualDecision && !directGenerativeVision) throw new Error('Choisissez un modèle de lecture pour transcrire les images.');
@@ -405,8 +405,8 @@ export function createOllamaProvider(
       // teacher's original copy, or the high-resolution pages kept for zoom/review.
       // This also covers legacy queued copies that contain unscaled PNG/JPEG pages.
       if (request.images?.length || request.subjectImages?.length || request.teacherAnnotationImages?.length || request.identityImage) {
-        const cache = new WeakMap<import('../../ports/aiProvider.ts').ImageInput, import('../../ports/aiProvider.ts').ImageInput>();
-        const prepareImage = async (image: import('../../ports/aiProvider.ts').ImageInput) => {
+        const cache = new WeakMap<ImageInput, ImageInput>();
+        const prepareImage = async (image: ImageInput) => {
           const cached = cache.get(image);
           if (cached) return cached;
           const prepared = await resizeVisionImage(image, undefined, signal);
@@ -415,8 +415,8 @@ export function createOllamaProvider(
         };
         // Sequential decoding avoids opening ten full-resolution bitmaps at once on
         // memory-limited local machines; identity/copy references can share a result.
-        const preparePages = async (pages: import('../../ports/aiProvider.ts').ImageInput[]) => {
-          const prepared = [];
+        const preparePages = async (pages: ImageInput[]): Promise<ImageInput[]> => {
+          const prepared: ImageInput[] = [];
           for (const image of pages) prepared.push(await prepareImage(image));
           return prepared;
         };
