@@ -974,7 +974,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
       setError('');
       setTeacherStep('overview');
     },
-    !currentBackgroundJobId && !isFinalized,
+    interfaceMode === 'teacher' && !currentBackgroundJobId && !isFinalized,
   );
 
   const [networkInitialFilter, setNetworkInitialFilter] = useState<'all' | 'error'>('all');
