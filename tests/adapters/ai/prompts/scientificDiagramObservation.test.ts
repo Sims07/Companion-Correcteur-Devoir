@@ -52,6 +52,20 @@ describe('scientific observation contract across grading routes', () => {
     expect(buildScientificDiagramPrompt(request)).toContain('les uns sous les autres');
     expect(buildConciseScientificDiagramPrompt(request)).toContain('les uns sous les autres');
   });
+  it('separates local biology, legend identity, main title and global scoring without ignoring handwritten labels', () => {
+    expect(SCIENTIFIC_DIAGRAM_OBSERVATION_RULES).toContain('titre PRINCIPAL');
+    expect(SCIENTIFIC_DIAGRAM_OBSERVATION_RULES).toContain('au SEIN de chaque sous-schéma');
+    expect(SCIENTIFIC_DIAGRAM_OBSERVATION_RULES).toContain('applique chaque sous-critère du barème UNE SEULE FOIS');
+    expect(SCIENTIFIC_DIAGRAM_OBSERVATION_RULES).toContain('une structure reconnaissable mais mal nommée'.replace('une', 'Une'));
+    expect(SCIENTIFIC_DIAGRAM_OBSERVATION_RULES).toContain('puis lis le nom de la phase et les légendes');
+    expect(SCIENTIFIC_DIAGRAM_OBSERVATION_RULES).not.toContain('indépendamment des noms écrits');
+    const direct = buildDirectDiagramPrompt({
+      question: request.question, rubric: JSON.stringify(request.rubric), images: request.images,
+    });
+    expect(direct).toContain('Si tu observes le titre principal AU-DESSUS');
+    expect(direct).toContain('sans prendre le nom pour une preuve de structure');
+  });
+
   it.each(['direct', 'direct-repair', 'page', 'page-repair', 'concise'] as const)(
     'keeps visual grounding, source separation and rubric in %s', (route) => {
       const direct = { question: request.question, rubric: JSON.stringify(request.rubric), images: request.images };
