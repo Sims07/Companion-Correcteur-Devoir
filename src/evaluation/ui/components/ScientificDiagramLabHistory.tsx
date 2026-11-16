@@ -122,7 +122,9 @@ export function ReportDetails({ entry }: { entry: DiagramLabArchiveEntry }) {
     {report.cases.filter((item) => item.caseId === (activeCase || report.cases.find((c) => c.experiments.length)?.caseId))
       .map((item) => <section key={item.caseId} className="diagram-lab-case-detail">
         <div className="diagram-lab-case-image">
-          <ZoomableImage src={fixturePreviews[item.caseId]} alt={'Schéma de référence ' + item.caseId} />
+          {entry.protocol === 'classroom' && report.version < 9
+            ? <p role="note">Ancien essai R1/R2/R3 avec dessins vectoriels : visuel retiré, mesures conservées uniquement dans l’historique. Rejouer le cas raster pour une comparaison actuelle.</p>
+            : <ZoomableImage src={fixturePreviews[item.caseId]} alt={'Schéma de référence ' + item.caseId} />}
           <h4>{item.label} · note attendue {item.referenceScore}/10</h4>
         </div>
         {item.experiments.some((run) => run.diagnostics?.invalidPoints?.length) && <div className="diagram-protocol-diagnostic">
