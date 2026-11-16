@@ -39,7 +39,7 @@ test('shows origin quota and IndexedDB categories without exposing student copie
   await expect(panel.getByText('Évaluations de modèles')).toBeVisible();
   await expect(panel.getByText('Traces techniques')).toBeVisible();
   await expect(panel.locator('.storage-breakdown-item')).toHaveCount(8);
-  await expect(panel.getByText('scientific-diagram-drafts', { exact: false })).toBeVisible();
+  await expect(panel.getByText('Brouillons de schémas scientifiques', { exact: false })).toBeVisible();
   await expect(panel.getByText(/ordres? de grandeur/i)).toBeVisible();
   await expect(page.getByText('E2E_STUDENT_PRIVATE_IMAGE')).toHaveCount(0);
   await expect(page.getByText('SECRET_MODEL_RESPONSE')).toHaveCount(0);
