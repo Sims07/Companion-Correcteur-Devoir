@@ -45,10 +45,8 @@ export interface ScientificDiagramFixtureCase {
   label: string;
   description: string;
   referenceScore: number;
-  /** The original private teacher score must never become synthetic ground truth. */
   classroomScenario?: {
     origin: 'entirely-synthetic';
-    privateInspirationScore: number;
     teacherValidated: false;
     expectedFindings: readonly string[];
   };
@@ -183,7 +181,7 @@ const classroomFixtures: ScientificDiagramFixtureCase[] = CLASSROOM_SCENARIOS.ma
   ...makeCase(scenario.id, scenario.label,
     'Dessin entièrement synthétique : ' + scenario.expectedFindings[0], classroomCalibration(scenario.id)),
   classroomScenario: {
-    origin: 'entirely-synthetic', privateInspirationScore: scenario.privateInspirationScore,
+    origin: 'entirely-synthetic',
     teacherValidated: false, expectedFindings: scenario.expectedFindings,
   },
   referenceReview: {
@@ -402,7 +400,7 @@ export function buildScientificDiagramFixtureReport(
     localOnly: runs.every(({ record }) => record.configurations.every((config) => {
       try { return ['localhost', '127.0.0.1', '[::1]'].includes(new URL(config.endpoint).hostname); } catch { return false; }
     })),
-    limitations: 'Huit dessins synthétiques (A/B/C, paire contrôlée D/E, batterie R1/R2/R3), références PROVISOIRES non validées par un enseignant. A=9,84/10, B=7,36/10, C=0,66/10, D=9,34/10, E=8,66/10. Revue du 12 novembre 2026 : A perd 0,16 point au titre incomplet (cellule végétale et coupe indiquées, mais organe et organisme absents) ; C gagne 0,33 point au titre souligné, en plus de son orientation horizontale déjà reconnue le 11 novembre. Le contenu « cellule ? » reste insuffisant et ne valide pas le sujet du titre. Les autres appréciations de C, notamment la qualité des légendes, restent à arbitrer par un enseignant. Les anciens rapports et archives conservent leurs références d’origine pour traçabilité ; le radar recalcule la justesse A/B/C sur les décisions sauvegardées en utilisant la référence v7 lorsque les 19 critères sont identiques. D et E perdent chacun 0,66 point au critère « Légendes alignées en colonne », car leurs légendes sont en lignes. D/E utilisent désormais des traits de rappel sans pointe de flèche, conformément aux dessins d’observation. Les deux images ne diffèrent que par quatre destinations de traits : seul le critère « Légendes : structures visibles et traits de rappel corrects » (0,68 point) change entre D et E. Les résultats D/E de la version 6 ne sont pas directement comparables à ceux de la version 7 (dessins de test modifiés). Ces pénalités suivent le barème du pilote, mais les notes totales restent des références provisoires à confirmer par un enseignant. R1/R2/R3 sont des dessins complètement nouveaux : aucune copie ou annotation privée n’est incluse. Les notes historiques observées 9,5/5,75/6,75 décrivent uniquement des originaux privés et ne servent pas de barème aux images synthétiques ; les références R1/R2/R3 restent non validées par un enseignant. Les images, clés, endpoints et réponses brutes ne sont jamais exportés.',
+    limitations: 'Huit dessins synthétiques (A/B/C, paire contrôlée D/E, batterie R1/R2/R3), références PROVISOIRES non validées par un enseignant. A=9,84/10, B=7,36/10, C=0,66/10, D=9,34/10, E=8,66/10. Revue du 12 novembre 2026 : A perd 0,16 point au titre incomplet (cellule végétale et coupe indiquées, mais organe et organisme absents) ; C gagne 0,33 point au titre souligné, en plus de son orientation horizontale déjà reconnue le 11 novembre. Le contenu « cellule ? » reste insuffisant et ne valide pas le sujet du titre. Les autres appréciations de C, notamment la qualité des légendes, restent à arbitrer par un enseignant. Les anciens rapports et archives conservent leurs références d’origine pour traçabilité ; le radar recalcule la justesse A/B/C sur les décisions sauvegardées en utilisant la référence v7 lorsque les 19 critères sont identiques. D et E perdent chacun 0,66 point au critère « Légendes alignées en colonne », car leurs légendes sont en lignes. D/E utilisent désormais des traits de rappel sans pointe de flèche, conformément aux dessins d’observation. Les deux images ne diffèrent que par quatre destinations de traits : seul le critère « Légendes : structures visibles et traits de rappel corrects » (0,68 point) change entre D et E. Les résultats D/E de la version 6 ne sont pas directement comparables à ceux de la version 7 (dessins de test modifiés). Ces pénalités suivent le barème du pilote, mais les notes totales restent des références provisoires à confirmer par un enseignant. R1/R2/R3 sont des dessins complètement nouveaux : aucune copie ou annotation privée n’est incluse. Aucune note de copie privée n’est stockée dans ce protocole ; les références R1/R2/R3 restent non validées par un enseignant. Les images, clés, endpoints et réponses brutes ne sont jamais exportés.',
     cases,
   };
 }
