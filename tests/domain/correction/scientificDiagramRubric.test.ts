@@ -14,6 +14,26 @@ describe('barème enseignant du schéma scientifique', () => {
     expect(target?.description).toContain('demander une vérification');
   });
 
+  it('définit le titre principal commun et exclut les titres sous chaque phase sans modifier les points', () => {
+    const title = SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC.criteria.find(c => c.id === 'title');
+    expect(title?.description).toContain('TITRE PRINCIPAL');
+    expect(title?.description).toContain('composition entière des quatre sous-schémas');
+    const sub = title?.subcriteria ?? [];
+    const below = sub.find(s => s.id === 'title-below');
+    expect(below?.maxPoints).toBe(0.33);
+    expect(below?.description).toContain('sous l’ensemble des quatre dessins');
+    for (const phase of ['Prophase', 'Métaphase', 'Anaphase', 'Télophase', 'Interphase']) {
+      expect(below?.description).toContain(phase);
+    }
+    expect(below?.description).toContain('Si le titre commun est au-dessus, attribuer zéro');
+    expect(sub).toHaveLength(6);
+    for (const s of sub) {
+      expect(s.description).not.toBe('');
+      expect(s.description).toMatch(/titre principal/i);
+    }
+    expect(sub.reduce((sum, item) => sum + item.maxPoints, 0)).toBeCloseTo(2);
+  });
+
   it('conserves les 15 attendus observables et les 8 points exacts du barème professeur', () => {
     const rubric = SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC;
     expect(validateRubric(rubric)).toMatchObject({ valid: true, maximumPoints: 8 });
