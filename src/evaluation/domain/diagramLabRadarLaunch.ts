@@ -26,7 +26,7 @@ export interface RadarMissingTestRequest {
 }
 
 const ALL_METHODS: DiagramMethodSelection[] = [
-  'graph-first-v1', 'vision-then-analysis', 'direct-image-generative',
+  'graph-first-v1', 'direct-image-generative',
   'direct-image-generative-thinking', 'direct-image-systemone',
 ];
 
