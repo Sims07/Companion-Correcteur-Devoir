@@ -33,8 +33,10 @@ test('teacher audits a rubric locally and retains their choice after refresh', a
   await page.getByRole('tab', { name: 'Barème' }).click();
   await page.getByRole('button', { name: 'Vérifier avec l’IA locale' }).click();
   await expect(page.getByText('Faut-il un titre principal commun à tous les schémas ?')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Questions à discuter avec le professeur' })).toBeVisible();
+  await expect(page.getByText('Un titre commun est attendu.', { exact: true })).toBeVisible();
   await page.getByText('Oui, un titre commun', { exact: true }).click();
-  await page.getByRole('button', { name: 'Enregistrer ma précision' }).click();
+  await page.getByRole('button', { name: 'Valider ma réponse' }).click();
   await expect(page.getByText(/Décision enregistrée/)).toBeVisible();
   await page.getByRole('button', { name: /Appliquer 1 précision/ }).click();
   await expect.poll(async () => page.evaluate(() => {
