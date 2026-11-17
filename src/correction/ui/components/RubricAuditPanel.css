@@ -14,3 +14,7 @@
 .rubric-audit-actions { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: .75rem; }
 .rubric-audit-alert { color: var(--danger, #9c2626); }
 .rubric-audit-saved { font-weight: 600; }
+
+.rubric-audit-apply { border-top: 1px solid var(--border, #d4dce1); padding-top: 1rem; display: grid; gap: .5rem; justify-items: start; }
+.rubric-audit-versions { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 1rem; }
+.rubric-audit-versions pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 18rem; overflow: auto; padding: .7rem; border: 1px solid var(--border, #d4dce1); border-radius: .4rem; }
