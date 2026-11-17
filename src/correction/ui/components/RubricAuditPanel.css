@@ -133,3 +133,25 @@
 .rubric-audit-teacher-source { margin-top: .65rem; border: 1px solid var(--border, #d4dce1); padding: .7rem; border-radius: .5rem; }
 .rubric-audit-teacher-source span { display: block; font-size: .82rem; font-weight: 700; margin-bottom: .35rem; }
 .rubric-audit-teacher-source p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* Visible cumulative history and per-criterion, teacher-controlled IA additions. */
+.rubric-audit-cumulative { border: 1px solid var(--border, #d4dce1); padding: 1rem; border-radius: .7rem; }
+.rubric-audit-cumulative > summary { cursor: pointer; font-weight: 700; }
+.rubric-audit-cumulative > .hint { margin: .75rem 0; }
+.rubric-audit-cumulative .rubric-audit-change-list { margin-top: .75rem; }
+.rubric-audit-provenance { margin-top: .95rem; }
+.rubric-audit-provenance > ul { display: grid; gap: .5rem; padding-left: 1.2rem; }
+.rubric-audit-provenance li span { color: var(--text-muted, #59636e); font-size: .85rem; }
+.rubric-audit-provenance li p { margin: .25rem 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.rubric-criterion-enrichments { border-top: 1px solid var(--border, #d4dce1); padding: .85rem 0; grid-column: 1 / -1; min-width: 0; }
+.rubric-criterion-enrichments > strong { display: block; margin-bottom: .5rem; }
+.rubric-criterion-enrichments > .hint { margin: .35rem 0 .7rem; font-size: .85rem; }
+.rubric-criterion-enrichments ul { display: grid; gap: .6rem; padding: 0; margin: .4rem 0; list-style: none; }
+.rubric-criterion-enrichments li { border: 1px solid var(--border, #d4dce1); border-left: 3px solid #32775c; border-radius: .55rem; padding: .75rem; }
+.rubric-criterion-enrichment-heading { display: flex; flex-wrap: wrap; gap: .4rem 1rem; justify-content: space-between; }
+.rubric-criterion-enrichment-heading span { font-size: .8rem; color: var(--text-muted, #59636e); }
+.rubric-criterion-enrichments li p { white-space: pre-wrap; overflow-wrap: anywhere; margin: .55rem 0; }
+.rubric-criterion-enrichment-confirm { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; padding-top: .5rem; }
+.rubric-criterion-enrichment-confirm span { flex-basis: 100%; font-weight: 600; }
+
+.rubric-criterion-enrichment-count { display: inline-block; margin-left: .45rem; padding: .15rem .45rem; border: 1px solid #32775c; border-radius: .35rem; color: #32775c; font-weight: 700; font-size: .78rem; white-space: nowrap; }

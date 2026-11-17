@@ -27,3 +27,32 @@ L'audit est **facultatif** et strictement local (endpoint loopback Ollama) ; pas
 ## Historique
 
 La version active affiche les modifications en langage naturel, sans imposer de lecture de JSON. L'historique fournit les comparatifs avant/après et conserve le modèle ayant proposé les enrichissements. Les critères, identifiants et points restent stables.
+
+
+## Enrichissements successifs et restitution dans l'éditeur
+
+Chaque nouvel audit part du **barème courant**. Une application conserve les descriptions et
+références scientifiques déjà approuvées, puis ajoute uniquement les nouvelles décisions
+validées. Le bilan cumulé compare le barème actif avec le barème précédant la plus ancienne
+application encore conservée dans l'historique local (maximum 20 applications).
+
+Chaque critère enrichi indique les précisions IA toujours présentes, leurs sous-critères,
+le modèle Ollama, la date et la position de l'application dans l'historique conservé.
+Les références scientifiques présentes sans correspondance historique apparaissent avec
+« provenance non enregistrée » : l'interface n'affirme pas qu'elles proviennent de l'enseignant.
+Les anciennes versions restent consultables même après un retrait ciblé.
+
+L'enseignant peut retirer **un seul ajout approuvé** depuis le critère, après confirmation.
+Le barème courant est mis à jour pour les prochaines corrections, sans modifier les points
+ni les snapshots historiques ; les anciennes corrections ne sont pas rétroactivement modifiées.
+
+L'application refuse un ajout strictement dupliqué (espaces/casse normalisés), une réponse
+différente à une question de clarification déjà décidée et quelques oppositions scientifiques
+explicites (présent/absent, obligatoire/facultatif, doit/ne doit pas). Ce contrôle déterministe
+ne prétend pas détecter **toutes** les contradictions biologiques : la validation du professeur
+reste nécessaire. En cas de blocage, l'application explique pourquoi et empêche l'application
+tant que le point n'est pas adapté ou que l'ancien ajout n'a pas été retiré.
+
+Une édition manuelle du barème invalide l'étiquette « version IA active » mais ne supprime
+pas les ajouts encore présents. Le bilan cumulé mentionne explicitement qu'il peut aussi
+inclure les modifications manuelles.

@@ -6,6 +6,7 @@ import {
 } from '../../domain/rubricAudit.ts';
 import { cancelRubricAuditTask, getRubricAuditTask, launchRubricAuditTask, rubricAuditStorageKey, subscribeRubricAuditTask } from '../../application/rubricAuditTask.ts';
 import { createClarifiedRubricVersion, getRubricClarificationChanges, type ClarifiedRubricVersion } from '../../domain/rubricClarification.ts';
+import { getCumulativeRubricChanges, listAppliedRubricEnrichments, removeAppliedRubricEnrichment, type AppliedRubricEnrichment } from '../../domain/rubricEnrichmentHistory.ts';
 import './RubricAuditPanel.css';
 
 interface Props {
@@ -63,7 +64,7 @@ function RubricChanges({ version }: { version: ClarifiedRubricVersion }) {
     {changes.map((change) => <li key={change.id}>
       <strong>{change.label}</strong>
       {change.kind === 'scientific' && <div className="rubric-audit-teacher-source">
-        <span>Texte original du professeur · conservé</span>
+        <span>Description avant cette application · conservée</span>
         <p>{teacherText(change.id) || 'Aucune description initiale.'}</p>
       </div>}
       <div className="rubric-audit-change-comparison">
@@ -133,10 +134,13 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, thinki
   const allReviewed = issues.length > 0 && decisions.length === issues.length;
   const scientificCount = issues.filter((issue) => issue.kind === 'scientific').length;
   let previewVersion: ClarifiedRubricVersion | null = null;
+  let previewError = '';
   if (current && acceptedCount > 0) {
     try { previewVersion = createClarifiedRubricVersion(rubric, current.report, decisions, new Date().toISOString()); }
-    catch { /* Invalid or outdated decisions cannot be applied. */ }
+    catch (error) { previewError = error instanceof Error ? error.message : 'Les propositions ne peuvent pas être appliquées.'; }
   }
+  const cumulativeChanges = getCumulativeRubricChanges(rubric, versions);
+  const currentAdditions = listAppliedRubricEnrichments(rubric, versions);
 
   useEffect(() => {
     if (task.state !== 'success' || !taskIsCurrent || !current) return;
@@ -252,9 +256,22 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, thinki
       <p className="hint">Le texte initial, les intitulés et les points sont conservés. Les références scientifiques validées restent distinctes des règles de notation. Les copies déjà corrigées gardent leur ancien barème.</p>
     </div>}
     {!activeVersion && versions.length > 0 && <div className="rubric-audit-version-notice">
-      <strong>Le barème actuel a été modifié depuis la dernière clarification.</strong>
-      <p>Les versions clarifiées précédentes sont conservées dans l’historique ci-dessous, mais aucune ne correspond exactement au barème affiché.</p>
+      <strong>Le barème actuel a évolué depuis la dernière application IA.</strong>
+      <p>Les ajouts encore présents restent utilisés pour les prochaines corrections, même si le barème ne correspond plus exactement à une version archivée. Consultez le bilan cumulé ci-dessous.</p>
     </div>}
+    {versions.length > 0 && <details className="rubric-audit-cumulative" open>
+      <summary>Bilan cumulé : première version conservée → barème actuel ({cumulativeChanges.length} zone(s) modifiée(s))</summary>
+      <p className="hint">Ce bilan inclut les modifications manuelles éventuelles. Les références IA validées encore présentes sont identifiées avec leur modèle et leur date.</p>
+      {cumulativeChanges.length ? <RubricChanges version={{ ...versions[0], clarified: rubric }} />
+        : <p>Aucune différence restante avec la première version conservée.</p>}
+      {currentAdditions.length > 0 && <div className="rubric-audit-provenance">
+        <strong>Origine des ajouts toujours actifs</strong>
+        <ul>{currentAdditions.map((entry) => <li key={entry.id}>
+          <span>Application {entry.historyIndex} · {new Date(entry.appliedAt).toLocaleDateString('fr-FR')} · {entry.model}</span>
+          <p>{entry.kind === 'scientific' ? 'Référence scientifique' : 'Clarification'} : {entry.text}</p>
+        </li>)}</ul>
+      </div>}
+    </details>}
     <div className="rubric-audit-toolbar">
       <button type="button" className="primary-button rubric-audit-launch" disabled={busy} aria-disabled={busy} onClick={runAudit}>
         {busy && <span className="rubric-audit-spinner" aria-hidden="true" />}
@@ -413,6 +430,11 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, thinki
           return <li key={issue.id}><strong>{displayTitle(issue, rubric)} :</strong> {decision.decision === 'accepted' ? decision.choice : 'Texte initial conservé'}</li>;
         })}</ul>
       </div>}
+      {previewError && <div className="rubric-audit-feedback is-error" role="alert">
+        <strong>Application bloquée pour protéger le barème</strong>
+        <p>{previewError}</p>
+        <p>Conservez le critère pour cette question, adaptez la proposition ou retirez l’ancien ajout avant de relancer.</p>
+      </div>}
       {previewVersion && <div className="rubric-audit-preview" aria-label="Aperçu du barème avant application">
         <h4>Aperçu des changements avant application</h4>
         <p>Voici les ajouts validés, comparés à la version actuelle. Les points restent inchangés.</p>
@@ -420,7 +442,7 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, thinki
       </div>}
       {acceptedCount > 0 && <div className="rubric-audit-apply">
         <p>Après vérification de vos réponses, vous pouvez appliquer les précisions. Une nouvelle version est conservée avec l’original.</p>
-        <button type="button" className="primary-button" disabled={busy} onClick={applyDecisions}>
+        <button type="button" className="primary-button" disabled={busy || !previewVersion} onClick={applyDecisions}>
           Appliquer {acceptedCount} {scientificCount ? (acceptedCount === 1 ? 'modification validée' : 'modifications validées') : (acceptedCount === 1 ? 'précision validée' : 'précisions validées')} au barème
         </button>
       </div>}
@@ -428,9 +450,9 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, thinki
     </div>}
     {versions.length > 0 && <details className="rubric-audit-history"><summary>Historique des clarifications ({versions.length})</summary>
       <ol>{[...versions].reverse().map((version, index) => <li key={version.appliedAt + index}>
-        <strong>{new Date(version.appliedAt).toLocaleDateString('fr-FR')}</strong> — {version.decisions.length} précision(s) ; modèle {version.model}
+        <strong>Application {versions.length - index}</strong> · {new Date(version.appliedAt).toLocaleDateString('fr-FR')} — {version.decisions.length} précision(s) ; modèle {version.model}
         {version.clarifiedSignature === signature ? ' · Version actuellement utilisée' : ' · Version archivée'}
-        <details><summary>Comparer le barème initial et la version appliquée</summary>
+        <details><summary>Comparer le barème avant et après cette application</summary>
           <RubricChanges version={version} />
           <details className="rubric-audit-technical"><summary>Afficher le détail technique (JSON)</summary>
             <div className="rubric-audit-versions"><div><strong>Avant</strong><pre>{JSON.stringify(version.original, null, 2)}</pre></div><div><strong>Après</strong><pre>{JSON.stringify(version.clarified, null, 2)}</pre></div></div>
@@ -439,4 +461,80 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, thinki
       </li>)}</ol>
     </details>}
   </section>;
+}
+
+
+/** In the main rubric editor, always expose approved additions hidden in scientificExpectations. */
+export function RubricCriterionEnrichments({
+  rubric, assignmentId, criterionId, onChange,
+}: {
+  rubric: Rubric;
+  assignmentId: string;
+  criterionId: string;
+  onChange: (next: Rubric) => void;
+}) {
+  const [pendingRemoval, setPendingRemoval] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState('');
+  const versions = loadVersions(assignmentId);
+  const criterion = rubric.criteria.find((item) => item.id === criterionId);
+  if (!criterion) return null;
+  const entries = listAppliedRubricEnrichments(rubric, versions).filter((entry) => entry.criterionId === criterionId);
+  const subcriteria = getRubricSubcriteria(criterion);
+  const unknownReferences = [
+    ...(criterion.scientificExpectations ?? []).map((text) => ({ subcriterionId: undefined as string | undefined, text })),
+    ...subcriteria.flatMap((sub) => (sub.scientificExpectations ?? []).map((text) => ({
+      subcriterionId: sub.id as string | undefined, text,
+    }))),
+  ].filter((reference) => !entries.some((entry) => entry.kind === 'scientific'
+    && entry.subcriterionId === reference.subcriterionId && entry.text.trim().replace(/\s+/g, ' ').toLowerCase() === reference.text.trim().replace(/\s+/g, ' ').toLowerCase()));
+  if (!entries.length && !unknownReferences.length && !feedback) return null;
+  const base = versions[0]?.original.criteria.find((item) => item.id === criterionId);
+  const remove = (entry: AppliedRubricEnrichment) => {
+    try {
+      const next = removeAppliedRubricEnrichment(rubric, versions, entry);
+      onChange(next);
+      setPendingRemoval(null);
+      setFeedback('Ajout retiré du barème actif. L’historique est conservé, les points ne changent pas.');
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : 'Retrait impossible.');
+    }
+  };
+  return <div className="rubric-criterion-enrichments" aria-label={'Enrichissements du critère ' + criterion.title}>
+    <strong>Enrichissements du barème · {entries.length} ajout(s) IA validé(s)</strong>
+    {base && <p className="hint">Description avant le premier enrichissement conservé : {base.description || 'Non renseignée'}</p>}
+    <ul>
+      {entries.map((entry) => {
+        const sub = subcriteria.find((item) => item.id === entry.subcriterionId);
+        return <li key={entry.id}>
+          <div className="rubric-criterion-enrichment-heading">
+            <strong>{entry.kind === 'scientific' ? 'Référence scientifique IA' : 'Clarification IA'}{sub ? ' · ' + sub.title : ''}</strong>
+            <span>Application {entry.historyIndex} · {new Date(entry.appliedAt).toLocaleDateString('fr-FR')} · {entry.model}</span>
+          </div>
+          <p>{entry.text}</p>
+          {pendingRemoval === entry.id ? <div className="rubric-criterion-enrichment-confirm" role="group" aria-label="Confirmer le retrait">
+            <span>Retirer uniquement cet ajout pour les prochaines corrections ?</span>
+            <button type="button" className="secondary-button" onClick={() => remove(entry)}>Confirmer le retrait</button>
+            <button type="button" className="text-button" onClick={() => setPendingRemoval(null)}>Annuler</button>
+          </div> : <button type="button" className="text-button" onClick={() => setPendingRemoval(entry.id)}>Retirer cet ajout</button>}
+        </li>;
+      })}
+      {unknownReferences.map((reference, index) => <li key={'unknown-' + index}>
+        <strong>Référence scientifique · provenance non enregistrée</strong>
+        <p>{reference.text}</p>
+      </li>)}
+    </ul>
+    {feedback && <p role="status" className="rubric-audit-alert">{feedback}</p>}
+  </div>;
+}
+
+
+/** Always-visible signal in the collapsed criterion heading. */
+export function RubricCriterionEnrichmentCount({
+  rubric, assignmentId, criterionId,
+}: { rubric: Rubric; assignmentId: string; criterionId: string }) {
+  const count = listAppliedRubricEnrichments(rubric, loadVersions(assignmentId))
+    .filter((entry) => entry.criterionId === criterionId).length;
+  return count ? <span className="rubric-criterion-enrichment-count">
+    {count} ajout{count > 1 ? 's' : ''} IA
+  </span> : null;
 }

@@ -109,7 +109,7 @@ import { RubricReusePanel } from '../../correction/ui/components/RubricReusePane
 import { duplicateAssignmentProfile } from '../../correction/domain/teacherWorkflow.ts';
 import '../../correction/ui/components/TeacherSetup.css';
 import { RubricExportPanel } from '../../correction/ui/components/RubricExportPanel.tsx';
-import { RubricAuditPanel } from '../../correction/ui/components/RubricAuditPanel.tsx';
+import { RubricAuditPanel, RubricCriterionEnrichments, RubricCriterionEnrichmentCount } from '../../correction/ui/components/RubricAuditPanel.tsx';
 import { getRubricAuditTask, subscribeRubricAuditTask } from '../../correction/application/rubricAuditTask.ts';
 import { RubricImportPanel } from '../../correction/ui/components/RubricImportPanel.tsx';
 import { SubcriteriaSuggestionPanel } from '../../correction/ui/components/SubcriteriaSuggestionPanel.tsx';
@@ -5052,10 +5052,10 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
         {interfaceMode === 'teacher' && <RubricReusePanel assignments={assignmentProfiles} activeAssignmentId={activeAssignmentId} rubric={rubric} onReuse={(criteria) => { setRubric((current) => ({ ...current, criteria: [...current.criteria, ...criteria] })); setProposal(null); setReview([]); setScientificDiagramAnalysis(null); setTeacherAnnotations(''); setExpandedCriterionId(criteria[0]?.id ?? null); }} />}
         <div className="criteria-list">
           {rubric.criteria.map((criterion, criterionIndex) => <details className="criterion-editor" key={criterion.id} open={expandedCriterionId === criterion.id}>
-            <summary className="criterion-editor-summary" onClick={(event) => { event.preventDefault(); setExpandedCriterionId((current) => current === criterion.id ? null : criterion.id); }}><span className="atelier-criterion-index" aria-hidden="true">{String(criterionIndex + 1).padStart(2, "0")}</span><span><strong>{criterion.title.trim() || 'Critère sans titre'}</strong><small> · {getRubricSubcriteria(criterion).length} sous-critère(s)</small></span><span>{criterion.maxPoints} pt · {expandedCriterionId === criterion.id ? '⌃' : '⌄'}</span></summary>
+            <summary className="criterion-editor-summary" onClick={(event) => { event.preventDefault(); setExpandedCriterionId((current) => current === criterion.id ? null : criterion.id); }}><span className="atelier-criterion-index" aria-hidden="true">{String(criterionIndex + 1).padStart(2, "0")}</span><span><strong>{criterion.title.trim() || 'Critère sans titre'}</strong><small> · {getRubricSubcriteria(criterion).length} sous-critère(s)</small><RubricCriterionEnrichmentCount rubric={rubric} assignmentId={activeAssignmentId} criterionId={criterion.id} /></span><span>{criterion.maxPoints} pt · {expandedCriterionId === criterion.id ? '⌃' : '⌄'}</span></summary>
             <div className="criterion-editor-content"><div className="criterion-fields">
               <label><span className="field-label">Critère</span><input value={criterion.title} onChange={(event) => updateCriterion(criterion.id, { title: event.target.value })} /></label>
-              <label><span className="field-label">Description / attendus</span><textarea rows={2} value={criterion.description} onChange={(event) => updateCriterion(criterion.id, { description: event.target.value })} /></label>
+              <label><span className="field-label">Description / attendus (inclut les clarifications appliquées)</span><textarea rows={2} value={criterion.description} onChange={(event) => updateCriterion(criterion.id, { description: event.target.value })} /></label>
             </div>
             <label className="points-field"><span className="field-label">Points max.</span><input type="number" min="0" step="0.5" value={criterion.maxPoints} onChange={(event) => updateCriterion(criterion.id, { maxPoints: Number(event.target.value) })} /></label>
             <label className="criterion-visual-toggle"><input type="checkbox" checked={partitionScientificRubric({ title: rubric.title, criteria: [criterion] }).diagramCriteria.length > 0} onChange={(event) => updateCriterion(criterion.id, { analysisMode: event.target.checked ? 'scientific-diagram' : 'text', ...(event.target.checked ? { correctionContract: undefined } : {}) })} /><span><strong>Analyse de schéma scientifique</strong><small>Évaluer ce critère sur l’image avec Vision, jamais sur la transcription.</small></span></label>
@@ -5075,6 +5075,8 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
               </div>
               {getRubricSubcriteria(criterion).length > 0 && <p className={Math.abs(getRubricSubcriteria(criterion).reduce((sum, item) => sum + item.maxPoints, 0) - criterion.maxPoints) < 0.0001 ? 'validation valid' : 'validation invalid'}>Total des sous-critères : {getRubricSubcriteria(criterion).reduce((sum, item) => sum + item.maxPoints, 0)} / {criterion.maxPoints} points{Math.abs(getRubricSubcriteria(criterion).reduce((sum, item) => sum + item.maxPoints, 0) - criterion.maxPoints) >= 0.0001 ? ' · Le total doit correspondre au maximum du critère.' : ''}</p>}
             </div>
+            <RubricCriterionEnrichments rubric={rubric} assignmentId={activeAssignmentId} criterionId={criterion.id}
+              onChange={(next) => { setRubric(next); setProposal(null); setReview([]); setScientificDiagramAnalysis(null); }} />
             <button className="icon-button" type="button" aria-label={`Supprimer ${criterion.title}`} onClick={() => setRubric((current) => ({ ...current, criteria: current.criteria.filter((item) => item.id !== criterion.id) }))}>×</button>
             </div></details>)}
         </div>
