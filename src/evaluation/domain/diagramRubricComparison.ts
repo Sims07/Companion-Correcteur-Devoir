@@ -1,5 +1,5 @@
 import type { DiagramLabArchiveEntry } from './diagramLabHistory.ts';
-import { getRubricSubcriteria, rubricEvaluationSignature, type Rubric } from '../../correction/domain/rubric.ts';
+import { getRubricSubcriteria, rubricEvaluationSignature, type Rubric } from '../../correction/api/index.ts';
 
 /** Compare *interpretation* of the same teacher rubric. Scoring weights and IDs
  * must stay identical; otherwise any difference could be a scoring-system change. */
