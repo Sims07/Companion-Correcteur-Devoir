@@ -772,6 +772,10 @@ export function createOllamaProvider(
           let repairReason: string | undefined;
           const directThinking = settings.thinkingLevel ?? settings.thinking ?? false;
           const directGenerationBudget = directDiagramGenerationTokenLimit(rubricCriteriaForSchema, Boolean(directThinking));
+          // Leave enough room for the image/rubric prompt AND the longer JSON
+          // response; increasing num_predict alone could exhaust num_ctx.
+          // This applies only to direct scientific grading, not OCR.
+          const directContextBudget = Math.min(12_288, Math.max(8_192, directGenerationBudget + 5_120));
           let pointRepair: {
             originalRaw: string;
             issues: NonNullable<ReturnType<typeof findInvalidDiagramPoints>>;
@@ -795,6 +799,7 @@ export function createOllamaProvider(
                 : schema,
               directThinking,
               { kind: 'model', stage: 'analysis', temperature: 0,
+                contextTokenLimit: directContextBudget,
                 generationTokenLimit: directGenerationBudget,
                 promptId: attempt === 0 ? 'diagram.direct-grading' : 'diagram.direct-repair',
                 allowTruncated: true, onDoneReason: reason => { doneReason = reason; },
@@ -803,7 +808,7 @@ export function createOllamaProvider(
             // multimodal rubric would spend another full model generation.
             // Keep the partial answer in diagnostics, but never infer a grade.
             if (doneReason === 'length') {
-              throw new Error('Limite de génération atteinte pour le schéma [diagram-output:generation-limit]. Aucune note n’a été attribuée ; réessayez avec un modèle plus rapide ou un barème plus court.');
+              throw new Error(`Limite de génération atteinte pour le schéma (done_reason=length, num_predict=${directGenerationBudget}, num_ctx=${directContextBudget}) [diagram-output:generation-limit]. Aucune note n’a été attribuée : désactivez Think ou essayez un modèle qui produit des justifications plus concises.`);
             }
             try {
               return targeted

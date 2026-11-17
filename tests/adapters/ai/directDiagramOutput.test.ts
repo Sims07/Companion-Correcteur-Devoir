@@ -291,7 +291,7 @@ describe('compact direct diagram output', () => {
   it('never accepts a length-stopped answer even if its JSON happens to be valid', async () => {
     const fetchMock = vi.fn(async () => stream(JSON.stringify(answer()), 'length'));
     await expect(createOllamaProvider({ endpoint: 'http://localhost:11434', analysisModel: 'qwen3.5:9b',
-      correctionMethod: 'generative' }, fetchMock).generate(request)).rejects.toThrow('[diagram-output:generation-limit]');
+      correctionMethod: 'generative' }, fetchMock).generate(request)).rejects.toThrow(/num_predict=2048, num_ctx=8192.*\[diagram-output:generation-limit\]/);
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
   it('does not retry a failed HTTP request', async () => {
@@ -319,11 +319,19 @@ describe('compact direct diagram output', () => {
     expect(parsed.criteria[0].questionForTeacher).toContain('photo');
   });
 
-  it('reserves more generation tokens for the 19 real scientific subcriteria, not transcription', async () => {
+  it.each(['qwen3.5:4b', 'gemma4:12b'])('reserves a larger JSON output and context budget for all 19 scientific marks with %s', async model => {
     const rubric = SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC;
     expect(directDiagramGenerationTokenLimit(criteria)).toBe(2048);
-    expect(directDiagramGenerationTokenLimit(rubric.criteria)).toBe(3072);
-    expect(directDiagramGenerationTokenLimit(rubric.criteria, true)).toBe(4096);
+    expect(directDiagramGenerationTokenLimit(rubric.criteria)).toBe(5120);
+    expect(directDiagramGenerationTokenLimit(rubric.criteria, true)).toBe(6144);
+    const extended = [...rubric.criteria, {
+      id: 'new-criterion', title: 'Critère supplémentaire', description: '', maxPoints: 1,
+    }];
+    expect(directDiagramGenerationTokenLimit(extended)).toBe(5120);
+    const muchLonger = Array.from({ length: 40 }, (_, index) => ({
+      id: 'criterion-' + index, title: 'Attendu ' + index, description: '', maxPoints: 1,
+    }));
+    expect(directDiagramGenerationTokenLimit(muchLonger)).toBe(6144);
 
     const scores = Object.fromEntries(rubric.criteria.map(criterion => [criterion.id, {
       evidence: 'Observations visuelles', confidence: 'high', questionForTeacher: '',
@@ -332,13 +340,15 @@ describe('compact direct diagram output', () => {
       ])),
     }]));
     const fetchMock = vi.fn().mockResolvedValueOnce(stream(JSON.stringify({ criteria: scores })));
-    await createOllamaProvider({ endpoint: 'http://localhost:11434', analysisModel: 'qwen3.5:4b',
+    await createOllamaProvider({ endpoint: 'http://localhost:11434', analysisModel: model,
       correctionMethod: 'generative' }, fetchMock).generate({ ...request, rubric: JSON.stringify(rubric) });
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const body = JSON.parse(fetchMock.mock.calls[0]![1].body);
-    expect(body.options.num_predict).toBe(3072);
+    expect(body.model).toBe(model);
+    expect(body.options.num_predict).toBe(5120);
     expect(body.think).toBe(false);
-    expect(body.options.num_ctx).toBe(8192);
+    expect(body.options.num_ctx).toBe(10240);
+    expect(body.format.properties.criteria.required).toHaveLength(rubric.criteria.length);
   });
 
   it('reports an empty thinking-only generation as a token-limit failure without a costly second image evaluation', async () => {

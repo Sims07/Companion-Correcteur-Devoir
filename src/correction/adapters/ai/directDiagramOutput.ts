@@ -23,17 +23,21 @@ export function directDiagramSchema(criteria: RubricCriterion[]) {
   }))) });
 }
 
-/** Reserve enough JSON output for every scored leaf without changing the transcription budget.
- * Keep a conservative ceiling for local vision models on memory-limited machines. */
+/** Reserve room for every scientific observation and its evidence without
+ * changing the general OCR budget. 19 rubric leaves now receive 5120 tokens.
+ * Constrain the ceiling on small local machines; a longer response can cost time
+ * and memory, and the validator must still reject unfinished JSON. */
 export function directDiagramGenerationTokenLimit(criteria: RubricCriterion[], thinking = false): number {
-  if (thinking) return 4096;
   const scoredLeaves = criteria.reduce(
     (total, criterion) => total + Math.max(1, getRubricSubcriteria(criterion).length), 0,
   );
-  // Eight short observations fit the baseline. Larger scientific rubrics need
-  // more room for their independently justified marks (19 leaves => 3072).
-  const estimated = 2048 + Math.max(0, scoredLeaves - 8) * 80;
-  return Math.min(3584, Math.ceil(estimated / 512) * 512);
+  // A short rubric needs 2048 tokens. The 19-leaf scientific reference was
+  // regularly hitting the previous 3072-token ceiling after adding criteria.
+  const estimated = 2048 + Math.max(0, scoredLeaves - 8) * 256;
+  const withoutThinking = Math.min(6144, Math.ceil(estimated / 512) * 512);
+  // Thinking can consume the same output budget before writing any JSON.
+  // Think OFF remains the recommended direct-image correction configuration.
+  return thinking ? Math.min(6144, Math.max(4096, withoutThinking + 1024)) : withoutThinking;
 }
 
 function record(value: unknown): value is Record<string, unknown> {

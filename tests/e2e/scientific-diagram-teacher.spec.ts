@@ -106,7 +106,7 @@ test('an individually corrected scientific diagram uses one direct image request
   expect(requests[0].messages?.[0]?.images).toHaveLength(1);
   expect(String(requests[0].messages[0].content)).toContain('BARÈME ENSEIGNANT');
   expect(String(requests[0].messages[0].content)).not.toContain('Classer la page');
-  expect(requests[0].options?.num_ctx).toBe(8192);
+  expect(requests[0].options?.num_ctx).toBe(9216);
 });
 
 test('direct diagram grading keeps the original image on screen and does not claim zero pages were read', async ({ page }) => {
