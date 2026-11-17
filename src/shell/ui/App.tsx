@@ -16,7 +16,7 @@ import { resolveEvaluationActivityOutcome, type EvaluationActivityStatus } from 
 import { awaitOrAbort } from '../../shared/domain/awaitOrAbort.ts';
 import { ContractPreparationPanel } from '../../correction/ui/components/ContractPreparationPanel.tsx';
 import { QuestionContractEditor, QuestionScopePreview } from '../../correction/ui/components/QuestionContractEditor.tsx';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { FilePicker } from '../../shared/ui/components/FilePicker.tsx';
 import { useScientificDiagramDraft } from '../../shared/ui/useScientificDiagramDraft.ts';
 import type { ScientificDiagramAnalysisService } from '../../correction/application/scientificDiagramAnalysisService.ts';
@@ -32,7 +32,7 @@ import { normalizeGradeScore, parseGradingProposal, toReviewedCriteria, type Gra
 import { resolveReviewedSubcriterion, resolveManualCriterionOverride, type SubcriterionTeacherDecision } from '../../correction/domain/subcriterionReview.ts';
 import { validateReviewedCorrection } from '../../correction/domain/reviewFinalization.ts';
 import { calculateReportedTokensPerSecondForStage, canCompareModelEvaluationRecords, toModelEvaluationSummary, getModelEvaluationStage, runModelEvaluation, sumReportedTokensForStage, sumReportedProviderDurationForRuns, sumReportedProviderDurationForStage, type ModelEvaluationProgress, type ModelEvaluationRecord, type ModelEvaluationResultSnapshot, type ModelEvaluationConfiguration } from '../../evaluation/domain/modelEvaluation.ts';
-import { getRubricSubcriteria, validateRubric, type Rubric, type RubricCriterion } from '../../correction/domain/rubric.ts';
+import { getRubricSubcriteria, rubricEvaluationSignature, validateRubric, type Rubric, type RubricCriterion } from '../../correction/domain/rubric.ts';
 import { getTeacherEntryStep } from '../../correction/domain/teacherJourney.ts';
 import { shouldRunScientificDiagramAnalysis, type ScientificDiagramAnalysis } from '../../correction/domain/scientificDiagram.ts';
 import { resolveAmbiguousPageClassification, routeScientificPages, type ScientificPageClassification } from '../../correction/domain/scientificPageClassification.ts';
@@ -110,6 +110,7 @@ import { duplicateAssignmentProfile } from '../../correction/domain/teacherWorkf
 import '../../correction/ui/components/TeacherSetup.css';
 import { RubricExportPanel } from '../../correction/ui/components/RubricExportPanel.tsx';
 import { RubricAuditPanel } from '../../correction/ui/components/RubricAuditPanel.tsx';
+import { getRubricAuditTask, subscribeRubricAuditTask } from '../../correction/application/rubricAuditTask.ts';
 import { RubricImportPanel } from '../../correction/ui/components/RubricImportPanel.tsx';
 import { SubcriteriaSuggestionPanel } from '../../correction/ui/components/SubcriteriaSuggestionPanel.tsx';
 import { CorrectionOverview } from '../../correction/ui/CorrectionOverview.tsx';
@@ -982,6 +983,10 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
 
   const [networkInitialFilter, setNetworkInitialFilter] = useState<'all' | 'error'>('all');
   const validation = useMemo(() => validateRubric(rubric), [rubric]);
+  const subscribeAudit = useCallback((listener: () => void) => subscribeRubricAuditTask(activeAssignmentId, listener), [activeAssignmentId]);
+  const getAudit = useCallback(() => getRubricAuditTask(activeAssignmentId), [activeAssignmentId]);
+  const audit = useSyncExternalStore(subscribeAudit, getAudit, getAudit);
+  const auditIsRunning = audit.state === 'running' && audit.signature === rubricEvaluationSignature(rubric);
   const diagramIssue = isScientificDiagramAssignment
     ? directDiagramAssignmentIssue(rubric, { endpoint, analysisModel, correctionMethod })
     : null;
@@ -5105,7 +5110,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
 
       {interfaceMode === 'teacher' && validation.valid && <RubricAuditPanel key={activeAssignmentId} rubric={rubric} assignmentId={activeAssignmentId} endpoint={endpoint} model={generativeModel} onApply={(clarified) => { setRubric(clarified); setProposal(null); setReview([]); setScientificDiagramAnalysis(null); }} />}
 
-       {interfaceMode === 'teacher' && <div className="teacher-step-footer"><span>Le devoir est prêt ? Ajoutez les copies à corriger.</span><button type="button" className="primary-button" disabled={!validation.valid} onClick={() => setTeacherStep('overview')}>Continuer vers les copies <span aria-hidden="true">→</span></button></div>}
+       {interfaceMode === 'teacher' && <div className="teacher-step-footer"><span>{auditIsRunning ? 'Vérification du barème en cours : terminez-la ou arrêtez-la avant de passer aux copies.' : 'Le devoir est prêt ? Ajoutez les copies à corriger.'}</span><button type="button" className="primary-button" disabled={!validation.valid || auditIsRunning} onClick={() => setTeacherStep('overview')}>Continuer vers les copies <span aria-hidden="true">→</span></button></div>}
       </>}
 
       {((interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration' && evaluationStageMode !== 'analysis' && evaluationJourney === 'custom') || (interfaceMode === 'teacher' && teacherStep === 'copy')) && <>

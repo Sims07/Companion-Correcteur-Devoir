@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { matchesRubricAudit, parseRubricAudit, validRubricAuditSession } from '../../../src/correction/domain/rubricAudit.ts';
 import type { Rubric } from '../../../src/correction/domain/rubric.ts';
+import { SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC } from '../../../src/correction/domain/scientificDiagramRubric.ts';
 
 const rubric: Rubric = { title: 'Mitose', criteria: [{ id: 'title', title: 'Titre', description: '', maxPoints: 0.33,
   subcriteria: [{ id: 'emphasis', title: 'Souligné ou encadré ou en majuscules', description: '', maxPoints: 0.33 }] }] };
@@ -23,6 +24,34 @@ describe('audit de pertinence du barème', () => {
     expect(() => parseRubricAudit(JSON.stringify({ issues: [{ ...issue, criterionId: 'unknown' }] }), rubric, 'model')).toThrow(/inconnu/);
     expect(() => parseRubricAudit(JSON.stringify({ issues: [{ ...issue, options: ['Option A'] }] }), rubric, 'model')).toThrow(/deux à quatre/);
     expect(() => parseRubricAudit(JSON.stringify({ issues: [{ ...issue, priority: 'critical' }] }), rubric, 'model')).toThrow(/priorité/);
+  });
+
+  it('récupère les recommandations Gemini utilisant le sous-critère comme criterionId', () => {
+    const raw = JSON.stringify({ issues: [
+      { criterionId: 'drawing-clean', subcriterionId: null, priority: 'high',
+        reason: 'Critère subjectif sans seuil de tolérance.',
+        question: 'Quels éléments rendent un dessin propre ?',
+        options: ['Absence de ratures', 'Traces légères acceptées'],
+        suggestion: 'Préciser la tolérance pour les ratures.' },
+      { criterionId: 'drawing-proportions', subcriterionId: null, priority: 'medium',
+        reason: 'Aucune référence de taille.',
+        question: 'Comment comparer les proportions ?',
+        options: ['À l’observation', 'À l’aide d’une échelle'],
+        suggestion: 'Décrire la méthode de comparaison.' },
+    ] });
+    const report = parseRubricAudit(raw, SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC, 'gemma4:12b');
+    expect(report.issues.map((issue) => [issue.criterionId, issue.subcriterionId])).toEqual([
+      ['drawing', 'drawing-clean'], ['drawing', 'drawing-proportions'],
+    ]);
+    expect(validRubricAuditSession({ report, decisions: [] }, SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC)).not.toBeNull();
+  });
+
+  it('refuse un identifiant inventé, un sous-critère ambigu ou contradictoire', () => {
+    const raw = { ...issue, criterionId: 'not-a-criterion' };
+    expect(() => parseRubricAudit(JSON.stringify({ issues: [raw] }), SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC, 'gemma')).toThrow(/inconnu ou ambigu/);
+    expect(() => parseRubricAudit(JSON.stringify({ issues: [
+      { ...issue, criterionId: 'drawing-clean', subcriterionId: 'drawing-lines' },
+    ] }), SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC, 'gemma')).toThrow(/inconnu ou ambigu/);
   });
 
   it('préserve les choix après archivage, trie la priorité et ignore un barème changé', () => {

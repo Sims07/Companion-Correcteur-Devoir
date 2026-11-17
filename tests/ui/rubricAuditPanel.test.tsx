@@ -11,6 +11,9 @@ describe('panneau de clarification enseignant', () => {
     const html = renderToStaticMarkup(<RubricAuditPanel rubric={rubric} assignmentId="test" endpoint="http://localhost:11434" model="qwen-local" onApply={vi.fn()} />);
     expect(html).toContain('Vérifier et clarifier le barème');
     expect(html).toContain('Vérifier avec l’IA locale');
+    expect(html).toContain('primary-button rubric-audit-launch');
+    expect(html).toContain('avant de corriger les copies');
+    expect(html).not.toContain('rubric-audit-live');
     expect(html).toContain('aucune copie d&#x27;étudiant');
     expect(html).toContain('facultative');
   });

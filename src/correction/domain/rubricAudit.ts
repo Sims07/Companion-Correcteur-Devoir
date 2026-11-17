@@ -57,11 +57,26 @@ export function parseRubricAudit(raw: string, rubric: Rubric, model: string): Ru
   const issues: RubricAuditIssue[] = parsed.issues.map((item, index) => {
     const value = asRecord(item);
     if (!value) throw new Error('Audit du barème : problème invalide.');
-    const criterionId = requiredText(value.criterionId, 'criterionId', 160);
-    const criterion = rubric.criteria.find((entry) => entry.id === criterionId);
-    if (!criterion) throw new Error('Audit du barème : critère inconnu : ' + criterionId);
-    const subcriterionId = value.subcriterionId == null || value.subcriterionId === ''
+    const suppliedCriterionId = requiredText(value.criterionId, 'criterionId', 160);
+    const suppliedSubcriterionId = value.subcriterionId == null || value.subcriterionId === ''
       ? undefined : requiredText(value.subcriterionId, 'subcriterionId', 160);
+    let criterion = rubric.criteria.find((entry) => entry.id === suppliedCriterionId);
+    let criterionId = suppliedCriterionId;
+    let subcriterionId = suppliedSubcriterionId;
+    if (!criterion) {
+      // Some local models put an EXISTING subcriterion ID into criterionId,
+      // e.g. "drawing-clean" instead of {"criterionId":"drawing",
+      // "subcriterionId":"drawing-clean"}. Recover only when the match is unique.
+      const parents = rubric.criteria.filter((parent) =>
+        getRubricSubcriteria(parent).some((sub) => sub.id === suppliedCriterionId));
+      const onlyParent = parents[0];
+      if (parents.length !== 1 || !onlyParent || (suppliedSubcriterionId && suppliedSubcriterionId !== suppliedCriterionId)) {
+        throw new Error('Audit du barème : critère inconnu ou ambigu : ' + suppliedCriterionId);
+      }
+      criterion = onlyParent;
+      criterionId = onlyParent.id;
+      subcriterionId = suppliedCriterionId;
+    }
     if (subcriterionId && !getRubricSubcriteria(criterion).some((sub) => sub.id === subcriterionId)) {
       throw new Error('Audit du barème : sous-critère inconnu : ' + subcriterionId);
     }
