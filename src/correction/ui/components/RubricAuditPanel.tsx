@@ -526,3 +526,15 @@ export function RubricCriterionEnrichments({
     {feedback && <p role="status" className="rubric-audit-alert">{feedback}</p>}
   </div>;
 }
+
+
+/** Always-visible signal in the collapsed criterion heading. */
+export function RubricCriterionEnrichmentCount({
+  rubric, assignmentId, criterionId,
+}: { rubric: Rubric; assignmentId: string; criterionId: string }) {
+  const count = listAppliedRubricEnrichments(rubric, loadVersions(assignmentId))
+    .filter((entry) => entry.criterionId === criterionId).length;
+  return count ? <span className="rubric-criterion-enrichment-count">
+    {count} ajout{count > 1 ? 's' : ''} IA
+  </span> : null;
+}
