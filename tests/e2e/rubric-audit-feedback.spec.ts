@@ -40,7 +40,7 @@ test('rubric audit stays visible across diagnostics, blocks duplicates and compl
   await launch.click();
 
   try {
-    await expect(page.getByText('Vérification du barème en cours')).toBeVisible();
+    await expect(page.locator('.rubric-audit-live').getByText('Vérification du barème en cours', { exact: true })).toBeVisible();
     await expect(launch).toBeDisabled();
     await expect(launch).toContainText('Vérification en cours');
     await expect(page.locator('.rubric-audit-elapsed')).toContainText(/\d\d:\d\d/);
@@ -51,7 +51,7 @@ test('rubric audit stays visible across diagnostics, blocks duplicates and compl
     await page.getByRole('button', { name: 'Suivi & diagnostic' }).click();
     await page.getByRole('button', { name: 'Correction', exact: true }).click();
     await page.getByRole('tab', { name: 'Barème' }).click();
-    await expect(page.getByText('Vérification du barème en cours')).toBeVisible();
+    await expect(page.locator('.rubric-audit-live').getByText('Vérification du barème en cours', { exact: true })).toBeVisible();
     await expect(launch).toBeDisabled();
     expect(requests).toBe(1);
   } finally {
