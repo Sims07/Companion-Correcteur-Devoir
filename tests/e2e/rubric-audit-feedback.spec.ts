@@ -115,8 +115,12 @@ test('AI recommendations become a guided teacher dialogue even if the result arr
       id: 'assignment-default', title: 'Mitose L2', question: 'Schéma scientifique',
       correctionMode: 'integrated', kind: 'scientific-diagram',
       rubric: { title: 'Mitose L2', criteria: [
-        { id: 'drawing-clean', title: 'Qualité du dessin', description: 'Dessin propre', maxPoints: 2 },
-        { id: 'drawing-proportions', title: 'Proportions', description: 'Proportions fidèles', maxPoints: 2 },
+        { id: 'drawing', title: 'Qualité du dessin', description: '', maxPoints: 4,
+          analysisMode: 'scientific-diagram',
+          subcriteria: [
+            { id: 'drawing-clean', title: 'Impression générale propre', description: 'Dessin propre', maxPoints: 2 },
+            { id: 'drawing-proportions', title: 'Proportions respectées', description: 'Proportions fidèles', maxPoints: 2 },
+          ] },
       ] },
     }]));
     localStorage.setItem('companion-correcteur:active-assignment:v1', 'assignment-default');
