@@ -66,7 +66,7 @@ export function createClarifiedRubricVersion(
       throw new Error('Refusez une proposition scientifique avec « Conserver le barème actuel ».');
     }
     const criterion = source.criteria.find((entry) => entry.id === issue.criterionId);
-    const previous = issue.subcriterionId
+    const previous = issue.subcriterionId && criterion
       ? getRubricSubcriteria(criterion).find((entry) => entry.id === issue.subcriterionId) : criterion;
     if (!previous) throw new Error('Critère introuvable dans le barème.');
     if (issue.kind === 'scientific') {
