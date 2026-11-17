@@ -3255,7 +3255,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
       assignmentId: activeAssignmentId,
       ...(activeBackgroundJob?.regradeOfCorrectionId ? { previousCorrectionId: activeBackgroundJob.regradeOfCorrectionId } : {}),
       assignmentTitle: snapshot.assignmentTitle,
-      snapshot;
+      snapshot,
     };
     try {
       await archiveService.saveCorrection(correction);
