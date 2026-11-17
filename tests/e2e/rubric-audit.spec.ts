@@ -16,9 +16,10 @@ test('teacher audits a rubric locally and retains their choice after refresh', a
     }));
   });
   await page.route('**/api/chat', async (route) => {
-    const payload = route.request().postDataJSON() as { messages: Array<{ content: string }> };
+    const payload = route.request().postDataJSON() as { stream: boolean; messages: Array<{ content: string }> };
+    expect(payload.stream).toBe(true);
     expect(payload.messages[0].content).toContain('Mitose');
-    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ done: true,
       message: { content: JSON.stringify({ issues: [{
         criterionId: 'title', subcriterionId: null, priority: 'high',
         reason: 'Un sous-titre peut être confondu avec un titre global.',
@@ -81,7 +82,7 @@ test('scientific enrichment is reviewed beside the original, previewed, applied 
   let calls = 0;
   await page.route('**/api/chat', async route => {
     calls++;
-    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ done: true,
       message: { content: JSON.stringify({ issues: [
         { kind: 'scientific', criterionId: 'biology', subcriterionId: 'phases', priority: 'high',
           reason: 'Les attendus biologiques ne sont pas définis.',
