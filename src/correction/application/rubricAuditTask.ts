@@ -10,6 +10,7 @@ export interface RubricAuditTaskSnapshot {
   state: RubricAuditTaskState;
   signature?: string;
   model?: string;
+  thinking?: boolean;
   startedAt?: number;
   finishedAt?: number;
   phase?: RubricAuditPhase;
@@ -50,25 +51,26 @@ export interface LaunchRubricAudit {
   rubric: Rubric;
   endpoint: string;
   model: string;
+  thinking?: boolean;
 }
 
 /** Includes network, response validation and locally persisted results.
  * Cancellation never replaces the last verified audit. */
 export async function launchRubricAuditTask(
-  { assignmentId, rubric, endpoint, model }: LaunchRubricAudit,
+  { assignmentId, rubric, endpoint, model, thinking = false }: LaunchRubricAudit,
 ): Promise<void> {
   if (getRubricAuditTask(assignmentId).state === 'running') return;
   const controller = new AbortController();
   controllers.set(assignmentId, controller);
   const signature = rubricEvaluationSignature(rubric);
   const startedAt = Date.now();
-  publish(assignmentId, { state: 'running', signature, model, startedAt, phase: 'waiting' });
+  publish(assignmentId, { state: 'running', signature, model, thinking, startedAt, phase: 'waiting' });
   try {
     const report = await auditRubricWithOllama(rubric, {
-      endpoint, model, signal: controller.signal,
+      endpoint, model, thinking, signal: controller.signal,
       onStage: (phase) => {
         if (controllers.get(assignmentId) === controller && !controller.signal.aborted) {
-          publish(assignmentId, { state: 'running', signature, model, startedAt, phase });
+          publish(assignmentId, { state: 'running', signature, model, thinking, startedAt, phase });
         }
       },
     });
@@ -81,13 +83,13 @@ export async function launchRubricAuditTask(
       storageWarning = 'Résultat affiché, mais l’enregistrement local a échoué. Gardez cette page ouverte et vérifiez votre espace de stockage.';
     }
     publish(assignmentId, {
-      state: 'success', signature, model, startedAt, finishedAt: Date.now(),
+      state: 'success', signature, model, thinking, startedAt, finishedAt: Date.now(),
       report, ...(storageWarning ? { storageWarning } : {}),
     });
   } catch (cause) {
     if (controller.signal.aborted || controllers.get(assignmentId) !== controller) return;
     publish(assignmentId, {
-      state: 'error', signature, model, startedAt, finishedAt: Date.now(),
+      state: 'error', signature, model, thinking, startedAt, finishedAt: Date.now(),
       error: cause instanceof Error ? cause.message : 'La vérification du barème a échoué.',
     });
   } finally {
@@ -102,7 +104,7 @@ export function cancelRubricAuditTask(assignmentId: string): void {
   controller.abort();
   controllers.delete(assignmentId);
   publish(assignmentId, {
-    state: 'canceled', signature: previous.signature, model: previous.model,
+    state: 'canceled', signature: previous.signature, model: previous.model, thinking: previous.thinking,
     startedAt: previous.startedAt, finishedAt: Date.now(),
   });
 }
