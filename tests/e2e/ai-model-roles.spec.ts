@@ -18,6 +18,17 @@ test('models stay independent across method switches, saved profiles, reload and
   const editor = await openEvaluator(page);
   await expect(editor.getByLabel('Modèle génératif', { exact: true })).toBeVisible();
   await expect(editor.getByLabel('Modèle de lecture des images')).toBeHidden();
+  const thinking = editor.getByRole('checkbox', { name: /Activer Thinking/ });
+  await expect(thinking).toBeVisible();
+  await expect(thinking).not.toBeChecked();
+  await thinking.check();
+  await expect(editor.locator('#evaluation-analysis-thinking-status')).toContainText('activé');
+  await editor.getByLabel('Fournisseur IA').selectOption('openai');
+  await expect(thinking).toBeDisabled();
+  await expect(editor.locator('#evaluation-analysis-thinking-status')).toContainText('indisponible');
+  await editor.getByLabel('Fournisseur IA').selectOption('ollama');
+  await expect(thinking).toBeEnabled();
+  await expect(thinking).toBeChecked();
   await editor.getByLabel('Modèle génératif', { exact: true }).fill('qwen3.5:4b');
   await editor.getByLabel('Modèle décisionnel (facultatif)').fill('tev1:4b');
   const method = editor.getByLabel('Méthode de correction', { exact: true });
@@ -30,16 +41,22 @@ test('models stay independent across method switches, saved profiles, reload and
   await editor.getByLabel('Nom de la configuration').fill('Mes deux modèles');
   await editor.getByRole('button', { name: 'Enregistrer la configuration' }).click();
   await expect.poll(() => page.evaluate(key => JSON.parse(localStorage.getItem(key) ?? '{}'), settingsKey)).toMatchObject({
-    generativeModel: 'qwen3.5:4b', decisionModel: 'tev1:4b', analysisModel: 'tev1:4b', visionModel: 'qwen3.5:4b', correctionMethod: 'decision',
+    generativeModel: 'qwen3.5:4b', decisionModel: 'tev1:4b', analysisModel: 'tev1:4b', visionModel: 'qwen3.5:4b', correctionMethod: 'decision', analysisThinking: true,
   });
   const saved = await page.evaluate(key => JSON.parse(localStorage.getItem(key) ?? '[]'), profilesKey);
-  expect(saved[0].configuration).toMatchObject({ generativeModel: 'qwen3.5:4b', decisionModel: 'tev1:4b', analysisModel: 'tev1:4b' });
+  expect(saved[0].configuration).toMatchObject({ generativeModel: 'qwen3.5:4b', decisionModel: 'tev1:4b', analysisModel: 'tev1:4b', analysisThinking: true });
   await page.reload();
   await openActiveAssignment(page);
   await page.getByRole('button', { name: /Réglages IA|Configurer l’IA/ }).click();
   const panel = page.locator('#teacher-ai-settings-panel');
   await expect(panel.getByLabel('Modèle génératif', { exact: true })).toHaveValue('qwen3.5:4b');
   await expect(panel.getByLabel('Modèle décisionnel (facultatif)')).toHaveValue('tev1:4b');
+  const teacherThinking = panel.getByRole('checkbox', { name: /Activer Thinking/ });
+  await expect(teacherThinking).toBeVisible();
+  await expect(teacherThinking).toBeChecked();
+  await teacherThinking.uncheck();
+  await expect(panel.locator('#ai-analysis-thinking-status')).toContainText('désactivé');
+  await expect.poll(() => page.evaluate(key => JSON.parse(localStorage.getItem(key) ?? '{}').analysisThinking, settingsKey)).toBe(false);
   await panel.getByLabel('Méthode de correction', { exact: true }).selectOption('generative');
   await expect.poll(() => page.evaluate(key => JSON.parse(localStorage.getItem(key) ?? '{}').analysisModel, settingsKey)).toBe('qwen3.5:4b');
   await page.screenshot({ path: testInfo.outputPath('ai-model-roles-desktop.png'), fullPage: true });
