@@ -89,3 +89,9 @@
   .rubric-audit-review-body { grid-template-columns: minmax(0, 1fr); }
   .rubric-audit-question-nav { grid-template-columns: repeat(auto-fit, minmax(min(100%, 185px), 1fr)); }
 }
+
+.rubric-audit-recover { border: 1px dashed var(--border, #d4dce1); border-radius: .6rem; padding: .75rem 1rem; }
+.rubric-audit-recover summary { cursor: pointer; font-weight: 600; }
+.rubric-audit-recover p { max-width: 80ch; font-size: .9rem; }
+.rubric-audit-recover label { display: block; margin: .7rem 0; }
+.rubric-audit-recover textarea { display: block; width: 100%; box-sizing: border-box; margin-top: .4rem; font-family: ui-monospace, monospace; }
