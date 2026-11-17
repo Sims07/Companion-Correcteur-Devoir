@@ -56,3 +56,9 @@ tant que le point n'est pas adapté ou que l'ancien ajout n'a pas été retiré.
 Une édition manuelle du barème invalide l'étiquette « version IA active » mais ne supprime
 pas les ajouts encore présents. Le bilan cumulé mentionne explicitement qu'il peut aussi
 inclure les modifications manuelles.
+
+## Limites de génération avec Thinking
+
+Lorsque Thinking est désactivé, la vérification locale garde son plafond historique de **3 584 tokens de génération** et ne force pas la fenêtre de contexte du modèle. Lorsque Thinking est activé, elle demande explicitement à Ollama **16 384 tokens de génération** et **24 576 tokens de contexte** : le raisonnement du modèle utilise une partie de ces tokens avant la réponse JSON. Le plafond n'est pas une cible de longueur : le modèle s'arrête normalement dès qu'il a terminé.
+
+Le budget correspondant à la préférence actuelle est affiché avant la vérification et le budget de la requête en cours reste visible pendant l'analyse. En cas de réponse interrompue par `done_reason: "length"`, l'interface donne le plafond utilisé et les tokens réellement générés lorsqu'ils sont fournis par Ollama. Elle ne transforme jamais une réponse incomplète en barème appliqué : le barème et les décisions précédentes restent conservés. Un contexte plus grand demande davantage de mémoire locale ; l'enseignant peut désactiver Thinking si le modèle est trop lent ou si les ressources locales sont insuffisantes.
