@@ -5103,7 +5103,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
       </aside>}
       </div>
 
-      {interfaceMode === 'teacher' && validation.valid && <RubricAuditPanel key={activeAssignmentId} rubric={rubric} assignmentId={activeAssignmentId} endpoint={endpoint} model={generativeModel} />}
+      {interfaceMode === 'teacher' && validation.valid && <RubricAuditPanel key={activeAssignmentId} rubric={rubric} assignmentId={activeAssignmentId} endpoint={endpoint} model={generativeModel} onApply={(clarified) => { setRubric(clarified); setProposal(null); setReview([]); setScientificDiagramAnalysis(null); }} />}
 
        {interfaceMode === 'teacher' && <div className="teacher-step-footer"><span>Le devoir est prêt ? Ajoutez les copies à corriger.</span><button type="button" className="primary-button" disabled={!validation.valid} onClick={() => setTeacherStep('overview')}>Continuer vers les copies <span aria-hidden="true">→</span></button></div>}
       </>}
