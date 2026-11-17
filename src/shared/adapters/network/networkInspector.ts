@@ -238,7 +238,14 @@ export function installNetworkInspector(): () => void {
       }
       return response;
     } catch (cause) {
-      update({ state: 'error', durationMs: Math.round(performance.now() - started), error: cause instanceof Error ? cause.message : 'Échec réseau.' }, true);
+      // Browser fetch reports a generic AbortError; use the explicit abort
+      // reason when available so local model timeouts are not anonymous "ERR".
+      const signal = init?.signal ?? request?.signal;
+      const reason = signal?.aborted ? signal.reason : null;
+      const error = reason instanceof Error && reason.message
+        ? reason.message
+        : cause instanceof Error ? cause.message : 'Échec réseau.';
+      update({ state: 'error', durationMs: Math.round(performance.now() - started), error }, true);
       throw cause;
     }
   };
