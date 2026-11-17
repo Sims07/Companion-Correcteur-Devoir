@@ -19,6 +19,16 @@ describe('panneau de clarification enseignant', () => {
     expect(html).toContain('aucune copie d&#x27;étudiant');
     expect(html).toContain('facultative');
   });
+  it('explique le budget supérieur quand Thinking est activé, sans l’imposer au mode normal', () => {
+    const props = { rubric, assignmentId: 'budget-test', endpoint: 'http://localhost:11434', model: 'gemma4:12b', onApply: vi.fn() };
+    const thinking = renderToStaticMarkup(<RubricAuditPanel {...props} thinking />);
+    const normal = renderToStaticMarkup(<RubricAuditPanel {...props} thinking={false} />);
+    expect(thinking).toMatch(/plafond de génération :.*16[^0-9]*384 tokens/);
+    expect(thinking).toMatch(/contexte : 24[^0-9]*576 tokens/);
+    expect(normal).toMatch(/plafond de génération :.*3[^0-9]*584 tokens/);
+    expect(normal).not.toContain('contexte :');
+  });
+
   it('affiche les ajouts approuvés au lieu de deux blocs JSON, sans confondre une édition ultérieure', () => {
     const audit = parseRubricAudit(JSON.stringify({ issues: [{
       criterionId: 'title', priority: 'high', reason: 'Ambiguïté de titre',
