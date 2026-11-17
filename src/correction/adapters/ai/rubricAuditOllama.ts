@@ -4,14 +4,7 @@ import { isLoopbackDiagramEndpoint } from '../../domain/directDiagramAssignment.
 import { parseRubricAudit, type RubricAuditReport } from '../../domain/rubricAudit.ts';
 import { currentFetch } from '../../../shared/adapters/ai/currentFetch.ts';
 import { annotateNetworkRequest } from '../../../shared/ports/networkRequestMetadata.ts';
-
-/** Thinking models generate reasoning before the JSON: reserve room for both. 
- * A matching larger context is needed on local Ollama (often configured at 4k by default).
- * Keep the established lightweight limits unchanged when Thinking is disabled.
- */
-export const rubricAuditTokenBudget = (thinking: boolean) => thinking
-  ? { num_predict: 16384, num_ctx: 24576 }
-  : { num_predict: 3584 };
+import { rubricAuditTokenBudget } from '../../domain/rubricAuditGenerationBudget.ts';
 
 export interface RubricAuditSettings {
   endpoint: string;
