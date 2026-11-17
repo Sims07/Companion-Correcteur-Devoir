@@ -108,7 +108,7 @@ export function toBackgroundJobSummary(job: BackgroundCorrectionJob): Background
     label: job.label,
     studentIdentity: job.studentIdentity ?? null,
     regradeOfCorrectionId: job.regradeOfCorrectionId,
-    status: job.status;
+    status: job.status,
     phase: job.phase,
     progress: {
       completedPages: job.completedPages,
