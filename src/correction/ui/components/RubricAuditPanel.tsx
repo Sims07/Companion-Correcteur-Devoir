@@ -331,7 +331,7 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, onAppl
       {acceptedCount > 0 && <div className="rubric-audit-apply">
         <p>Après vérification de vos réponses, vous pouvez appliquer les précisions. Une nouvelle version est conservée avec l’original.</p>
         <button type="button" className="primary-button" disabled={busy} onClick={applyDecisions}>
-          Appliquer {acceptedCount} précision(s) validée(s) au barème
+          Appliquer {acceptedCount} {acceptedCount === 1 ? 'précision validée' : 'précisions validées'} au barème
         </button>
       </div>}
       {issues.length > 0 && !allReviewed && <p className="hint">Les questions non traitées ne sont jamais ajoutées automatiquement au barème.</p>}
