@@ -109,6 +109,7 @@ import { RubricReusePanel } from '../../correction/ui/components/RubricReusePane
 import { duplicateAssignmentProfile } from '../../correction/domain/teacherWorkflow.ts';
 import '../../correction/ui/components/TeacherSetup.css';
 import { RubricExportPanel } from '../../correction/ui/components/RubricExportPanel.tsx';
+import { RubricAuditPanel } from '../../correction/ui/components/RubricAuditPanel.tsx';
 import { RubricImportPanel } from '../../correction/ui/components/RubricImportPanel.tsx';
 import { SubcriteriaSuggestionPanel } from '../../correction/ui/components/SubcriteriaSuggestionPanel.tsx';
 import { CorrectionOverview } from '../../correction/ui/CorrectionOverview.tsx';
@@ -5102,7 +5103,9 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
       </aside>}
       </div>
 
-      {interfaceMode === 'teacher' && <div className="teacher-step-footer"><span>Le devoir est prêt ? Ajoutez les copies à corriger.</span><button type="button" className="primary-button" disabled={!validation.valid} onClick={() => setTeacherStep('overview')}>Continuer vers les copies <span aria-hidden="true">→</span></button></div>}
+      {interfaceMode === 'teacher' && validation.valid && <RubricAuditPanel key={activeAssignmentId} rubric={rubric} assignmentId={activeAssignmentId} endpoint={endpoint} model={generativeModel} />}
+
+       {interfaceMode === 'teacher' && <div className="teacher-step-footer"><span>Le devoir est prêt ? Ajoutez les copies à corriger.</span><button type="button" className="primary-button" disabled={!validation.valid} onClick={() => setTeacherStep('overview')}>Continuer vers les copies <span aria-hidden="true">→</span></button></div>}
       </>}
 
       {((interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration' && evaluationStageMode !== 'analysis' && evaluationJourney === 'custom') || (interfaceMode === 'teacher' && teacherStep === 'copy')) && <>
