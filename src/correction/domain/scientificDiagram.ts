@@ -1,4 +1,5 @@
 import { getRubricSubcriteria, type Rubric, type RubricSubcriterion } from './rubric.ts';
+import { evaluateObservableScore } from './observableScoring.ts';
 
 export interface DiagramCriterionAssessment {
   criterionId: string;
@@ -180,13 +181,18 @@ function computeElementPoints(
       : validAssessment && typeof found?.evidence === 'string' && found.evidence.trim()
         ? found.evidence.trim() : 'Preuve non fournie par le modèle';
 
+    const scoring = validAssessment
+      ? evaluateObservableScore(element.title, evidence, suppliedPoints as number, element.maxPoints, found?.observations)
+      : null;
+    if (scoring?.reason) warnings.push('Incohérence de notation pour « ' + element.title + ' » : ' + scoring.reason);
+
     return {
       subcriterionId: element.id,
       label: element.title,
-      status: unsafeOrigin ? 'uncertain' : status,
+      status: unsafeOrigin ? 'uncertain' : scoring?.reason && scoring.points === 0 ? 'absent' : status,
       evidence,
       maxPoints: element.maxPoints,
-      points: validAssessment ? suppliedPoints as number : 0,
+      points: scoring?.points ?? (validAssessment ? suppliedPoints as number : 0),
       ...(origin ? { origin } : {}),
       ...(uncertainty ? { uncertainty } : {}),
     };
