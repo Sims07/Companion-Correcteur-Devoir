@@ -3813,12 +3813,20 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
   async function retryQueuedCorrection(jobId: string) {
     setError('');
     try {
+      const currentAssignment = assignmentProfiles.find((profile) => profile.id === activeAssignmentId);
       await backgroundService.retry(jobId, {
         endpoint, apiCompatible, apiKey, visionModel, analysisModel,
         thinking: analysisThinking, criterionByCriterion: true, correctionMethod, autoBackgroundCorrection,
         transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty,
         transcriptionPenaltyParameter, transcriptionFrequencyPenalty,
-      }, isScientificDiagramAssignment ? 'scientific-diagram-direct' : undefined);
+      }, isScientificDiagramAssignment ? 'scientific-diagram-direct' : undefined,
+      currentAssignment ? {
+        rubric: currentAssignment.rubric,
+        question: buildAssignmentContext({
+          title: currentAssignment.title, description: currentAssignment.description ?? '',
+          educationLevel: currentAssignment.educationLevel ?? '', question: currentAssignment.question,
+        }),
+      } : undefined);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Impossible de relancer la correction.');
     }
