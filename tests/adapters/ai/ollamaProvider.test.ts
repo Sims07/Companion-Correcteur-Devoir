@@ -187,6 +187,41 @@ describe('Ollama readiness without loading models', () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
+  it('also guards a later generation in the same provider after model checks and a completed request', async () => {
+    vi.useFakeTimers();
+    let requestCount = 0;
+    let nextRequestStarted!: () => void;
+    const nextStarted = new Promise<void>((resolve) => { nextRequestStarted = resolve; });
+    let secondSignal: AbortSignal | undefined;
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      requestCount += 1;
+      if (requestCount === 1) return streamResponse('Première correction réussie.');
+      secondSignal = init?.signal ?? undefined;
+      nextRequestStarted();
+      return new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true });
+      });
+    }) as unknown as typeof fetch;
+    const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', visionModel: 'gemma4:12b' }, fetchImpl);
+    const request = {
+      question: 'Analyser le dessin selon le barème.',
+      rubric: '{}',
+      images: [{ base64: 'aW1hZ2U=', mimeType: 'image/png', fileName: 'diagramme.png' }],
+      visionOnly: true,
+    };
+    expect(await provider.generate(request)).toContain('Première correction réussie.');
+    const grading = provider.generate(request);
+    const timeout = expect(grading).rejects.toThrow('première réponse après 20 minutes');
+    await nextStarted;
+    await vi.advanceTimersByTimeAsync(5 * 60_000);
+    expect(secondSignal?.aborted).toBe(false);
+    await vi.advanceTimersByTimeAsync(15 * 60_000);
+    await timeout;
+    expect(secondSignal?.reason).toMatchObject({ name: 'TimeoutError' });
+    expect(requestCount).toBe(2);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   it('accepts a first response arriving after eight minutes and a longer streaming phase', async () => {
     vi.useFakeTimers();
     let requestSignal: AbortSignal | null | undefined;
