@@ -109,6 +109,8 @@ test('scientific enrichment is reviewed beside the original, previewed, applied 
   const preview = page.getByLabel('Aperçu du barème avant application');
   await expect(preview).toContainText('En métaphase, l’enveloppe nucléaire a disparu.');
   await expect(preview).toContainText('Références scientifiques avant');
+  await expect(preview).toContainText('Texte original du professeur · conservé');
+  await expect(preview).toContainText('Conformité biologique');
   await page.getByText('Selon les éléments corrects', { exact: true }).click();
   await page.getByRole('button', { name: 'Valider ma réponse' }).click();
   await expect(preview).toContainText('Selon les éléments corrects');
