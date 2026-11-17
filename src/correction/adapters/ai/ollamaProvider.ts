@@ -531,14 +531,24 @@ export function createOllamaProvider(
       ): Promise<string> {
         const startedAt = Date.now();
         activeRequestPayloads = [];
+        // Initial vision calls on CPU-bound machines can legitimately need more
+        // than five minutes before Ollama returns response headers. Match the
+        // background-correction inactivity guard instead of aborting at 300 s.
         const coldStartRequest = !settings.apiCompatible && !requestedModels.has(model);
+        const firstResponseTimeoutMs = 20 * 60 * 1000;
+        const firstResponseTimeoutMessage = `Le modèle « ${model} » n’a pas envoyé de première réponse après 20 minutes. Le délai n’indique pas une erreur du barème. Vérifiez Ollama avec « ollama ps », puis relancez la correction ou essayez un modèle plus léger.`;
         let timedOut = false;
         const requestAbortController = new AbortController();
         const relayAbort = () => requestAbortController.abort();
         if (signal?.aborted) relayAbort();
         else signal?.addEventListener('abort', relayAbort, { once: true });
         const timeoutId = coldStartRequest
-          ? setTimeout(() => { timedOut = true; requestAbortController.abort(); }, 5 * 60 * 1000)
+          ? setTimeout(() => {
+            timedOut = true;
+            // Expose the reason to the network inspector. An unlabeled
+            // AbortError previously appeared as "ERR" with no explanation.
+            requestAbortController.abort(new DOMException(firstResponseTimeoutMessage, 'TimeoutError'));
+          }, firstResponseTimeoutMs)
           : null;
         const clearColdStartTimeout = () => { if (timeoutId !== null) clearTimeout(timeoutId); };
         const finishRequest = () => {
@@ -623,7 +633,7 @@ export function createOllamaProvider(
         } catch (cause) {
           finishRequest();
           if (timedOut) {
-            const timeoutError = new Error('Le modèle met trop de temps à répondre. Vérifiez Ollama avec « ollama ps », puis relancez la correction.');
+            const timeoutError = new Error(firstResponseTimeoutMessage);
             publishFailedCall(timeoutError);
             throw timeoutError;
           }
@@ -732,7 +742,7 @@ export function createOllamaProvider(
         } catch (cause) {
           finishRequest();
           if (timedOut) {
-            const timeoutError = new Error('Le modèle met trop de temps à répondre. Vérifiez Ollama avec « ollama ps », puis relancez la correction.');
+            const timeoutError = new Error(firstResponseTimeoutMessage);
             if (!diagnosticResultEmitted) publishFailedCall(timeoutError);
             throw timeoutError;
           }
