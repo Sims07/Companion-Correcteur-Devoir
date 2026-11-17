@@ -3734,6 +3734,25 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     setAssignmentTitle(profile.title);
     setAssignmentDescription(profile.description ?? '');
     setEducationLevel(profile.educationLevel ?? '');
+    // Exit the archived editor. Otherwise later edits to the restored rubric
+    // would be ignored by the assignment persistence guard, or archived pages
+    // could be mistaken for an unvalidated foreground draft.
+    setCurrentCorrectionId(null);
+    setIsFinalized(false);
+    setStudentLabel('');
+    setStudentIdentity(null);
+    setImages([]);
+    setOriginalImages([]);
+    setProposal(null);
+    setReview([]);
+    setTeacherQuestions('');
+    setTranscription(null);
+    setSubjectImages([]);
+    setSubjectTranscription(null);
+    setScientificDiagramAnalysis(null);
+    setPageClassifications(null);
+    setTeacherAnnotations('');
+    setCurrentTimingRecordId(null);
   }
 
   async function regradeArchivedCorrection(correction: LocalCorrection) {
