@@ -22,3 +22,11 @@ Les décisions sont ajoutées à la **description** du critère ou sous-critère
 Un audit valide la **clarté du texte** et non la capacité du modèle à lire la photographie. Un résultat « aucune ambiguïté » ne garantit pas la qualité de la correction. Les règles non observables ou incertaines restent du ressort du professeur. L'audit ne contacte jamais un fournisseur distant : l'adresse du serveur doit être une adresse loopback locale.
 
 Lors de la correction, la version active du barème est utilisée. Les versions déjà archivées des copies restent disponibles, et une copie peut être recorrigée avec la nouvelle version sans écraser l'ancienne.
+
+
+Compare: after applying teacher decisions, the panel immediately displays a
+"Barème modifié · version active" summary with each affected criterion, its
+previous description and the exact text added. This survives page reload.
+Older versions remain available as human-readable before/after comparisons;
+raw JSON is optional. If the teacher manually changes the rubric afterward,
+the panel clearly distinguishes the current rubric from archived versions.
