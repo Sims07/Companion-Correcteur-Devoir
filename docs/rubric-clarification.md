@@ -22,3 +22,9 @@ Les décisions sont ajoutées à la **description** du critère ou sous-critère
 Un audit valide la **clarté du texte** et non la capacité du modèle à lire la photographie. Un résultat « aucune ambiguïté » ne garantit pas la qualité de la correction. Les règles non observables ou incertaines restent du ressort du professeur. L'audit ne contacte jamais un fournisseur distant : l'adresse du serveur doit être une adresse loopback locale.
 
 Lors de la correction, la version active du barème est utilisée. Les versions déjà archivées des copies restent disponibles, et une copie peut être recorrigée avec la nouvelle version sans écraser l'ancienne.
+
+## Après application : suivre les modifications
+
+Une fois les décisions du professeur appliquées, un encart **« Barème modifié · version active »** affiche les critères et sous-critères touchés. Pour chaque changement, le professeur voit le texte précédent et la règle ajoutée ; il sait ainsi précisément ce qui servira aux prochaines corrections.
+
+Cette synthèse reste accessible après rechargement de la page. L'historique présente également ces différences en langage naturel, avec le JSON disponible seulement dans un détail technique. Si le professeur modifie manuellement le barème, l'application distingue le barème courant des versions clarifiées archivées.

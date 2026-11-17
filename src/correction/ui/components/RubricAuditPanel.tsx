@@ -5,7 +5,7 @@ import {
   type RubricAuditDecision, type RubricAuditIssue, type RubricAuditSession,
 } from '../../domain/rubricAudit.ts';
 import { cancelRubricAuditTask, getRubricAuditTask, launchRubricAuditTask, rubricAuditStorageKey, subscribeRubricAuditTask } from '../../application/rubricAuditTask.ts';
-import { createClarifiedRubricVersion, type ClarifiedRubricVersion } from '../../domain/rubricClarification.ts';
+import { createClarifiedRubricVersion, getRubricClarificationChanges, type ClarifiedRubricVersion } from '../../domain/rubricClarification.ts';
 import './RubricAuditPanel.css';
 
 interface Props {
@@ -23,7 +23,9 @@ function loadVersions(assignmentId: string): ClarifiedRubricVersion[] {
     const saved = JSON.parse(window.localStorage.getItem(versionsKey(assignmentId)) ?? '[]') as unknown;
     return Array.isArray(saved) ? saved.filter((item): item is ClarifiedRubricVersion =>
       item && typeof item === 'object' && typeof item.appliedAt === 'string'
-      && typeof item.originalSignature === 'string' && typeof item.clarifiedSignature === 'string') : [];
+      && typeof item.originalSignature === 'string' && typeof item.clarifiedSignature === 'string'
+      && Array.isArray(item.original?.criteria) && Array.isArray(item.clarified?.criteria)
+      && Array.isArray(item.decisions)) : [];
   } catch { return []; }
 }
 
@@ -45,6 +47,22 @@ function displayTitle(issue: RubricAuditIssue, rubric: Rubric): string {
   return [criterion?.title ?? issue.criterionId, subcriterion?.title].filter(Boolean).join(' / ');
 }
 
+function RubricChanges({ version }: { version: ClarifiedRubricVersion }) {
+  const changes = getRubricClarificationChanges(version);
+  return <ol className="rubric-audit-change-list">
+    {changes.map((change) => <li key={change.id}>
+      <strong>{change.label}</strong>
+      <div className="rubric-audit-change-comparison">
+        <div><span>Avant · texte du barème</span><p>{change.before || 'Aucune précision renseignée.'}</p></div>
+        <div className="rubric-audit-change-added">
+          <span>{change.addition !== null ? 'Ajout validé par le professeur' : 'Texte après clarification'}</span>
+          <p>{change.addition ?? change.after}</p>
+        </div>
+      </div>
+    </li>)}
+  </ol>;
+}
+
 export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, onApply }: Props) {
   const signature = rubricEvaluationSignature(rubric);
   const [session, setSession] = useState<RubricAuditSession | null>(() => load(assignmentId, rubric));
@@ -58,9 +76,12 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, onAppl
   const [recoveryText, setRecoveryText] = useState('');
   const [activeIssueIndex, setActiveIssueIndex] = useState(0);
   const resultRef = useRef<HTMLDivElement | null>(null);
+  const appliedRef = useRef<HTMLDivElement | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [custom, setCustom] = useState<Record<string, string>>({});
   const [versions, setVersions] = useState<ClarifiedRubricVersion[]>(() => loadVersions(assignmentId));
+  // A manual edit after applying a version must not be labelled as an active IA version.
+  const activeVersion = [...versions].reverse().find((version) => version.clarifiedSignature === signature) ?? null;
 
   useEffect(() => {
     if (!busy) return;
@@ -177,6 +198,7 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, onAppl
       setVersions(next);
       onApply(version.clarified);
       setMessage('La version clarifiée est appliquée. Les anciennes corrections gardent leur barème historique.');
+      window.requestAnimationFrame(() => appliedRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
     } catch (cause) {
       setMessage(cause instanceof Error ? cause.message : 'Impossible d’appliquer ces précisions.');
     }
@@ -188,6 +210,22 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, onAppl
         <p>Détectez les ambiguïtés <strong>avant de corriger les copies</strong>. Vous décidez des précisions à conserver.</p>
       </div>
     </div>
+    {activeVersion && <div className="rubric-audit-applied" ref={appliedRef} aria-label="Version active du barème clarifié">
+      <div className="rubric-audit-applied-heading">
+        <div>
+          <p className="eyebrow">BARÈME MODIFIÉ · VERSION ACTIVE</p>
+          <h4>Voici ce qui a changé dans votre barème</h4>
+          <p role="status">Clarification appliquée le {new Date(activeVersion.appliedAt).toLocaleDateString('fr-FR')} avec {activeVersion.model} : {activeVersion.decisions.length} précision(s) acceptée(s).</p>
+        </div>
+        <strong className="rubric-audit-active-label">Utilisé pour les prochaines corrections</strong>
+      </div>
+      <RubricChanges version={activeVersion} />
+      <p className="hint">Seules les descriptions indiquées ci-dessus ont changé : les intitulés, les sous-critères et les points sont conservés. Les copies déjà corrigées gardent leur ancien barème.</p>
+    </div>}
+    {!activeVersion && versions.length > 0 && <div className="rubric-audit-version-notice">
+      <strong>Le barème actuel a été modifié depuis la dernière clarification.</strong>
+      <p>Les versions clarifiées précédentes sont conservées dans l’historique ci-dessous, mais aucune ne correspond exactement au barème affiché.</p>
+    </div>}
     <div className="rubric-audit-toolbar">
       <button type="button" className="primary-button rubric-audit-launch" disabled={busy} aria-disabled={busy} onClick={runAudit}>
         {busy && <span className="rubric-audit-spinner" aria-hidden="true" />}
@@ -336,11 +374,15 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, onAppl
       </div>}
       {issues.length > 0 && !allReviewed && <p className="hint">Les questions non traitées ne sont jamais ajoutées automatiquement au barème.</p>}
     </div>}
-    {versions.length > 0 && <details><summary>Historique des clarifications ({versions.length})</summary>
-      <ol>{versions.map((version, index) => <li key={version.appliedAt + index}>
+    {versions.length > 0 && <details className="rubric-audit-history"><summary>Historique des clarifications ({versions.length})</summary>
+      <ol>{[...versions].reverse().map((version, index) => <li key={version.appliedAt + index}>
         <strong>{new Date(version.appliedAt).toLocaleDateString('fr-FR')}</strong> — {version.decisions.length} précision(s) ; modèle {version.model}
+        {version.clarifiedSignature === signature ? ' · Version actuellement utilisée' : ' · Version archivée'}
         <details><summary>Comparer le barème initial et la version appliquée</summary>
-          <div className="rubric-audit-versions"><div><strong>Avant</strong><pre>{JSON.stringify(version.original, null, 2)}</pre></div><div><strong>Après</strong><pre>{JSON.stringify(version.clarified, null, 2)}</pre></div></div>
+          <RubricChanges version={version} />
+          <details className="rubric-audit-technical"><summary>Afficher le détail technique (JSON)</summary>
+            <div className="rubric-audit-versions"><div><strong>Avant</strong><pre>{JSON.stringify(version.original, null, 2)}</pre></div><div><strong>Après</strong><pre>{JSON.stringify(version.clarified, null, 2)}</pre></div></div>
+          </details>
         </details>
       </li>)}</ol>
     </details>}

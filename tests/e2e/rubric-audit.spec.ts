@@ -39,6 +39,12 @@ test('teacher audits a rubric locally and retains their choice after refresh', a
   await page.getByRole('button', { name: 'Valider ma réponse' }).click();
   await expect(page.getByText(/Règle retenue/)).toBeVisible();
   await page.getByRole('button', { name: /Appliquer 1 précision/ }).click();
+  const applied = page.getByLabel('Version active du barème clarifié');
+  await expect(applied.getByText('Voici ce qui a changé dans votre barème')).toBeVisible();
+  await expect(applied.getByText('Utilisé pour les prochaines corrections')).toBeVisible();
+  await expect(applied.getByText('Titre principal', { exact: true })).toBeVisible();
+  await expect(applied.getByText('Aucune précision renseignée.')).toBeVisible();
+  await expect(applied.getByText(/Décision du professeur : Oui, un titre commun/)).toBeVisible();
   await expect.poll(async () => page.evaluate(() => {
     const profiles = JSON.parse(localStorage.getItem('companion-correcteur:assignments:v1') ?? '[]');
     return profiles.find((item: { id: string }) => item.id === 'assignment-default')?.rubric.criteria[0].description;
@@ -46,5 +52,10 @@ test('teacher audits a rubric locally and retains their choice after refresh', a
   await page.reload();
   await page.getByRole('button', { name: /Reprendre le devoir/ }).click();
   await page.getByRole('tab', { name: 'Barème' }).click();
-  await expect(page.getByText(/Historique des clarifications/)).toBeVisible();
+  await expect(page.getByLabel('Version active du barème clarifié')).toBeVisible();
+  await expect(page.getByLabel('Version active du barème clarifié').getByText(/Oui, un titre commun/)).toBeVisible();
+  await page.getByText(/Historique des clarifications/).click();
+  await page.getByText('Comparer le barème initial et la version appliquée').click();
+  await expect(page.locator('.rubric-audit-history .rubric-audit-change-comparison')).toBeVisible();
+  await expect(page.locator('.rubric-audit-history').getByText('Ajout validé par le professeur')).toBeVisible();
 });

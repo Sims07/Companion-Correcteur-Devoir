@@ -70,3 +70,36 @@ export function createClarifiedRubricVersion(
     clarifiedSignature: rubricEvaluationSignature(rubric),
   };
 }
+
+
+// A human-readable, criterion-level diff for the teacher. Never show an entire
+// serialized rubric when only a description gained an approved clarification.
+export interface RubricClarificationChange {
+  id: string;
+  label: string;
+  before: string;
+  after: string;
+  /** Only the appended rule when the previous description was preserved verbatim. */
+  addition: string | null;
+}
+
+export function getRubricClarificationChanges(version: ClarifiedRubricVersion): RubricClarificationChange[] {
+  const changes: RubricClarificationChange[] = [];
+  const add = (id: string, label: string, before: string, after: string) => {
+    if (before === after) return;
+    const addition = before === '' ? after : after.startsWith(before + '\n\n')
+      ? after.slice(before.length + 2) : null;
+    changes.push({ id, label, before, after, addition });
+  };
+  for (const criterion of version.clarified.criteria) {
+    const original = version.original.criteria.find((item) => item.id === criterion.id);
+    if (!original) continue;
+    add(criterion.id, criterion.title, original.description, criterion.description);
+    for (const sub of getRubricSubcriteria(criterion)) {
+      const oldSub = getRubricSubcriteria(original).find((item) => item.id === sub.id);
+      if (!oldSub) continue;
+      add(criterion.id + '/' + sub.id, criterion.title + ' / ' + sub.title, oldSub.description, sub.description);
+    }
+  }
+  return changes;
+}
