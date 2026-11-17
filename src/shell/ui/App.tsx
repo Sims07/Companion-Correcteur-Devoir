@@ -4137,7 +4137,9 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     setScientificDiagramAnalysis(snapshot.scientificDiagramAnalysis ?? null);
     setPageClassifications(snapshot.scientificPageClassifications ?? null);
     setScientificDiagramError('');
-    setShowOnlyFlagged(true);
+    // A saved correction is opened for consultation: never hide its reliable
+    // criteria behind the exception-only summary inherited from a prior copy.
+    setShowOnlyFlagged(false);
     setTeacherQuestions(snapshot.teacherQuestions);
     setTeacherAnnotations('');
     setImages(snapshot.images);
