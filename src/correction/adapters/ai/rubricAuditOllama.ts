@@ -6,13 +6,112 @@ import { currentFetch } from '../../../shared/adapters/ai/currentFetch.ts';
 import { annotateNetworkRequest } from '../../../shared/ports/networkRequestMetadata.ts';
 import { rubricAuditTokenBudget } from '../../domain/rubricAuditGenerationBudget.ts';
 
+/** Live audit measurements from Ollama events, not synthetic progress. */
+export type RubricAuditPhase = 'waiting' | 'thinking' | 'generating' | 'validating';
+export interface RubricAuditLiveProgress {
+  phase: RubricAuditPhase;
+  thinkingCharacters: number;
+  answerCharacters: number;
+  chunksReceived: number;
+  lastActivityAt?: number;
+  /** Exact final Ollama counter, not an estimated token count. */
+  generatedTokens?: number;
+}
+interface OllamaAuditEvent {
+  message?: { content?: string; thinking?: string };
+  error?: string;
+  done?: boolean;
+  done_reason?: string;
+  eval_count?: number;
+}
+
+/** Keep the final JSON only; do not store the model's private reasoning. */
+async function readAuditStream(
+  response: Response, signal: AbortSignal | undefined,
+  onStage: RubricAuditSettings['onStage'], onProgress: RubricAuditSettings['onProgress'],
+): Promise<{ content: string; doneReason?: string; evalCount?: number; thinkingCharacters: number; chunksReceived: number; lastActivityAt?: number }> {
+  if (!response.body) throw new Error('Ollama n’a pas fourni de flux lisible.');
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let content = '';
+  let thinkingCharacters = 0;
+  let chunksReceived = 0;
+  let lastActivityAt: number | undefined;
+  let phase: RubricAuditPhase = 'waiting';
+  let lastPublishedPhase: RubricAuditPhase | undefined;
+  let lastPublishedAt = 0;
+  let finished = false;
+  let doneReason: string | undefined;
+  let evalCount: number | undefined;
+  const publish = (force = false) => {
+    const now = Date.now();
+    if (!force && phase === lastPublishedPhase && now - lastPublishedAt < 350) return;
+    if (phase !== lastPublishedPhase) onStage?.(phase);
+    onProgress?.({
+      phase, thinkingCharacters, answerCharacters: content.length, chunksReceived,
+      ...(lastActivityAt !== undefined ? { lastActivityAt } : {}),
+      ...(evalCount !== undefined ? { generatedTokens: evalCount } : {}),
+    });
+    lastPublishedPhase = phase;
+    lastPublishedAt = now;
+  };
+  const consume = (line: string) => {
+    if (!line.trim()) return;
+    let event: OllamaAuditEvent;
+    try { event = JSON.parse(line) as OllamaAuditEvent; }
+    catch { throw new Error('Le flux Ollama contient un événement JSON illisible. Le barème reste inchangé.'); }
+    if (event.error) throw new Error('Audit Ollama : ' + event.error);
+    chunksReceived += 1;
+    lastActivityAt = Date.now();
+    if (event.message?.thinking) {
+      thinkingCharacters += event.message.thinking.length;
+      if (phase !== 'generating') phase = 'thinking';
+    }
+    if (event.message?.content) {
+      content += event.message.content;
+      phase = 'generating';
+    }
+    if (event.done === true) {
+      finished = true;
+      doneReason = event.done_reason;
+      evalCount = typeof event.eval_count === 'number' ? event.eval_count : undefined;
+    }
+    publish(event.done === true);
+  };
+
+  publish(true);
+  try {
+    while (true) {
+      if (signal?.aborted) throw new DOMException('Analyse interrompue.', 'AbortError');
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let newline = buffer.indexOf('\n');
+      while (newline !== -1) {
+        consume(buffer.slice(0, newline));
+        buffer = buffer.slice(newline + 1);
+        newline = buffer.indexOf('\n');
+      }
+    }
+    buffer += decoder.decode();
+    if (buffer.trim()) consume(buffer);
+    if (signal?.aborted) throw new DOMException('Analyse interrompue.', 'AbortError');
+    if (!finished) throw new Error('Le flux Ollama s’est interrompu avant sa confirmation de fin. Aucun résultat partiel n’a été appliqué.');
+    return { content, doneReason, evalCount, thinkingCharacters, chunksReceived, lastActivityAt };
+  } finally {
+    reader.releaseLock();
+  }
+}
+
 export interface RubricAuditSettings {
   endpoint: string;
   model: string;
   /** Honor the teacher's Thinking preference for this local generative analysis. */
   thinking?: boolean;
   signal?: AbortSignal;
-  onStage?: (stage: 'waiting' | 'validating') => void;
+  onStage?: (stage: RubricAuditPhase) => void;
+  onProgress?: (progress: RubricAuditLiveProgress) => void;
 }
 
 /** Only the teacher's rubric is sent to their local Ollama model. No student work or cloud fallback. */
@@ -48,24 +147,28 @@ export async function auditRubricWithOllama(
     JSON.stringify(rubric),
   ].join('\n\n');
   settings.onStage?.('waiting');
-  const response = await fetchImpl(settings.endpoint.replace(/\/+$/, '') + '/api/chat', annotateNetworkRequest({
+  const response = await fetchImpl(settings.endpoint.replace(/\\/+$/, '') + '/api/chat', annotateNetworkRequest({
     method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: settings.signal,
     body: JSON.stringify({
-      model: settings.model, stream: false, think: settings.thinking === true, format: 'json',
+      model: settings.model, stream: true, think: settings.thinking === true, format: 'json',
       options: { temperature: 0, ...rubricAuditTokenBudget(settings.thinking === true) },
       messages: [{ role: 'user', content: prompt }],
     }),
   }, 'Vérifier et clarifier le barème', 'Modèle local : ' + settings.model));
   if (!response.ok) throw new Error('Audit Ollama indisponible (HTTP ' + response.status + '). ' + (await response.text()).slice(0, 220));
-  const payload = await response.json() as { message?: { content?: string }; error?: string; done_reason?: string; eval_count?: number };
-  if (payload.error) throw new Error('Audit Ollama : ' + payload.error);
-  if (payload.done_reason === 'length') {
+  const result = await readAuditStream(response, settings.signal, settings.onStage, settings.onProgress);
+  if (result.doneReason === 'length') {
     const budget = rubricAuditTokenBudget(settings.thinking === true);
-    const generated = typeof payload.eval_count === 'number' ? ` · ${payload.eval_count} tokens générés` : '';
+    const generated = typeof result.evalCount === 'number' ? ` · ${result.evalCount} tokens générés` : '';
     throw new Error(`Audit incomplet : le modèle a atteint sa limite de génération (${budget.num_predict} tokens maximum${generated}). ${settings.thinking ? 'Le mode Thinking utilise aussi des tokens pour raisonner. Essayez un modèle plus concis ou désactivez Thinking pour cet audit.' : 'Essayez un modèle plus concis ou réduisez les attentes soumises à cette analyse.'} Le barème et les validations précédentes restent conservés.`);
   }
-  const raw = payload.message?.content;
-  if (!raw?.trim()) throw new Error('Le modèle local a renvoyé un audit vide.');
+  if (!result.content.trim()) throw new Error('Le modèle local a terminé sans réponse JSON exploitable. ' + (settings.thinking ? 'Il a peut-être consommé sa génération en raisonnement ; essayez sans Thinking ou avec un modèle plus concis.' : 'Aucune modification du barème.'));
   settings.onStage?.('validating');
-  return parseRubricAudit(raw, rubric, settings.model);
+  settings.onProgress?.({
+    phase: 'validating', thinkingCharacters: result.thinkingCharacters, answerCharacters: result.content.length,
+    chunksReceived: result.chunksReceived,
+    ...(result.lastActivityAt !== undefined ? { lastActivityAt: result.lastActivityAt } : {}),
+    ...(result.evalCount !== undefined ? { generatedTokens: result.evalCount } : {}),
+  });
+  return parseRubricAudit(result.content, rubric, settings.model);
 }
