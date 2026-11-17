@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { RubricAuditPanel, RubricCriterionEnrichments } from '../../src/correction/ui/components/RubricAuditPanel.tsx';
+import { RubricAuditPanel, RubricCriterionEnrichments, RubricCriterionEnrichmentCount } from '../../src/correction/ui/components/RubricAuditPanel.tsx';
 import type { Rubric } from '../../src/correction/domain/rubric.ts';
 import { parseRubricAudit } from '../../src/correction/domain/rubricAudit.ts';
 import { createClarifiedRubricVersion } from '../../src/correction/domain/rubricClarification.ts';
@@ -83,6 +83,9 @@ describe('panneau de clarification enseignant', () => {
       expect(html).toContain('Application 1');
       expect(html).toContain('Repérer les phases');
       expect(html).toContain('Retirer cet ajout');
+      const badge = renderToStaticMarkup(<RubricCriterionEnrichmentCount
+        rubric={version.clarified} assignmentId={assignmentId} criterionId="bio" />);
+      expect(badge).toContain('1 ajout IA');
       const panel = renderToStaticMarkup(<RubricAuditPanel
         rubric={{ ...version.clarified, title: 'Mitose modifiée' }} assignmentId={assignmentId}
         endpoint="http://localhost:11434" model="gemma-local" onApply={vi.fn()} />);
