@@ -153,3 +153,5 @@
 .rubric-criterion-enrichments li p { white-space: pre-wrap; overflow-wrap: anywhere; margin: .55rem 0; }
 .rubric-criterion-enrichment-confirm { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; padding-top: .5rem; }
 .rubric-criterion-enrichment-confirm span { flex-basis: 100%; font-weight: 600; }
+
+.rubric-criterion-enrichment-count { display: inline-block; margin-left: .45rem; padding: .15rem .45rem; border: 1px solid #32775c; border-radius: .35rem; color: #32775c; font-weight: 700; font-size: .78rem; white-space: nowrap; }
