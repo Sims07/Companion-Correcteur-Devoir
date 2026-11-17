@@ -62,3 +62,25 @@ inclure les modifications manuelles.
 Lorsque Thinking est désactivé, la vérification locale garde son plafond historique de **3 584 tokens de génération** et ne force pas la fenêtre de contexte du modèle. Lorsque Thinking est activé, elle demande explicitement à Ollama **16 384 tokens de génération** et **24 576 tokens de contexte** : le raisonnement du modèle utilise une partie de ces tokens avant la réponse JSON. Le plafond n'est pas une cible de longueur : le modèle s'arrête normalement dès qu'il a terminé.
 
 Le budget correspondant à la préférence actuelle est affiché avant la vérification et le budget de la requête en cours reste visible pendant l'analyse. En cas de réponse interrompue par `done_reason: "length"`, l'interface donne le plafond utilisé et les tokens réellement générés lorsqu'ils sont fournis par Ollama. Elle ne transforme jamais une réponse incomplète en barème appliqué : le barème et les décisions précédentes restent conservés. Un contexte plus grand demande davantage de mémoire locale ; l'enseignant peut désactiver Thinking si le modèle est trop lent ou si les ressources locales sont insuffisantes.
+
+## Génération progressive et suivi réel (audit Ollama)
+
+La requête d'audit envoie désormais `stream: true` avec les mêmes paramètres
+`think`, `format: "json"`, `num_predict` et `num_ctx`. Ollama fournit des
+événements NDJSON : les fragments `message.thinking` sont uniquement comptés
+(nombre de caractères reçus), et les fragments `message.content` sont
+assemblés pour reconstituer **la réponse JSON complète**. Le raisonnement
+interne n'est ni affiché ni ajouté au barème.
+
+Le panneau annonce les étapes effectivement observées (attente, raisonnement,
+rédaction JSON, validation), le nombre d'événements et les caractères reçus.
+Le nombre exact de tokens apparaît uniquement lorsque le serveur fournit
+`eval_count` dans l'événement final : aucun calcul approximatif n'est présenté
+comme une valeur Ollama. Si aucun événement n'arrive pendant une longue période,
+l'interface le signale sans affirmer que le modèle est bloqué.
+
+Une réponse sans événement final `done: true`, un `done_reason: "length"`,
+un JSON invalide ou une annulation ne peuvent pas être validés comme audit
+terminé. Les enrichissements précédemment appliqués sont préservés. Le suivi
+réseau limite les rafraîchissements et la taille de son aperçu pour éviter une
+surcharge de l'interface sur les longues générations.

@@ -4,7 +4,7 @@ import type { RubricAuditReport, RubricAuditSession } from '../domain/rubricAudi
 
 /** The task lives outside the rubric panel: navigating to diagnostics must not
  * forget an ongoing Ollama request or enable another identical request. */
-export type RubricAuditPhase = 'waiting' | 'validating';
+export type RubricAuditPhase = 'waiting' | 'thinking' | 'generating' | 'validating';
 export type RubricAuditTaskState = 'idle' | 'running' | 'success' | 'error' | 'canceled';
 export interface RubricAuditTaskSnapshot {
   state: RubricAuditTaskState;
@@ -14,6 +14,12 @@ export interface RubricAuditTaskSnapshot {
   startedAt?: number;
   finishedAt?: number;
   phase?: RubricAuditPhase;
+  thinkingCharacters?: number;
+  answerCharacters?: number;
+  chunksReceived?: number;
+  lastActivityAt?: number;
+  /** Exact Ollama counter available once the stream finishes. */
+  generatedTokens?: number;
   report?: RubricAuditReport;
   error?: string;
   storageWarning?: string;
@@ -68,13 +74,14 @@ export async function launchRubricAuditTask(
   try {
     const report = await auditRubricWithOllama(rubric, {
       endpoint, model, thinking, signal: controller.signal,
-      onStage: (phase) => {
+      onProgress: (progress) => {
         if (controllers.get(assignmentId) === controller && !controller.signal.aborted) {
-          publish(assignmentId, { state: 'running', signature, model, thinking, startedAt, phase });
+          publish(assignmentId, { state: 'running', signature, model, thinking, startedAt, ...progress });
         }
       },
     });
     if (controller.signal.aborted || controllers.get(assignmentId) !== controller) return;
+    const progress = getRubricAuditTask(assignmentId);
     const session: RubricAuditSession = { report, decisions: [] };
     let storageWarning: string | undefined;
     try {
@@ -84,12 +91,15 @@ export async function launchRubricAuditTask(
     }
     publish(assignmentId, {
       state: 'success', signature, model, thinking, startedAt, finishedAt: Date.now(),
-      report, ...(storageWarning ? { storageWarning } : {}),
+      report, ...(progress.generatedTokens !== undefined ? { generatedTokens: progress.generatedTokens } : {}),
+      ...(storageWarning ? { storageWarning } : {}),
     });
   } catch (cause) {
     if (controller.signal.aborted || controllers.get(assignmentId) !== controller) return;
+    const progress = getRubricAuditTask(assignmentId);
     publish(assignmentId, {
       state: 'error', signature, model, thinking, startedAt, finishedAt: Date.now(),
+      ...(progress.generatedTokens !== undefined ? { generatedTokens: progress.generatedTokens } : {}),
       error: cause instanceof Error ? cause.message : 'La vérification du barème a échoué.',
     });
   } finally {

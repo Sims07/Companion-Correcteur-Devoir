@@ -164,6 +164,40 @@ describe('network inspector fetch integration', () => {
     restore();
   });
 
+
+  it('limits inspector refreshes during long Ollama streams and keeps native final timings', async () => {
+    const values = new Map<string, string>();
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (let index = 0; index < 300; index += 1) {
+          controller.enqueue(new TextEncoder().encode(JSON.stringify({ message: { thinking: 'longue analyse'.repeat(8) }, done: false }) + '\n'));
+        }
+        controller.enqueue(new TextEncoder().encode(JSON.stringify({ done: true, total_duration: 900_000_000, eval_duration: 700_000_000 }) + '\n'));
+        controller.close();
+      },
+    });
+    const fakeWindow = {
+      fetch: vi.fn(async () => new Response(stream, { status: 200 })),
+      localStorage: { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => { values.set(key, value); }, removeItem: (key: string) => { values.delete(key); } },
+      dispatchEvent: vi.fn(),
+      location: { origin: 'http://localhost' },
+    };
+    vi.stubGlobal('window', fakeWindow);
+    vi.stubGlobal('CustomEvent', class { constructor(public type: string) {} });
+    clearNetworkHistory();
+    const restore = installNetworkInspector();
+    const response = await window.fetch('http://localhost:11434/api/chat');
+    await response.text();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const record = loadNetworkHistory()[0];
+    expect(record.state).toBe('success');
+    expect(record.responseBody.length).toBeLessThanOrEqual(20_000);
+    expect(record.responseBody).toContain('tronqué');
+    expect(record.providerTimings).toMatchObject({ totalMs: 900, generationMs: 700 });
+    expect(fakeWindow.dispatchEvent.mock.calls.length).toBeLessThan(30);
+    restore();
+  });
+
   it('keeps the complete response in memory but persists at most 4000 characters', async () => {
     const values = new Map<string, string>();
     const largeBody = 'response-'.repeat(800);
