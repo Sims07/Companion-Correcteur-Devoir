@@ -39,7 +39,7 @@ describe('createRegradingJob', () => {
       rubric: newRubric, question: 'Consigne actuelle',
       status: 'pending', transcription: null, proposal: null,
       partialCriteria: [], completedCriteria: 0, totalCriteria: 1,
-      detectTeacherAnnotations: false, annotationInkColor: 'none', annotationInkColorApplied: true,
+      detectTeacherAnnotations: true, annotationInkColor: 'none', annotationInkColorApplied: true,
     });
     expect(job.images).toEqual([page]);
     expect(job.originalImages).toEqual([page]); // no teacher-ink regression
