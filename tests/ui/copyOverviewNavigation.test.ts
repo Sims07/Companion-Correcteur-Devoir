@@ -159,6 +159,14 @@ describe('CorrectionOverview — comportement enseignant', () => {
     expect(onFilterChange).toHaveBeenCalledWith('to-retry');
   });
 
+  it('lets teachers explicitly regrade an already assessed copy', async () => {
+    await render('to-review', [reviewJob]);
+    const action = [...container.querySelectorAll('button')].find((button) => button.textContent?.trim() === 'Recorriger');
+    expect(action).toBeDefined();
+    await act(async () => action?.click());
+    expect(onRetryJob).toHaveBeenCalledWith('review-copy');
+  });
+
   it('offers the quick review action when a copy is ready', async () => {
     await render();
     const button = [...container.querySelectorAll('button')].find((item) => item.textContent?.includes('Vérifier la copie suivante'));
