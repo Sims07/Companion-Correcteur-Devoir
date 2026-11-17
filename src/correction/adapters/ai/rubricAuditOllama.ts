@@ -147,7 +147,7 @@ export async function auditRubricWithOllama(
     JSON.stringify(rubric),
   ].join('\n\n');
   settings.onStage?.('waiting');
-  const response = await fetchImpl(settings.endpoint.replace(/\\/+$/, '') + '/api/chat', annotateNetworkRequest({
+  const response = await fetchImpl(settings.endpoint.replace(/\/+$/, '') + '/api/chat', annotateNetworkRequest({
     method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: settings.signal,
     body: JSON.stringify({
       model: settings.model, stream: true, think: settings.thinking === true, format: 'json',
