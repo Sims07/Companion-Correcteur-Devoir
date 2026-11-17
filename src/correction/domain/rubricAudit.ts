@@ -89,6 +89,7 @@ export function parseRubricAudit(raw: string, rubric: Rubric, model: string): Ru
   });
   const rank = { high: 0, medium: 1, low: 2 };
   issues.sort((a, b) => rank[a.priority] - rank[b.priority]);
+  issues.forEach((issue, index) => { issue.id = issue.criterionId + '/' + (issue.subcriterionId ?? '-') + '/' + index; });
   return { signature: rubricEvaluationSignature(rubric), issues, model };
 }
 
