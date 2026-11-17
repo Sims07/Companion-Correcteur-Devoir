@@ -20,6 +20,22 @@ test('Debug exposes live HTTP requests and their response details', async ({ pag
       requestBody: '',
       responseBody: '',
       error: null,
+    }, {
+      id: 'network-inspector-timeout-fixture',
+      method: 'POST',
+      url: 'http://127.0.0.1:4173/ollama-timeout-fixture',
+      intent: 'Évaluer les attendus du schéma',
+      context: 'Modèle gemma4:12b',
+      startedAt,
+      durationMs: 1_200_000,
+      state: 'error',
+      status: null,
+      statusText: '',
+      requestHeaders: {},
+      responseHeaders: {},
+      requestBody: '',
+      responseBody: '',
+      error: 'Le modèle n’a pas envoyé de première réponse après 20 minutes.',
     }]));
   });
   await page.route('**/network-inspector-probe', async (route) => {
@@ -49,6 +65,12 @@ test('Debug exposes live HTTP requests and their response details', async ({ pag
   await annotatedRequest.click();
   await expect(intentDetails).toContainText('Vérifier le détail réseau');
   await expect(intentDetails).toContainText('Test Playwright');
+
+  const abortedRequest = page.getByRole('listitem').filter({ hasText: 'ollama-timeout-fixture' });
+  await abortedRequest.click();
+  await page.getByRole('button', { name: 'Payload' }).click();
+  await expect(intentDetails.getByRole('alert')).toContainText('première réponse après 20 minutes');
+  await expect(intentDetails.getByRole('alert')).toContainText('sans réponse HTTP');
 
   await request.click();
   await page.getByRole('button', { name: 'Response' }).click();

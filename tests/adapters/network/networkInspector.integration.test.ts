@@ -101,6 +101,39 @@ describe('network inspector fetch integration', () => {
     expect(loadNetworkHistory()[0].state).toBe('error');
     restore();
   });
+  it('preserves the explicit Ollama deadline instead of only showing an anonymous AbortError', async () => {
+    const values = new Map<string, string>();
+    const fakeWindow = {
+      fetch: vi.fn((_url: RequestInfo | URL, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () =>
+            reject(new DOMException('The operation was aborted.', 'AbortError')), { once: true });
+        })),
+      localStorage: {
+        getItem: (key: string) => values.get(key) ?? null,
+        setItem: (key: string, value: string) => { values.set(key, value); },
+        removeItem: (key: string) => { values.delete(key); },
+      },
+      dispatchEvent: vi.fn(),
+      location: { origin: 'http://localhost' },
+    };
+    vi.stubGlobal('window', fakeWindow);
+    vi.stubGlobal('CustomEvent', class { constructor(public type: string) {} });
+    clearNetworkHistory();
+    const restore = installNetworkInspector();
+    const controller = new AbortController();
+    const request = window.fetch('/api/chat', { method: 'POST', signal: controller.signal });
+    controller.abort(new DOMException('Le modèle n’a pas envoyé de première réponse après 20 minutes.', 'TimeoutError'));
+    await expect(request).rejects.toMatchObject({ name: 'AbortError' });
+
+    const [record] = loadNetworkHistory();
+    expect(record.state).toBe('error');
+    expect(record.status).toBeNull();
+    expect(record.error).toContain('première réponse après 20 minutes');
+    expect(record.error).not.toContain('The operation was aborted');
+    restore();
+  });
+
   it('keeps streaming response chunks in the in-memory history until completion', async () => {
     const values = new Map<string, string>();
     const setItem = vi.fn((key: string, value: string) => { values.set(key, value); });

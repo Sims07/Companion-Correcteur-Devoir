@@ -88,11 +88,13 @@ export function NetworkInspector({ initialFilter = 'all' }: { initialFilter?: 'a
               <p><strong>Temps Ollama : {formatDuration(selected.providerTimings?.totalMs ?? null)}</strong> · Temps navigateur : {formatDuration(selected.durationMs)}</p>
               {selected.providerTimings && <p>Chargement : {formatDuration(selected.providerTimings.loadMs ?? null)} · Prompt : {formatDuration(selected.providerTimings.promptEvaluationMs ?? null)} · Génération : {formatDuration(selected.providerTimings.generationMs ?? null)}</p>}
               {unexplainedGap !== null && unexplainedGap > 60_000 && unexplainedGap > selected.providerTimings!.totalMs * 2 && <p className="network-waiting-hint" role="status">Écart important entre Ollama et le navigateur : veille, attente ou interruption possible. Écart : {formatDuration(unexplainedGap)}.</p>}
-            </div>}</section>
+            </div>}
+            {selected.state === 'error' && selected.error && <p className="network-error" role="alert"><strong>{selected.status === null ? 'Requête interrompue sans réponse HTTP : ' : 'Erreur réseau : '}</strong>{selected.error}</p>}
+          </section>
           <nav className="network-detail-tabs" aria-label="Détails réseau">{(['headers','request','response'] as const).map((item) => <button type="button" key={item} className={tab === item ? 'active' : ''} aria-pressed={tab === item} onClick={() => setTab(item)}>{item === 'headers' ? 'Headers' : item === 'request' ? 'Payload' : 'Response'}</button>)}</nav>
           {tab === 'headers' && <><Detail title="General" value={{ url: selected.url, method: selected.method, status: selected.status ? `${selected.status} ${selected.statusText}` : 'En attente' }} /><Detail title="Request headers" value={selected.requestHeaders} /><Detail title="Response headers" value={selected.responseHeaders} /></>}
           {tab === 'request' && <Detail title="Request payload" value={selected.requestBody} />}
-          {tab === 'response' && <><Detail title="Response body" value={selected.responseBody} />{selected.error && <p className="network-error">{selected.error}</p>}</>}
+          {tab === 'response' && <Detail title="Response body" value={selected.responseBody} />}
         </> : <p className="network-empty">Sélectionnez une requête pour examiner ses détails.</p>}
       </section>
     </div>
