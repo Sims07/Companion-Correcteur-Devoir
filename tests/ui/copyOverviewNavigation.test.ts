@@ -62,6 +62,7 @@ describe('CorrectionOverview — comportement enseignant', () => {
         onRemoveJob,
         notice: '',
         onOpenCorrection: vi.fn(),
+        onRegradeCorrection: vi.fn(),
         onOpenCurrentCopy: vi.fn(),
         onReviewNextCopy,
       }));
