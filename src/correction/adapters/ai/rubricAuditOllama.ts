@@ -62,7 +62,7 @@ export async function auditRubricWithOllama(
   if (payload.done_reason === 'length') {
     const budget = rubricAuditTokenBudget(settings.thinking === true);
     const generated = typeof payload.eval_count === 'number' ? ` · ${payload.eval_count} tokens générés` : '';
-    throw new Error(`Audit incomplet : le modèle a atteint sa limite de génération (${budget.num_predict} tokens maximum${generated}). ${settings.thinking ? 'Le mode Thinking utilise aussi des tokens pour raisonner. Essayez un modèle plus concis ou désactivez Thinking pour cet audit.' : 'Essayez avec Thinking désactivé ou un modèle plus concis.'} Le barème et les validations précédentes restent conservés.`);
+    throw new Error(`Audit incomplet : le modèle a atteint sa limite de génération (${budget.num_predict} tokens maximum${generated}). ${settings.thinking ? 'Le mode Thinking utilise aussi des tokens pour raisonner. Essayez un modèle plus concis ou désactivez Thinking pour cet audit.' : 'Essayez un modèle plus concis ou réduisez les attentes soumises à cette analyse.'} Le barème et les validations précédentes restent conservés.`);
   }
   const raw = payload.message?.content;
   if (!raw?.trim()) throw new Error('Le modèle local a renvoyé un audit vide.');
