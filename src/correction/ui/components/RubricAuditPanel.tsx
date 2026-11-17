@@ -64,7 +64,7 @@ function RubricChanges({ version }: { version: ClarifiedRubricVersion }) {
     {changes.map((change) => <li key={change.id}>
       <strong>{change.label}</strong>
       {change.kind === 'scientific' && <div className="rubric-audit-teacher-source">
-        <span>Texte original du professeur · conservé</span>
+        <span>Description avant cette application · conservée</span>
         <p>{teacherText(change.id) || 'Aucune description initiale.'}</p>
       </div>}
       <div className="rubric-audit-change-comparison">
@@ -452,7 +452,7 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, thinki
       <ol>{[...versions].reverse().map((version, index) => <li key={version.appliedAt + index}>
         <strong>Application {versions.length - index}</strong> · {new Date(version.appliedAt).toLocaleDateString('fr-FR')} — {version.decisions.length} précision(s) ; modèle {version.model}
         {version.clarifiedSignature === signature ? ' · Version actuellement utilisée' : ' · Version archivée'}
-        <details><summary>Comparer le barème initial et la version appliquée</summary>
+        <details><summary>Comparer le barème avant et après cette application</summary>
           <RubricChanges version={version} />
           <details className="rubric-audit-technical"><summary>Afficher le détail technique (JSON)</summary>
             <div className="rubric-audit-versions"><div><strong>Avant</strong><pre>{JSON.stringify(version.original, null, 2)}</pre></div><div><strong>Après</strong><pre>{JSON.stringify(version.clarified, null, 2)}</pre></div></div>
@@ -486,8 +486,8 @@ export function RubricCriterionEnrichments({
       subcriterionId: sub.id as string | undefined, text,
     }))),
   ].filter((reference) => !entries.some((entry) => entry.kind === 'scientific'
-    && entry.subcriterionId === reference.subcriterionId && entry.text === reference.text));
-  if (!entries.length && !unknownReferences.length) return null;
+    && entry.subcriterionId === reference.subcriterionId && entry.text.trim().replace(/\s+/g, ' ').toLowerCase() === reference.text.trim().replace(/\s+/g, ' ').toLowerCase()));
+  if (!entries.length && !unknownReferences.length && !feedback) return null;
   const base = versions[0]?.original.criteria.find((item) => item.id === criterionId);
   const remove = (entry: AppliedRubricEnrichment) => {
     try {
