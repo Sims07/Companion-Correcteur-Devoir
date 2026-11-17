@@ -55,7 +55,7 @@ test('teacher audits a rubric locally and retains their choice after refresh', a
   await expect(page.getByLabel('Version active du barème clarifié')).toBeVisible();
   await expect(page.getByLabel('Version active du barème clarifié').getByText(/Oui, un titre commun/)).toBeVisible();
   await page.getByText(/Historique des clarifications/).click();
-  await page.getByText('Comparer le barème initial et la version appliquée').click();
+  await page.getByText('Comparer le barème avant et après cette application').click();
   await expect(page.locator('.rubric-audit-history .rubric-audit-change-comparison')).toBeVisible();
   await expect(page.locator('.rubric-audit-history').getByText('Ajout validé par le professeur')).toBeVisible();
 });
@@ -109,7 +109,7 @@ test('scientific enrichment is reviewed beside the original, previewed, applied 
   const preview = page.getByLabel('Aperçu du barème avant application');
   await expect(preview).toContainText('En métaphase, l’enveloppe nucléaire a disparu.');
   await expect(preview).toContainText('Références scientifiques avant');
-  await expect(preview).toContainText('Texte original du professeur · conservé');
+  await expect(preview).toContainText('Description avant cette application · conservée');
   await expect(preview).toContainText('Conformité biologique');
   await page.getByText('Selon les éléments corrects', { exact: true }).click();
   await page.getByRole('button', { name: 'Valider ma réponse' }).click();
