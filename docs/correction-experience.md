@@ -74,6 +74,12 @@ Une évolution de la correction doit être évaluée selon :
 
 Le succès n'est pas la quantité de texte générée ni le nombre de justifications affichées. C'est la réduction du temps de lecture et de décision, sans perte de fiabilité pédagogique.
 
+## Recorriger une copie déjà validée
+
+Une validation enregistre une version immuable de la note et du barème, en local. L’action « Recorriger » crée une nouvelle tentative persistée à partir des pages de travail archivées : elle ne supprime ni ne modifie cette version et n'exige pas de réimporter les images. Cette tentative utilise le **barème actuel du devoir** (pas le barème historique affiché en consultation). Elle part sans proposition, transcription ni note réutilisée et suit le même parcours de vérification que toute autre copie. Seule sa validation crée une nouvelle version de correction liée à la précédente. Les versions historiques restent consultables.
+
+Une copie sans images conservées, un barème invalide ou une archive appartenant à un autre devoir ne peuvent pas être recorrigés. Les images sont toujours stockées localement, et seul le fournisseur IA explicitement configuré les analyse. L’action doit être disponible aussi bien depuis le suivi que dans la correction archivée.
+
 ## Exigences de tests
 
 Toute modification liée à cette expérience doit couvrir :

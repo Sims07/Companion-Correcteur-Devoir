@@ -51,6 +51,8 @@ export interface LocalCorrection {
   rubricFingerprint: string;
   createdAt: string;
   updatedAt: string;
+  /** Previous validated version when this correction was generated from another. */
+  previousCorrectionId?: string;
   /** Stable identity of the devoir; older archives may not have it. */
   assignmentId?: string;
   /** The devoir is shared by several student copies. */
