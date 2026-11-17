@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createClarifiedRubricVersion } from '../../../src/correction/domain/rubricClarification.ts';
+import { createClarifiedRubricVersion, getRubricClarificationChanges } from '../../../src/correction/domain/rubricClarification.ts';
 import { parseRubricAudit } from '../../../src/correction/domain/rubricAudit.ts';
 import { validateRubric, type Rubric } from '../../../src/correction/domain/rubric.ts';
 
@@ -29,6 +29,39 @@ describe('barème clarifié et versionné', () => {
     expect(version.clarifiedSignature).not.toBe(version.originalSignature);
     expect(validateRubric(version.clarified).valid).toBe(true);
     expect(source.criteria[0].subcriteria?.[0].description).toBe('Présentation du titre');
+    expect(getRubricClarificationChanges(version)).toEqual([{
+      id: 'title/emphasis',
+      label: 'Titre principal / Souligné ou encadré ou en majuscules',
+      before: 'Présentation du titre',
+      after: version.clarified.criteria[0].subcriteria?.[0].description,
+      addition: 'Question : Faut-il souligner ?\nDécision du professeur : Oui, au moins une condition',
+    }]);
+  });
+
+  it('identifie précisément les ajouts sur un critère parent et un sous-critère', () => {
+    const parentIssue = { ...issue, criterionId: 'title', subcriterionId: null, question: 'Titre global requis ?' };
+    const audit = parseRubricAudit(JSON.stringify({ issues: [issue, parentIssue] }), source, 'local');
+    const decisions = audit.issues.map((entry) => ({ issueId: entry.id, decision: 'accepted' as const, choice: 'Oui' }));
+    const version = createClarifiedRubricVersion(source, audit, decisions, '2026-11-17T13:00:00Z');
+    const changes = getRubricClarificationChanges(version);
+    expect(changes).toHaveLength(2);
+    expect(changes.map((change) => change.label)).toEqual([
+      'Titre principal', 'Titre principal / Souligné ou encadré ou en majuscules',
+    ]);
+    expect(changes[0].before).toBe('Titre descriptif');
+    expect(changes[0].addition).toContain('Titre global requis ?');
+    expect(changes[1].addition).toContain('Faut-il souligner ?');
+    expect(version.original.criteria[0].description).toBe('Titre descriptif');
+  });
+
+  it('rend le texte complet lorsque la modification ne correspond pas à un ajout', () => {
+    const audit = parseRubricAudit(JSON.stringify({ issues: [issue] }), source, 'local');
+    const version = createClarifiedRubricVersion(source, audit, [{
+      issueId: audit.issues[0].id, decision: 'accepted', choice: 'Oui',
+    }], '2026-11-17T13:00:00Z');
+    version.clarified.criteria[0].subcriteria![0].description = 'Description entièrement réécrite';
+    expect(getRubricClarificationChanges(version)[0].addition).toBeNull();
+    expect(getRubricClarificationChanges(version)[0].after).toBe('Description entièrement réécrite');
   });
 
   it('refuse un audit obsolète, les décisions inventées et une application sans acceptation', () => {
