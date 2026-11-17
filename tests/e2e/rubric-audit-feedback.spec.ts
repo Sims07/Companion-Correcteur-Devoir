@@ -188,3 +188,47 @@ test('AI recommendations become a guided teacher dialogue even if the result arr
     release();
   }
 });
+
+
+test('teacher can recover an already completed Ollama JSON response without spending another model run', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() => {
+    localStorage.setItem('companion-correcteur:assignments:v1', JSON.stringify([{
+      id: 'assignment-default', title: 'Mitose L2', question: 'Schéma scientifique',
+      correctionMode: 'integrated', kind: 'scientific-diagram',
+      rubric: { title: 'Mitose L2', criteria: [{
+        id: 'drawing', title: 'Qualité du dessin', description: '', maxPoints: 2,
+        analysisMode: 'scientific-diagram',
+        subcriteria: [{ id: 'drawing-clean', title: 'Impression générale propre', description: 'Dessin sans traces gênantes', maxPoints: 2 }],
+      }] },
+    }]));
+    localStorage.setItem('companion-correcteur:active-assignment:v1', 'assignment-default');
+  });
+  let requests = 0;
+  await page.route('**/api/chat', async (route) => {
+    requests += 1;
+    await route.abort();
+  });
+  await page.reload();
+  await page.getByRole('button', { name: /Reprendre le devoir/ }).click();
+  await page.getByRole('tab', { name: 'Barème' }).click();
+  await page.getByText('Récupérer une analyse déjà terminée dans le diagnostic').click();
+  const recovered = {
+    model: 'gemma4:12b', message: { content: JSON.stringify({ issues: [
+      { criterionId: 'drawing-clean', subcriterionId: null, priority: 'high',
+        reason: 'Le critère de propreté n’a pas de tolérance explicite.',
+        question: 'Des traces légères de gommage sont-elles autorisées ?',
+        options: ['Oui', 'Non'], suggestion: 'Tolérer des traces qui ne nuisent pas à la lecture.' },
+    ] }) },
+  };
+  await page.getByLabel('Réponse du modèle (JSON brut ou réponse complète Ollama)').fill(JSON.stringify(recovered));
+  await page.getByRole('button', { name: 'Charger les questions déjà générées' }).click();
+  await expect(page.getByText('Résultat récupéré : les questions de l’IA sont disponibles ci-dessous.')).toBeVisible();
+  await expect(page.getByText('Des traces légères de gommage sont-elles autorisées ?')).toBeVisible();
+  await expect(page.getByText('Qualité du dessin / Impression générale propre')).toBeVisible();
+  expect(requests).toBe(0);
+  await page.reload();
+  await page.getByRole('button', { name: /Reprendre le devoir/ }).click();
+  await page.getByRole('tab', { name: 'Barème' }).click();
+  await expect(page.getByText('Des traces légères de gommage sont-elles autorisées ?')).toBeVisible();
+});
