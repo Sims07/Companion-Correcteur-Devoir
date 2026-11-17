@@ -4,6 +4,7 @@ import { compareDiagramLabEntries, diagramLabProtocolLabels, parseDiagramLabRepo
 import { diagramMethodLabels } from '../../domain/scientificDiagramProtocol.ts';
 import { BlindGraphRunDetails } from './BlindGraphRunDetails.tsx';
 import { buildDiagramLabComparison } from '../../domain/diagramLabComparison.ts';
+import { compareCampaignRubrics } from '../../domain/diagramRubricComparison.ts';
 import type { RadarMissingTestRequest } from '../../domain/diagramLabRadarLaunch.ts';
 import { buildDiagramLabRadar, type RadarAxisId, type RadarModelConfiguration } from '../../domain/diagramLabRadar.ts';
 import { describeDiagramCampaign } from '../../domain/diagramCampaignVerdict.ts';
@@ -272,6 +273,7 @@ export function ScientificDiagramLabHistory({ initialReportId, revision, archive
   const comparison = entries.find((item) => item.id === comparisonId) ?? null;
   const comparisonIssue = selected && comparison ? compareDiagramLabEntries(selected, comparison) : null;
   const comparisonRows = selected && comparison && !comparisonIssue ? buildDiagramLabComparison(selected, comparison) : [];
+  const rubricComparison = selected && comparison && !comparisonIssue ? compareCampaignRubrics(selected, comparison) : null;
 
   return <section className="diagram-lab-history" aria-label="Campagnes de test scientifiques">
     {view === 'campaigns' && onBack && <div className="diagram-lab-history-back"><Button variant="secondary" onClick={onBack}>← Retour aux campagnes</Button><span>Historique des évaluations / Schémas scientifiques</span></div>}
@@ -389,7 +391,8 @@ export function ScientificDiagramLabHistory({ initialReportId, revision, archive
                   <tr><th scope="row">Nombre de répétitions prévues</th><td>{selected.plannedRepetitions}</td><td>{comparison.plannedRepetitions}</td></tr>
                 </tbody>
               </table></div>
-              <h4>Mesures comparées par dessin et modèle</h4>
+              {rubricComparison && <p role="status"><strong>Comparaison des barèmes :</strong> {rubricComparison.label}{rubricComparison.changedCriteria.length > 0 ? ' Critères reformulés : ' + rubricComparison.changedCriteria.join(', ') + '.' : ''}</p>}
+               <h4>Mesures comparées par dessin et modèle</h4>
               {comparisonRows.length ? <div className="pilot-evaluation-table-scroll"><table className="pilot-evaluation-table">
                 <thead><tr><th>Dessin / modèle / méthode</th><th>Indicateur</th><th>Essai consulté</th><th>Essai précédent</th></tr></thead>
                 <tbody>{comparisonRows.map((row) => <tr key={row.key + row.metric}>
