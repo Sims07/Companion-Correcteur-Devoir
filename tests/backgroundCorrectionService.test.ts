@@ -941,6 +941,33 @@ describe('background correction service', () => {
     expect(completed?.status).toBe('ready');
   });
 
+  it('regrades a ready proposal against the updated rubric instead of reusing old decisions', async () => {
+    const f = fixture();
+    f.jobs.set('copy-1', {
+      ...f.job, status: 'ready', phase: 'complete', completedCriteria: 2,
+      transcription: 'Ancienne lecture',
+      partialCriteria: [{ criterionId: 'c1', points: 1, evidence: 'Ancienne preuve', rationale: '', confidence: 'high' }],
+      proposal: { summary: 'Ancienne note', criteria: [], questionsForTeacher: [], finalScore: 1 },
+    });
+    const currentRubric = { title: 'Barème modifié', criteria: [
+      { id: 'updated', title: 'Nouveau critère', description: '', maxPoints: 6 },
+    ] };
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    await service.retry('copy-1', {
+      endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'analysis:4b',
+    }, undefined, { rubric: currentRubric, question: 'Nouvelle consigne' });
+
+    const result = f.jobs.get('copy-1');
+    expect(result?.status).toBe('ready');
+    expect(result?.question).toBe('Nouvelle consigne');
+    expect(result?.rubric).toEqual(currentRubric);
+    expect(result?.completedCriteria).toBe(1);
+    expect(result?.partialCriteria.map((entry) => entry.criterionId)).toEqual(['updated']);
+    expect(result?.proposal?.finalScore).toBe(6);
+    expect(f.requests[0].transcription).toBeUndefined();
+    expect(JSON.parse(f.requests[0].rubric).criteria.map((entry: { id: string }) => entry.id)).toEqual(['updated']);
+  });
+
   it('does not reuse a cached transcription when the same image is imported as a new copy', async () => {
     const f = fixture();
     f.cache.set('fingerprint-1', 'Transcription provenant d’une correction précédente');
