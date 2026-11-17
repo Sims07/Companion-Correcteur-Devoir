@@ -1061,7 +1061,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
   const reviewFocus = useMemo(() => getReviewFocus(review, rubric.criteria), [review, rubric.criteria]);
   const flaggedCriteriaIds = useMemo(() => new Set(reviewFocus.flaggedCriteriaIds), [reviewFocus]);
   const reliableCriteriaCount = reviewFocus.reliableCriteriaIds.length;
-  const shouldFocusExceptions = showOnlyFlagged && flaggedCriteriaIds.size > 0 && review.length === rubric.criteria.length;
+  const shouldFocusExceptions = showOnlyFlagged && review.length === rubric.criteria.length;
   const orderedReviewCriteria = useMemo(() => [
     ...rubric.criteria.filter((criterion) => flaggedCriteriaIds.has(criterion.id)),
     ...rubric.criteria.filter((criterion) => !flaggedCriteriaIds.has(criterion.id)),
