@@ -198,6 +198,7 @@ describe('teacher correction overview and partial grade safety', () => {
       },
     });
     expect(html).toContain('Note proposée');
+    expect(html).toContain('>Recorriger</button>');
     expect(html).toContain('3,5');
     expect(html).toContain('4');
   });
