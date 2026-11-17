@@ -36,8 +36,13 @@ test('teacher audits a rubric locally and retains their choice after refresh', a
   await page.getByText('Oui, un titre commun', { exact: true }).click();
   await page.getByRole('button', { name: 'Enregistrer ma précision' }).click();
   await expect(page.getByText(/Décision enregistrée/)).toBeVisible();
+  await page.getByRole('button', { name: /Appliquer 1 précision/ }).click();
+  await expect.poll(async () => page.evaluate(() => {
+    const profiles = JSON.parse(localStorage.getItem('companion-correcteur:assignments:v1') ?? '[]');
+    return profiles.find((item: { id: string }) => item.id === 'assignment-default')?.rubric.criteria[0].description;
+  })).toContain('Oui, un titre commun');
   await page.reload();
   await page.getByRole('button', { name: /Reprendre le devoir/ }).click();
   await page.getByRole('tab', { name: 'Barème' }).click();
-  await expect(page.getByText(/Décision enregistrée/)).toBeVisible();
+  await expect(page.getByText(/Historique des clarifications/)).toBeVisible();
 });
