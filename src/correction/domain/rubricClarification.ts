@@ -23,9 +23,9 @@ function opposedScientificStatements(first: string, second: string): boolean {
   const left = normalizeDecision(first), right = normalizeDecision(second);
   return patterns.some(({ positive, negative }) => {
     const classify = (value: string) => {
-      const plus = positive.test(value); positive.lastIndex = 0;
       const minus = negative.test(value); negative.lastIndex = 0;
-      if (plus === minus) return null;
+      const plus = !minus && positive.test(value); positive.lastIndex = 0;
+      if (!plus && !minus) return null;
       return { positive: plus, context: value.replace(positive, '[état]').replace(negative, '[état]') };
     };
     const a = classify(left), b = classify(right);
