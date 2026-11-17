@@ -5,6 +5,14 @@ import { parseRubricAudit, type RubricAuditReport } from '../../domain/rubricAud
 import { currentFetch } from '../../../shared/adapters/ai/currentFetch.ts';
 import { annotateNetworkRequest } from '../../../shared/ports/networkRequestMetadata.ts';
 
+/** Thinking models generate reasoning before the JSON: reserve room for both. 
+ * A matching larger context is needed on local Ollama (often configured at 4k by default).
+ * Keep the established lightweight limits unchanged when Thinking is disabled.
+ */
+export const rubricAuditTokenBudget = (thinking: boolean) => thinking
+  ? { num_predict: 16384, num_ctx: 24576 }
+  : { num_predict: 3584 };
+
 export interface RubricAuditSettings {
   endpoint: string;
   model: string;
@@ -51,14 +59,18 @@ export async function auditRubricWithOllama(
     method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: settings.signal,
     body: JSON.stringify({
       model: settings.model, stream: false, think: settings.thinking === true, format: 'json',
-      options: { temperature: 0, num_predict: 3584 },
+      options: { temperature: 0, ...rubricAuditTokenBudget(settings.thinking === true) },
       messages: [{ role: 'user', content: prompt }],
     }),
   }, 'Vérifier et clarifier le barème', 'Modèle local : ' + settings.model));
   if (!response.ok) throw new Error('Audit Ollama indisponible (HTTP ' + response.status + '). ' + (await response.text()).slice(0, 220));
-  const payload = await response.json() as { message?: { content?: string }; error?: string; done_reason?: string };
+  const payload = await response.json() as { message?: { content?: string }; error?: string; done_reason?: string; eval_count?: number };
   if (payload.error) throw new Error('Audit Ollama : ' + payload.error);
-  if (payload.done_reason === 'length') throw new Error('Audit incomplet : augmentez la limite de sortie du modèle.');
+  if (payload.done_reason === 'length') {
+    const budget = rubricAuditTokenBudget(settings.thinking === true);
+    const generated = typeof payload.eval_count === 'number' ? ` · ${payload.eval_count} tokens générés` : '';
+    throw new Error(`Audit incomplet : le modèle a atteint sa limite de génération (${budget.num_predict} tokens maximum${generated}). ${settings.thinking ? 'Le mode Thinking utilise aussi des tokens pour raisonner. Essayez un modèle plus concis ou désactivez Thinking pour cet audit.' : 'Essayez avec Thinking désactivé ou un modèle plus concis.'} Le barème et les validations précédentes restent conservés.`);
+  }
   const raw = payload.message?.content;
   if (!raw?.trim()) throw new Error('Le modèle local a renvoyé un audit vide.');
   settings.onStage?.('validating');
