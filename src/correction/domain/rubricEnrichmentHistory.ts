@@ -17,7 +17,7 @@ const normalize = (value: string) => value.trim().replace(/\s+/g, ' ').toLocaleL
 
 function findItem(rubric: Rubric, criterionId: string, subcriterionId?: string) {
   const criterion = rubric.criteria.find((item) => item.id === criterionId);
-  return subcriterionId ? getRubricSubcriteria(criterion).find((item) => item.id === subcriterionId) : criterion;
+  return subcriterionId && criterion ? getRubricSubcriteria(criterion).find((item) => item.id === subcriterionId) : criterion;
 }
 
 function approvedBlocks(change: RubricClarificationChange): string[] {
@@ -89,8 +89,10 @@ export function removeAppliedRubricEnrichment(
       const remaining = (item.scientificExpectations ?? []).filter(
         (value) => normalize(value) !== normalize(authorized.text),
       );
-      const { scientificExpectations: _previous, ...rest } = item;
-      return { ...rest, ...(remaining.length ? { scientificExpectations: remaining } : {}) };
+      const next = { ...item };
+      if (remaining.length) next.scientificExpectations = remaining;
+      else delete next.scientificExpectations;
+      return next;
     }
     const description = item.description;
     // Only delete the recorded, exact Question/Decision paragraph, never an arbitrary
