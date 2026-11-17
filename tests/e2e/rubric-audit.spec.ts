@@ -37,7 +37,7 @@ test('teacher audits a rubric locally and retains their choice after refresh', a
   await expect(page.getByText('Un titre commun est attendu.', { exact: true })).toBeVisible();
   await page.getByText('Oui, un titre commun', { exact: true }).click();
   await page.getByRole('button', { name: 'Valider ma réponse' }).click();
-  await expect(page.getByText(/Décision enregistrée/)).toBeVisible();
+  await expect(page.getByText(/Règle retenue/)).toBeVisible();
   await page.getByRole('button', { name: /Appliquer 1 précision/ }).click();
   await expect.poll(async () => page.evaluate(() => {
     const profiles = JSON.parse(localStorage.getItem('companion-correcteur:assignments:v1') ?? '[]');
