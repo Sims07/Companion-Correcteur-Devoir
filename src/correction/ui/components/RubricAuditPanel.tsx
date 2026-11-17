@@ -13,6 +13,7 @@ interface Props {
   assignmentId: string;
   endpoint: string;
   model: string;
+  thinking?: boolean;
   onApply: (rubric: Rubric) => void;
 }
 
@@ -76,7 +77,7 @@ function RubricChanges({ version }: { version: ClarifiedRubricVersion }) {
   </ol>;
 }
 
-export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, onApply }: Props) {
+export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, thinking = false, onApply }: Props) {
   const signature = rubricEvaluationSignature(rubric);
   const [session, setSession] = useState<RubricAuditSession | null>(() => load(assignmentId, rubric));
   const subscribe = useCallback((listener: () => void) => subscribeRubricAuditTask(assignmentId, listener), [assignmentId]);
@@ -162,7 +163,7 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, onAppl
     if (busy) return;
     setMessage('');
     setActiveIssueIndex(0);
-    void launchRubricAuditTask({ assignmentId, rubric, endpoint, model });
+    void launchRubricAuditTask({ assignmentId, rubric, endpoint, model, thinking });
   }
 
   function recoverAudit() {
@@ -261,7 +262,7 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, onAppl
       </button>
       {busy && <button type="button" className="secondary-button rubric-audit-stop" onClick={() => cancelRubricAuditTask(assignmentId)}>Arrêter la vérification</button>}
     </div>
-    <p className="hint rubric-audit-privacy">Une seule analyse recherche les ambiguïtés et les compléments scientifiques. Seul le barème est transmis au modèle Ollama local « {model || 'non configuré'} » ; aucune copie d'étudiant n'est envoyée. Cette vérification est facultative.</p>
+    <p className="hint rubric-audit-privacy" role="status">Thinking : <strong>{thinking ? 'activé pour cette vérification' : 'désactivé pour cette vérification'}</strong>. Une seule analyse recherche les ambiguïtés et les compléments scientifiques. Seul le barème est transmis au modèle Ollama local « {model || 'non configuré'} » ; aucune copie d'étudiant n'est envoyée. Cette vérification est facultative.</p>
     {!busy && <details className="rubric-audit-recover">
       <summary>Récupérer une analyse déjà terminée dans le diagnostic</summary>
       <p>Si Ollama a répondu mais que les questions n’ont pas été affichées, copiez la réponse JSON depuis « Suivi & diagnostic » puis collez-la ici. Aucune nouvelle requête Ollama n’est envoyée.</p>
@@ -276,6 +277,7 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, onAppl
         <span className="rubric-audit-spinner" aria-hidden="true" />
         <div>
           <strong>Vérification du barème en cours</strong>
+          <p>Thinking {task.thinking ? 'demandé au modèle' : 'désactivé'} · {!taskIsCurrent ? 'Barème modifié depuis le lancement.' : 'Mode conservé pendant cette exécution.'}</p>
           <p>{!taskIsCurrent ? 'Le barème a été modifié depuis le lancement. Arrêtez cette analyse pour vérifier la nouvelle version.'
             : task.phase === 'validating' ? 'Réponse du modèle reçue · validation des suggestions…'
             : 'Requête envoyée · en attente de la réponse du modèle local…'}</p>
