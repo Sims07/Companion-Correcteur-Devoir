@@ -36,7 +36,14 @@ export function createClarifiedRubricVersion(
     const key = issue.criterionId + '/' + (issue.subcriterionId ?? '');
     const target = issue.kind === 'scientific' ? scientificEntries : entries;
     const current = target.get(key) ?? [];
-    current.push(issue.kind === 'scientific' ? decision.choice.trim()
+    // A quick « Oui » to a scientific suggestion must store the actual reference,
+    // never the button label. A free-form edit remains authoritative.
+    const scientificChoice = issue.kind === 'scientific' && issue.options.includes(decision.choice)
+      ? issue.suggestion : decision.choice.trim();
+    if (issue.kind === 'scientific' && /^(non|refuser|conserver)/i.test(decision.choice.trim())) {
+      throw new Error('Refusez une proposition scientifique avec « Conserver le barème actuel ».');
+    }
+    current.push(issue.kind === 'scientific' ? scientificChoice
       : 'Question : ' + issue.question + '\nDécision du professeur : ' + decision.choice.trim());
     target.set(key, current);
   }
