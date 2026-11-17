@@ -5,7 +5,7 @@ import {
   type RubricAuditDecision, type RubricAuditIssue, type RubricAuditSession,
 } from '../../domain/rubricAudit.ts';
 import { cancelRubricAuditTask, getRubricAuditTask, launchRubricAuditTask, rubricAuditStorageKey, subscribeRubricAuditTask } from '../../application/rubricAuditTask.ts';
-import { rubricAuditTokenBudget } from '../../adapters/ai/rubricAuditOllama.ts';
+import { rubricAuditTokenBudget } from '../../domain/rubricAuditGenerationBudget.ts';
 import { createClarifiedRubricVersion, getRubricClarificationChanges, type ClarifiedRubricVersion } from '../../domain/rubricClarification.ts';
 import { getCumulativeRubricChanges, listAppliedRubricEnrichments, removeAppliedRubricEnrichment, type AppliedRubricEnrichment } from '../../domain/rubricEnrichmentHistory.ts';
 import './RubricAuditPanel.css';
