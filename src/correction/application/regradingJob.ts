@@ -60,7 +60,7 @@ export function createRegradingJob(
     originalImages: structuredClone(snapshot.images),
     subjectImages: structuredClone(snapshot.subjectImages),
     ...(snapshot.subjectTranscription ? { subjectTranscription: snapshot.subjectTranscription } : {}),
-    detectTeacherAnnotations: false,
+    detectTeacherAnnotations: snapshot.detectTeacherAnnotations ?? false,
     annotationInkColor: 'none',
     annotationInkColorApplied: true,
     visionModel: options.visionModel,
