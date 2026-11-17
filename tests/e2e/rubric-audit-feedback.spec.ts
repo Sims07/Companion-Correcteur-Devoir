@@ -20,11 +20,16 @@ test('rubric audit stays visible across diagnostics, blocks duplicates and compl
 
   let requests = 0;
   const modes: boolean[] = [];
+  const tokenBudgets: Array<{ num_predict: number; num_ctx?: number }> = [];
   let release!: () => void;
   const gate = new Promise<void>((resolve) => { release = resolve; });
   await page.route('**/api/chat', async (route) => {
     requests += 1;
-    modes.push((route.request().postDataJSON() as { think: boolean }).think);
+    const payload = route.request().postDataJSON() as {
+      think: boolean; options: { num_predict: number; num_ctx?: number };
+    };
+    modes.push(payload.think);
+    tokenBudgets.push(payload.options);
     await gate; // Ollama can take several minutes; inspect feedback while waiting.
     try {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
@@ -40,6 +45,8 @@ test('rubric audit stays visible across diagnostics, blocks duplicates and compl
   await expect(launch).toBeVisible();
   await expect(launch).toContainText('Vérifier avec l’IA locale');
   await expect(page.locator('.rubric-audit-privacy')).toContainText('Thinking : activé pour cette vérification');
+  await expect(page.locator('.rubric-audit-privacy')).toContainText(/16[^0-9]*384 tokens/);
+  await expect(page.locator('.rubric-audit-privacy')).toContainText(/24[^0-9]*576 tokens/);
   await launch.click();
 
   try {
@@ -52,6 +59,7 @@ test('rubric audit stays visible across diagnostics, blocks duplicates and compl
     await expect(page.getByRole('button', { name: /Continuer vers les copies/ })).toBeDisabled();
     await expect.poll(() => requests).toBe(1);
     expect(modes).toEqual([true]);
+    expect(tokenBudgets).toEqual([{ temperature: 0, num_predict: 16384, num_ctx: 24576 }]);
 
     await page.getByRole('button', { name: 'Suivi & diagnostic' }).click();
     await page.getByRole('button', { name: 'Correction', exact: true }).click();

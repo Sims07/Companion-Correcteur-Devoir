@@ -5,6 +5,7 @@ import {
   type RubricAuditDecision, type RubricAuditIssue, type RubricAuditSession,
 } from '../../domain/rubricAudit.ts';
 import { cancelRubricAuditTask, getRubricAuditTask, launchRubricAuditTask, rubricAuditStorageKey, subscribeRubricAuditTask } from '../../application/rubricAuditTask.ts';
+import { rubricAuditTokenBudget } from '../../domain/rubricAuditGenerationBudget.ts';
 import { createClarifiedRubricVersion, getRubricClarificationChanges, type ClarifiedRubricVersion } from '../../domain/rubricClarification.ts';
 import { getCumulativeRubricChanges, listAppliedRubricEnrichments, removeAppliedRubricEnrichment, type AppliedRubricEnrichment } from '../../domain/rubricEnrichmentHistory.ts';
 import './RubricAuditPanel.css';
@@ -85,6 +86,8 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, thinki
   const getSnapshot = useCallback(() => getRubricAuditTask(assignmentId), [assignmentId]);
   const task = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
   const busy = task.state === 'running';
+  const configuredBudget = rubricAuditTokenBudget(thinking);
+  const runningBudget = rubricAuditTokenBudget(task.thinking === true);
   const taskIsCurrent = task.signature === signature;
   const [now, setNow] = useState(() => Date.now());
   const [message, setMessage] = useState('');
@@ -279,7 +282,7 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, thinki
       </button>
       {busy && <button type="button" className="secondary-button rubric-audit-stop" onClick={() => cancelRubricAuditTask(assignmentId)}>Arrêter la vérification</button>}
     </div>
-    <p className="hint rubric-audit-privacy" role="status">Thinking : <strong>{thinking ? 'activé pour cette vérification' : 'désactivé pour cette vérification'}</strong>. Une seule analyse recherche les ambiguïtés et les compléments scientifiques. Seul le barème est transmis au modèle Ollama local « {model || 'non configuré'} » ; aucune copie d'étudiant n'est envoyée. Cette vérification est facultative.</p>
+    <p className="hint rubric-audit-privacy" role="status">Thinking : <strong>{thinking ? 'activé pour cette vérification' : 'désactivé pour cette vérification'}</strong> · plafond de génération : <strong>{configuredBudget.num_predict.toLocaleString('fr-FR')} tokens</strong>{typeof configuredBudget.num_ctx === 'number' ? ` · contexte : ${configuredBudget.num_ctx.toLocaleString('fr-FR')} tokens` : ''}. Une seule analyse recherche les ambiguïtés et les compléments scientifiques. Seul le barème est transmis au modèle Ollama local « {model || 'non configuré'} » ; aucune copie d'étudiant n'est envoyée. Cette vérification est facultative.</p>
     {!busy && <details className="rubric-audit-recover">
       <summary>Récupérer une analyse déjà terminée dans le diagnostic</summary>
       <p>Si Ollama a répondu mais que les questions n’ont pas été affichées, copiez la réponse JSON depuis « Suivi & diagnostic » puis collez-la ici. Aucune nouvelle requête Ollama n’est envoyée.</p>
@@ -294,7 +297,7 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, thinki
         <span className="rubric-audit-spinner" aria-hidden="true" />
         <div>
           <strong>Vérification du barème en cours</strong>
-          <p>Thinking {task.thinking ? 'demandé au modèle' : 'désactivé'} · {!taskIsCurrent ? 'Barème modifié depuis le lancement.' : 'Mode conservé pendant cette exécution.'}</p>
+          <p>Thinking {task.thinking ? 'demandé au modèle' : 'désactivé'} · limite de génération : {runningBudget.num_predict.toLocaleString('fr-FR')} tokens · {!taskIsCurrent ? 'Barème modifié depuis le lancement.' : 'Mode conservé pendant cette exécution.'}</p>
           <p>{!taskIsCurrent ? 'Le barème a été modifié depuis le lancement. Arrêtez cette analyse pour vérifier la nouvelle version.'
             : task.phase === 'validating' ? 'Réponse du modèle reçue · validation des suggestions…'
             : 'Requête envoyée · en attente de la réponse du modèle local…'}</p>
