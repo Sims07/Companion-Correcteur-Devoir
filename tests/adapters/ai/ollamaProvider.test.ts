@@ -155,11 +155,13 @@ describe('Ollama readiness without loading models', () => {
     expect(progressEvents).toContainEqual({ type: 'first-token', role: 'reading', pageIndex: 1 });
   });
 
-  it('cancels a cold-start request after five minutes with an actionable Ollama hint', async () => {
+  it('keeps a slow first generation alive after five minutes, then stops at twenty minutes with a clear reason', async () => {
     vi.useFakeTimers();
     let notifyRequestStarted!: () => void;
     const requestStarted = new Promise<void>((resolve) => { notifyRequestStarted = resolve; });
+    let requestSignal: AbortSignal | undefined;
     const fetchImpl = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      requestSignal = init?.signal ?? undefined;
       notifyRequestStarted();
       return new Promise<Response>((_resolve, reject) => {
         init?.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true });
@@ -173,18 +175,24 @@ describe('Ollama readiness without loading models', () => {
       visionOnly: true,
     });
 
-    const timeout = expect(grading).rejects.toThrow('ollama ps');
+    const timeout = expect(grading).rejects.toThrow(/première réponse après 20 minutes/);
     await requestStarted;
     await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
+    expect(requestSignal?.aborted).toBe(false);
+    await vi.advanceTimersByTimeAsync(15 * 60 * 1000);
     await timeout;
+    expect(requestSignal?.aborted).toBe(true);
+    expect(requestSignal?.reason).toMatchObject({ name: 'TimeoutError' });
+    expect(String(requestSignal?.reason?.message)).toContain('barème');
+    expect(vi.getTimerCount()).toBe(0);
   });
 
-  it('clears the five-minute cold-start deadline when response headers arrive even if streaming takes longer', async () => {
+  it('accepts a first response arriving after eight minutes and a longer streaming phase', async () => {
     vi.useFakeTimers();
     let requestSignal: AbortSignal | null | undefined;
     const fetchImpl = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
       requestSignal = init?.signal;
-      await new Promise<void>((resolve) => setTimeout(resolve, 2 * 60 * 1000));
+      await new Promise<void>((resolve) => setTimeout(resolve, 8 * 60 * 1000));
       const body = new ReadableStream<Uint8Array>({
         start(controller) {
           setTimeout(() => {
@@ -204,12 +212,15 @@ describe('Ollama readiness without loading models', () => {
       visionOnly: true,
     });
 
-    await vi.advanceTimersByTimeAsync(2 * 60 * 1000);
+    await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
+    expect(requestSignal?.aborted).toBe(false);
+    await vi.advanceTimersByTimeAsync(3 * 60 * 1000);
     expect(requestSignal?.aborted).toBe(false);
     await vi.advanceTimersByTimeAsync(6 * 60 * 1000);
 
     await expect(grading).resolves.toContain('Lecture terminée.');
     expect(requestSignal?.aborted).toBe(false);
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   it('rechecks model metadata after a first-request HTTP 404 to report a missing Ollama model clearly', async () => {
