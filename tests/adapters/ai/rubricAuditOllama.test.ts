@@ -27,6 +27,16 @@ describe('audit barème local Ollama', () => {
     expect(mock).not.toHaveBeenCalled();
   });
 
+  it('annonce les étapes réellement observées, sans inventer de progression', async () => {
+    const stages: string[] = [];
+    const mock = vi.fn(async () => new Response(JSON.stringify({ message: { content: '{"issues":[]}' } }), { status: 200 }));
+    await auditRubricWithOllama(rubric, {
+      endpoint: 'https://localhost:11435', model: 'qwen',
+      onStage: (stage) => { stages.push(stage); },
+    }, mock as typeof fetch);
+    expect(stages).toEqual(['waiting', 'validating']);
+  });
+
   it('signale une réponse tronquée plutôt que de produire un faux audit', async () => {
     const fetcher = vi.fn(async () => new Response(JSON.stringify({ done_reason: 'length', message: { content: '{"issues":[]}' } }), { status: 200 }));
     await expect(auditRubricWithOllama(rubric, { endpoint: 'http://127.0.0.1:11434', model: 'qwen' }, fetcher as typeof fetch)).rejects.toThrow(/incomplet/);
