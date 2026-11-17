@@ -129,3 +129,7 @@
 .rubric-audit-preview { border: 1px solid var(--border, #d4dce1); border-radius: .85rem; padding: 1rem; display: grid; gap: .7rem; scroll-margin-top: 2rem; }
 .rubric-audit-preview h4, .rubric-audit-preview p { margin: 0; }
 .rubric-audit-preview .rubric-audit-change-list { margin-top: .45rem; }
+
+.rubric-audit-teacher-source { margin-top: .65rem; border: 1px solid var(--border, #d4dce1); padding: .7rem; border-radius: .5rem; }
+.rubric-audit-teacher-source span { display: block; font-size: .82rem; font-weight: 700; margin-bottom: .35rem; }
+.rubric-audit-teacher-source p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
