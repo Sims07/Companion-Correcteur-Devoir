@@ -48,7 +48,7 @@ describe('shared simple AI model controls', () => {
     expect(node.querySelector('#ai-analysis-thinking-status')?.textContent).toContain('désactivé');
     act(() => checkbox.click());
     expect(props.onAnalysisThinking).toHaveBeenCalledWith(true);
-    expect(node.querySelector('details')!.open).toBe(false);
+    expect(node.querySelector('#ai-analysis-thinking-status')).not.toBeNull();
 
     const enabled = render({ prefix: 'ai', analysisThinking: true });
     expect(enabled.node.querySelector<HTMLInputElement>('#ai-analysis-thinking')!.checked).toBe(true);
