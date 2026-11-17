@@ -90,6 +90,19 @@ test('a validated copy can be regraded from saved pages with the edited assignme
   });
   expect(currentRubricBefore).toBe('Barème actualisé');
 
+  // Leaving the old review must restore an editable rubric, not lock the
+  // assignment into its historical saved version.
+  await page.getByRole('tab', { name: 'Barème' }).click();
+  await expect(page.locator('#rubric-title')).toHaveValue('Barème actualisé');
+  await page.locator('#rubric-title').fill('Barème actualisé corrigé');
+  await expect.poll(async () => page.evaluate(() => {
+    const profiles = JSON.parse(localStorage.getItem('companion-correcteur:assignments:v1') ?? '[]');
+    return profiles.find((profile: { id: string }) => profile.id === 'assignment-default')?.rubric.title;
+  })).toBe('Barème actualisé corrigé');
+
+  await page.getByRole('tab', { name: 'Copies' }).click();
+  await page.locator('.copy-overview-filters').getByRole('button', { name: /Corrigées/ }).click();
+  await page.getByRole('button', { name: 'Consulter la correction' }).click();
   await page.getByRole('button', { name: 'Recorriger la copie' }).click();
   await expect.poll(async () => page.evaluate(async () => {
     const request = indexedDB.open('companion-correcteur-devoir', 7);
@@ -122,7 +135,7 @@ test('a validated copy can be regraded from saved pages with the edited assignme
       previousScore: historical.snapshot.proposal.finalScore,
     };
   })).toEqual({
-    currentRubric: 'Barème actualisé',
+    currentRubric: 'Barème actualisé corrigé',
     criterionId: 'new-criterion',
     pages: 1,
     archivedRubric: 'Barème initial',
