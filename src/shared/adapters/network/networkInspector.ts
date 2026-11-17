@@ -217,17 +217,33 @@ export function installNetworkInspector(): () => void {
         void (async () => {
           const reader = clone.body!.getReader();
           const decoder = new TextDecoder();
+          // Streaming Ollama emits many tiny events. Keep a bounded diagnostic preview
+          // and the final event for native timings; never rerender for every token.
           let body = '';
+          let tail = '';
+          let truncated = false;
+          let lastPublishedAt = 0;
+          const append = (chunk: string) => {
+            tail = (tail + chunk).slice(-5_000);
+            const available = Math.max(0, MAX_BODY_LENGTH - body.length);
+            body += chunk.slice(0, available);
+            if (chunk.length > available) truncated = true;
+          };
+          const preview = () => truncated ? truncate(body + '…') : body;
           try {
             while (true) {
               const { done, value } = await reader.read();
               if (done) break;
-              body += decoder.decode(value, { stream: true });
-              update({ responseBody: body });
+              append(decoder.decode(value, { stream: true }));
+              const now = performance.now();
+              if (now - lastPublishedAt >= 350) {
+                update({ responseBody: preview() });
+                lastPublishedAt = now;
+              }
             }
-            body += decoder.decode();
-            update({ responseBody: body, durationMs: Math.round(performance.now() - started), state: response.ok ? 'success' : 'error',
-              ...(response.ok && isOllamaInferenceRequest(url) ? { providerTimings: readOllamaNativeTimings(body) } : {}),
+            append(decoder.decode());
+            update({ responseBody: preview(), durationMs: Math.round(performance.now() - started), state: response.ok ? 'success' : 'error',
+              ...(response.ok && isOllamaInferenceRequest(url) ? { providerTimings: readOllamaNativeTimings(tail) ?? readOllamaNativeTimings(body) } : {}),
             }, true);
           } catch (cause) {
             update({ responseBody: body, durationMs: Math.round(performance.now() - started), state: 'error', error: cause instanceof Error ? cause.message : 'Lecture de la réponse impossible.' }, true);
