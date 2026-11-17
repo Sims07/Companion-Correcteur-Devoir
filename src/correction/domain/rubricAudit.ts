@@ -69,11 +69,12 @@ export function parseRubricAudit(raw: string, rubric: Rubric, model: string): Ru
       // "subcriterionId":"drawing-clean"}. Recover only when the match is unique.
       const parents = rubric.criteria.filter((parent) =>
         getRubricSubcriteria(parent).some((sub) => sub.id === suppliedCriterionId));
-      if (parents.length !== 1 || (suppliedSubcriterionId && suppliedSubcriterionId !== suppliedCriterionId)) {
+      const onlyParent = parents[0];
+      if (parents.length !== 1 || !onlyParent || (suppliedSubcriterionId && suppliedSubcriterionId !== suppliedCriterionId)) {
         throw new Error('Audit du barème : critère inconnu ou ambigu : ' + suppliedCriterionId);
       }
-      criterion = parents[0];
-      criterionId = criterion.id;
+      criterion = onlyParent;
+      criterionId = onlyParent.id;
       subcriterionId = suppliedCriterionId;
     }
     if (subcriterionId && !getRubricSubcriteria(criterion).some((sub) => sub.id === subcriterionId)) {
