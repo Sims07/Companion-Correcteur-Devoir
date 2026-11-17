@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { RubricAuditPanel } from '../../src/correction/ui/components/RubricAuditPanel.tsx';
 import type { Rubric } from '../../src/correction/domain/rubric.ts';
+import { parseRubricAudit } from '../../src/correction/domain/rubricAudit.ts';
+import { createClarifiedRubricVersion } from '../../src/correction/domain/rubricClarification.ts';
 
 vi.mock('../../src/correction/adapters/ai/rubricAuditOllama.ts', () => ({ auditRubricWithOllama: vi.fn() }));
 const rubric: Rubric = { title: 'Mitose', criteria: [{ id: 'title', title: 'Titre principal', description: '', maxPoints: 2 }] };
