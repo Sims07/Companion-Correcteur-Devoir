@@ -26,6 +26,17 @@ describe('automatic contract preparation', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(String(fetchMock.mock.calls[0][0])).toContain(apiCompatible ? 'chat/completions' : '/api/chat');
   });
+  it('utilise Thinking pour la préparation locale des contrats lorsque la configuration le demande', async () => {
+    const thinkingFlags: boolean[] = [];
+    const mock = vi.fn<typeof fetch>(async (_url, init) => {
+      const body = JSON.parse(String(init?.body)) as { think: boolean };
+      thinkingFlags.push(body.think);
+      return new Response(JSON.stringify({ message: { content: JSON.stringify(proposal('c' + thinkingFlags.length)) } }), { status: 200 });
+    });
+    await prepareQuestionContracts(rubric, sources, { ...settings, thinking: true }, undefined, undefined, mock);
+    expect(thinkingFlags).toEqual([true, true]);
+  });
+
   it('aborts before any request and refuses oversized input without truncating it', async () => {
     const mock = vi.fn<typeof fetch>(); const controller = new AbortController(); controller.abort();
     await expect(prepareQuestionContracts(rubric, sources, settings, undefined, controller.signal, mock)).rejects.toThrow();
