@@ -102,4 +102,29 @@ describe('vérification de barème indépendante de son écran', () => {
       storageWarning: expect.stringContaining('enregistrement local'),
     });
   });
+  it('transmet la progression réelle du flux au panneau, y compris après une navigation', async () => {
+    let finish!: (value: typeof report) => void;
+    mocks.audit.mockImplementation((_rubric, settings) => {
+      settings.onProgress?.({ phase: 'thinking', thinkingCharacters: 350, answerCharacters: 0, chunksReceived: 4, lastActivityAt: 1234 });
+      settings.onProgress?.({ phase: 'generating', thinkingCharacters: 350, answerCharacters: 45, chunksReceived: 8, lastActivityAt: 1250, generatedTokens: 44 });
+      return new Promise<typeof report>((resolve) => { finish = resolve; });
+    });
+    const id = 'assignment-streaming';
+    const states: string[] = [];
+    const unsubscribe = subscribeRubricAuditTask(id, () => {
+      states.push(getRubricAuditTask(id).phase ?? getRubricAuditTask(id).state);
+    });
+    const ongoing = launchRubricAuditTask({ assignmentId: id, rubric, endpoint: 'http://localhost:11434', model: 'qwen-local', thinking: true });
+    expect(getRubricAuditTask(id)).toMatchObject({
+      state: 'running', phase: 'generating', thinkingCharacters: 350, answerCharacters: 45, chunksReceived: 8, generatedTokens: 44,
+    });
+    unsubscribe(); // Navigating away does not lose the server-observed progress.
+    expect(getRubricAuditTask(id).phase).toBe('generating');
+    finish(report);
+    await ongoing;
+    expect(getRubricAuditTask(id)).toMatchObject({ state: 'success', generatedTokens: 44 });
+    expect(states).toContain('thinking');
+    expect(states).toContain('generating');
+  });
+
 });
