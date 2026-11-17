@@ -1,4 +1,4 @@
-import { getRubricSubcriteria, type Rubric } from './rubric.ts';
+import { getRubricSubcriteria, type Rubric, type RubricCriterion, type RubricSubcriterion } from './rubric.ts';
 import { getRubricClarificationChanges, type ClarifiedRubricVersion, type RubricClarificationChange } from './rubricClarification.ts';
 
 export interface AppliedRubricEnrichment {
@@ -84,7 +84,7 @@ export function removeAppliedRubricEnrichment(
 ): Rubric {
   const authorized = listAppliedRubricEnrichments(rubric, versions).find((entry) => entry.id === selected.id);
   if (!authorized) throw new Error('Cet ajout n’est plus présent dans le barème actif.');
-  const update = (item: NonNullable<ReturnType<typeof findItem>>) => {
+  const update = <T extends RubricCriterion | RubricSubcriterion>(item: T): T => {
     if (authorized.kind === 'scientific') {
       const remaining = (item.scientificExpectations ?? []).filter(
         (value) => normalize(value) !== normalize(authorized.text),
@@ -92,30 +92,30 @@ export function removeAppliedRubricEnrichment(
       const next = { ...item };
       if (remaining.length) next.scientificExpectations = remaining;
       else delete next.scientificExpectations;
-      return next;
+      return next as T;
     }
     const description = item.description;
     // Only delete the recorded, exact Question/Decision paragraph, never an arbitrary
     // same-worded fragment inside the teacher's authored description.
     const suffix = '\n\n' + authorized.text;
     if (description.includes(suffix)) {
-      return { ...item, description: description.replace(suffix, '') };
+      return { ...item, description: description.replace(suffix, '') } as T;
     }
     if (description.startsWith(authorized.text + '\n\n')) {
-      return { ...item, description: description.slice(authorized.text.length + 2) };
+      return { ...item, description: description.slice(authorized.text.length + 2) } as T;
     }
-    if (description === authorized.text) return { ...item, description: '' };
+    if (description === authorized.text) return { ...item, description: '' } as T;
     throw new Error('Le texte a été modifié manuellement : retirez cette précision depuis la description.');
   };
   return {
     ...rubric,
     criteria: rubric.criteria.map((criterion) => {
       if (criterion.id !== authorized.criterionId) return criterion;
-      if (!authorized.subcriterionId) return { ...criterion, ...update(criterion) };
+      if (!authorized.subcriterionId) return update(criterion);
       return {
         ...criterion,
         subcriteria: getRubricSubcriteria(criterion).map((sub) =>
-          sub.id === authorized.subcriterionId ? { ...sub, ...update(sub) } : sub),
+          sub.id === authorized.subcriterionId ? update(sub) : sub),
         expectedElements: undefined,
       };
     }),
