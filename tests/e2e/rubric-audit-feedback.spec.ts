@@ -225,7 +225,7 @@ test('teacher can recover an already completed Ollama JSON response without spen
   await page.getByRole('button', { name: 'Charger les questions déjà générées' }).click();
   await expect(page.getByText('Résultat récupéré : les questions de l’IA sont disponibles ci-dessous.')).toBeVisible();
   await expect(page.getByText('Des traces légères de gommage sont-elles autorisées ?')).toBeVisible();
-  await expect(page.getByText('Qualité du dessin / Impression générale propre')).toBeVisible();
+  await expect(page.locator('.rubric-audit-conversation-heading').getByText('Qualité du dessin / Impression générale propre')).toBeVisible();
   expect(requests).toBe(0);
   await page.reload();
   await page.getByRole('button', { name: /Reprendre le devoir/ }).click();
