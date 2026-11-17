@@ -26,13 +26,14 @@ test('rubric audit stays visible across diagnostics, blocks duplicates and compl
   await page.route('**/api/chat', async (route) => {
     requests += 1;
     const payload = route.request().postDataJSON() as {
-      think: boolean; options: { num_predict: number; num_ctx?: number };
+      think: boolean; stream: boolean; options: { num_predict: number; num_ctx?: number };
     };
+    expect(payload.stream).toBe(true);
     modes.push(payload.think);
     tokenBudgets.push(payload.options);
     await gate; // Ollama can take several minutes; inspect feedback while waiting.
     try {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ done: true,
         message: { content: JSON.stringify({ issues: [] }) },
       }) });
     } catch { /* A teacher may cancel the pending browser request. */ }
@@ -104,7 +105,7 @@ test('teacher can cancel a pending rubric audit and retains the option to retry'
         route.request().failure() ? resolve() : setTimeout(resolve, 2200);
       });
     }
-    try { await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ message: { content: '{"issues":[]}' } }) }); }
+    try { await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ done: true, message: { content: '{"issues":[]}' } }) }); }
     catch { /* Canceled request. */ }
   });
   await page.reload();
@@ -150,7 +151,7 @@ test('AI recommendations become a guided teacher dialogue even if the result arr
     requests += 1;
     await gate;
     try {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ done: true,
         message: { content: JSON.stringify({ issues: [
           { criterionId: 'drawing-clean', subcriterionId: null, priority: 'high',
             reason: 'Critère subjectif sans seuil de tolérance.',
