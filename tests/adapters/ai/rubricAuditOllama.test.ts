@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { auditRubricWithOllama } from '../../../src/correction/adapters/ai/rubricAuditOllama.ts';
+import { rubricAuditTokenBudget } from '../../../src/correction/domain/rubricAuditGenerationBudget.ts';
 import type { Rubric } from '../../../src/correction/domain/rubric.ts';
 
 const rubric: Rubric = { title: 'Mitose', criteria: [{ id: 'title', title: 'Titre', description: 'Titre descriptif', maxPoints: 1 }] };
@@ -22,9 +23,11 @@ describe('audit barème local Ollama', () => {
 
   it('transmet exactement la préférence Thinking à l’audit du barème et à son enrichissement scientifique', async () => {
     const values: boolean[] = [];
+    const budgets: Array<{ num_predict: number; num_ctx?: number }> = [];
     const fetcher = vi.fn<typeof fetch>(async (_url, init) => {
-      const request = JSON.parse(String(init?.body)) as { think: boolean; stream: boolean; format: string; messages: Array<{ content: string }> };
+      const request = JSON.parse(String(init?.body)) as { think: boolean; stream: boolean; format: string; options: { num_predict: number; num_ctx?: number }; messages: Array<{ content: string }> };
       values.push(request.think);
+      budgets.push(request.options);
       expect(request.stream).toBe(false);
       expect(request.format).toBe('json');
       expect(request.messages[0].content).toContain('kind=scientific');
@@ -35,6 +38,11 @@ describe('audit barème local Ollama', () => {
       expect(result.issues).toEqual([]);
     }
     expect(values).toEqual([true, false]);
+    expect(budgets).toEqual([
+      { temperature: 0, num_predict: 16384, num_ctx: 24576 },
+      { temperature: 0, num_predict: 3584 },
+    ]);
+    expect(rubricAuditTokenBudget(true).num_predict).toBeGreaterThan(rubricAuditTokenBudget(false).num_predict * 4);
   });
 
   it('propose des références scientifiques dans le même appel local, sans changer le barème', async () => {
@@ -75,6 +83,13 @@ describe('audit barème local Ollama', () => {
 
   it('signale une réponse tronquée plutôt que de produire un faux audit', async () => {
     const fetcher = vi.fn(async () => new Response(JSON.stringify({ done_reason: 'length', message: { content: '{"issues":[]}' } }), { status: 200 }));
-    await expect(auditRubricWithOllama(rubric, { endpoint: 'http://127.0.0.1:11434', model: 'qwen' }, fetcher as typeof fetch)).rejects.toThrow(/incomplet/);
+    await expect(auditRubricWithOllama(rubric, { endpoint: 'http://127.0.0.1:11434', model: 'qwen' }, fetcher as typeof fetch)).rejects.toThrow(/3584 tokens maximum/);
+    const thinkingFetcher = vi.fn(async () => new Response(JSON.stringify({
+      done_reason: 'length', eval_count: 16384,
+      message: { thinking: 'raisonnement long', content: '{' },
+    }), { status: 200 }));
+    await expect(auditRubricWithOllama(rubric, {
+      endpoint: 'http://127.0.0.1:11434', model: 'gemma4:12b', thinking: true,
+    }, thinkingFetcher as typeof fetch)).rejects.toThrow(/16384 tokens maximum.*16384 tokens générés.*Thinking/);
   });
 });
