@@ -6,6 +6,13 @@ export type RubricImportStatus = 'new' | 'duplicate' | 'id-conflict' | 'title-co
 export interface RubricImportItem { criterion: RubricCriterion; status: RubricImportStatus }
 export interface RubricImportPreview { sourceTitle: string; items: RubricImportItem[]; existingCriterionIds: string[] }
 function isRecord(value: unknown): value is Record<string, unknown> { return typeof value === 'object' && value !== null && !Array.isArray(value); }
+function parseScientificExpectations(value: unknown): string[] | undefined {
+ if (value === undefined) return undefined;
+ if (!Array.isArray(value) || value.length > 12 || !value.every(item => typeof item === 'string' && item.trim().length > 0 && item.length <= 1000)) {
+  throw new Error('Références scientifiques invalides dans le barème importé.');
+ }
+ return value as string[];
+}
 
 /** Validate and normalize the portable JSON format before it can affect a teacher rubric. */
 export function parseRubricImport(value: unknown): RubricExportV1 {
@@ -20,9 +27,9 @@ export function parseRubricImport(value: unknown): RubricExportV1 {
   if (raw.subcriteria !== undefined && !Array.isArray(raw.subcriteria)) throw new Error(`Les sous-critères du critère « ${raw.title} » sont invalides.`);
   const subcriteria = (raw.subcriteria as unknown[] | undefined)?.map((sub, subIndex) => {
    if (!isRecord(sub) || typeof sub.id !== 'string' || !sub.id.trim() || typeof sub.title !== 'string' || !sub.title.trim() || typeof sub.description !== 'string' || typeof sub.maxPoints !== 'number' || !Number.isFinite(sub.maxPoints)) throw new Error(`Le sous-critère n°${subIndex + 1} du critère « ${raw.title} » est invalide.`);
-   return { id: sub.id, title: sub.title, description: sub.description, maxPoints: sub.maxPoints };
+   return { id: sub.id, title: sub.title, description: sub.description, maxPoints: sub.maxPoints, ...(sub.scientificExpectations !== undefined ? { scientificExpectations: parseScientificExpectations(sub.scientificExpectations) } : {}) };
   });
-  const criterion: RubricCriterion = { id: raw.id, title: raw.title, description: raw.description, maxPoints: raw.maxPoints, ...(raw.correctionContract !== undefined ? { correctionContract: parseCorrectionContract(raw.correctionContract) } : {}), ...(raw.analysisMode ? { analysisMode: raw.analysisMode } : {}), ...(subcriteria ? { subcriteria } : {}) };
+  const criterion: RubricCriterion = { id: raw.id, title: raw.title, description: raw.description, maxPoints: raw.maxPoints, ...(raw.scientificExpectations !== undefined ? { scientificExpectations: parseScientificExpectations(raw.scientificExpectations) } : {}), ...(raw.correctionContract !== undefined ? { correctionContract: parseCorrectionContract(raw.correctionContract) } : {}), ...(raw.analysisMode ? { analysisMode: raw.analysisMode } : {}), ...(subcriteria ? { subcriteria } : {}) };
   const validation = validateRubric({ title: 'Import', criteria: [criterion] });
   if (!validation.valid) throw new Error(`Le critère « ${criterion.title} » ne peut pas être importé : ${validation.errors.join(' ')}`);
   return criterion;
@@ -33,7 +40,7 @@ export function parseRubricImport(value: unknown): RubricExportV1 {
 }
 function normalizedTitle(value: string): string { return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('fr-FR').replace(/[^a-z0-9]+/g, ' ').trim(); }
 function comparableCriterion(criterion: RubricCriterion): Omit<RubricCriterion, 'id'> {
- return { title: normalizedTitle(criterion.title), description: criterion.description.trim(), maxPoints: criterion.maxPoints, ...(criterion.correctionContract ? { correctionContract: criterion.correctionContract } : {}), ...(criterion.analysisMode ? { analysisMode: criterion.analysisMode } : {}), subcriteria: getRubricSubcriteria(criterion).map((item) => ({ ...item, title: item.title.trim(), description: item.description.trim() })) };
+ return { title: normalizedTitle(criterion.title), description: criterion.description.trim(), maxPoints: criterion.maxPoints, ...(criterion.scientificExpectations ? { scientificExpectations: criterion.scientificExpectations } : {}), ...(criterion.correctionContract ? { correctionContract: criterion.correctionContract } : {}), ...(criterion.analysisMode ? { analysisMode: criterion.analysisMode } : {}), subcriteria: getRubricSubcriteria(criterion).map((item) => ({ ...item, title: item.title.trim(), description: item.description.trim() })) };
 }
 function sameContent(left: RubricCriterion, right: RubricCriterion): boolean { return JSON.stringify(comparableCriterion(left)) === JSON.stringify(comparableCriterion(right)); }
 

@@ -49,13 +49,26 @@ function displayTitle(issue: RubricAuditIssue, rubric: Rubric): string {
 
 function RubricChanges({ version }: { version: ClarifiedRubricVersion }) {
   const changes = getRubricClarificationChanges(version);
+  const teacherText = (id: string) => {
+    for (const criterion of version.original.criteria) {
+      if (id === criterion.id + '/scientific') return criterion.description;
+      for (const sub of getRubricSubcriteria(criterion)) {
+        if (id === criterion.id + '/' + sub.id + '/scientific') return sub.description;
+      }
+    }
+    return '';
+  };
   return <ol className="rubric-audit-change-list">
     {changes.map((change) => <li key={change.id}>
       <strong>{change.label}</strong>
+      {change.kind === 'scientific' && <div className="rubric-audit-teacher-source">
+        <span>Texte original du professeur · conservé</span>
+        <p>{teacherText(change.id) || 'Aucune description initiale.'}</p>
+      </div>}
       <div className="rubric-audit-change-comparison">
-        <div><span>Avant · texte du barème</span><p>{change.before || 'Aucune précision renseignée.'}</p></div>
+        <div><span>{change.kind === 'scientific' ? 'Références scientifiques avant' : 'Avant · texte du barème'}</span><p>{change.before || 'Aucune précision renseignée.'}</p></div>
         <div className="rubric-audit-change-added">
-          <span>{change.addition !== null ? 'Ajout validé par le professeur' : 'Texte après clarification'}</span>
+          <span>{change.kind === 'scientific' ? 'Références scientifiques validées' : change.addition !== null ? 'Ajout validé par le professeur' : 'Texte après clarification'}</span>
           <p>{change.addition ?? change.after}</p>
         </div>
       </div>
@@ -77,6 +90,7 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, onAppl
   const [activeIssueIndex, setActiveIssueIndex] = useState(0);
   const resultRef = useRef<HTMLDivElement | null>(null);
   const appliedRef = useRef<HTMLDivElement | null>(null);
+  const scrollAfterApply = useRef(false);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [custom, setCustom] = useState<Record<string, string>>({});
   const [versions, setVersions] = useState<ClarifiedRubricVersion[]>(() => loadVersions(assignmentId));
@@ -116,6 +130,12 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, onAppl
   const activeIssue = issues[Math.min(activeIssueIndex, issues.length - 1)] ?? null;
   const acceptedCount = decisions.filter((decision) => decision.decision === 'accepted').length;
   const allReviewed = issues.length > 0 && decisions.length === issues.length;
+  const scientificCount = issues.filter((issue) => issue.kind === 'scientific').length;
+  let previewVersion: ClarifiedRubricVersion | null = null;
+  if (current && acceptedCount > 0) {
+    try { previewVersion = createClarifiedRubricVersion(rubric, current.report, decisions, new Date().toISOString()); }
+    catch { /* Invalid or outdated decisions cannot be applied. */ }
+  }
 
   useEffect(() => {
     if (task.state !== 'success' || !taskIsCurrent || !current) return;
@@ -176,7 +196,8 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, onAppl
 
   function record(issue: RubricAuditIssue, decision: 'accepted' | 'kept') {
     if (!current || busy) return;
-    const choice = decision === 'kept' ? '' : (custom[issue.id]?.trim() || answers[issue.id] || '');
+    const choice = decision === 'kept' ? '' : (custom[issue.id]?.trim() ||
+      (issue.kind === 'scientific' && answers[issue.id] === 'accept-suggested' ? issue.suggestion : answers[issue.id]) || '');
     if (decision === 'accepted' && !choice.trim()) {
       setMessage('Indiquez la règle souhaitée par le professeur.');
       return;
@@ -188,6 +209,13 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, onAppl
     else if (activeIssueIndex < current.report.issues.length - 1) setActiveIssueIndex(activeIssueIndex + 1);
   }
 
+  useEffect(() => {
+    if (!scrollAfterApply.current || !activeVersion) return;
+    scrollAfterApply.current = false;
+    const frame = window.requestAnimationFrame(() => appliedRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    return () => window.cancelAnimationFrame(frame);
+  }, [activeVersion]);
+
   function applyDecisions() {
     if (!current || busy) return;
     try {
@@ -196,18 +224,18 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, onAppl
       const next = [...loadVersions(assignmentId), version].slice(-20);
       window.localStorage.setItem(versionsKey(assignmentId), JSON.stringify(next));
       setVersions(next);
+      scrollAfterApply.current = true;
       onApply(version.clarified);
-      setMessage('La version clarifiée est appliquée. Les anciennes corrections gardent leur barème historique.');
-      window.requestAnimationFrame(() => appliedRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+      setMessage('Barème enrichi appliqué. Les changements sont visibles ci-dessus ; les anciennes corrections gardent leur barème historique.');
     } catch (cause) {
       setMessage(cause instanceof Error ? cause.message : 'Impossible d’appliquer ces précisions.');
     }
   }
 
-  return <section className={busy ? "panel rubric-audit-panel is-running" : "panel rubric-audit-panel"} aria-label="Vérifier et clarifier le barème">
+  return <section className={busy ? "panel rubric-audit-panel is-running" : "panel rubric-audit-panel"} aria-label="Vérifier et enrichir le barème">
     <div className="rubric-audit-heading">
-      <div><p className="eyebrow">FIABILISER LE BARÈME</p><h3>Vérifier et clarifier le barème</h3>
-        <p>Détectez les ambiguïtés <strong>avant de corriger les copies</strong>. Vous décidez des précisions à conserver.</p>
+      <div><p className="eyebrow">FIABILISER LE BARÈME</p><h3>Vérifier et enrichir le barème</h3>
+        <p>Clarifiez les règles et enrichissez les attendus scientifiques <strong>avant de corriger les copies</strong>. Vous décidez de chaque ajout.</p>
       </div>
     </div>
     {activeVersion && <div className="rubric-audit-applied" ref={appliedRef} aria-label="Version active du barème clarifié">
@@ -215,12 +243,12 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, onAppl
         <div>
           <p className="eyebrow">BARÈME MODIFIÉ · VERSION ACTIVE</p>
           <h4>Voici ce qui a changé dans votre barème</h4>
-          <p role="status">Clarification appliquée le {new Date(activeVersion.appliedAt).toLocaleDateString('fr-FR')} avec {activeVersion.model} : {activeVersion.decisions.length} précision(s) acceptée(s).</p>
+          <p role="status">Barème enrichi le {new Date(activeVersion.appliedAt).toLocaleDateString('fr-FR')} avec {activeVersion.model} : {activeVersion.decisions.length} modification(s) acceptée(s).</p>
         </div>
         <strong className="rubric-audit-active-label">Utilisé pour les prochaines corrections</strong>
       </div>
       <RubricChanges version={activeVersion} />
-      <p className="hint">Seules les descriptions indiquées ci-dessus ont changé : les intitulés, les sous-critères et les points sont conservés. Les copies déjà corrigées gardent leur ancien barème.</p>
+      <p className="hint">Le texte initial, les intitulés et les points sont conservés. Les références scientifiques validées restent distinctes des règles de notation. Les copies déjà corrigées gardent leur ancien barème.</p>
     </div>}
     {!activeVersion && versions.length > 0 && <div className="rubric-audit-version-notice">
       <strong>Le barème actuel a été modifié depuis la dernière clarification.</strong>
@@ -233,7 +261,7 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, onAppl
       </button>
       {busy && <button type="button" className="secondary-button rubric-audit-stop" onClick={() => cancelRubricAuditTask(assignmentId)}>Arrêter la vérification</button>}
     </div>
-    <p className="hint rubric-audit-privacy">Seul le barème est transmis au modèle Ollama local « {model || 'non configuré'} » ; aucune copie d'étudiant n'est envoyée. Cette vérification est facultative.</p>
+    <p className="hint rubric-audit-privacy">Une seule analyse recherche les ambiguïtés et les compléments scientifiques. Seul le barème est transmis au modèle Ollama local « {model || 'non configuré'} » ; aucune copie d'étudiant n'est envoyée. Cette vérification est facultative.</p>
     {!busy && <details className="rubric-audit-recover">
       <summary>Récupérer une analyse déjà terminée dans le diagnostic</summary>
       <p>Si Ollama a répondu mais que les questions n’ont pas été affichées, copiez la réponse JSON depuis « Suivi & diagnostic » puis collez-la ici. Aucune nouvelle requête Ollama n’est envoyée.</p>
@@ -266,7 +294,7 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, onAppl
     </div>}
     {taskIsCurrent && task.state === 'success' && <div className="rubric-audit-feedback is-success" role="status">
       <strong>Vérification terminée</strong>
-      <p>{task.report?.issues.length ? task.report.issues.length + ' point(s) à examiner. Les questions sont affichées ci-dessous.' : 'Aucune ambiguïté signalée par le modèle. Vous pouvez poursuivre vers les copies.'}
+      <p>{task.report?.issues.length ? task.report.issues.length + ' point(s) à examiner. Les questions sont affichées ci-dessous.' : 'Aucune ambiguïté signalée par le modèle. Aucun complément scientifique proposé. Vous pouvez poursuivre vers les copies.'}
       {task.startedAt && task.finishedAt ? ' · Durée : ' + formatElapsed(task.startedAt, task.finishedAt) : ''}</p>
       {task.storageWarning && <p role="alert">{task.storageWarning}</p>}
     </div>}
@@ -275,10 +303,10 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, onAppl
       <div className="rubric-audit-review-header">
         <div>
           <p className="eyebrow">RÉSULTAT DE L'ANALYSE</p>
-          <h3>{issues.length === 0 ? 'Barème examiné' : 'Questions à discuter avec le professeur'}</h3>
+          <h3>{issues.length === 0 ? 'Barème examiné' : scientificCount ? 'Clarifications et enrichissements scientifiques' : 'Questions à discuter avec le professeur'}</h3>
           <p>{issues.length === 0
-            ? 'Le modèle n’a signalé aucune ambiguïté sur ce barème. Vous pouvez corriger les copies ou relancer la vérification.'
-            : 'L’IA a identifié ' + issues.length + ' point(s) qui pourraient modifier la notation. Examinez ses propositions une à une ; aucune règle n’est modifiée sans votre validation.'}</p>
+            ? 'Le modèle n’a signalé aucune ambiguïté ni proposé de complément scientifique. Vous pouvez corriger les copies ou relancer la vérification.'
+            : 'L’IA propose ' + scientificCount + ' enrichissement(s) scientifique(s) et ' + (issues.length - scientificCount) + ' clarification(s). Aucune proposition n’est appliquée sans votre validation.'}</p>
         </div>
         {issues.length > 0 && <span className="rubric-audit-review-count" role="status">{answered} / {issues.length} questions traitées</span>}
       </div>
@@ -290,7 +318,7 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, onAppl
               aria-current={index === activeIssueIndex ? 'step' : undefined}
               className={index === activeIssueIndex ? 'rubric-audit-question-tab active' : 'rubric-audit-question-tab'}
               onClick={() => setActiveIssueIndex(index)}>
-              <span>Question {index + 1} · {displayTitle(issue, rubric)}</span>
+              <span>{issue.kind === 'scientific' ? 'Science' : 'Question'} {index + 1} · {displayTitle(issue, rubric)}</span>
               <small>{decision ? decision.decision === 'accepted' ? '✓ Précision enregistrée' : '✓ Barème conservé'
                 : issue.priority === 'high' ? 'À examiner · impact important' : 'À examiner'}</small>
             </button>;
@@ -302,10 +330,12 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, onAppl
           const source = getRubricSubcriteria(original!).find((entry) => entry.id === activeIssue.subcriterionId) ?? original;
           const chosenOption = answers[activeIssue.id] ?? selected?.choice ?? '';
           const chosenCustom = custom[activeIssue.id] ?? '';
-          const canAccept = Boolean(chosenCustom.trim() || activeIssue.options.includes(chosenOption));
+          const canAccept = activeIssue.kind === 'scientific'
+            ? Boolean(chosenCustom.trim() || chosenOption === 'accept-suggested')
+            : Boolean(chosenCustom.trim() || activeIssue.options.includes(chosenOption));
           return <div className="rubric-audit-conversation" key={activeIssue.id}>
             <div className="rubric-audit-conversation-heading">
-              <span className="rubric-audit-step-number">Question {activeIssueIndex + 1} sur {issues.length}</span>
+              <span className="rubric-audit-step-number">{activeIssue.kind === 'scientific' ? 'Enrichissement scientifique' : 'Question'} {activeIssueIndex + 1} sur {issues.length}</span>
               <strong>{displayTitle(activeIssue, rubric)}</strong>
             </div>
             <div className="rubric-audit-original">
@@ -313,11 +343,25 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, onAppl
               <p>{source?.title} — {source?.description || 'Aucune précision'}</p>
             </div>
             <div className="rubric-audit-assistant">
-              <span className="rubric-audit-speaker">Assistant IA · Point à clarifier</span>
+              <span className="rubric-audit-speaker">Assistant IA · {activeIssue.kind === 'scientific' ? 'Complément scientifique' : 'Point à clarifier'}</span>
               <p>{activeIssue.reason}</p>
               <h4>{activeIssue.question}</h4>
             </div>
-            <fieldset disabled={busy} className="rubric-audit-options">
+            {activeIssue.kind === 'scientific' && <div className="rubric-audit-science-review">
+              <div className="rubric-audit-ai-suggestion"><strong>Référence scientifique proposée par l’IA · non appliquée</strong><p>{activeIssue.suggestion}</p></div>
+              <fieldset disabled={busy} className="rubric-audit-options"><legend>Souhaitez-vous utiliser cette référence pour corriger les copies ?</legend>
+                <label className="rubric-audit-choice"><input type="radio" name={'science-' + activeIssue.id}
+                  checked={!chosenCustom && chosenOption === 'accept-suggested'}
+                  onChange={() => { setAnswers((curr) => ({ ...curr, [activeIssue.id]: 'accept-suggested' })); setCustom((curr) => ({ ...curr, [activeIssue.id]: '' })); }} />Oui, conserver la proposition</label>
+                <label className="rubric-audit-choice"><input type="radio" name={'science-' + activeIssue.id}
+                  checked={Boolean(chosenCustom)}
+                  onChange={() => { setCustom((curr) => ({ ...curr, [activeIssue.id]: activeIssue.suggestion })); setAnswers((curr) => ({ ...curr, [activeIssue.id]: '' })); }} />Oui, mais l’adapter</label>
+              </fieldset>
+              {chosenCustom && <label className="field-label rubric-audit-custom">Modifier la référence à valider
+                <textarea rows={4} disabled={busy} value={chosenCustom} onChange={(event) => setCustom((curr) => ({ ...curr, [activeIssue.id]: event.target.value }))} />
+              </label>}
+            </div>}
+            {activeIssue.kind !== 'scientific' && <><fieldset disabled={busy} className="rubric-audit-options">
               <legend>Quelle règle souhaitez-vous appliquer ?</legend>
               {activeIssue.options.map((option) =>
                 <label key={option} className="rubric-audit-choice">
@@ -340,12 +384,13 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, onAppl
                 Utiliser cette reformulation comme réponse
               </button>
             </div>
+            </>}
             {selected && <p className="rubric-audit-saved" role="status">
-              {selected.decision === 'accepted' ? '✓ Règle retenue : ' + selected.choice : '✓ Le barème initial a été conservé pour ce point.'}
+              {selected.decision === 'accepted' ? (activeIssue.kind === 'scientific' ? '✓ Référence scientifique validée : ' : '✓ Règle retenue : ') + selected.choice : '✓ Le barème initial a été conservé pour ce point.'}
             </p>}
             <div className="rubric-audit-actions">
               <button type="button" className="primary-button" disabled={busy || !canAccept}
-                onClick={() => record(activeIssue, 'accepted')}>Valider ma réponse</button>
+                onClick={() => record(activeIssue, 'accepted')}>{activeIssue.kind === 'scientific' ? 'Valider cet enrichissement' : 'Valider ma réponse'}</button>
               <button type="button" className="secondary-button" disabled={busy}
                 onClick={() => record(activeIssue, 'kept')}>Conserver le critère actuel</button>
             </div>
@@ -366,10 +411,15 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, onAppl
           return <li key={issue.id}><strong>{displayTitle(issue, rubric)} :</strong> {decision.decision === 'accepted' ? decision.choice : 'Texte initial conservé'}</li>;
         })}</ul>
       </div>}
+      {previewVersion && <div className="rubric-audit-preview" aria-label="Aperçu du barème avant application">
+        <h4>Aperçu des changements avant application</h4>
+        <p>Voici les ajouts validés, comparés à la version actuelle. Les points restent inchangés.</p>
+        <RubricChanges version={previewVersion} />
+      </div>}
       {acceptedCount > 0 && <div className="rubric-audit-apply">
         <p>Après vérification de vos réponses, vous pouvez appliquer les précisions. Une nouvelle version est conservée avec l’original.</p>
         <button type="button" className="primary-button" disabled={busy} onClick={applyDecisions}>
-          Appliquer {acceptedCount} {acceptedCount === 1 ? 'précision validée' : 'précisions validées'} au barème
+          Appliquer {acceptedCount} {scientificCount ? (acceptedCount === 1 ? 'modification validée' : 'modifications validées') : (acceptedCount === 1 ? 'précision validée' : 'précisions validées')} au barème
         </button>
       </div>}
       {issues.length > 0 && !allReviewed && <p className="hint">Les questions non traitées ne sont jamais ajoutées automatiquement au barème.</p>}

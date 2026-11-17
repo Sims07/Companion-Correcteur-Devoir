@@ -11,7 +11,7 @@ const rubric: Rubric = { title: 'Mitose', criteria: [{ id: 'title', title: 'Titr
 describe('panneau de clarification enseignant', () => {
   it('affiche un audit optionnel, sans copie ni prévalidation du barème', () => {
     const html = renderToStaticMarkup(<RubricAuditPanel rubric={rubric} assignmentId="test" endpoint="http://localhost:11434" model="qwen-local" onApply={vi.fn()} />);
-    expect(html).toContain('Vérifier et clarifier le barème');
+    expect(html).toContain('Vérifier et enrichir le barème');
     expect(html).toContain('Vérifier avec l’IA locale');
     expect(html).toContain('primary-button rubric-audit-launch');
     expect(html).toContain('avant de corriger les copies');

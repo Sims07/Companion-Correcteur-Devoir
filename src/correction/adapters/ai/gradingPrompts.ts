@@ -6,7 +6,8 @@ export interface IncrementalGradingCriterion {
   title: string;
   description: string;
   maxPoints: number;
-  subcriteria?: Array<{ id: string; title: string; description: string; maxPoints: number }>;
+  scientificExpectations?: string[];
+  subcriteria?: Array<{ id: string; title: string; description: string; maxPoints: number; scientificExpectations?: string[] }>;
 }
 
 /**
@@ -39,6 +40,7 @@ export function buildIncrementalCriterionPrompt(
     ...(mainTitleRule ? [mainTitleRule] : []),
     'IDENTIFIANT DE SORTIE IMPÉRATIF : criterionId doit être exactement ' + JSON.stringify(criterion.id) + '.',
     scoringRule,
+    'Les éventuels scientificExpectations du critère sont des références biologiques validées pour interpréter ses attendus, pas des points supplémentaires.',
     'PREUVE : evidence cite un extrait fidèle, jamais inventé (12 mots maximum) ; sinon « preuve non disponible » et confidence low. rationale indique le fait décisif (18 mots maximum) ; si note maximale et confidence vaut high, rationale peut être vide.',
     'COMMENTAIRE : annotationSuggestion est une remarque utile sur la copie (12 mots maximum) ; vide si note maximale et confidence vaut high. Ne répète pas evidence.',
     'INCERTITUDE : confidence (low, medium, high) mesure la fiabilité de l’interprétation, pas la note. N’assimile jamais une transcription illisible à une erreur scientifique. questionForTeacher : vide sauf si une ambiguïté concrète change la note ; précise les interprétations.',
