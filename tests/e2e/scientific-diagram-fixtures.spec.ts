@@ -413,7 +413,7 @@ test(scenario.model + ' compares Think OFF/ON on E with runtime Ollama capabilit
   const results = fixtures.getByRole('region', { name: 'Résultats des schémas scientifiques' });
   await expect(results.locator('tbody tr')).toHaveCount(2, { timeout: 30_000 });
   expect(requests).toHaveLength(2);
-  expect(requests.map((req) => [req.think, req.numPredict])).toEqual([[false, 3072], [scenario.wire, 4096]]);
+  expect(requests.map((req) => [req.think, req.numPredict])).toEqual([[false, 5120], [scenario.wire, 6144]]);
   expect(requests.every((req) => req.model === scenario.model)).toBe(true);
   expect(requests[0]?.image).toMatch(/^iVBORw0KGgo/);
   expect(requests[0]?.image).toBe(requests[1]?.image);
