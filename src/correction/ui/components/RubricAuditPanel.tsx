@@ -49,9 +49,22 @@ function displayTitle(issue: RubricAuditIssue, rubric: Rubric): string {
 
 function RubricChanges({ version }: { version: ClarifiedRubricVersion }) {
   const changes = getRubricClarificationChanges(version);
+  const teacherText = (id: string) => {
+    for (const criterion of version.original.criteria) {
+      if (id === criterion.id + '/scientific') return criterion.description;
+      for (const sub of getRubricSubcriteria(criterion)) {
+        if (id === criterion.id + '/' + sub.id + '/scientific') return sub.description;
+      }
+    }
+    return '';
+  };
   return <ol className="rubric-audit-change-list">
     {changes.map((change) => <li key={change.id}>
       <strong>{change.label}</strong>
+      {change.kind === 'scientific' && <div className="rubric-audit-teacher-source">
+        <span>Texte original du professeur · conservé</span>
+        <p>{teacherText(change.id) || 'Aucune description initiale.'}</p>
+      </div>}
       <div className="rubric-audit-change-comparison">
         <div><span>{change.kind === 'scientific' ? 'Références scientifiques avant' : 'Avant · texte du barème'}</span><p>{change.before || 'Aucune précision renseignée.'}</p></div>
         <div className="rubric-audit-change-added">
