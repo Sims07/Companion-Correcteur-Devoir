@@ -437,8 +437,8 @@ test(scenario.model + ' compares Think OFF/ON on E with runtime Ollama capabilit
     item.method, item.thinkingRequested, item.thinkingObserved, item.thinkingSetting,
     item.diagnostics.generationBudgetTokens, item.diagnostics.generatedTokens,
   ])).toEqual([
-    ['direct-image-generative', false, false, false, 3072, 200],
-    ['direct-image-generative-thinking', true, true, scenario.wire, 4096, 850],
+    ['direct-image-generative', false, false, false, 5120, 200],
+    ['direct-image-generative-thinking', true, true, scenario.wire, 6144, 850],
   ]);
   expect(JSON.stringify(report)).not.toMatch(/PRIVATE_REASONING_NOT_EXPORTED|iVBORw0KGgo|api\/chat|127\.0\.0\.1/);
 });
