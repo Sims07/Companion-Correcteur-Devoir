@@ -12,10 +12,12 @@ interface Props {
   visionModel: string;
   method: CorrectionMethod;
   apiCompatible: boolean;
+  analysisThinking: boolean;
   disabled?: boolean;
   onGenerativeModel: (value: string) => void;
   onDecisionModel: (value: string) => void;
   onMethod: (value: CorrectionMethod) => void;
+  onAnalysisThinking: (enabled: boolean) => void;
 }
 
 /** The same vocabulary and model selection in teacher settings and the evaluator. */
@@ -55,6 +57,22 @@ export function AiModelRoleFields(props: Props) {
         <label className="analysis-thinking-option" htmlFor={`${prefix}-direct-decision`}><input id={`${prefix}-direct-decision`} type="checkbox" checked={method === 'visual-decision'} disabled={disabled} onChange={event => props.onMethod(event.target.checked ? 'visual-decision' : 'decision')} /><span><strong>Envoyer directement les images au décisionnel</strong><small>Sans transcription, avec un modèle compatible : Clef/Clef-Flash ou D1/D3 expérimentaux. TEV1 utilise le texte.</small></span></label>
         {method === 'visual-decision' && !isVisualDecisionModel(decisionModel) && <StatusNotice tone="warning">Ce modèle n’est pas reconnu comme compatible avec les images System One. Utilisez un modèle compatible ou désactivez cette option pour utiliser la transcription.</StatusNotice>}
       </details>}
+    </div>
+    <div className="evaluation-config-field">
+      <label className="analysis-thinking-option" htmlFor={`${prefix}-analysis-thinking`}>
+        <input id={`${prefix}-analysis-thinking`} type="checkbox" checked={props.analysisThinking}
+          disabled={disabled || apiCompatible} onChange={(event) => props.onAnalysisThinking(event.target.checked)} />
+        <span><strong>Activer Thinking (raisonnement)</strong>
+          <small>Pour les analyses génératives avec Ollama compatible. Peut améliorer le raisonnement, mais allonger les corrections et consommer davantage de tokens. N'affecte pas la lecture Vision ni la décision System One.</small>
+        </span>
+      </label>
+      <p className="hint" id={`${prefix}-analysis-thinking-status`} role="status">
+        {apiCompatible
+          ? 'Thinking Ollama indisponible avec une API compatible OpenAI. Votre préférence est conservée pour Ollama.'
+          : props.analysisThinking
+            ? 'Thinking activé pour les prochaines analyses génératives.'
+            : 'Thinking désactivé pour les prochaines analyses génératives.'}
+      </p>
     </div>
   </>;
 }
