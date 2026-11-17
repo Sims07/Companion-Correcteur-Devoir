@@ -64,6 +64,19 @@ describe('enrichissement scientifique validé par le professeur', () => {
     expect(version.clarified.criteria[0].subcriteria).toHaveLength(1);
   });
 
+
+  it('transforme un accord rapide en référence complète, jamais en simple Oui', () => {
+    const report = parseRubricAudit(JSON.stringify({ issues: [scientific] }), source, 'local');
+    const version = createClarifiedRubricVersion(source, report, [{
+      issueId: report.issues[0].id, decision: 'accepted', choice: 'Oui',
+    }], '2026-11-17T16:00:00Z');
+    expect(version.clarified.criteria[0].subcriteria?.[0].scientificExpectations)
+      .toEqual([scientific.suggestion]);
+    expect(() => createClarifiedRubricVersion(source, report, [{
+      issueId: report.issues[0].id, decision: 'accepted', choice: 'Non',
+    }], 'date')).toThrow(/Refusez/);
+  });
+
   it('ne valide aucune proposition automatiquement et refuse les références incohérentes', () => {
     const report = parseRubricAudit(JSON.stringify({ issues: [scientific] }), source, 'local');
     expect(() => createClarifiedRubricVersion(source, report, [], 'date')).toThrow(/Aucune précision/);
