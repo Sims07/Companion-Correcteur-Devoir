@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { getRubricSubcriteria, rubricEvaluationSignature, type Rubric } from '../../domain/rubric.ts';
 import {
-  matchesRubricAudit, validRubricAuditSession,
+  matchesRubricAudit, parseRubricAudit, validRubricAuditSession,
   type RubricAuditDecision, type RubricAuditIssue, type RubricAuditSession,
 } from '../../domain/rubricAudit.ts';
 import { cancelRubricAuditTask, getRubricAuditTask, launchRubricAuditTask, rubricAuditStorageKey, subscribeRubricAuditTask } from '../../application/rubricAuditTask.ts';
@@ -55,6 +55,7 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, onAppl
   const taskIsCurrent = task.signature === signature;
   const [now, setNow] = useState(() => Date.now());
   const [message, setMessage] = useState('');
+  const [recoveryText, setRecoveryText] = useState('');
   const [activeIssueIndex, setActiveIssueIndex] = useState(0);
   const resultRef = useRef<HTMLDivElement | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -123,6 +124,35 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, onAppl
     void launchRubricAuditTask({ assignmentId, rubric, endpoint, model });
   }
 
+  function recoverAudit() {
+    if (busy || !recoveryText.trim()) return;
+    try {
+      const source = recoveryText.trim();
+      let content = source;
+      let sourceModel = model || 'modèle Ollama local';
+      try {
+        const envelope = JSON.parse(source) as unknown;
+        if (envelope && typeof envelope === 'object' && !Array.isArray(envelope)) {
+          const wrapped = envelope as Record<string, unknown>;
+          const message = wrapped.message && typeof wrapped.message === 'object'
+            ? wrapped.message as Record<string, unknown> : null;
+          if (typeof message?.content === 'string') content = message.content;
+          else if (typeof wrapped.response === 'string') content = wrapped.response;
+          if (typeof wrapped.model === 'string' && wrapped.model.trim()) sourceModel = wrapped.model;
+        }
+      } catch { /* A raw model JSON object is also accepted. */ }
+      const report = parseRubricAudit(content, rubric, sourceModel);
+      persist({ report, decisions: [] });
+      setActiveIssueIndex(0);
+      setRecoveryText('');
+      setMessage('Résultat récupéré : les questions de l’IA sont disponibles ci-dessous.');
+      window.requestAnimationFrame(() => resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    } catch (cause) {
+      setMessage('Impossible de récupérer cette réponse : ' +
+        (cause instanceof Error ? cause.message : 'format non reconnu.'));
+    }
+  }
+
   function record(issue: RubricAuditIssue, decision: 'accepted' | 'kept') {
     if (!current || busy) return;
     const choice = decision === 'kept' ? '' : (custom[issue.id]?.trim() || answers[issue.id] || '');
@@ -166,6 +196,15 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, onAppl
       {busy && <button type="button" className="secondary-button rubric-audit-stop" onClick={() => cancelRubricAuditTask(assignmentId)}>Arrêter la vérification</button>}
     </div>
     <p className="hint rubric-audit-privacy">Seul le barème est transmis au modèle Ollama local « {model || 'non configuré'} » ; aucune copie d'étudiant n'est envoyée. Cette vérification est facultative.</p>
+    {!busy && <details className="rubric-audit-recover">
+      <summary>Récupérer une analyse déjà terminée dans le diagnostic</summary>
+      <p>Si Ollama a répondu mais que les questions n’ont pas été affichées, copiez la réponse JSON depuis « Suivi & diagnostic » puis collez-la ici. Aucune nouvelle requête Ollama n’est envoyée.</p>
+      <label className="field-label">Réponse du modèle (JSON brut ou réponse complète Ollama)
+        <textarea rows={5} value={recoveryText} onChange={(event) => setRecoveryText(event.target.value)}
+          placeholder='{"message":{"content":"{\\\"issues\\\":[...]}"}}' />
+      </label>
+      <button type="button" className="secondary-button" disabled={!recoveryText.trim()} onClick={recoverAudit}>Charger les questions déjà générées</button>
+    </details>
     {busy && <div className="rubric-audit-live" role="status" aria-live="polite">
       <div className="rubric-audit-live-heading">
         <span className="rubric-audit-spinner" aria-hidden="true" />
