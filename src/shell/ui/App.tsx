@@ -3756,10 +3756,12 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
       // Reuse a pending attempt instead of generating duplicates on repeated clicks.
       const jobs = await backgroundService.listJobSummaries(profile.id);
       const existing = jobs.find((job) => job.regradeOfCorrectionId === correction.id && job.status !== 'completed');
-      if (existing) {
+      if (existing && existing.status !== 'failed') {
         restoreCurrentAssignmentSettings();
         await loadNextQueuedCopy(existing.id);
-        setReviewMessage('Cette recorrrection est déjà en cours. La correction précédente reste enregistrée.');
+        setReviewMessage(existing.status === 'ready'
+          ? 'Une nouvelle correction est déjà prête à vérifier. La version précédente reste enregistrée.'
+          : 'Une recorrrection existe déjà. La correction précédente reste enregistrée.');
         return;
       }
       const archived = correction.imagesDeferred
@@ -3777,7 +3779,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
         correctionMode: profile.correctionMode,
         isScientificDiagram: scientific,
       }, {
-        id: `queued-copy-${crypto.randomUUID()}`,
+        id: existing?.id ?? `queued-copy-${crypto.randomUUID()}`,
         now, visionModel, analysisModel, thinking: analysisThinking, correctionMethod,
       });
       const settings = {
