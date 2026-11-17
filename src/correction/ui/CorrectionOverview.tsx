@@ -31,6 +31,8 @@ type Props = {
   onRemoveJob: (jobId: string) => void;
   notice: string;
   onOpenCorrection: (correction: LocalCorrection) => void;
+  onRegradeCorrection: (correction: LocalCorrection) => void;
+  regradingCorrectionId?: string | null;
   onOpenCurrentCopy: () => void;
   onReviewNextCopy: () => void;
 };
@@ -92,7 +94,7 @@ function jobMessage(job: BackgroundJobSummary, status: CopyOverviewStatus): stri
   return 'Proposition prête à vérifier';
 }
 
-export function CorrectionOverview({ children, jobs, corrections, currentCopy, filter, onFilterChange, onAddCopy, addCopyExpanded, pendingCount, isStartingCorrections, isStoppingCorrections, onStopCorrections, onStartCorrections, onOpenJob, onRetryJob, onRemoveJob, notice, onOpenCorrection, onOpenCurrentCopy, onReviewNextCopy }: Props) {
+export function CorrectionOverview({ children, jobs, corrections, currentCopy, filter, onFilterChange, onAddCopy, addCopyExpanded, pendingCount, isStartingCorrections, isStoppingCorrections, onStopCorrections, onStartCorrections, onOpenJob, onRetryJob, onRemoveJob, notice, onOpenCorrection, onRegradeCorrection, regradingCorrectionId, onOpenCurrentCopy, onReviewNextCopy }: Props) {
   const [query, setQuery] = useState('');
   const items = useMemo(() => {
     const jobItems: OverviewItem[] = jobs
@@ -229,17 +231,22 @@ export function CorrectionOverview({ children, jobs, corrections, currentCopy, f
               <div className="correction-series-card-meta">
                 <span className={`correction-series-card-status is-${item.status}`}>{preparingJob?.id === item.id ? 'Préparation en cours' : item.status === 'to-do' && item.job?.error?.startsWith('Correction interrompue par l’enseignant') ? 'En attente · interrompue' : statusLabels[item.status]}</span>
                 {item.kind === 'correction' && <time className="correction-series-card-date" dateTime={item.updatedAt}>Enregistrée le {new Date(item.updatedAt).toLocaleDateString('fr-FR')}</time>}
+                {item.correction?.previousCorrectionId && <small>Nouvelle version de correction · historique conservé</small>}
               </div>
               {item.message && <p className={item.status === 'to-retry' ? 'copy-overview-error' : 'copy-overview-message'}>{item.message}</p>}
             </div>
             <div className="correction-series-actions">
               {item.kind === 'job' && item.job && <>
-                {item.status === 'to-retry' && <button type="button" className="primary-button" onClick={() => onRetryJob(item.job!.id)}>Relancer</button>}{item.status === 'to-do' && item.job.error?.startsWith('Correction interrompue par l’enseignant') && <button type="button" className="primary-button" onClick={onStartCorrections}>Reprendre les corrections</button>}
+                {item.status === 'to-retry' && <button type="button" className="primary-button" onClick={() => onRetryJob(item.job!.id)}>Relancer</button>}
+                {item.status === 'to-review' && <button type="button" className="primary-button" onClick={() => onRetryJob(item.job!.id)}>Recorriger</button>}{item.status === 'to-do' && item.job.error?.startsWith('Correction interrompue par l’enseignant') && <button type="button" className="primary-button" onClick={onStartCorrections}>Reprendre les corrections</button>}
                 <button type="button" className="secondary-button correction-series-view" onClick={() => onOpenJob(item.job!.id)}>Ouvrir</button>
                 {item.status !== 'processing' && <button type="button" className="text-button correction-series-remove" aria-label={`Retirer la copie « ${item.label} »`} onClick={() => onRemoveJob(item.id)}>Retirer</button>}
               </>}
               {item.kind === 'current' && <button type="button" className="secondary-button correction-series-view" onClick={onOpenCurrentCopy}>Reprendre la copie</button>}
-              {item.kind === 'correction' && item.correction && <button type="button" className="secondary-button correction-series-view" onClick={() => onOpenCorrection(item.correction!)}>Consulter la correction <span aria-hidden="true">→</span></button>}
+              {item.kind === 'correction' && item.correction && <>
+                <button type="button" className="secondary-button correction-series-view" onClick={() => onOpenCorrection(item.correction!)}>Consulter la correction <span aria-hidden="true">→</span></button>
+                <button type="button" className="primary-button" disabled={Boolean(regradingCorrectionId)} onClick={() => onRegradeCorrection(item.correction!)}>{regradingCorrectionId === item.id ? 'Préparation…' : 'Recorriger'}</button>
+              </>}
             </div>
           </div>
         </li>

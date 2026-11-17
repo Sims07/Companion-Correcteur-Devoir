@@ -30,7 +30,7 @@ const display = (current: BackgroundCorrectionJob, isStartingCorrections = false
     filter="all" onFilterChange={vi.fn()} onAddCopy={vi.fn()} addCopyExpanded={false} pendingCount={1}
     isStartingCorrections={isStartingCorrections} isStoppingCorrections={false} onStopCorrections={vi.fn()} onStartCorrections={vi.fn()}
     onOpenJob={vi.fn()} onRetryJob={vi.fn()} onRemoveJob={vi.fn()} notice=""
-    onOpenCorrection={vi.fn()} onOpenCurrentCopy={vi.fn()} onReviewNextCopy={vi.fn()}
+    onOpenCorrection={vi.fn()} onRegradeCorrection={vi.fn()} onOpenCurrentCopy={vi.fn()} onReviewNextCopy={vi.fn()}
   />,
 );
 
@@ -72,7 +72,7 @@ const displayArchived = () => renderToStaticMarkup(
     filter="completed" onFilterChange={vi.fn()} onAddCopy={vi.fn()} addCopyExpanded={false} pendingCount={0}
     isStartingCorrections={false} isStoppingCorrections={false} onStopCorrections={vi.fn()} onStartCorrections={vi.fn()}
     onOpenJob={vi.fn()} onRetryJob={vi.fn()} onRemoveJob={vi.fn()} notice=""
-    onOpenCorrection={vi.fn()} onOpenCurrentCopy={vi.fn()} onReviewNextCopy={vi.fn()}
+    onOpenCorrection={vi.fn()} onRegradeCorrection={vi.fn()} onOpenCurrentCopy={vi.fn()} onReviewNextCopy={vi.fn()}
   />,
 );
 
@@ -88,6 +88,7 @@ describe('teacher correction overview and partial grade safety', () => {
     expect(html).toContain('class="correction-series-card-date"');
     expect(html).toContain('Enregistrée le 05/11/2026');
     expect(html).toContain('Consulter la correction <span aria-hidden="true">→</span>');
+    expect(html).toContain('>Recorriger</button>');
     expect(html).not.toContain('CorrigéeEnregistrée');
   });
 
@@ -104,12 +105,13 @@ describe('teacher correction overview and partial grade safety', () => {
         filter="completed" onFilterChange={vi.fn()} onAddCopy={vi.fn()} addCopyExpanded={false} pendingCount={0}
         isStartingCorrections={false} isStoppingCorrections={false} onStopCorrections={vi.fn()} onStartCorrections={vi.fn()}
         onOpenJob={vi.fn()} onRetryJob={vi.fn()} onRemoveJob={vi.fn()} notice=""
-        onOpenCorrection={vi.fn()} onOpenCurrentCopy={vi.fn()} onReviewNextCopy={vi.fn()}
+        onOpenCorrection={vi.fn()} onRegradeCorrection={vi.fn()} onOpenCurrentCopy={vi.fn()} onReviewNextCopy={vi.fn()}
       />,
     );
     expect(html).toContain('1 page</small>');
     expect(html).toContain('3,5');
     expect(html).toContain('Consulter la correction');
+    expect(html).toContain('>Recorriger</button>');
   });
 
   it('names the first queued copy while the model is starting and exposes its preview', () => {
@@ -196,6 +198,7 @@ describe('teacher correction overview and partial grade safety', () => {
       },
     });
     expect(html).toContain('Note proposée');
+    expect(html).toContain('>Recorriger</button>');
     expect(html).toContain('3,5');
     expect(html).toContain('4');
   });

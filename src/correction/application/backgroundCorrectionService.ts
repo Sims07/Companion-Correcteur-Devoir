@@ -68,7 +68,7 @@ export interface BackgroundCorrectionService {
   saveReviewDraft(jobId: string, reviewDraft: BackgroundCorrectionJob['reviewDraft'], teacherQuestionsDraft: string): Promise<void>;
   markCompleted(jobId: string): Promise<void>;
   remove(jobId: string): Promise<void>;
-  retry(jobId: string, settings: OllamaSettings, gradingFlow?: BackgroundCorrectionJob['gradingFlow']): Promise<void>;
+  retry(jobId: string, settings: OllamaSettings, gradingFlow?: BackgroundCorrectionJob['gradingFlow'], overrides?: { rubric: Rubric; question: string }): Promise<void>;
   setAutomatic(enabled: boolean, settings: OllamaSettings, assignmentId: string): Promise<void>;
 }
 
@@ -755,11 +755,11 @@ export function createBackgroundCorrectionService(
       const job = await readStoredJob(jobId);
       if (job) await persist({ ...job, status: 'completed', updatedAt: new Date().toISOString() });
     },
-    async retry(jobId, settings, gradingFlow) {
+    async retry(jobId, settings, gradingFlow, overrides) {
       const job = await readStoredJob(jobId);
-      if (!job || !['failed', 'needs-review', 'reviewing'].includes(job.status)) return;
+      if (!job || !['failed', 'needs-review', 'reviewing', 'ready'].includes(job.status)) return;
       if ((gradingFlow ?? job.gradingFlow) === 'scientific-diagram-direct') {
-        const issue = directDiagramAssignmentIssue(job.rubric, {
+        const issue = directDiagramAssignmentIssue(overrides?.rubric ?? job.rubric, {
           endpoint: settings.endpoint, analysisModel: settings.analysisModel ?? job.analysisModel,
           correctionMethod: settings.correctionMethod ?? job.correctionMethod ?? 'generative',
         });
@@ -770,6 +770,7 @@ export function createBackgroundCorrectionService(
         // Migrate previously queued copies when their assignment now uses direct image grading.
         // Never infer this from scientific rubric items: ordinary assignments can mix text and diagrams.
         ...(gradingFlow ? { gradingFlow } : {}),
+        ...(overrides ? { rubric: structuredClone(overrides.rubric), question: overrides.question, totalCriteria: overrides.rubric.criteria.length } : {}),
         transcription: null,
         transcriptionPageNumbers: undefined,
         subjectTranscription: undefined,

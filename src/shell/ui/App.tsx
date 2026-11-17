@@ -55,6 +55,7 @@ import { getReviewAlertReasons, getReviewFocus, hasUnreadableCopySignal } from '
 import { sumGradeScores } from '../../shared/domain/scorePrecision.ts';
 import { transcribeSubjectReference } from '../../correction/application/transcribeSubjectReference.ts';
 import { createBackgroundCorrection, backgroundCorrectionStatusLabel, type BackgroundCorrectionJob, type BackgroundJobSummary } from '../../correction/domain/backgroundCorrection.ts';
+import { createRegradingJob } from '../../correction/application/regradingJob.ts';
 import { getBackgroundCorrectionResult } from '../../correction/domain/backgroundCorrectionResult.ts';
 import { getCopyNavigation, getNewlyAvailableReviewJob } from '../../correction/domain/backgroundCorrectionReviewNavigation.ts';
 import { prepareBatchCopies } from '../../correction/application/prepareBatchCopies.ts';
@@ -913,6 +914,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
   const [currentCorrectionId, setCurrentCorrectionId] = useState<string | null>(null);
   const finalizeReviewAction = useRef(createAsyncActionGuard());
   const [archivedCorrections, setArchivedCorrections] = useState<LocalCorrection[]>([]);
+  const [regradingCorrectionId, setRegradingCorrectionId] = useState<string | null>(null);
   const archivedCorrectionsForActiveAssignment = useMemo(
     () => getArchivedCorrectionsForAssignment(assignmentProfiles, archivedCorrections, activeAssignmentId),
     [assignmentProfiles, archivedCorrections, activeAssignmentId],
@@ -1189,6 +1191,9 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
   }
 
   useEffect(() => {
+    // An archived correction displays its historical rubric for review. Never
+    // overwrite the assignment's current rubric with that old snapshot.
+    if (isFinalized && currentCorrectionId) return;
     const current: AssignmentProfile = { id: activeAssignmentId, title: assignmentTitle, description: assignmentDescription, educationLevel, rubric, question, correctionMode, hasScientificDiagrams, kind: assignmentKind };
     setAssignmentProfiles((profiles) => {
       const next = profiles.some((profile) => profile.id === activeAssignmentId)
@@ -1203,7 +1208,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
       } catch { /* Keep the current assignment usable when browser storage is unavailable. */ }
       return next;
     });
-  }, [activeAssignmentId, assignmentTitle, assignmentDescription, educationLevel, rubric, question, correctionMode, hasScientificDiagrams, assignmentKind]);
+  }, [activeAssignmentId, assignmentTitle, assignmentDescription, educationLevel, rubric, question, correctionMode, hasScientificDiagrams, assignmentKind, isFinalized, currentCorrectionId]);
 
   useEffect(() => {
     let active = true;
@@ -3248,6 +3253,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
       createdAt: previous?.createdAt ?? now,
       updatedAt: now,
       assignmentId: activeAssignmentId,
+      ...(activeBackgroundJob?.regradeOfCorrectionId ? { previousCorrectionId: activeBackgroundJob.regradeOfCorrectionId } : {}),
       assignmentTitle: snapshot.assignmentTitle,
       snapshot,
     };
@@ -3715,15 +3721,133 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     }
   }
 
+  /** Return from historical review to the actual, editable assignment settings. */
+  function restoreCurrentAssignmentSettings() {
+    if (!isFinalized || !currentCorrectionId) return;
+    const profile = assignmentProfiles.find((item) => item.id === activeAssignmentId);
+    if (!profile) return;
+    setRubric(profile.rubric);
+    setQuestion(profile.question);
+    setCorrectionMode(profile.correctionMode);
+    setAssignmentKind(profile.kind ?? 'standard');
+    setHasScientificDiagrams(profile.hasScientificDiagrams ?? false);
+    setAssignmentTitle(profile.title);
+    setAssignmentDescription(profile.description ?? '');
+    setEducationLevel(profile.educationLevel ?? '');
+    // Exit the archived editor. Otherwise later edits to the restored rubric
+    // would be ignored by the assignment persistence guard, or archived pages
+    // could be mistaken for an unvalidated foreground draft.
+    setCurrentCorrectionId(null);
+    setIsFinalized(false);
+    setStudentLabel('');
+    setStudentIdentity(null);
+    setImages([]);
+    setOriginalImages([]);
+    setProposal(null);
+    setReview([]);
+    setTeacherQuestions('');
+    setTranscription(null);
+    setSubjectImages([]);
+    setSubjectTranscription(null);
+    setScientificDiagramAnalysis(null);
+    setPageClassifications(null);
+    setTeacherAnnotations('');
+    setCurrentTimingRecordId(null);
+  }
+
+  async function regradeArchivedCorrection(correction: LocalCorrection) {
+    if (regradingCorrectionId) return;
+    setRegradingCorrectionId(correction.id);
+    setError('');
+    setCopyOverviewNotice('');
+    try {
+      const profile = assignmentProfiles.find((item) => item.id === activeAssignmentId);
+      if (!profile || (correction.assignmentId && correction.assignmentId !== profile.id)) {
+        throw new Error('Cette correction ne correspond pas au devoir actuellement sélectionné.');
+      }
+      const currentValidation = validateRubric(profile.rubric);
+      if (!currentValidation.valid) throw new Error(currentValidation.errors.join(' '));
+      const scientific = (profile.kind ?? 'standard') === 'scientific-diagram';
+      if (scientific) {
+        const issue = directDiagramAssignmentIssue(profile.rubric, { endpoint, analysisModel, correctionMethod });
+        if (issue) throw new Error(issue);
+      }
+      // Reuse a pending attempt instead of generating duplicates on repeated clicks.
+      const jobs = await backgroundService.listJobSummaries(profile.id);
+      const existing = jobs.find((job) => job.regradeOfCorrectionId === correction.id && job.status !== 'completed');
+      if (existing && existing.status !== 'failed') {
+        restoreCurrentAssignmentSettings();
+        await loadNextQueuedCopy(existing.id);
+        setReviewMessage(existing.status === 'ready'
+          ? 'Une nouvelle correction est déjà prête à vérifier. La version précédente reste enregistrée.'
+          : 'Une recorrrection existe déjà. La correction précédente reste enregistrée.');
+        return;
+      }
+      const archived = correction.imagesDeferred
+        ? await archiveService.getCorrection?.(correction.id)
+        : correction;
+      if (!archived?.snapshot) throw new Error('Impossible de retrouver la copie enregistrée sur cet appareil.');
+      const now = new Date().toISOString();
+      const job = createRegradingJob(archived, {
+        id: profile.id,
+        question: buildAssignmentContext({
+          title: profile.title, description: profile.description ?? '',
+          educationLevel: profile.educationLevel ?? '', question: profile.question,
+        }),
+        rubric: profile.rubric,
+        correctionMode: profile.correctionMode,
+        isScientificDiagram: scientific,
+      }, {
+        id: existing?.id ?? `queued-copy-${crypto.randomUUID()}`,
+        now, visionModel, analysisModel, thinking: analysisThinking, correctionMethod,
+      });
+      const settings = {
+        endpoint, apiCompatible, apiKey, visionModel, analysisModel,
+        thinking: analysisThinking, criterionByCriterion: true, correctionMethod,
+        autoBackgroundCorrection, transcriptionTokenLimit, transcriptionPromptMode,
+        transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty,
+      };
+      // The new attempt is persisted before processing; failure leaves the old
+      // validated correction untouched and allows recovery after refresh.
+      await backgroundService.enqueue(job, settings);
+      restoreCurrentAssignmentSettings();
+      setRubric(profile.rubric);
+      setQuestion(profile.question);
+      setCorrectionMode(profile.correctionMode);
+      setAssignmentKind(profile.kind ?? 'standard');
+      setHasScientificDiagrams(profile.hasScientificDiagrams ?? false);
+      await loadNextQueuedCopy(job.id);
+      setCopyOverviewNotice('Nouvelle correction créée avec le barème actuel. La correction précédente est conservée.');
+      setReviewMessage('Nouvelle correction lancée avec le barème actuel. La note précédente reste enregistrée jusqu’à votre validation.');
+      if (!autoBackgroundCorrection) {
+        // Clicking "Recorriger" is an explicit launch even in manual batch mode.
+        void backgroundService.processPending({ ...settings, autoBackgroundCorrection: false }, profile.id)
+          .catch((cause) => setError(cause instanceof Error ? cause.message : 'La recorrrection a échoué.'));
+      }
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Impossible de relancer cette correction enregistrée.');
+    } finally {
+      setRegradingCorrectionId(null);
+    }
+  }
+
   async function retryQueuedCorrection(jobId: string) {
     setError('');
     try {
+      const currentAssignment = assignmentProfiles.find((profile) => profile.id === activeAssignmentId);
       await backgroundService.retry(jobId, {
         endpoint, apiCompatible, apiKey, visionModel, analysisModel,
         thinking: analysisThinking, criterionByCriterion: true, correctionMethod, autoBackgroundCorrection,
         transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty,
         transcriptionPenaltyParameter, transcriptionFrequencyPenalty,
-      }, isScientificDiagramAssignment ? 'scientific-diagram-direct' : undefined);
+      }, isScientificDiagramAssignment ? 'scientific-diagram-direct' : undefined,
+      currentAssignment ? {
+        rubric: currentAssignment.rubric,
+        question: buildAssignmentContext({
+          title: currentAssignment.title, description: currentAssignment.description ?? '',
+          educationLevel: currentAssignment.educationLevel ?? '', question: currentAssignment.question,
+        }),
+      } : undefined);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Impossible de relancer la correction.');
     }
@@ -3821,6 +3945,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
 
   async function startNextCopy(options: { forceNew?: boolean; stayInOverview?: boolean } = {}) {
     if (isAnalyzing) return false;
+    restoreCurrentAssignmentSettings();
     const forceNew = options.forceNew ?? false;
     const readyExists = !forceNew && backgroundJobs.some((job) => job.assignmentId === activeAssignmentId && (job.status === 'ready' || (job.status === 'reviewing' && Boolean(job.proposal))) && job.id !== currentBackgroundJobId);
     if (readyExists) { await loadNextQueuedCopy(); return true; }
@@ -4142,8 +4267,8 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
         processingStatus={isAnalyzing ? analysisStage === 'checking' ? 'Préparation de la correction' : analysisStage === 'reading' ? 'Lecture de la copie' : 'Correction des réponses' : 'Aucune correction en cours'}
         processingDetail={isAnalyzing ? formatElapsed(elapsedSeconds) + ' écoulées' : 'Sélectionnez une copie à corriger'}
         onBackToAssignments={() => { setShowAiSettings(false); setShowAssignmentsHome(true); }}
-        onSelectCopies={() => { setShowAiSettings(false); setCopyOverviewFilterTouched(false); setTeacherStep('overview'); }}
-        onSelectRubric={() => { setShowAiSettings(false); setTeacherStep('rubric'); }}
+        onSelectCopies={() => { restoreCurrentAssignmentSettings(); setShowAiSettings(false); setCopyOverviewFilterTouched(false); setTeacherStep('overview'); }}
+        onSelectRubric={() => { restoreCurrentAssignmentSettings(); setShowAiSettings(false); setTeacherStep('rubric'); }}
         onOpenSettings={() => setShowAiSettings(true)}
         canOpenNextReviewCopy={Boolean(copyNavigation.nextCopyToReview)}
         nextReviewCopyLabel={copyNavigation.nextCopyToReview?.label ?? null}
@@ -4805,6 +4930,8 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
           else if (images.length > 0 && !currentBackgroundJobId) setTeacherStep(proposal ? 'review' : 'copy');
         }}
         onOpenCorrection={(correction) => { openArchivedCorrection(correction); }}
+        onRegradeCorrection={(correction) => { void regradeArchivedCorrection(correction); }}
+        regradingCorrectionId={regradingCorrectionId}
         onOpenCurrentCopy={() => { setShowAiSettings(false); setTeacherStep(proposal ? 'review' : 'copy'); }}
       >
         {showCopyIntake && <TeacherCopyIntake
@@ -5556,7 +5683,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
             </details>
           </article>;
         })}
-        {isFinalized && <div className="panel finalized-next-actions"><div><span className="eyebrow">COPIE ARCHIVÉE</span><h3>Correction enregistrée</h3><p>Vous pouvez la consulter plus tard ou passer à la copie d’un autre étudiant sans perdre ce résultat.</p></div><div><button type="button" className="primary-button" onClick={() => startNextCopy()}>Corriger une autre copie</button><button type="button" className="secondary-button" onClick={() => { setCopyOverviewFilter('completed'); setCopyOverviewFilterTouched(true); setTeacherStep('overview'); setShowAiSettings(false); }}>Voir les copies corrigées</button></div></div>}
+        {isFinalized && <div className="panel finalized-next-actions"><div><span className="eyebrow">COPIE ARCHIVÉE</span><h3>Correction enregistrée</h3><p>Vous pouvez la consulter plus tard ou passer à la copie d’un autre étudiant sans perdre ce résultat.</p></div><div><button type="button" className="primary-button" disabled={Boolean(regradingCorrectionId)} onClick={() => { const correction = archivedCorrections.find((item) => item.id === currentCorrectionId); if (correction) void regradeArchivedCorrection(correction); }}>Recorriger la copie</button><button type="button" className="secondary-button" onClick={() => startNextCopy()}>Corriger une autre copie</button><button type="button" className="secondary-button" onClick={() => { setCopyOverviewFilter('completed'); setCopyOverviewFilterTouched(true); setTeacherStep('overview'); setShowAiSettings(false); }}>Voir les copies corrigées</button></div></div>}
          <details className="review-extra-tools"><summary>Questions générales et export de la correction</summary>
            <div className="questions-field"><span className="field-label">Points à vérifier avant de communiquer la note</span>{teacherQuestions.trim() ? <ul className="teacher-questions-list">{teacherQuestions.split('\n').map((line) => line.trim()).filter(Boolean).map((line, index) => <li key={index}>{line}</li>)}</ul> : <p className="no-teacher-questions">Aucune question générale. Les questions liées à un critère restent affichées sur celui-ci.</p>}</div>
            <details className="review-export"><summary>Exporter le récapitulatif (JSON)</summary><p>Conservez ou réutilisez les résultats de cette correction au format JSON.</p><button type="button" className="secondary-button" onClick={() => { const payload = { rubric, question, summary: proposal?.summary ?? '', criteria: review, questionsForTeacher: teacherQuestions.split('\n').map((line) => line.trim()).filter(Boolean), total: reviewedTotal, exportedAt: new Date().toISOString() }; const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })); const link = document.createElement('a'); link.href = url; link.download = 'proposition-correction.json'; link.click(); URL.revokeObjectURL(url); setReviewMessage('Récapitulatif JSON exporté.'); }}>{isFinalized ? 'Télécharger la correction enregistrée' : 'Télécharger le récapitulatif provisoire'}</button></details>

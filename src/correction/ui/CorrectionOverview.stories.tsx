@@ -65,6 +65,7 @@ function SuiviFictif({ mode }: { mode: Mode }) {
       onRemoveJob={(id) => signal('retrait de ' + id)}
       notice={message}
       onOpenCorrection={() => signal('ouverture de l’archive')}
+      onRegradeCorrection={() => signal('nouvelle correction de l’archive')}
       onOpenCurrentCopy={() => signal('ouverture de la copie courante')}
       onReviewNextCopy={() => signal('vérification de la prochaine copie')}
     >

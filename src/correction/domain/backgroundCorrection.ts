@@ -16,6 +16,8 @@ export interface BackgroundJobSummary {
   assignmentId: string;
   label: string;
   studentIdentity?: StudentIdentity | null;
+  /** Validated correction from which this new attempt was started, if any. */
+  regradeOfCorrectionId?: string;
   status: BackgroundCorrectionStatus;
   phase: BackgroundCorrectionJob['phase'];
   progress: {
@@ -37,6 +39,8 @@ export interface BackgroundCorrectionJob {
   assignmentId: string;
   label: string;
   studentIdentity?: StudentIdentity | null;
+  /** Links this attempt to a previous validated local archive without replacing it. */
+  regradeOfCorrectionId?: string;
   question: string;
   rubric: Rubric;
   correctionMode: 'integrated' | 'separate';
@@ -103,6 +107,7 @@ export function toBackgroundJobSummary(job: BackgroundCorrectionJob): Background
     assignmentId: job.assignmentId,
     label: job.label,
     studentIdentity: job.studentIdentity ?? null,
+    regradeOfCorrectionId: job.regradeOfCorrectionId,
     status: job.status,
     phase: job.phase,
     progress: {
