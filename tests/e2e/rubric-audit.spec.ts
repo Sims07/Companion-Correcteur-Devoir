@@ -128,4 +128,18 @@ test('scientific enrichment is reviewed beside the original, previewed, applied 
   await page.getByRole('tab', { name: 'Barème' }).click();
   await expect(page.getByLabel('Version active du barème clarifié')).toContainText('En métaphase, l’enveloppe nucléaire a disparu.');
   await expect(page.getByLabel('Version active du barème clarifié')).toContainText('Références scientifiques validées');
+  await expect(page.getByText(/Bilan cumulé/)).toBeVisible();
+  const editor = page.locator('.criterion-editor').first();
+  await editor.locator('summary').click();
+  const enrichments = editor.getByLabel('Enrichissements du critère Compréhension');
+  await expect(enrichments).toContainText('En métaphase, l’enveloppe nucléaire a disparu.');
+  await expect(enrichments).toContainText('Application 1');
+  await enrichments.getByRole('button', { name: 'Retirer cet ajout' }).first().click();
+  await expect(enrichments.getByText('Retirer uniquement cet ajout pour les prochaines corrections ?')).toBeVisible();
+  await enrichments.getByRole('button', { name: 'Confirmer le retrait' }).click();
+  await expect.poll(async () => page.evaluate(() => {
+    const profiles = JSON.parse(localStorage.getItem('companion-correcteur:assignments:v1') ?? '[]');
+    return profiles[0]?.rubric?.criteria?.[0]?.subcriteria?.[0]?.scientificExpectations?.length ?? 0;
+  })).toBe(0);
+  await expect(page.getByText(/Historique des clarifications/)).toBeVisible();
 });
