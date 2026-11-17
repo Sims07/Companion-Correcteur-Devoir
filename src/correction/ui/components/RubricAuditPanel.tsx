@@ -204,7 +204,7 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, onAppl
           placeholder='{"message":{"content":"{\\\"issues\\\":[...]}"}}' />
       </label>
       <button type="button" className="secondary-button" disabled={!recoveryText.trim()} onClick={recoverAudit}>Charger les questions déjà générées</button>
-    </details>
+    </details>}
     {busy && <div className="rubric-audit-live" role="status" aria-live="polite">
       <div className="rubric-audit-live-heading">
         <span className="rubric-audit-spinner" aria-hidden="true" />
