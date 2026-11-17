@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { parseRubricAudit } from '../../../src/correction/domain/rubricAudit.ts';
-import type { Rubric } from '../../../src/correction/domain/rubric.ts';
+import { parseRubricAudit } from '../../src/correction/domain/rubricAudit.ts';
+import type { Rubric } from '../../src/correction/domain/rubric.ts';
 import {
   cancelRubricAuditTask, getRubricAuditTask, launchRubricAuditTask,
   rubricAuditStorageKey, subscribeRubricAuditTask,
-} from '../../../src/correction/application/rubricAuditTask.ts';
+} from '../../src/correction/application/rubricAuditTask.ts';
 
 const mocks = vi.hoisted(() => ({ audit: vi.fn() }));
-vi.mock('../../../src/correction/adapters/ai/rubricAuditOllama.ts', () => ({ auditRubricWithOllama: mocks.audit }));
+vi.mock('../../src/correction/adapters/ai/rubricAuditOllama.ts', () => ({ auditRubricWithOllama: mocks.audit }));
 
 const rubric: Rubric = { title: 'Mitose', criteria: [{ id: 'title', title: 'Titre principal', description: '', maxPoints: 2 }] };
 const report = parseRubricAudit('{"issues":[]}', rubric, 'qwen-local');
