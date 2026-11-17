@@ -25,6 +25,7 @@ export function createClarifiedRubricVersion(
   if (!accepted.length) throw new Error('Aucune précision validée à appliquer.');
   const issueById = new Map(audit.issues.map((issue) => [issue.id, issue]));
   const entries = new Map<string, string[]>();
+  const scientificEntries = new Map<string, string[]>();
   const seen = new Set<string>();
   for (const decision of accepted) {
     const issue = issueById.get(decision.issueId);
@@ -33,22 +34,36 @@ export function createClarifiedRubricVersion(
     }
     seen.add(decision.issueId);
     const key = issue.criterionId + '/' + (issue.subcriterionId ?? '');
-    const current = entries.get(key) ?? [];
-    current.push('Question : ' + issue.question + '\nDécision du professeur : ' + decision.choice.trim());
-    entries.set(key, current);
+    const target = issue.kind === 'scientific' ? scientificEntries : entries;
+    const current = target.get(key) ?? [];
+    // A quick « Oui » to a scientific suggestion must store the actual reference,
+    // never the button label. A free-form edit remains authoritative.
+    const scientificChoice = issue.kind === 'scientific' && issue.options.includes(decision.choice)
+      ? issue.suggestion : decision.choice.trim();
+    if (issue.kind === 'scientific' && /^(non|refuser|conserver)/i.test(decision.choice.trim())) {
+      throw new Error('Refusez une proposition scientifique avec « Conserver le barème actuel ».');
+    }
+    current.push(issue.kind === 'scientific' ? scientificChoice
+      : 'Question : ' + issue.question + '\nDécision du professeur : ' + decision.choice.trim());
+    target.set(key, current);
   }
   const rubric: Rubric = {
     ...source,
     criteria: source.criteria.map((criterion) => {
       const criterionRules = entries.get(criterion.id + '/') ?? [];
+      const criterionScience = scientificEntries.get(criterion.id + '/') ?? [];
       const children = getRubricSubcriteria(criterion);
       const next = {
         ...criterion,
         description: [criterion.description, ...criterionRules].filter(Boolean).join('\n\n'),
+        ...(criterionScience.length ? { scientificExpectations: [...new Set([...(criterion.scientificExpectations ?? []), ...criterionScience])] } : {}),
         ...(children.length ? {
           subcriteria: children.map((sub) => ({
             ...sub, description: [sub.description, ...(entries.get(criterion.id + '/' + sub.id) ?? [])]
               .filter(Boolean).join('\n\n'),
+            ...(scientificEntries.has(criterion.id + '/' + sub.id) ? { scientificExpectations: [...new Set([
+              ...(sub.scientificExpectations ?? []), ...(scientificEntries.get(criterion.id + '/' + sub.id) ?? []),
+            ])] } : {}),
           })),
           expectedElements: undefined,
         } : {}),
@@ -81,24 +96,29 @@ export interface RubricClarificationChange {
   after: string;
   /** Only the appended rule when the previous description was preserved verbatim. */
   addition: string | null;
+  kind?: 'scientific';
 }
 
 export function getRubricClarificationChanges(version: ClarifiedRubricVersion): RubricClarificationChange[] {
   const changes: RubricClarificationChange[] = [];
-  const add = (id: string, label: string, before: string, after: string) => {
+  const add = (id: string, label: string, before: string, after: string, kind?: 'scientific') => {
     if (before === after) return;
     const addition = before === '' ? after : after.startsWith(before + '\n\n')
       ? after.slice(before.length + 2) : null;
-    changes.push({ id, label, before, after, addition });
+    changes.push({ id: kind ? id + '/scientific' : id, label, before, after, addition, ...(kind ? { kind } : {}) });
   };
   for (const criterion of version.clarified.criteria) {
     const original = version.original.criteria.find((item) => item.id === criterion.id);
     if (!original) continue;
     add(criterion.id, criterion.title, original.description, criterion.description);
+    add(criterion.id, criterion.title, (original.scientificExpectations ?? []).join('\n'),
+      (criterion.scientificExpectations ?? []).join('\n'), 'scientific');
     for (const sub of getRubricSubcriteria(criterion)) {
       const oldSub = getRubricSubcriteria(original).find((item) => item.id === sub.id);
       if (!oldSub) continue;
       add(criterion.id + '/' + sub.id, criterion.title + ' / ' + sub.title, oldSub.description, sub.description);
+      add(criterion.id + '/' + sub.id, criterion.title + ' / ' + sub.title,
+        (oldSub.scientificExpectations ?? []).join('\n'), (sub.scientificExpectations ?? []).join('\n'), 'scientific');
     }
   }
   return changes;

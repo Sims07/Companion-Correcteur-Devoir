@@ -20,6 +20,25 @@ describe('audit barème local Ollama', () => {
     expect(mock).toHaveBeenCalledOnce();
   });
 
+  it('propose des références scientifiques dans le même appel local, sans changer le barème', async () => {
+    const mock = vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
+      const payload = JSON.parse(String(init?.body)) as { messages: Array<{ content: string }>; model: string };
+      expect(payload.messages[0].content).toContain('kind=scientific');
+      expect(payload.messages[0].content).toContain('En une SEULE analyse');
+      expect(payload.messages[0].content).toContain('Titre descriptif');
+      return new Response(JSON.stringify({ message: { content: JSON.stringify({ issues: [{
+        kind: 'scientific', criterionId: 'title', priority: 'high',
+        reason: 'L’attendu scientifique peut être précisé.', question: 'Faut-il préciser les structures ?',
+        options: ['Oui', 'Non'], suggestion: 'Vérifier la compatibilité de la structure et de la phase.',
+      }] }) } }), { status: 200 });
+    });
+    const unchanged = JSON.stringify(rubric);
+    const report = await auditRubricWithOllama(rubric, { endpoint: 'http://localhost:11434', model: 'qwen' }, mock as typeof fetch);
+    expect(report.issues[0].kind).toBe('scientific');
+    expect(mock).toHaveBeenCalledOnce();
+    expect(JSON.stringify(rubric)).toBe(unchanged);
+  });
+
   it('refuse les fournisseurs distants et les barèmes invalides sans contacter un modèle', async () => {
     const mock = vi.fn();
     await expect(auditRubricWithOllama(rubric, { endpoint: 'https://cloud.example.com', model: 'qwen' }, mock as typeof fetch)).rejects.toThrow(/locale/);

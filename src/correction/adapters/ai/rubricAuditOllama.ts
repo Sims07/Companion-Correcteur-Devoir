@@ -25,13 +25,16 @@ export async function auditRubricWithOllama(
   if (settings.signal?.aborted) throw new DOMException('Analyse interrompue.', 'AbortError');
   const prompt = [
     'Tu aides un professeur de biologie à FIABILISER un barème AVANT de corriger des copies.',
-    'Identifie seulement les ambiguïtés pédagogiques susceptibles de changer une note entre deux correcteurs compétents.',
+    'En une SEULE analyse, cherche deux types de propositions : clarification du barème ET enrichissement scientifique des critères existants.',
+    'kind=clarification : identifie seulement les ambiguïtés pédagogiques susceptibles de changer une note entre deux correcteurs compétents.',
     'Recherche notamment les critères difficiles à observer, les conditions ET/OU imprécises, les sous-critères redondants et les modalités de points partiels non précisées.',
-    'N’invente aucune exigence biologique ou graphique (flèches, emplacement, soulignement, alignement). Le professeur doit décider.',
+    'kind=scientific : si le sujet et le barème identifient suffisamment un concept biologique, propose des références scientifiquement vérifiables pour interpréter un critère biologique existant : structures attendues, relations, incompatibilités ou confusions fréquentes. Regroupe les références liées en une seule proposition concise (3 à 5 maximum pour tout le barème).',
+    'Ne crée aucun nouveau critère, malus, seuil de points ou exigence hors de l’intention du professeur. Ne déduis jamais un organisme, une technique, une phase ou une structure qui ne figure pas dans le contexte. Si les attendus sont ambigus, demande au professeur plutôt que d’inventer une règle.',
+    'Pour kind=scientific, la suggestion doit être un texte scientifique autonome, directement utilisable comme référence après validation, pas une simple reformulation ni une question. Les options doivent permettre un accord simple ou une adaptation. Évite les répétitions.',
     'Ne modifie jamais les points, la structure, les identifiants ni le texte original. Ne demande pas de copie étudiante.',
     'Pour chaque problème, propose une question claire, 2 à 4 réponses distinctes et une suggestion de clarification soumise à validation humaine.',
-    'Ne répète pas les règles déjà explicites. Max 12 problèmes. Privilégie les 3 qui influencent le plus la note.',
-    'Réponds UNIQUEMENT avec un objet JSON : {"issues":[{"criterionId":"id existant","subcriterionId":null ou "id existant","priority":"high|medium|low","reason":"risque précis","question":"question au professeur","options":["choix 1","choix 2"],"suggestion":"reformulation proposée"}]}.',
+    'Ne répète pas les règles déjà explicites. Max 12 propositions au total, dont au plus 5 scientifiques. Privilégie les 3 à plus fort impact. Ne force aucune proposition si le barème est suffisamment précis.',
+    'Réponds UNIQUEMENT avec un objet JSON : {"issues":[{"kind":"clarification|scientific","criterionId":"id existant","subcriterionId":null ou "id existant","priority":"high|medium|low","reason":"risque précis","question":"question au professeur","options":["choix 1","choix 2"],"suggestion":"texte précis proposé"}]}.',
     'Si rien à clarifier, réponds {"issues":[]}. Tous les identifiants doivent provenir du barème.',
     'IMPORTANT : criterionId est toujours l’identifiant du critère parent (par exemple "drawing"), jamais celui d’un sous-critère. subcriterionId est l’identifiant du sous-critère (par exemple "drawing-clean") ou null si la question concerne tout le critère. Exemple valide : {"criterionId":"drawing","subcriterionId":"drawing-clean"}.',
     'Répertoire exact des identifiants autorisés (ne les change jamais) : ' + JSON.stringify(rubric.criteria.map((criterion) => ({

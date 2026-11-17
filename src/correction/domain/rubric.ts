@@ -6,6 +6,8 @@ export interface RubricSubcriterion {
   title: string;
   description: string;
   maxPoints: number;
+  /** Scientific reference rules accepted by the teacher, separate from their original text. */
+  scientificExpectations?: string[];
 }
 
 export interface RubricCriterion {
@@ -14,6 +16,8 @@ export interface RubricCriterion {
   title: string;
   description: string;
   maxPoints: number;
+  /** Teacher-approved scientific expectations; not new scoring criteria. */
+  scientificExpectations?: string[];
   /** Explicitly route this criterion to image-based scientific diagram analysis. */
   analysisMode?: 'text' | 'scientific-diagram';
   /** Teacher-defined scoring dimensions, available for every criterion type. */
@@ -50,11 +54,12 @@ export function rubricEvaluationSignature(rubric: Rubric): string {
       id: criterion.id,
       title: criterion.title,
       description: criterion.description,
+      ...(criterion.scientificExpectations ? { scientificExpectations: criterion.scientificExpectations } : {}),
       maxPoints: criterion.maxPoints,
       analysisMode: criterion.analysisMode ?? 'text',
       ...(criterion.correctionContract ? { correctionContract: criterion.correctionContract } : {}),
-      subcriteria: getRubricSubcriteria(criterion).map(({ id, title, description, maxPoints }) =>
-        ({ id, title, description, maxPoints })),
+      subcriteria: getRubricSubcriteria(criterion).map(({ id, title, description, maxPoints, scientificExpectations }) =>
+        ({ id, title, description, maxPoints, ...(scientificExpectations ? { scientificExpectations } : {}) })),
     })),
   });
 }
@@ -64,7 +69,10 @@ export function validateRubric(rubric: Rubric): RubricValidation {
   const ids = new Set<string>();
   if (!rubric.title.trim()) errors.push('Le barème doit avoir un titre.');
   if (rubric.criteria.length === 0) errors.push('Ajoutez au moins un critère.');
+  const validExpectations = (items: string[] | undefined) => items === undefined ||
+    (Array.isArray(items) && items.length <= 12 && items.every((item) => typeof item === 'string' && item.trim().length > 0 && item.length <= 1000));
   for (const criterion of rubric.criteria) {
+    if (!validExpectations(criterion.scientificExpectations)) errors.push(`Références scientifiques invalides pour ${criterion.id}.`);
     try { parseCorrectionContract(criterion.correctionContract); } catch (error) { errors.push(String(error)); }
     if (criterion.correctionContract && criterion.analysisMode === 'scientific-diagram') errors.push('Le contrat par question est réservé aux critères textuels.');
     if (!criterion.id.trim()) errors.push('Chaque critère doit avoir un identifiant.');
@@ -76,6 +84,7 @@ export function validateRubric(rubric: Rubric): RubricValidation {
     if (subcriteria.length > 0) {
       const subcriterionIds = new Set<string>(), titles = new Set<string>();
       for (const subcriterion of subcriteria) {
+        if (!validExpectations(subcriterion.scientificExpectations)) errors.push(`Références scientifiques invalides pour ${subcriterion.id}.`);
         if (!subcriterion.id.trim()) errors.push(`Chaque sous-critère du critère ${criterion.id} doit avoir un identifiant.`);
         else if (subcriterionIds.has(subcriterion.id)) errors.push(`Identifiant de sous-critère dupliqué dans le critère ${criterion.id} : ${subcriterion.id}.`);
         subcriterionIds.add(subcriterion.id);
