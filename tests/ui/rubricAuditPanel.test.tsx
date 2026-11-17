@@ -30,7 +30,15 @@ describe('panneau de clarification enseignant', () => {
     }], '2026-11-17T14:00:00Z');
     const assignmentId = 'test-clarification-visible';
     const key = 'companion-correcteur:rubric-versions:v1:' + assignmentId;
-    window.localStorage.setItem(key, JSON.stringify([version]));
+    // Vitest runs this SSR test without a browser window.
+    const entries = new Map([[key, JSON.stringify([version])]]);
+    vi.stubGlobal('window', {
+      localStorage: {
+        getItem: (name: string) => entries.get(name) ?? null,
+        setItem: (name: string, value: string) => { entries.set(name, value); },
+        removeItem: (name: string) => { entries.delete(name); },
+      },
+    });
     try {
       const props = { assignmentId, endpoint: 'http://localhost:11434', model: 'ollama-local', onApply: vi.fn() };
       const applied = renderToStaticMarkup(<RubricAuditPanel rubric={version.clarified} {...props} />);
@@ -45,7 +53,7 @@ describe('panneau de clarification enseignant', () => {
       expect(edited).toContain('Le barème actuel a été modifié depuis la dernière clarification.');
       expect(edited).not.toContain('BARÈME MODIFIÉ · VERSION ACTIVE');
     } finally {
-      window.localStorage.removeItem(key);
+      vi.unstubAllGlobals();
     }
   });
 
