@@ -95,3 +95,29 @@
 .rubric-audit-recover p { max-width: 80ch; font-size: .9rem; }
 .rubric-audit-recover label { display: block; margin: .7rem 0; }
 .rubric-audit-recover textarea { display: block; width: 100%; box-sizing: border-box; margin-top: .4rem; font-family: ui-monospace, monospace; }
+
+
+/* Clarification results are readable immediately, and remain visible after reload. */
+.rubric-audit-applied { display: grid; gap: 1rem; padding: 1.1rem; border: 1px solid var(--border, #d4dce1); border-left: 4px solid #32775c; border-radius: .75rem; scroll-margin-top: 1.5rem; }
+.rubric-audit-applied-heading { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; align-items: start; }
+.rubric-audit-applied-heading h4 { margin: .3rem 0; font-size: 1.12rem; }
+.rubric-audit-applied-heading p { margin: .4rem 0 0; }
+.rubric-audit-active-label { display: inline-block; font-size: .86rem; padding: .45rem .65rem; border: 1px solid #32775c; border-radius: .5rem; }
+.rubric-audit-change-list { display: grid; gap: .75rem; padding: 0; margin: 0; list-style: none; }
+.rubric-audit-change-list > li { border: 1px solid var(--border, #d4dce1); border-radius: .6rem; padding: .8rem; min-width: 0; }
+.rubric-audit-change-comparison { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; margin-top: .65rem; }
+.rubric-audit-change-comparison > div { min-width: 0; padding: .7rem; background: var(--surface-subtle, rgba(128,128,128,.06)); border-radius: .45rem; }
+.rubric-audit-change-comparison span { display: block; font-size: .8rem; font-weight: 700; margin-bottom: .4rem; }
+.rubric-audit-change-comparison p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
+.rubric-audit-change-added { border-left: 3px solid #32775c; }
+.rubric-audit-version-notice { border: 1px solid var(--border, #d4dce1); border-left: 4px solid var(--accent, #ae5145); padding: 1rem; border-radius: .65rem; }
+.rubric-audit-version-notice p { margin: .4rem 0 0; }
+.rubric-audit-history > summary { cursor: pointer; font-weight: 700; }
+.rubric-audit-history > ol { padding-left: 1.35rem; }
+.rubric-audit-history li { padding-block: .35rem; }
+.rubric-audit-history details { margin-top: .65rem; }
+.rubric-audit-history details > summary { cursor: pointer; }
+.rubric-audit-technical { margin-top: 1rem; }
+@media (max-width: 640px) {
+  .rubric-audit-change-comparison { grid-template-columns: 1fr; }
+}
