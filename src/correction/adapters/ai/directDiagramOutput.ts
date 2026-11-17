@@ -36,6 +36,52 @@ export function directDiagramGenerationTokenLimit(criteria: RubricCriterion[], t
   return Math.min(3584, Math.ceil(estimated / 512) * 512);
 }
 
+/** Only split at major-criterion boundaries so no scientific requirement
+ * or observation is silently dropped. The same images are sent with each lot. */
+export function splitDirectDiagramCriteria(criteria: RubricCriterion[], maximumLeaves = 12): RubricCriterion[][] {
+  const groups: RubricCriterion[][] = [];
+  let current: RubricCriterion[] = [];
+  let leaves = 0;
+  for (const criterion of criteria) {
+    const count = Math.max(1, getRubricSubcriteria(criterion).length);
+    if (current.length && leaves + count > maximumLeaves) {
+      groups.push(current);
+      current = [];
+      leaves = 0;
+    }
+    current.push(criterion);
+    leaves += count;
+  }
+  if (current.length) groups.push(current);
+  // Even a small barème can overrun a model's context; fall back to two
+  // independently validated groups if it contains at least two criteria.
+  if (groups.length < 2 && criteria.length > 1) {
+    const middle = Math.ceil(criteria.length / 2);
+    return [criteria.slice(0, middle), criteria.slice(middle)];
+  }
+  return groups;
+}
+
+/** Restore the full rubric only after EVERY independent lot passes the same
+ * points/evidence validation as a one-pass scientific correction. */
+export function combineDirectDiagramBatches(
+  batches: Array<{ criteria: RubricCriterion[]; raw: string }>,
+  expectedCriteria: RubricCriterion[],
+): string {
+  const combined: Record<string, unknown> = Object.create(null);
+  for (const batch of batches) {
+    parseDirectDiagramOutput(batch.raw, batch.criteria);
+    const parsed = parseModelJson(batch.raw);
+    if (!record(parsed) || !record(parsed.criteria)) fail('invalid-shape');
+    for (const criterion of batch.criteria) {
+      if (Object.hasOwn(combined, criterion.id)) fail('unknown-id');
+      combined[criterion.id] = parsed.criteria[criterion.id];
+    }
+  }
+  // Explicitly fail on missing/extra IDs; do not infer a score from partial lots.
+  return parseDirectDiagramOutput(JSON.stringify({ criteria: combined }), expectedCriteria);
+}
+
 function record(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
