@@ -299,11 +299,22 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, thinki
           <strong>Vérification du barème en cours</strong>
           <p>Thinking {task.thinking ? 'demandé au modèle' : 'désactivé'} · limite de génération : {runningBudget.num_predict.toLocaleString('fr-FR')} tokens · {!taskIsCurrent ? 'Barème modifié depuis le lancement.' : 'Mode conservé pendant cette exécution.'}</p>
           <p>{!taskIsCurrent ? 'Le barème a été modifié depuis le lancement. Arrêtez cette analyse pour vérifier la nouvelle version.'
-            : task.phase === 'validating' ? 'Réponse du modèle reçue · validation des suggestions…'
-            : 'Requête envoyée · en attente de la réponse du modèle local…'}</p>
+            : task.phase === 'validating' ? 'Réponse JSON complète reçue · validation des suggestions…'
+            : task.phase === 'generating' ? 'Le modèle rédige sa réponse JSON…'
+            : task.phase === 'thinking' ? 'Le modèle raisonne · génération en cours…'
+            : 'Requête envoyée · attente des premiers éléments du modèle local…'}</p>
         </div>
         <span className="rubric-audit-elapsed" aria-hidden="true">{formatElapsed(task.startedAt, now)}</span>
       </div>
+      {typeof task.chunksReceived === 'number' && task.chunksReceived > 0 && <p className="rubric-audit-activity">
+        <strong>Activité réelle reçue :</strong> {task.chunksReceived.toLocaleString('fr-FR')} événement(s) Ollama
+        {typeof task.thinkingCharacters === 'number' && task.thinkingCharacters > 0 ? ` · ${task.thinkingCharacters.toLocaleString('fr-FR')} caractères de raisonnement` : ''}
+        {typeof task.answerCharacters === 'number' && task.answerCharacters > 0 ? ` · ${task.answerCharacters.toLocaleString('fr-FR')} caractères de réponse JSON` : ''}.
+        {task.lastActivityAt ? ` Dernière activité il y a ${Math.max(0, Math.floor((now - task.lastActivityAt) / 1000))} s.` : ''}
+        {typeof task.generatedTokens === 'number' ? ` ${task.generatedTokens.toLocaleString('fr-FR')} tokens générés (compteur Ollama).` : ''}
+      </p>}
+      {task.phase === 'waiting' && task.startedAt && now - task.startedAt > 120000 && <p className="rubric-audit-live-hint">Toujours aucun contenu après deux minutes : le chargement du modèle ou la machine peuvent être lents. Vous pouvez arrêter sans perdre votre barème.</p>}
+      {task.lastActivityAt && now - task.lastActivityAt > 90000 && <p className="rubric-audit-live-hint">Aucun nouvel événement reçu depuis plus de 90 secondes. Le modèle peut encore calculer ; vous pouvez arrêter si l’attente devient trop longue.</p>}
       <div className="rubric-audit-indeterminate" aria-hidden="true"><span /></div>
       <p className="rubric-audit-live-hint">Le modèle « {task.model} » peut prendre du temps à répondre. Vous pouvez consulter le diagnostic puis revenir : l'analyse restera visible. Aucun pourcentage artificiel n'est affiché.</p>
     </div>}
@@ -318,6 +329,7 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, thinki
       <strong>Vérification terminée</strong>
       <p>{task.report?.issues.length ? task.report.issues.length + ' point(s) à examiner. Les questions sont affichées ci-dessous.' : 'Aucune ambiguïté signalée par le modèle. Aucun complément scientifique proposé. Vous pouvez poursuivre vers les copies.'}
       {task.startedAt && task.finishedAt ? ' · Durée : ' + formatElapsed(task.startedAt, task.finishedAt) : ''}</p>
+      {typeof task.generatedTokens === 'number' && <p>Génération Ollama : {task.generatedTokens.toLocaleString('fr-FR')} tokens.</p>}
       {task.storageWarning && <p role="alert">{task.storageWarning}</p>}
     </div>}
     {message && <p role="alert" className="rubric-audit-alert">{message}</p>}
