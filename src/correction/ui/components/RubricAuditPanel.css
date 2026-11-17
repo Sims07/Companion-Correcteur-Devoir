@@ -1,0 +1,16 @@
+.rubric-audit-panel { margin-block: 1rem; display: grid; gap: 1rem; }
+.rubric-audit-heading { display: flex; flex-wrap: wrap; align-items: start; justify-content: space-between; gap: 1rem; }
+.rubric-audit-heading h3 { margin: .2rem 0; }
+.rubric-audit-heading p { max-width: 70ch; }
+.rubric-audit-progress { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: .5rem; padding: .8rem; border: 1px solid var(--border, #d4dce1); border-radius: .6rem; }
+.rubric-audit-issues { display: grid; gap: .8rem; padding-left: 1.5rem; }
+.rubric-audit-issues > li { border: 1px solid var(--border, #d4dce1); border-radius: .7rem; padding: 1rem; }
+.rubric-audit-issue-heading { display: flex; justify-content: space-between; align-items: center; gap: .6rem; flex-wrap: wrap; }
+.rubric-audit-issue-heading small { opacity: .7; }
+.rubric-audit-issues fieldset { display: grid; gap: .55rem; border: 0; margin: .75rem 0; padding: 0; }
+.rubric-audit-radio { display: flex; align-items: baseline; gap: .5rem; cursor: pointer; }
+.rubric-audit-issues textarea { display: block; width: 100%; margin-top: .4rem; box-sizing: border-box; }
+.rubric-audit-issues details { margin: .7rem 0; }
+.rubric-audit-actions { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: .75rem; }
+.rubric-audit-alert { color: var(--danger, #9c2626); }
+.rubric-audit-saved { font-weight: 600; }
