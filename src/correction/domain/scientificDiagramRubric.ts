@@ -60,6 +60,7 @@ export function parseScientificDiagramRubric(value: unknown): Rubric {
         title: checkedString(sub.title, 'Titre de sous-critère'),
         description: typeof sub.description === 'string' ? sub.description : '',
         maxPoints: checkedPoints(sub.maxPoints),
+        ...(sub.scientificExpectations !== undefined ? { scientificExpectations: checkedExpectations(sub.scientificExpectations) } : {}),
       };
     });
     return {
@@ -67,6 +68,7 @@ export function parseScientificDiagramRubric(value: unknown): Rubric {
       title: checkedString(criterion.title, 'Titre de critère'),
       description: typeof criterion.description === 'string' ? criterion.description : '',
       maxPoints: checkedPoints(criterion.maxPoints),
+      ...(criterion.scientificExpectations !== undefined ? { scientificExpectations: checkedExpectations(criterion.scientificExpectations) } : {}),
       analysisMode: 'scientific-diagram' as const,
       subcriteria,
     };
@@ -92,6 +94,12 @@ function asObject(value: unknown, message: string): Record<string, unknown> {
 function checkedString(value: unknown, title: string): string {
   if (typeof value !== 'string' || !value.trim()) throw new Error(title + ' manquant.');
   return value;
+}
+function checkedExpectations(value: unknown): string[] {
+  if (!Array.isArray(value) || value.length > 12 || !value.every(item => typeof item === 'string' && item.trim().length > 0 && item.length <= 1000)) {
+    throw new Error('Références scientifiques invalides.');
+  }
+  return value as string[];
 }
 function checkedPoints(value: unknown): number {
   if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) throw new Error('Les points doivent être des nombres positifs ou nuls.');

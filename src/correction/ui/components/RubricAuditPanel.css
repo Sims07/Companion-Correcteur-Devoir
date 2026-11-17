@@ -121,3 +121,11 @@
 @media (max-width: 640px) {
   .rubric-audit-change-comparison { grid-template-columns: 1fr; }
 }
+
+/* Science references are proposals, distinct from the teacher's original wording. */
+.rubric-audit-science-review { display: grid; gap: .9rem; }
+.rubric-audit-science-review .rubric-audit-ai-suggestion { border-left: 4px solid var(--accent, #ae5145); background: var(--surface-subtle, rgba(128,128,128,.06)); }
+.rubric-audit-science-review .rubric-audit-ai-suggestion p { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.55; }
+.rubric-audit-preview { border: 1px solid var(--border, #d4dce1); border-radius: .85rem; padding: 1rem; display: grid; gap: .7rem; scroll-margin-top: 2rem; }
+.rubric-audit-preview h4, .rubric-audit-preview p { margin: 0; }
+.rubric-audit-preview .rubric-audit-change-list { margin-top: .45rem; }

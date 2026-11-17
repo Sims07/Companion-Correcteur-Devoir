@@ -8,6 +8,13 @@ function slugify(value: string, index: number): string {
   const slug = value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   return slug || `critere-${index + 1}`;
 }
+function scientificExpectations(value: unknown): string[] | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value) || value.length > 12 || !value.every(item => typeof item === 'string' && item.trim().length > 0 && item.length <= 1000)) {
+    throw new Error('Les références scientifiques du fichier JSON sont invalides.');
+  }
+  return value as string[];
+}
 function rubricFromJson(value: unknown, fileName: string): ImportedRubric {
   if (!value || typeof value !== 'object') throw new Error('Le JSON ne contient pas un barème valide.');
   const source = value as Record<string, unknown>;
@@ -25,7 +32,8 @@ function rubricFromJson(value: unknown, fileName: string): ImportedRubric {
       const subTitle = String(subcriterion.title ?? subcriterion.label ?? '').trim();
       const subPoints = Number(subcriterion.maxPoints ?? subcriterion.points);
       if (!subTitle || !Number.isFinite(subPoints)) throw new Error(`Le sous-critère ${subIndex + 1} du critère ${title} doit avoir un intitulé et un maximum valide.`);
-      return { id: String(subcriterion.id ?? `${slugify(title, index)}-sub-${subIndex + 1}`), title: subTitle, description: String(subcriterion.description ?? ''), maxPoints: subPoints };
+      return { id: String(subcriterion.id ?? `${slugify(title, index)}-sub-${subIndex + 1}`), title: subTitle, description: String(subcriterion.description ?? ''), maxPoints: subPoints,
+        ...(subcriterion.scientificExpectations !== undefined ? { scientificExpectations: scientificExpectations(subcriterion.scientificExpectations) } : {}) };
     }) : undefined;
     if (criterion.expectedElements !== undefined && !Array.isArray(criterion.expectedElements)) {
       throw new Error(`Les anciens éléments attendus du critère « ${title} » doivent être une liste.`);
@@ -47,6 +55,7 @@ function rubricFromJson(value: unknown, fileName: string): ImportedRubric {
     return {
       id: String(criterion.id ?? slugify(title, index)), title,
       description: String(criterion.description ?? criterion.attendus ?? criterion.details ?? ''), maxPoints: points,
+      ...(criterion.scientificExpectations !== undefined ? { scientificExpectations: scientificExpectations(criterion.scientificExpectations) } : {}),
       ...(analysisMode ? { analysisMode } : {}),
       ...(criterion.correctionContract !== undefined ? { correctionContract: parseCorrectionContract(criterion.correctionContract) } : {}),
       ...(subcriteria ? { subcriteria } : expectedElements ? { subcriteria: expectedElements } : {}),

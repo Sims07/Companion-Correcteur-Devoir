@@ -1,30 +1,29 @@
-# Vérifier et clarifier le barème
+# Vérifier et enrichir le barème
 
-La préparation du barème comporte une vérification **facultative** par un modèle génératif **Ollama local**. L'application envoie uniquement les intitulés, descriptions, identifiants et points du barème. Aucune photo de copie ou donnée étudiante n'est nécessaire à l'audit.
+Lors de la préparation d'un devoir, l'enseignant peut lancer **une seule passe Ollama locale** qui propose deux types de décisions : des **clarifications de notation** et des **références scientifiques** utiles pour interpréter les critères biologiques. Le modèle reçoit uniquement le barème ; aucune copie d'étudiant n'est transmise.
 
 ## Parcours enseignant
 
-1. Définir et valider la structure du barème.
-2. Lancer « Vérifier avec l'IA locale ». Les questions sont classées par impact potentiel sur la notation ; trois sont affichées en premier.
-3. Répondre à chaque question avec une option ou une formulation libre, ou choisir « Conserver le barème actuel ».
-4. Cliquer sur « Appliquer les précisions validées » pour faire évoluer le barème. Aucune réponse n'est appliquée implicitement.
+1. Renseigner le barème et lancer « Vérifier avec l'IA locale ».
+2. Lire les propositions, regroupées en questions de clarification ou enrichissements scientifiques, triées par impact. Le texte initial du professeur reste visible.
+3. Pour les clarifications, choisir une réponse ou formuler une règle libre. Pour la science, accepter la **référence proposée**, l'adapter dans un champ éditable ou conserver le barème initial. Aucun choix n'est présélectionné ni automatiquement appliqué.
+4. Consulter **l'aperçu des changements avant application** : comparatif des descriptions et des références scientifiques retenues.
+5. Cliquer sur « Appliquer les modifications validées » ; la version initiale et la nouvelle sont archivées et la synthèse des différences est affichée immédiatement.
 
-Les réponses restent enregistrées en local, associées à la signature du barème. Une modification du contenu rend l'audit précédent obsolète et nécessite une nouvelle vérification.
+Les propositions non traitées ou refusées ne sont **jamais** ajoutées. Les réponses restent enregistrées localement, associées à la signature du barème. Une modification manuelle rend l'audit précédent obsolète.
 
-## Versionnement
+## Distinction des informations
 
-L'application conserve les deux versions, avant et après les clarifications, ainsi que les décisions et le modèle utilisé. Ces archives sont conservées dans le stockage local du navigateur sous une clé propre à chaque devoir. Les anciens barèmes sont consultables côte à côte, sans écraser les notes déjà archivées.
+- **Texte du professeur** : description inchangée pour les enrichissements scientifiques.
+- **Clarification approuvée** : ajout explicite à la description du critère ou sous-critère, comme auparavant.
+- **Référence scientifique approuvée** : contenu dans `scientificExpectations` du critère ou sous-critère. Cela ne crée ni nouveau critère, ni nouveau malus, ni changement de points.
 
-Les décisions sont ajoutées à la **description** du critère ou sous-critère ciblé. Ni l'intitulé initial, ni les identifiants, ni les points ne changent. Le professeur peut continuer à ajuster son barème dans l'éditeur classique.
+Les références scientifiques validées sont incluses dans le JSON du barème transmis au modèle lors de la correction, sans requête supplémentaire par légende. Les anciennes copies corrigées conservent leur barème historique et peuvent être recorrigées séparément.
 
-## Limites et sécurité
+## Feedback et confidentialité
 
-Un audit valide la **clarté du texte** et non la capacité du modèle à lire la photographie. Un résultat « aucune ambiguïté » ne garantit pas la qualité de la correction. Les règles non observables ou incertaines restent du ressort du professeur. L'audit ne contacte jamais un fournisseur distant : l'adresse du serveur doit être une adresse loopback locale.
+L'audit est **facultatif** et strictement local (endpoint loopback Ollama) ; pas de cloud ni de copie. Pendant l'analyse, le bouton est désactivé, la phase réellement connue est affichée, un compteur de temps est visible et un bouton « Arrêter » permet l'annulation. On peut quitter le panneau pour consulter le diagnostic puis revenir sans perdre le résultat. En cas d'erreur, les décisions précédentes sont conservées. Les références sont conservées uniquement après validation du professeur.
 
-Lors de la correction, la version active du barème est utilisée. Les versions déjà archivées des copies restent disponibles, et une copie peut être recorrigée avec la nouvelle version sans écraser l'ancienne.
+## Historique
 
-## Après application : suivre les modifications
-
-Une fois les décisions du professeur appliquées, un encart **« Barème modifié · version active »** affiche les critères et sous-critères touchés. Pour chaque changement, le professeur voit le texte précédent et la règle ajoutée ; il sait ainsi précisément ce qui servira aux prochaines corrections.
-
-Cette synthèse reste accessible après rechargement de la page. L'historique présente également ces différences en langage naturel, avec le JSON disponible seulement dans un détail technique. Si le professeur modifie manuellement le barème, l'application distingue le barème courant des versions clarifiées archivées.
+La version active affiche les modifications en langage naturel, sans imposer de lecture de JSON. L'historique fournit les comparatifs avant/après et conserve le modèle ayant proposé les enrichissements. Les critères, identifiants et points restent stables.
