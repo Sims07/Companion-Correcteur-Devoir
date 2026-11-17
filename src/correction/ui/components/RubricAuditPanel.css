@@ -1,7 +1,27 @@
-.rubric-audit-panel { margin-block: 1rem; display: grid; gap: 1rem; }
-.rubric-audit-heading { display: flex; flex-wrap: wrap; align-items: start; justify-content: space-between; gap: 1rem; }
-.rubric-audit-heading h3 { margin: .2rem 0; }
-.rubric-audit-heading p { max-width: 70ch; }
+.rubric-audit-panel { margin-block: 1.25rem; display: grid; gap: 1rem; padding: clamp(1rem, 2vw, 1.5rem); border: 1px solid var(--border, #d4dce1); }
+.rubric-audit-heading { display: block; }
+.rubric-audit-heading h3 { margin: .25rem 0 .45rem; }
+.rubric-audit-heading p { max-width: 73ch; margin: 0; }
+.rubric-audit-toolbar { display: flex; gap: .8rem; align-items: center; flex-wrap: wrap; }
+.rubric-audit-launch { min-height: 48px; min-width: min(100%, 310px); display: inline-flex; align-items: center; justify-content: center; gap: .75rem; padding: .8rem 1.2rem; font-weight: 700; font-size: 1rem; border-radius: .65rem; box-shadow: 0 2px 7px rgb(0 0 0 / 10%); }
+.rubric-audit-launch:focus-visible, .rubric-audit-stop:focus-visible { outline: 3px solid currentColor; outline-offset: 3px; }
+.rubric-audit-launch:disabled { cursor: progress; opacity: .75; box-shadow: none; }
+.rubric-audit-stop { min-height: 44px; }
+.rubric-audit-privacy { margin: 0; font-size: .88rem; }
+.rubric-audit-live { display: grid; gap: .85rem; padding: 1.15rem; background: var(--surface-subtle, rgba(128, 128, 128, .065)); border: 1px solid var(--border, #c7d1d8); border-left: 4px solid var(--accent, #ae5145); border-radius: .75rem; }
+.rubric-audit-live-heading { display: flex; align-items: center; gap: .85rem; }
+.rubric-audit-live-heading > div { flex: 1; min-width: 0; }
+.rubric-audit-live-heading strong { font-size: 1rem; }
+.rubric-audit-live-heading p { margin: .35rem 0 0; }
+.rubric-audit-elapsed { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 1.15rem; padding: .35rem .55rem; border-radius: .45rem; border: 1px solid var(--border, #c7d1d8); white-space: nowrap; }
+.rubric-audit-live-hint { font-size: .9rem; margin: 0; opacity: .85; }
+.rubric-audit-spinner { width: 1.1rem; height: 1.1rem; flex: none; display: inline-block; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: rubric-audit-spin .8s linear infinite; }
+.rubric-audit-indeterminate { width: 100%; height: 6px; background: rgba(100, 100, 100, .2); border-radius: 1rem; position: relative; overflow: hidden; }
+.rubric-audit-indeterminate > span { position: absolute; inset-block: 0; left: -40%; width: 40%; border-radius: inherit; background: var(--accent, #ae5145); animation: rubric-audit-progress 1.75s ease-in-out infinite; }
+.rubric-audit-feedback { border: 1px solid var(--border, #c7d1d8); border-radius: .7rem; padding: 1rem; }
+.rubric-audit-feedback.is-error { border-left: 4px solid #a43e39; }
+.rubric-audit-feedback.is-success { border-left: 4px solid #32775c; }
+.rubric-audit-feedback p { margin: .4rem 0 0; }
 .rubric-audit-progress { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: .5rem; padding: .8rem; border: 1px solid var(--border, #d4dce1); border-radius: .6rem; }
 .rubric-audit-issues { display: grid; gap: .8rem; padding-left: 1.5rem; }
 .rubric-audit-issues > li { border: 1px solid var(--border, #d4dce1); border-radius: .7rem; padding: 1rem; }
@@ -14,7 +34,18 @@
 .rubric-audit-actions { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: .75rem; }
 .rubric-audit-alert { color: var(--danger, #9c2626); }
 .rubric-audit-saved { font-weight: 600; }
-
 .rubric-audit-apply { border-top: 1px solid var(--border, #d4dce1); padding-top: 1rem; display: grid; gap: .5rem; justify-items: start; }
 .rubric-audit-versions { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 1rem; }
 .rubric-audit-versions pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 18rem; overflow: auto; padding: .7rem; border: 1px solid var(--border, #d4dce1); border-radius: .4rem; }
+@keyframes rubric-audit-spin { to { transform: rotate(360deg); } }
+@keyframes rubric-audit-progress { 0% { left: -40%; } 100% { left: 100%; } }
+@media (max-width: 640px) {
+  .rubric-audit-toolbar { flex-direction: column; align-items: stretch; }
+  .rubric-audit-launch, .rubric-audit-stop { width: 100%; min-width: 0; }
+  .rubric-audit-live-heading { flex-wrap: wrap; }
+  .rubric-audit-elapsed { margin-left: auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rubric-audit-spinner, .rubric-audit-indeterminate > span { animation: none; }
+  .rubric-audit-indeterminate > span { left: 0; width: 100%; }
+}
