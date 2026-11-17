@@ -14,15 +14,17 @@ test('rubric audit stays visible across diagnostics, blocks duplicates and compl
     localStorage.setItem('companion-correcteur:active-assignment:v1', 'assignment-default');
     localStorage.setItem('companion-correcteur:ollama-configuration:v1', JSON.stringify({
       endpoint: 'http://localhost:11434', apiCompatible: false,
-      visionModel: 'qwen-local', analysisModel: 'qwen-local',
+      visionModel: 'qwen-local', analysisModel: 'qwen-local', analysisThinking: true,
     }));
   });
 
   let requests = 0;
+  const modes: boolean[] = [];
   let release!: () => void;
   const gate = new Promise<void>((resolve) => { release = resolve; });
   await page.route('**/api/chat', async (route) => {
     requests += 1;
+    modes.push((route.request().postDataJSON() as { think: boolean }).think);
     await gate; // Ollama can take several minutes; inspect feedback while waiting.
     try {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
@@ -37,16 +39,19 @@ test('rubric audit stays visible across diagnostics, blocks duplicates and compl
   const launch = page.locator('.rubric-audit-launch');
   await expect(launch).toBeVisible();
   await expect(launch).toContainText('Vérifier avec l’IA locale');
+  await expect(page.locator('.rubric-audit-privacy')).toContainText('Thinking : activé pour cette vérification');
   await launch.click();
 
   try {
     await expect(page.locator('.rubric-audit-live').getByText('Vérification du barème en cours', { exact: true })).toBeVisible();
+    await expect(page.locator('.rubric-audit-live')).toContainText('Thinking demandé au modèle');
     await expect(launch).toBeDisabled();
     await expect(launch).toContainText('Vérification en cours');
     await expect(page.locator('.rubric-audit-elapsed')).toContainText(/\d\d:\d\d/);
     await expect(page.getByRole('button', { name: 'Arrêter la vérification' })).toBeVisible();
     await expect(page.getByRole('button', { name: /Continuer vers les copies/ })).toBeDisabled();
     await expect.poll(() => requests).toBe(1);
+    expect(modes).toEqual([true]);
 
     await page.getByRole('button', { name: 'Suivi & diagnostic' }).click();
     await page.getByRole('button', { name: 'Correction', exact: true }).click();

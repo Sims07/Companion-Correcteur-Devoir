@@ -8,6 +8,8 @@ import { annotateNetworkRequest } from '../../../shared/ports/networkRequestMeta
 export interface RubricAuditSettings {
   endpoint: string;
   model: string;
+  /** Honor the teacher's Thinking preference for this local generative analysis. */
+  thinking?: boolean;
   signal?: AbortSignal;
   onStage?: (stage: 'waiting' | 'validating') => void;
 }
@@ -48,7 +50,7 @@ export async function auditRubricWithOllama(
   const response = await fetchImpl(settings.endpoint.replace(/\/+$/, '') + '/api/chat', annotateNetworkRequest({
     method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: settings.signal,
     body: JSON.stringify({
-      model: settings.model, stream: false, think: false, format: 'json',
+      model: settings.model, stream: false, think: settings.thinking === true, format: 'json',
       options: { temperature: 0, num_predict: 3584 },
       messages: [{ role: 'user', content: prompt }],
     }),

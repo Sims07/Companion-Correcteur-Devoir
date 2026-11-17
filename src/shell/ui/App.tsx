@@ -5047,7 +5047,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
           </section>}
           {rubricImportMessage && <StatusNotice tone={rubricImportTone}>{rubricImportMessage}</StatusNotice>}
         </div></details>
-        <ContractPreparationPanel key={activeAssignmentId} assignmentId={activeAssignmentId ?? 'current'} rubric={rubric} service={service} settings={{ endpoint, apiCompatible, apiKey, visionModel, analysisModel: generativeModel, correctionMethod: 'generative' }} disabled={busy || rubricFileImporting || rubricImageImporting} existingDocument={subjectTranscription || rubricImportVisionResponse} onApply={(next) => { setRubric(next); setProposal(null); setReview([]); setScientificDiagramAnalysis(null); }} />
+        <ContractPreparationPanel key={activeAssignmentId} assignmentId={activeAssignmentId ?? 'current'} rubric={rubric} service={service} settings={{ endpoint, apiCompatible, apiKey, visionModel, analysisModel: generativeModel, thinking: analysisThinking, correctionMethod: 'generative' }} disabled={busy || rubricFileImporting || rubricImageImporting} existingDocument={subjectTranscription || rubricImportVisionResponse} onApply={(next) => { setRubric(next); setProposal(null); setReview([]); setScientificDiagramAnalysis(null); }} />
         <div className="rubric-editor-toolbar"><button type="button" className="primary-button" onClick={addCriterion}>＋ Ajouter un critère</button><span className={validation.valid ? 'validation valid' : 'validation invalid'}>{validation.valid ? '✓ Barème cohérent' : validation.errors.join(' ')}</span></div>
         {interfaceMode === 'teacher' && <RubricReusePanel assignments={assignmentProfiles} activeAssignmentId={activeAssignmentId} rubric={rubric} onReuse={(criteria) => { setRubric((current) => ({ ...current, criteria: [...current.criteria, ...criteria] })); setProposal(null); setReview([]); setScientificDiagramAnalysis(null); setTeacherAnnotations(''); setExpandedCriterionId(criteria[0]?.id ?? null); }} />}
         <div className="criteria-list">
@@ -5108,7 +5108,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
       </aside>}
       </div>
 
-      {interfaceMode === 'teacher' && validation.valid && <RubricAuditPanel key={activeAssignmentId} rubric={rubric} assignmentId={activeAssignmentId} endpoint={endpoint} model={generativeModel} onApply={(clarified) => { setRubric(clarified); setProposal(null); setReview([]); setScientificDiagramAnalysis(null); }} />}
+      {interfaceMode === 'teacher' && validation.valid && <RubricAuditPanel key={activeAssignmentId} rubric={rubric} assignmentId={activeAssignmentId} endpoint={endpoint} model={generativeModel} thinking={!apiCompatible && analysisThinking} onApply={(clarified) => { setRubric(clarified); setProposal(null); setReview([]); setScientificDiagramAnalysis(null); }} />}
 
        {interfaceMode === 'teacher' && <div className="teacher-step-footer"><span>{auditIsRunning ? 'Vérification du barème en cours : terminez-la ou arrêtez-la avant de passer aux copies.' : 'Le devoir est prêt ? Ajoutez les copies à corriger.'}</span><button type="button" className="primary-button" disabled={!validation.valid || auditIsRunning} onClick={() => setTeacherStep('overview')}>Continuer vers les copies <span aria-hidden="true">→</span></button></div>}
       </>}

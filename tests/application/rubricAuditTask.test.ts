@@ -54,6 +54,21 @@ describe('vérification de barème indépendante de son écran', () => {
     expect(states).toEqual(['running']);
   });
 
+  it('transmet le réglage Thinking et le garde visible pendant la requête et après sa fin', async () => {
+    const pending = deferred<typeof report>();
+    mocks.audit.mockReturnValueOnce(pending.promise).mockResolvedValueOnce(report);
+    const config = { assignmentId: 'assignment-thinking', rubric, endpoint: 'http://localhost:11434', model: 'qwen-local' };
+    const ongoing = launchRubricAuditTask({ ...config, thinking: true });
+    expect(mocks.audit).toHaveBeenCalledWith(rubric, expect.objectContaining({ model: 'qwen-local', thinking: true }));
+    expect(getRubricAuditTask(config.assignmentId)).toMatchObject({ state: 'running', thinking: true });
+    pending.resolve(report);
+    await ongoing;
+    expect(getRubricAuditTask(config.assignmentId)).toMatchObject({ state: 'success', thinking: true });
+    await launchRubricAuditTask({ ...config, thinking: false });
+    expect(mocks.audit).toHaveBeenLastCalledWith(rubric, expect.objectContaining({ thinking: false }));
+    expect(getRubricAuditTask(config.assignmentId)).toMatchObject({ state: 'success', thinking: false });
+  });
+
   it('allows cancellation and ignores a late response without losing previous decisions', async () => {
     const pending = deferred<typeof report>();
     mocks.audit.mockReturnValue(pending.promise);

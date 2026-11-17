@@ -28,7 +28,7 @@ export async function prepareQuestionContracts(rubric: Rubric, sources: Contract
     const timer = setTimeout(() => controller.abort(new Error('La préparation a dépassé cinq minutes pour ce critère.')), 300000);
     try {
       const response = await providerFetch(endpoint + '/api/chat', annotateNetworkRequest({ method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: controller.signal,
-        body: JSON.stringify({ model, stream: false, think: false, format: 'json', options: { temperature: 0, num_ctx: 8192, num_predict: 2048 }, messages: [{ role: 'user', content: prompts[index] }] }),
+        body: JSON.stringify({ model, stream: false, think: !settings.apiCompatible && settings.thinking === true, format: 'json', options: { temperature: 0, num_ctx: 8192, num_predict: 2048 }, messages: [{ role: 'user', content: prompts[index] }] }),
       }, 'Préparer le contrat de correction', `Critère ${index + 1}/${criteria.length} · ${criterion.title} · contract.preparation v1`));
       if (!response.ok) throw new Error(`Préparation indisponible (HTTP ${response.status}). Vérifiez le modèle génératif et la configuration IA.`);
       const body = await response.json() as { error?: string; done_reason?: string; message?: { content?: string } };

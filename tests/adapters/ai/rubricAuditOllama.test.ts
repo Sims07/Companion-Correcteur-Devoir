@@ -20,6 +20,23 @@ describe('audit barème local Ollama', () => {
     expect(mock).toHaveBeenCalledOnce();
   });
 
+  it('transmet exactement la préférence Thinking à l’audit du barème et à son enrichissement scientifique', async () => {
+    const values: boolean[] = [];
+    const fetcher = vi.fn<typeof fetch>(async (_url, init) => {
+      const request = JSON.parse(String(init?.body)) as { think: boolean; stream: boolean; format: string; messages: Array<{ content: string }> };
+      values.push(request.think);
+      expect(request.stream).toBe(false);
+      expect(request.format).toBe('json');
+      expect(request.messages[0].content).toContain('kind=scientific');
+      return new Response(JSON.stringify({ message: { content: '{"issues":[]}' } }), { status: 200 });
+    });
+    for (const thinking of [true, false]) {
+      const result = await auditRubricWithOllama(rubric, { endpoint: 'http://localhost:11434', model: 'qwen', thinking }, fetcher);
+      expect(result.issues).toEqual([]);
+    }
+    expect(values).toEqual([true, false]);
+  });
+
   it('propose des références scientifiques dans le même appel local, sans changer le barème', async () => {
     const mock = vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
       const payload = JSON.parse(String(init?.body)) as { messages: Array<{ content: string }>; model: string };
