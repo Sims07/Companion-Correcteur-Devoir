@@ -14,6 +14,19 @@ describe('AI model configuration defaults', () => {
     expect(removeAiModelProfile([first], first.id)).toEqual([]);
   });
 
+  it('keeps Thinking off by default and restores the per-profile opt-in', () => {
+    expect(defaultAiModelConfiguration.analysisThinking).toBe(false);
+    expect(parseAiModelConfiguration(null).analysisThinking).toBe(false);
+    expect(parseAiModelConfiguration(JSON.stringify({ analysisThinking: true })).analysisThinking).toBe(true);
+    expect(parseAiModelConfiguration(JSON.stringify({ analysisThinking: 'true' })).analysisThinking).toBe(false);
+    const profile = {
+      id: 'think-on', name: 'Qwen Thinking', mode: 'single', updatedAt: '2026-11-17T10:00:00Z',
+      configuration: { ...defaultAiModelConfiguration, analysisThinking: true },
+    };
+    expect(parseAiModelProfiles(JSON.stringify([profile]))[0]?.configuration.analysisThinking).toBe(true);
+    expect(parseAiModelProfiles(JSON.stringify([{ ...profile, configuration: { ...defaultAiModelConfiguration, analysisThinking: false } }]))[0]?.configuration.analysisThinking).toBe(false);
+  });
+
   it('does not expose per-copy annotation detection in AI model configuration', () => {
     expect(defaultAiModelConfiguration).not.toHaveProperty('detectTeacherAnnotations');
     expect(parseAiModelConfiguration(null)).not.toHaveProperty('detectTeacherAnnotations');
