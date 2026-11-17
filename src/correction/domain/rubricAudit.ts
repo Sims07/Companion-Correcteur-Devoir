@@ -7,6 +7,8 @@ export interface RubricAuditIssue {
   criterionId: string;
   subcriterionId?: string;
   priority: 'high' | 'medium' | 'low';
+  /** Existing wording clarification or scientific knowledge to validate. */
+  kind: 'clarification' | 'scientific';
   reason: string;
   question: string;
   options: string[];
@@ -80,6 +82,8 @@ export function parseRubricAudit(raw: string, rubric: Rubric, model: string): Ru
     if (subcriterionId && !getRubricSubcriteria(criterion).some((sub) => sub.id === subcriterionId)) {
       throw new Error('Audit du barème : sous-critère inconnu : ' + subcriterionId);
     }
+    const kind = value.kind === undefined ? 'clarification' : value.kind;
+    if (kind !== 'clarification' && kind !== 'scientific') throw new Error('Audit du barème : type de proposition invalide.');
     const priority = value.priority;
     if (priority !== 'high' && priority !== 'medium' && priority !== 'low') {
       throw new Error('Audit du barème : priorité invalide.');
@@ -95,7 +99,7 @@ export function parseRubricAudit(raw: string, rubric: Rubric, model: string): Ru
     seen.add(duplicateKey);
     return {
       id, criterionId, ...(subcriterionId ? { subcriterionId } : {}),
-      priority,
+      priority, kind,
       reason: requiredText(value.reason, 'reason', 600),
       question: requiredText(value.question, 'question', 600),
       options,
