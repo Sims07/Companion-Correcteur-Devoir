@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { RubricAuditPanel } from '../../src/correction/ui/components/RubricAuditPanel.tsx';
+import { RubricAuditPanel, RubricCriterionEnrichments } from '../../src/correction/ui/components/RubricAuditPanel.tsx';
 import type { Rubric } from '../../src/correction/domain/rubric.ts';
 import { parseRubricAudit } from '../../src/correction/domain/rubricAudit.ts';
 import { createClarifiedRubricVersion } from '../../src/correction/domain/rubricClarification.ts';
@@ -50,8 +50,45 @@ describe('panneau de clarification enseignant', () => {
 
       const edited = renderToStaticMarkup(<RubricAuditPanel
         rubric={{ ...version.clarified, title: 'Barème ajusté' }} {...props} />);
-      expect(edited).toContain('Le barème actuel a été modifié depuis la dernière clarification.');
+      expect(edited).toContain('Le barème actuel a évolué depuis la dernière application IA.');
       expect(edited).not.toContain('BARÈME MODIFIÉ · VERSION ACTIVE');
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('affiche la provenance des ajouts dans le critère et un bilan cumulé après édition manuelle', () => {
+    const scienceRubric: Rubric = {
+      title: 'Mitose', criteria: [{ id: 'bio', title: 'Biologie', description: 'Repérer les phases', maxPoints: 2 }],
+    };
+    const report = parseRubricAudit(JSON.stringify({ issues: [{
+      kind: 'scientific', criterionId: 'bio', subcriterionId: null, priority: 'high',
+      question: 'Quelle référence ?', options: ['Oui', 'Adapter'], reason: 'Référence absente',
+      suggestion: 'Les chromatides migrent vers les pôles.',
+    }] }), scienceRubric, 'gemma-local');
+    const version = createClarifiedRubricVersion(scienceRubric, report, [{
+      issueId: report.issues[0].id, choice: 'Les chromatides migrent vers les pôles.', decision: 'accepted',
+    }], '2026-11-17T15:00:00Z');
+    const assignmentId = 'test-visible-science';
+    vi.stubGlobal('window', { localStorage: {
+      getItem: (name: string) => name === 'companion-correcteur:rubric-versions:v1:' + assignmentId
+        ? JSON.stringify([version]) : null,
+    } });
+    try {
+      const html = renderToStaticMarkup(<RubricCriterionEnrichments
+        rubric={version.clarified} assignmentId={assignmentId} criterionId="bio" onChange={vi.fn()} />);
+      expect(html).toContain('Référence scientifique IA');
+      expect(html).toContain('Les chromatides migrent vers les pôles.');
+      expect(html).toContain('gemma-local');
+      expect(html).toContain('Application 1');
+      expect(html).toContain('Repérer les phases');
+      expect(html).toContain('Retirer cet ajout');
+      const panel = renderToStaticMarkup(<RubricAuditPanel
+        rubric={{ ...version.clarified, title: 'Mitose modifiée' }} assignmentId={assignmentId}
+        endpoint="http://localhost:11434" model="gemma-local" onApply={vi.fn()} />);
+      expect(panel).toContain('Bilan cumulé');
+      expect(panel).toContain('Origine des ajouts toujours actifs');
+      expect(panel).toContain('première version conservée');
     } finally {
       vi.unstubAllGlobals();
     }
