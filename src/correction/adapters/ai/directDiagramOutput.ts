@@ -2,6 +2,7 @@ import { parseModelJson } from '../../../shared/domain/modelJson.ts';
 import { parseGradingProposal } from '../../domain/grading.ts';
 import { getRubricSubcriteria, type RubricCriterion } from '../../domain/rubric.ts';
 import { sumGradeScores } from '../../../shared/domain/scorePrecision.ts';
+import { evaluateObservableScore, isTitleEmphasisRequirement } from '../../domain/observableScoring.ts';
 
 const object = (properties: Record<string, unknown>) => ({
   type: 'object', additionalProperties: false, required: Object.keys(properties), properties,
@@ -18,6 +19,7 @@ export function directDiagramSchema(criteria: RubricCriterion[]) {
       questionForTeacher: { type: 'string' },
       ...(subs.length ? { subcriteria: object(Object.fromEntries(subs.map(s => [s.id, object({
         points: { type: 'number', minimum: 0, maximum: s.maxPoints }, evidence: { type: 'string' },
+        ...(isTitleEmphasisRequirement(s.title) ? { observations: object({ underlined: { type: 'boolean' }, framed: { type: 'boolean' }, uppercase: { type: 'boolean' } }) } : {}),
       })]))) } : { points: { type: 'number', minimum: Math.min(0, c.maxPoints), maximum: Math.max(0, c.maxPoints) } }),
     })];
   }))) });
@@ -247,6 +249,7 @@ export function parseDirectDiagramOutput(raw: string, criteria: RubricCriterion[
     if (!['low', 'medium', 'high'].includes(String(item.confidence))) fail('invalid-confidence');
     if (typeof item.questionForTeacher !== 'string') fail('invalid-shape');
     const subs = getRubricSubcriteria(c);
+    const contradictions: string[] = [];
     let subcriteria;
     if (subs.length) {
       exactKeys(item.subcriteria, subs.map(s => s.id));
@@ -254,13 +257,21 @@ export function parseDirectDiagramOutput(raw: string, criteria: RubricCriterion[
       subcriteria = subs.map(s => {
         const entry = values[s.id];
         if (!record(entry)) fail('invalid-shape');
-        return { subcriterionId: s.id, points: points(entry.points, s.maxPoints, `${c.id}.subcriteria.${s.id}.points`), evidence: evidence(entry.evidence) };
+        const proposed = points(entry.points, s.maxPoints, `${c.id}.subcriteria.${s.id}.points`);
+        const proof = evidence(entry.evidence);
+        const scoring = evaluateObservableScore(s.title, proof, proposed, s.maxPoints, entry.observations);
+        if (scoring.reason) contradictions.push(s.title + ' : ' + scoring.reason);
+        return { subcriterionId: s.id, points: scoring.points, evidence: proof };
       });
     }
+    const originalCriterionScore = subcriteria ? undefined : points(item.points, c.maxPoints, `${c.id}.points`);
+    const entireCriterion = originalCriterionScore === undefined ? null
+      : evaluateObservableScore(c.title, evidence(item.evidence), originalCriterionScore, c.maxPoints);
+    if (entireCriterion?.reason) contradictions.push(entireCriterion.reason);
     return {
-      criterionId: c.id, evidence: evidence(item.evidence), confidence: item.confidence,
-      rationale: '', questionForTeacher: item.questionForTeacher,
-      points: subcriteria ? sumGradeScores(subcriteria.map(s => s.points)) : points(item.points, c.maxPoints, `${c.id}.points`),
+      criterionId: c.id, evidence: evidence(item.evidence), confidence: contradictions.length ? 'low' : item.confidence,
+      rationale: '', questionForTeacher: [item.questionForTeacher, ...contradictions].filter(Boolean).join(' '),
+      points: subcriteria ? sumGradeScores(subcriteria.map(s => s.points)) : entireCriterion!.points,
       ...(subcriteria ? { subcriteria } : {}),
     };
   });
