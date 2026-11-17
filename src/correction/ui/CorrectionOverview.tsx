@@ -237,7 +237,8 @@ export function CorrectionOverview({ children, jobs, corrections, currentCopy, f
             </div>
             <div className="correction-series-actions">
               {item.kind === 'job' && item.job && <>
-                {item.status === 'to-retry' && <button type="button" className="primary-button" onClick={() => onRetryJob(item.job!.id)}>Relancer</button>}{item.status === 'to-do' && item.job.error?.startsWith('Correction interrompue par l’enseignant') && <button type="button" className="primary-button" onClick={onStartCorrections}>Reprendre les corrections</button>}
+                {item.status === 'to-retry' && <button type="button" className="primary-button" onClick={() => onRetryJob(item.job!.id)}>Relancer</button>}
+                {item.status === 'to-review' && <button type="button" className="primary-button" onClick={() => onRetryJob(item.job!.id)}>Recorriger</button>}{item.status === 'to-do' && item.job.error?.startsWith('Correction interrompue par l’enseignant') && <button type="button" className="primary-button" onClick={onStartCorrections}>Reprendre les corrections</button>}
                 <button type="button" className="secondary-button correction-series-view" onClick={() => onOpenJob(item.job!.id)}>Ouvrir</button>
                 {item.status !== 'processing' && <button type="button" className="text-button correction-series-remove" aria-label={`Retirer la copie « ${item.label} »`} onClick={() => onRemoveJob(item.id)}>Retirer</button>}
               </>}
