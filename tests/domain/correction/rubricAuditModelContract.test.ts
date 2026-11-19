@@ -79,10 +79,13 @@ describe('contrat compact pour l’audit du barème', () => {
   });
 
   it('récupère les anciens diagnostics et les nouveaux sans relancer Ollama', () => {
-    const old = { ...proposed, criterionId: 'drawing', subcriterionId: null };
-    const { ref: _ref, ...oldResponse } = old;
+    const oldResponse = {
+      kind: 'clarification', criterionId: 'drawing', subcriterionId: null, priority: 'high',
+      reason: proposed.reason, question: proposed.question, options: proposed.options, suggestion: proposed.suggestion,
+    };
     const legacy = parseRecoveredRubricAudit(JSON.stringify({ issues: [oldResponse] }), rubric, 'old');
-    expect(legacy.issues[0]).toMatchObject({ criterionId: 'drawing', subcriterionId: undefined });
+    expect(legacy.issues[0].criterionId).toBe('drawing');
+    expect(legacy.issues[0].subcriterionId).toBeUndefined();
     const current = parseRecoveredRubricAudit(JSON.stringify({ issues: [proposed] }), rubric, 'new');
     expect(current.issues[0].subcriterionId).toBe('sub-4cdf13aa-6634-487b-87f4-d6e48e463b8b');
   });
