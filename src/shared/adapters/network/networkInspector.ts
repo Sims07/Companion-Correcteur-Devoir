@@ -24,8 +24,12 @@ export type NetworkRequestRecord = {
   responseBody: string;
   /** Thinking fragments explicitly transmitted by Ollama (not inferred). */
   thinkingBody?: string;
+  /** Total received characters; the preview can be truncated. */
+  thinkingCharacters?: number;
   /** Returned message.content (or /api/generate response) without Thinking/NDJSON. */
   messageBody?: string;
+  /** Total answer characters, independent of its bounded preview. */
+  messageCharacters?: number;
   error: string | null;
 };
 
@@ -44,6 +48,11 @@ let initialized = false;
 function truncate(value: string, limit = MAX_BODY_LENGTH): string {
   const suffix = '\n… contenu tronqué dans l’inspecteur';
   return value.length > limit ? `${value.slice(0, Math.max(0, limit - suffix.length))}${suffix}` : value;
+}
+
+function truncateThinkingTail(value: string, limit: number): string {
+  const prefix = '… début du raisonnement masqué ; derniers caractères conservés :\n';
+  return value.length > limit ? prefix + value.slice(-(limit - prefix.length)) : value;
 }
 
 function sanitizeValue(value: unknown, key = ''): unknown {
@@ -109,7 +118,7 @@ function persistedRecords(records: NetworkRequestRecord[]): NetworkRequestRecord
     ...record,
     requestBody: truncate(record.requestBody, PERSISTED_BODY_LENGTH),
     responseBody: truncate(record.responseBody, PERSISTED_BODY_LENGTH),
-    ...(typeof record.thinkingBody === 'string' ? { thinkingBody: truncate(record.thinkingBody, PERSISTED_BODY_LENGTH) } : {}),
+    ...(typeof record.thinkingBody === 'string' ? { thinkingBody: truncateThinkingTail(record.thinkingBody, PERSISTED_BODY_LENGTH) } : {}),
     ...(typeof record.messageBody === 'string' ? { messageBody: truncate(record.messageBody, PERSISTED_BODY_LENGTH) } : {}),
   }));
 }
@@ -251,7 +260,7 @@ export function installNetworkInspector(): () => void {
               const firstThinking: boolean = !publishedThinking && Boolean(thinking?.text);
               const firstMessage: boolean = !publishedMessage && Boolean(thinking?.message);
               if (now - lastPublishedAt >= 350 || firstThinking || firstMessage) {
-                update({ responseBody: preview(), ...(thinking ? { thinkingBody: thinking.text, messageBody: thinking.message } : {}) });
+                update({ responseBody: preview(), ...(thinking ? { thinkingBody: thinking.text, thinkingCharacters: thinking.thinkingCharacters, messageBody: thinking.message, messageCharacters: thinking.messageCharacters } : {}) });
                 publishedThinking = publishedThinking || firstThinking;
                 publishedMessage = publishedMessage || firstMessage;
                 lastPublishedAt = now;
@@ -259,11 +268,11 @@ export function installNetworkInspector(): () => void {
             }
             append(decoder.decode());
             thinking?.finish();
-            update({ responseBody: preview(), ...(thinking ? { thinkingBody: thinking.text, messageBody: thinking.message } : {}), durationMs: Math.round(performance.now() - started), state: response.ok ? 'success' : 'error',
+            update({ responseBody: preview(), ...(thinking ? { thinkingBody: thinking.text, thinkingCharacters: thinking.thinkingCharacters, messageBody: thinking.message, messageCharacters: thinking.messageCharacters } : {}), durationMs: Math.round(performance.now() - started), state: response.ok ? 'success' : 'error',
               ...(response.ok && isOllamaInferenceRequest(url) ? { providerTimings: readOllamaNativeTimings(tail) ?? readOllamaNativeTimings(body) } : {}),
             }, true);
           } catch (cause) {
-            update({ responseBody: body, ...(thinking ? { thinkingBody: thinking.text, messageBody: thinking.message } : {}), durationMs: Math.round(performance.now() - started), state: 'error', error: cause instanceof Error ? cause.message : 'Lecture de la réponse impossible.' }, true);
+            update({ responseBody: body, ...(thinking ? { thinkingBody: thinking.text, thinkingCharacters: thinking.thinkingCharacters, messageBody: thinking.message, messageCharacters: thinking.messageCharacters } : {}), durationMs: Math.round(performance.now() - started), state: 'error', error: cause instanceof Error ? cause.message : 'Lecture de la réponse impossible.' }, true);
           }
         })();
       } else {

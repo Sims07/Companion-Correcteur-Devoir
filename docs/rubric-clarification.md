@@ -108,7 +108,12 @@ Une réponse sans événement final `done: true`, un `done_reason: "length"`,
 un JSON invalide ou une annulation ne peuvent pas être validés comme audit
 terminé. Les enrichissements précédemment appliqués sont préservés. Le suivi
 réseau limite les rafraîchissements et la taille de son aperçu pour éviter une
-surcharge de l'interface sur les longues générations.
+surcharge de l'interface sur les longues générations. L'inspecteur conserve les
+**derniers 20 000 caractères de Thinking** en mémoire et affiche le nombre total
+de caractères réellement reçus, sans confondre ce total avec la taille de l'aperçu.
+Après cinq minutes de Thinking sans réponse JSON, un avertissement permet à
+l'enseignant de décider d'arrêter l'audit depuis le barème ; aucune interruption
+automatique ni perte de données n'est déclenchée.
 
 ## Restaurer le barème de départ
 
