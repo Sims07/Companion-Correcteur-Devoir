@@ -52,6 +52,8 @@ describe('Atelier B rubric composition', () => {
 
   it('preserves optional reuse of source criteria without changing linked assignments', () => {
     expect(css).toContain('.atelier-rubric-restore-launch { width: 100%');
+    expect(css).not.toContain('.atelier-rubric-restore button:focus-visible');
+    expect(read('src/correction/ui/components/RubricBaselineRestoreControl.tsx')).toContain('variant="primary" className="atelier-rubric-restore-launch"');
     expect(app).toContain('<RubricBaselineRestoreControl');
     expect(app).toContain('onRestore={(restored)');
     expect(app).toContain('<RubricReusePanel');

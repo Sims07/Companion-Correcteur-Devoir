@@ -67,6 +67,8 @@ describe('panneau de clarification enseignant', () => {
       const sidebar = renderToStaticMarkup(<RubricBaselineRestoreControl
         rubric={{ ...version.clarified, title: 'Barème ajusté' }} assignmentId={assignmentId} onRestore={vi.fn()} />);
       expect(sidebar).toContain('Restaurer la première version conservée');
+      expect(sidebar).toContain('ds-button ds-button--primary atelier-rubric-restore-launch');
+      expect(sidebar).not.toContain('secondary-button atelier-rubric-restore-launch');
       expect(sidebar).toContain('Sur cet ancien devoir, l’origine exacte n’est pas garantie.');
     } finally {
       vi.unstubAllGlobals();
@@ -120,6 +122,7 @@ describe('panneau de clarification enseignant', () => {
       const control = renderToStaticMarkup(<RubricBaselineRestoreControl
         rubric={version.clarified} assignmentId={assignmentId} onRestore={vi.fn()} />);
       expect(control).toContain('Restaurer le barème initial');
+      expect(control).toContain('ds-button ds-button--primary atelier-rubric-restore-launch');
       expect(original).toContain('Comparer avec le barème initial');
       const disabled = renderToStaticMarkup(<RubricBaselineRestoreControl
         rubric={version.clarified} assignmentId={assignmentId} disabled onRestore={vi.fn()} />);

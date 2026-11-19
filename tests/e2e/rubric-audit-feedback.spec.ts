@@ -279,10 +279,16 @@ test('teacher confirms restoration of the original rubric without losing histori
   const aside = page.getByRole('complementary', { name: 'Synthèse du barème' });
   const restore = aside.getByRole('button', { name: 'Restaurer le barème initial' });
   await expect(restore).toBeVisible();
+  await expect(restore).toHaveClass(/ds-button--primary/);
+  await expect(restore).toHaveCSS('background-color', 'rgb(161, 77, 55)');
+  await expect(restore).toHaveCSS('color', 'rgb(255, 255, 255)');
+  await expect(restore).toHaveCSS('cursor', 'pointer');
   await expect(page.locator('.rubric-audit-cumulative')).not.toHaveAttribute('open', '');
   await expect(page.getByRole('button', { name: 'Restaurer le barème initial' })).toHaveCount(1);
   await restore.click();
   await expect(page.getByRole('group', { name: 'Confirmer la restauration du barème' })).toContainText('modifications manuelles');
+  await expect(aside.getByRole('button', { name: 'Confirmer la restauration' })).toHaveClass(/ds-button--primary/);
+  await expect(aside.getByRole('button', { name: 'Annuler', exact: true })).toHaveClass(/ds-button--secondary/);
   await page.getByRole('button', { name: 'Annuler', exact: true }).click();
   await expect(page.getByRole('group', { name: 'Confirmer la restauration du barème' })).toHaveCount(0);
   await restore.click();
@@ -332,6 +338,9 @@ test('legacy assignments can restore the earliest retained rubric from the summa
   const aside = page.getByRole('complementary', { name: 'Synthèse du barème' });
   const restore = aside.getByRole('button', { name: 'Restaurer la première version conservée' });
   await expect(restore).toBeVisible();
+  await expect(restore).toHaveClass(/ds-button--primary/);
+  await expect(restore).toHaveCSS('background-color', 'rgb(161, 77, 55)');
+  await expect(restore).toHaveCSS('color', 'rgb(255, 255, 255)');
   await expect(aside).toContainText('l’origine exacte n’est pas garantie');
   await restore.click();
   await aside.getByRole('button', { name: 'Confirmer la restauration' }).click();

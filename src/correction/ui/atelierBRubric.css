@@ -222,14 +222,13 @@
 .atelier-rubric-restore { display: grid; gap: 7px; padding-top: 15px; margin-top: 16px; border-top: 1px solid var(--ds-color-border); }
 .atelier-rubric-restore > strong { font-size: 12px; }
 .atelier-rubric-restore > p { margin: 0; font-size: 11px; line-height: 1.45; }
-.atelier-rubric-restore-launch { width: 100%; min-height: 44px; padding: 10px 8px; font-size: 12px; font-weight: 700; text-align: center; white-space: normal; }
+.atelier-rubric-restore-launch { width: 100%; min-height: 44px; white-space: normal; }
 .atelier-rubric-restore-help { color: var(--ds-color-text-muted); }
 .atelier-rubric-restore-confirm { display: grid; gap: 8px; padding: 10px; border: 1px solid var(--ds-color-border-strong); border-radius: 3px; background: var(--ds-color-surface-subtle); }
 .atelier-rubric-restore-confirm > strong { font-size: 11px; }
 .atelier-rubric-restore-actions { display: grid; gap: 5px; }
-.atelier-rubric-restore-actions .primary-button { min-height: 38px; white-space: normal; font-size: 11px; }
+.atelier-rubric-restore-actions .ds-button { width: 100%; min-height: 44px; white-space: normal; }
 .atelier-rubric-restore-feedback { font-weight: 700; }
-.atelier-rubric-restore button:focus-visible { outline: 2px solid var(--ds-color-brand-700); outline-offset: 2px; }
 @media (max-width: 1200px) {
   .atelier-rubric-grid { grid-template-columns: minmax(0, 1fr); }
   .atelier-rubric-synthesis { position: static; }
