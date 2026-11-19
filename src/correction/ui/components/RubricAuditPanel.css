@@ -157,10 +157,5 @@
 
 .rubric-criterion-enrichment-count { display: inline-block; margin-left: .45rem; padding: .15rem .45rem; border: 1px solid #32775c; border-radius: .35rem; color: #32775c; font-weight: 700; font-size: .78rem; white-space: nowrap; }
 
-/* Reverting a rubric is explicitly confirmed, never a one-click destructive action. */
-.rubric-audit-restore { margin-top: 1rem; display: grid; justify-items: start; gap: .7rem; }
-.rubric-audit-restore > p { margin: 0; }
-.rubric-audit-restore-confirm { width: 100%; box-sizing: border-box; border: 1px solid var(--border, #d4dce1); border-radius: .65rem; padding: 1rem; background: var(--surface-subtle, rgba(128,128,128,.065)); }
-.rubric-audit-restore-confirm p { max-width: 80ch; line-height: 1.5; }
-.rubric-audit-restore-confirm .rubric-audit-actions { margin-top: .75rem; }
-.rubric-audit-restore-feedback { font-weight: 600; }
+/* Archived changes are consulted on demand, not a warning banner. */
+.rubric-audit-version-note { margin: 0; padding: .4rem 0; font-size: .9rem; color: var(--ds-color-text-muted, var(--text-muted, #59636e)); }
