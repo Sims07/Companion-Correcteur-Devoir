@@ -244,7 +244,7 @@ export function installNetworkInspector(): () => void {
               if (done) break;
               append(decoder.decode(value, { stream: true }));
               const now = performance.now();
-              const firstThinking = !publishedThinking && Boolean(thinking?.text);
+              const firstThinking: boolean = !publishedThinking && Boolean(thinking?.text);
               if (now - lastPublishedAt >= 350 || firstThinking) {
                 update({ responseBody: preview(), ...(thinking ? { thinkingBody: thinking.text } : {}) });
                 publishedThinking = publishedThinking || firstThinking;
