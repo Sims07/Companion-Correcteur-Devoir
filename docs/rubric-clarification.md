@@ -84,3 +84,9 @@ un JSON invalide ou une annulation ne peuvent pas être validés comme audit
 terminé. Les enrichissements précédemment appliqués sont préservés. Le suivi
 réseau limite les rafraîchissements et la taille de son aperçu pour éviter une
 surcharge de l'interface sur les longues générations.
+
+## Restaurer le barème de départ
+
+Depuis le **bilan cumulé**, l’enseignant peut restaurer le **barème initial** après une confirmation explicite. Cette opération remplace l’intégralité du barème courant (critères, sous-critères, descriptions, références, titres et points), y compris les changements manuels, sans modifier les corrections archivées ni effacer l’historique des enrichissements. Le panneau indique ensuite que le barème initial est utilisé pour les prochaines corrections et ne le présente pas comme une version IA active.
+
+Le barème précédant la toute première application est désormais sauvegardé dans une entrée locale dédiée, distincte de l’historique plafonné à 20 applications, pour permettre une restauration durable. Pour les devoirs créés avant cette sauvegarde dédiée, seul l’original de **la première application encore conservée** est garanti : l’interface précise cette limite et propose « Restaurer la première version conservée ». La restauration n’envoie aucune donnée à Ollama.

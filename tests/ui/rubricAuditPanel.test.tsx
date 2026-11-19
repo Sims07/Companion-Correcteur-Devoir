@@ -61,6 +61,8 @@ describe('panneau de clarification enseignant', () => {
       const edited = renderToStaticMarkup(<RubricAuditPanel
         rubric={{ ...version.clarified, title: 'Barème ajusté' }} {...props} />);
       expect(edited).toContain('Le barème actuel a évolué depuis la dernière application IA.');
+      expect(edited).toContain('Restaurer la première version conservée');
+      expect(edited).toContain('L’historique ancien a pu');
       expect(edited).not.toContain('BARÈME MODIFIÉ · VERSION ACTIVE');
     } finally {
       vi.unstubAllGlobals();
@@ -102,6 +104,16 @@ describe('panneau de clarification enseignant', () => {
       expect(panel).toContain('Bilan cumulé');
       expect(panel).toContain('Origine des ajouts toujours actifs');
       expect(panel).toContain('première version conservée');
+      const baselineKey = 'companion-correcteur:rubric-baseline:v1:' + assignmentId;
+      vi.stubGlobal('window', { localStorage: {
+        getItem: (name: string) => name === baselineKey
+          ? JSON.stringify({ source: 'initial', rubric: scienceRubric })
+          : name === 'companion-correcteur:rubric-versions:v1:' + assignmentId ? JSON.stringify([version]) : null,
+      } });
+      const original = renderToStaticMarkup(<RubricAuditPanel rubric={version.clarified} assignmentId={assignmentId}
+        endpoint="http://localhost:11434" model="gemma-local" onApply={vi.fn()} />);
+      expect(original).toContain('Restaurer le barème initial');
+      expect(original).toContain('Bilan cumulé : barème initial');
     } finally {
       vi.unstubAllGlobals();
     }
