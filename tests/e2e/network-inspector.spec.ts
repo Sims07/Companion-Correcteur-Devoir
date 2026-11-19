@@ -91,6 +91,7 @@ test('Debug exposes live HTTP requests and their response details', async ({ pag
   await expect(intentDetails.getByRole('alert')).toContainText('première réponse après 20 minutes');
   await expect(intentDetails.getByRole('alert')).toContainText('sans réponse HTTP');
 
+  await page.setViewportSize({ width: 1440, height: 1150 });
   const thinkingRequest = page.getByRole('listitem').filter({ hasText: 'Vérifier et clarifier le barème' });
   await thinkingRequest.click();
   await page.getByRole('button', { name: 'Thinking' }).click();
