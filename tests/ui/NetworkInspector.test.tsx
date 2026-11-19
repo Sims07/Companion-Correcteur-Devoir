@@ -112,6 +112,27 @@ describe('NetworkInspector live request feedback', () => {
     expect(container.textContent).toContain('Je contrôle le titre principal.');
   });
 
+  it('shows the true thinking count and warns after five minutes without rubric JSON', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-11-03T08:06:00.000Z'));
+    mockNetworkHistory.records = [{
+      ...pendingRecord, intent: 'Vérifier et clarifier le barème', status: 200,
+      requestBody: '{"think":true}', thinkingBody: '… début du raisonnement tronqué\nDernier raisonnement reçu',
+      thinkingCharacters: 47_000,
+    }];
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+    await act(async () => { root?.render(<NetworkInspector />); });
+    expect(container.textContent).toContain('Thinking reçu : 47000 caractères');
+    expect(container.textContent).toContain('Raisonnement prolongé : plus de cinq minutes sans réponse JSON');
+    await act(async () => { [...container!.querySelectorAll('.network-detail-tabs button')]
+      .find((button) => button.textContent === 'Thinking')
+      ?.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+    expect(container.textContent).toContain('Dernier raisonnement reçu');
+    expect(container.textContent).not.toContain('Message reçu :');
+  });
+
   it('shows the returned message separately from raw Response and Thinking', async () => {
     mockNetworkHistory.records = [{
       ...pendingRecord, status: 200, thinkingBody: 'Vérification des critères.',

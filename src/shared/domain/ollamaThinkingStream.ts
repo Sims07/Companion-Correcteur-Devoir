@@ -5,7 +5,9 @@
 export class OllamaThinkingStream {
   private buffer = '';
   private reasoning = '';
+  private reasoningCharacters = 0;
   private messageContent = '';
+  private messageCharactersReceived = 0;
   private truncated = false;
   private messageTruncated = false;
   private static readonly MAX_REASONING = 20_000;
@@ -28,10 +30,14 @@ export class OllamaThinkingStream {
     this.buffer = '';
   }
 
+  /** Total characters received, even when the inspector only keeps a bounded excerpt. */
+  get thinkingCharacters(): number { return this.reasoningCharacters; }
+  get messageCharacters(): number { return this.messageCharactersReceived; }
+
   get text(): string {
     if (!this.truncated) return this.reasoning;
-    const suffix = '\n… raisonnement tronqué dans l’inspecteur';
-    return this.reasoning.slice(0, OllamaThinkingStream.MAX_REASONING - suffix.length) + suffix;
+    const prefix = '… début du raisonnement tronqué dans l’inspecteur ; derniers caractères reçus :\n';
+    return prefix + this.reasoning.slice(-(OllamaThinkingStream.MAX_REASONING - prefix.length));
   }
 
   /** Final answer fragments only, without reasoning or NDJSON framing. */
@@ -49,13 +55,14 @@ export class OllamaThinkingStream {
     const event = packet as { message?: { thinking?: unknown; content?: unknown }; thinking?: unknown; response?: unknown };
     const thought = event.message?.thinking ?? event.thinking;
     if (typeof thought === 'string' && thought) {
-      const space = Math.max(0, OllamaThinkingStream.MAX_REASONING - this.reasoning.length);
-      if (thought.length > space) this.truncated = true;
-      this.reasoning += thought.slice(0, space);
+      this.reasoningCharacters += thought.length;
+      this.reasoning = (this.reasoning + thought).slice(-OllamaThinkingStream.MAX_REASONING);
+      this.truncated = this.reasoningCharacters > OllamaThinkingStream.MAX_REASONING;
     }
     // /api/chat exposes message.content; /api/generate exposes response.
     const answer = event.message?.content ?? event.response;
     if (typeof answer === 'string' && answer) {
+      this.messageCharactersReceived += answer.length;
       const space = Math.max(0, OllamaThinkingStream.MAX_MESSAGE - this.messageContent.length);
       if (answer.length > space) this.messageTruncated = true;
       this.messageContent += answer.slice(0, space);

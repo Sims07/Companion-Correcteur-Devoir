@@ -78,6 +78,9 @@ export function NetworkInspector({ initialFilter = 'all' }: { initialFilter?: 'a
     ? selected.messageBody ?? extractOllamaMessage(selected.responseBody)
     : '';
   const thinkingRequested = selected ? requestedThinking(selected.requestBody) : null;
+  const longRubricThinking = selected?.intent === 'Vérifier et clarifier le barème'
+    && selected.state === 'pending' && selected.status !== null
+    && Boolean(selectedThinking) && !selectedMessage && (liveDuration(selected) ?? 0) >= 300_000;
   const unexplainedGap = selected?.providerTimings && selected.durationMs !== null
     ? selected.durationMs - selected.providerTimings.totalMs : null;
 
@@ -103,8 +106,9 @@ export function NetworkInspector({ initialFilter = 'all' }: { initialFilter?: 'a
         {selected ? <>
           <div className="network-selected-heading"><div><span className="network-method">{selected.method}</span><strong>{selected.url}</strong></div><span>{formatTime(selected.startedAt)} · {formatDuration(visibleDuration(selected))} · {modelDurationLabel(selected)}</span></div>
           <section className="network-intent-detail" aria-label="Intention de la requête"><h3>Intention</h3><p>{selected.intent || 'Intention non renseignée'}</p>{selected.context && <small>{selected.context}</small>}{waitingForServer(selected) && <p className="network-waiting-hint" role="status">En attente du serveur (modèle en cours de chargement ?)</p>}
-             {selected.state === 'pending' && selected.status !== null && <p className="network-stream-hint" role="status">{[selectedThinking && `Thinking reçu : ${selectedThinking.length} caractères`, selectedMessage && `Message reçu : ${selectedMessage.length} caractères`].filter(Boolean).join(' · ') || (selected.responseBody ? 'Flux de réponse reçu · traitement en cours' : 'Réponse HTTP reçue · en attente des premiers fragments')}</p>}
-            {isOllamaInferenceRequest(selected.url) && selected.state !== 'pending' && <div className="network-native-timing" aria-label="Durées de la requête">
+             {selected.state === 'pending' && selected.status !== null && <p className="network-stream-hint" role="status">{[selectedThinking && `Thinking reçu : ${selected.thinkingCharacters ?? selectedThinking.length} caractères`, selectedMessage && `Message reçu : ${selected.messageCharacters ?? selectedMessage.length} caractères`].filter(Boolean).join(' · ') || (selected.responseBody ? 'Flux de réponse reçu · traitement en cours' : 'Réponse HTTP reçue · en attente des premiers fragments')}</p>}
+            {longRubricThinking && <p className="network-waiting-hint" role="status">Raisonnement prolongé : plus de cinq minutes sans réponse JSON. Le modèle consomme du temps et des tokens en Thinking ; la vérification du barème n’aboutira qu’après réception du JSON complet. Vous pouvez arrêter cette vérification depuis le barème sans perdre les validations existantes.</p>}
+             {isOllamaInferenceRequest(selected.url) && selected.state !== 'pending' && <div className="network-native-timing" aria-label="Durées de la requête">
               <p><strong>Temps Ollama : {formatDuration(selected.providerTimings?.totalMs ?? null)}</strong> · Temps navigateur : {formatDuration(selected.durationMs)}</p>
               {selected.providerTimings && <p>Chargement : {formatDuration(selected.providerTimings.loadMs ?? null)} · Prompt : {formatDuration(selected.providerTimings.promptEvaluationMs ?? null)} · Génération : {formatDuration(selected.providerTimings.generationMs ?? null)}</p>}
               {unexplainedGap !== null && unexplainedGap > 60_000 && unexplainedGap > selected.providerTimings!.totalMs * 2 && <p className="network-waiting-hint" role="status">Écart important entre Ollama et le navigateur : veille, attente ou interruption possible. Écart : {formatDuration(unexplainedGap)}.</p>}
@@ -136,6 +140,6 @@ export function NetworkInspector({ initialFilter = 'all' }: { initialFilter?: 'a
         </> : <p className="network-empty">Sélectionnez une requête pour examiner ses détails.</p>}
       </section>
     </div>
-    <p className="network-inspector-footnote">Les corps complets sont disponibles pendant la session ; seuls les 4 000 premiers caractères par corps (y compris Thinking et Message) sont conservés dans l’historique. Les clés, tokens et données binaires sont masqués. L’historique est limité aux 100 dernières requêtes.</p>
+    <p className="network-inspector-footnote">Les réponses réseau sont limitées dans l’inspecteur. En cours de génération, Thinking affiche les derniers caractères reçus (20 000 au maximum), avec le total exact depuis le début ; Message conserve un aperçu du début de la réponse. Seuls 4 000 caractères par corps sont persistés localement. Les clés, tokens et données binaires sont masqués. L’historique est limité aux 100 dernières requêtes.</p>
   </section>;
 }

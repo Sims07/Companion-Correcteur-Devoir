@@ -31,6 +31,16 @@ describe('OllamaThinkingStream', () => {
     expect(collector.text.length).toBeLessThanOrEqual(20_000);
     expect(collector.text).toContain('raisonnement tronqué');
   });
+  it('keeps the most recent thinking with the true cumulative counter after 20 000 characters', () => {
+    const parser = new OllamaThinkingStream();
+    parser.append(JSON.stringify({ message: { thinking: 'A'.repeat(20_000) } }) + '\n');
+    parser.append(JSON.stringify({ message: { thinking: 'Dernière étape scientifique.' } }) + '\n');
+    expect(parser.thinkingCharacters).toBe(20_000 + 'Dernière étape scientifique.'.length);
+    expect(parser.text).toContain('début du raisonnement tronqué');
+    expect(parser.text).toContain('Dernière étape scientifique.');
+    expect(parser.text.length).toBeLessThanOrEqual(20_000);
+  });
+
   it('reassembles streamed answer chunks independently of thinking and supports /api/generate', () => {
     const parser = new OllamaThinkingStream();
     const first = JSON.stringify({ message: { content: 'Première ' } }) + '\n';
@@ -40,6 +50,7 @@ describe('OllamaThinkingStream', () => {
     parser.append(JSON.stringify({ message: { thinking: 'interne', content: 'réponse.' } }) + '\n');
     parser.finish();
     expect(parser.message).toBe('Première réponse.');
+    expect(parser.messageCharacters).toBe('Première réponse.'.length);
     expect(parser.text).toBe('interne');
     expect(extractOllamaMessage(JSON.stringify({ response: 'texte généré', done: true }))).toBe('texte généré');
   });

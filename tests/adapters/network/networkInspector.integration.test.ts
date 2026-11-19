@@ -172,6 +172,7 @@ describe('network inspector fetch integration', () => {
         for (let index = 0; index < 300; index += 1) {
           controller.enqueue(new TextEncoder().encode(JSON.stringify({ message: { thinking: 'longue analyse'.repeat(8) }, done: false }) + '\n'));
         }
+        controller.enqueue(new TextEncoder().encode(JSON.stringify({ message: { thinking: 'Conclusion sur C4.S2' }, done: false }) + '\n'));
         controller.enqueue(new TextEncoder().encode(JSON.stringify({ done: true, total_duration: 900_000_000, eval_duration: 700_000_000 }) + '\n'));
         controller.close();
       },
@@ -193,6 +194,13 @@ describe('network inspector fetch integration', () => {
     expect(record.state).toBe('success');
     expect(record.responseBody.length).toBeLessThanOrEqual(20_000);
     expect(record.responseBody).toContain('tronqué');
+    expect(record.thinkingCharacters).toBe(300 * 'longue analyse'.repeat(8).length + 'Conclusion sur C4.S2'.length);
+    expect(record.thinkingBody).toContain('début du raisonnement tronqué');
+    expect(record.thinkingBody).toContain('Conclusion sur C4.S2');
+    const persisted = JSON.parse(values.get('companion-correcteur:network-inspector:v1') ?? '[]');
+    expect(persisted[0].thinkingBody).toContain('Conclusion sur C4.S2');
+    expect(persisted[0].thinkingCharacters).toBe(record.thinkingCharacters);
+    expect(record.thinkingBody?.length).toBeLessThanOrEqual(20_000);
     expect(record.providerTimings).toMatchObject({ totalMs: 900, generationMs: 700 });
     expect(fakeWindow.dispatchEvent.mock.calls.length).toBeLessThan(30);
     restore();
@@ -501,6 +509,7 @@ describe('Thinking from local Ollama streams', () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
       expect(loadNetworkHistory()[0].state).toBe('pending');
       expect(loadNetworkHistory()[0].thinkingBody).toBe('Je vérifie le barème');
+      expect(loadNetworkHistory()[0].thinkingCharacters).toBe('Je vérifie le barème'.length);
       expect(loadNetworkHistory()[0].messageBody).toBe('{"cri');
 
       complete();
@@ -511,9 +520,11 @@ describe('Thinking from local Ollama streams', () => {
       expect(record.responseBody).toBe(body);
       expect(record.thinkingBody).toBe('Je vérifie le barème');
       expect(record.messageBody).toBe('{"critères":2}');
+      expect(record.messageCharacters).toBe('{"critères":2}'.length);
       expect(record.providerTimings?.totalMs).toBe(1000);
       const persisted = JSON.parse(values.get('companion-correcteur:network-inspector:v1') ?? '[]');
       expect(persisted[0].thinkingBody).toBe('Je vérifie le barème');
+      expect(persisted[0].thinkingCharacters).toBe('Je vérifie le barème'.length);
       expect(persisted[0].messageBody).toBe('{"critères":2}');
     } finally {
       restore();
