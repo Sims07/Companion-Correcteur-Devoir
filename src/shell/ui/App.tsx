@@ -110,6 +110,7 @@ import { duplicateAssignmentProfile } from '../../correction/domain/teacherWorkf
 import '../../correction/ui/components/TeacherSetup.css';
 import { RubricExportPanel } from '../../correction/ui/components/RubricExportPanel.tsx';
 import { RubricAuditPanel, RubricCriterionEnrichments, RubricCriterionEnrichmentCount } from '../../correction/ui/components/RubricAuditPanel.tsx';
+import { RubricBaselineRestoreControl } from '../../correction/ui/components/RubricBaselineRestoreControl.tsx';
 import { getRubricAuditTask, subscribeRubricAuditTask } from '../../correction/application/rubricAuditTask.ts';
 import { RubricImportPanel } from '../../correction/ui/components/RubricImportPanel.tsx';
 import { SubcriteriaSuggestionPanel } from '../../correction/ui/components/SubcriteriaSuggestionPanel.tsx';
@@ -5049,7 +5050,6 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
         </div></details>
         <ContractPreparationPanel key={activeAssignmentId} assignmentId={activeAssignmentId ?? 'current'} rubric={rubric} service={service} settings={{ endpoint, apiCompatible, apiKey, visionModel, analysisModel: generativeModel, thinking: analysisThinking, correctionMethod: 'generative' }} disabled={busy || rubricFileImporting || rubricImageImporting} existingDocument={subjectTranscription || rubricImportVisionResponse} onApply={(next) => { setRubric(next); setProposal(null); setReview([]); setScientificDiagramAnalysis(null); }} />
         <div className="rubric-editor-toolbar"><button type="button" className="primary-button" onClick={addCriterion}>＋ Ajouter un critère</button><span className={validation.valid ? 'validation valid' : 'validation invalid'}>{validation.valid ? '✓ Barème cohérent' : validation.errors.join(' ')}</span></div>
-        {interfaceMode === 'teacher' && <RubricReusePanel assignments={assignmentProfiles} activeAssignmentId={activeAssignmentId} rubric={rubric} onReuse={(criteria) => { setRubric((current) => ({ ...current, criteria: [...current.criteria, ...criteria] })); setProposal(null); setReview([]); setScientificDiagramAnalysis(null); setTeacherAnnotations(''); setExpandedCriterionId(criteria[0]?.id ?? null); }} />}
         <div className="criteria-list">
           {rubric.criteria.map((criterion, criterionIndex) => <details className="criterion-editor" key={criterion.id} open={expandedCriterionId === criterion.id}>
             <summary className="criterion-editor-summary" onClick={(event) => { event.preventDefault(); setExpandedCriterionId((current) => current === criterion.id ? null : criterion.id); }}><span className="atelier-criterion-index" aria-hidden="true">{String(criterionIndex + 1).padStart(2, "0")}</span><span><strong>{criterion.title.trim() || 'Critère sans titre'}</strong><small> · {getRubricSubcriteria(criterion).length} sous-critère(s)</small><RubricCriterionEnrichmentCount rubric={rubric} assignmentId={activeAssignmentId} criterionId={criterion.id} /></span><span>{criterion.maxPoints} pt · {expandedCriterionId === criterion.id ? '⌃' : '⌄'}</span></summary>
@@ -5080,9 +5080,14 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
             <button className="icon-button" type="button" aria-label={`Supprimer ${criterion.title}`} onClick={() => setRubric((current) => ({ ...current, criteria: current.criteria.filter((item) => item.id !== criterion.id) }))}>×</button>
             </div></details>)}
         </div>
-        {interfaceMode === 'teacher' && <RubricImportPanel rubric={rubric} onImport={(criteria) => { setRubric((current) => ({ ...current, criteria: [...current.criteria, ...criteria] })); setProposal(null); setReview([]); setScientificDiagramAnalysis(null); setTeacherAnnotations(''); }} />}
-        <RubricExportPanel rubric={rubric} />
-        <div className="rubric-actions"><span className={validation.valid ? 'validation valid' : 'validation invalid'}>{validation.valid ? '✓ Barème cohérent' : validation.errors.join(' ')}</span></div>
+        {interfaceMode === 'teacher' ? <details className="atelier-rubric-secondary-tools">
+          <summary>Outils complémentaires <small>Réutiliser, importer ou exporter des critères</small></summary>
+          <div className="atelier-rubric-secondary-content">
+            {interfaceMode === 'teacher' && <RubricReusePanel assignments={assignmentProfiles} activeAssignmentId={activeAssignmentId} rubric={rubric} onReuse={(criteria) => { setRubric((current) => ({ ...current, criteria: [...current.criteria, ...criteria] })); setProposal(null); setReview([]); setScientificDiagramAnalysis(null); setTeacherAnnotations(''); setExpandedCriterionId(criteria[0]?.id ?? null); }} />}
+            <RubricImportPanel rubric={rubric} onImport={(criteria) => { setRubric((current) => ({ ...current, criteria: [...current.criteria, ...criteria] })); setProposal(null); setReview([]); setScientificDiagramAnalysis(null); setTeacherAnnotations(''); }} />
+            <RubricExportPanel rubric={rubric} />
+          </div>
+        </details> : <RubricExportPanel rubric={rubric} />}
       </section>
       {interfaceMode === 'teacher' && <aside className="atelier-rubric-synthesis" aria-label="Synthèse du barème">
         <p className="eyebrow">SYNTHÈSE</p>
@@ -5096,17 +5101,10 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
           <strong>{validation.valid ? '✓ Barème cohérent' : 'À vérifier avant la correction'}</strong>
           <span>{validation.valid ? 'Les critères et leurs points sont définis.' : 'Complétez les critères et vérifiez leurs points.'}</span>
         </div>
-        <div className="atelier-rubric-reuse-hint">
-          <strong>Gagnez du temps</strong>
-          <p>Vous pouvez reprendre des critères d’un autre devoir et les adapter librement.</p>
-          <button type="button" className="text-button" onClick={() => {
-            const panel = document.querySelector<HTMLDetailsElement>('.rubric-reuse-panel');
-            if (!panel) return;
-            panel.open = true;
-            panel.scrollIntoView({ block: 'center', behavior: 'smooth' });
-            panel.querySelector('summary')?.focus();
-          }}>Voir les critères disponibles →</button>
-        </div>
+        <RubricBaselineRestoreControl key={activeAssignmentId} rubric={rubric} assignmentId={activeAssignmentId}
+          disabled={auditIsRunning} onRestore={(restored) => {
+            setRubric(restored); setProposal(null); setReview([]); setScientificDiagramAnalysis(null);
+          }} />
       </aside>}
       </div>
 
