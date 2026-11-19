@@ -246,3 +246,55 @@ test('teacher can recover an already completed Ollama JSON response without spen
   await page.getByRole('tab', { name: 'Barème' }).click();
   await expect(page.getByText('Des traces légères de gommage sont-elles autorisées ?')).toBeVisible();
 });
+
+
+test('teacher confirms restoration of the original rubric without losing historical enrichments', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() => {
+    const original = { title: 'Schéma initial', criteria: [{
+      id: 'bio', title: 'Biologie', description: 'Description du professeur',
+      maxPoints: 2, analysisMode: 'scientific-diagram',
+    }] };
+    const altered = { title: 'Schéma enrichi', criteria: [{
+      id: 'bio', title: 'Biologie', description: 'Description modifiée manuellement',
+      maxPoints: 3, analysisMode: 'scientific-diagram',
+      scientificExpectations: ['Référence IA acceptée'],
+    }] };
+    localStorage.setItem('companion-correcteur:assignments:v1', JSON.stringify([{
+      id: 'assignment-default', title: 'Devoir mitose', question: 'Schéma scientifique',
+      correctionMode: 'integrated', kind: 'scientific-diagram', rubric: altered,
+    }]));
+    localStorage.setItem('companion-correcteur:active-assignment:v1', 'assignment-default');
+    localStorage.setItem('companion-correcteur:rubric-baseline:v1:assignment-default',
+      JSON.stringify({ source: 'initial', rubric: original }));
+    localStorage.setItem('companion-correcteur:rubric-versions:v1:assignment-default', JSON.stringify([{
+      appliedAt: '2026-11-17T10:00:00Z', model: 'gemma-local', original,
+      clarified: altered, originalSignature: 'original', clarifiedSignature: 'enriched',
+      decisions: [{ issueId: 'title', choice: 'Oui', decision: 'accepted' }],
+    }]));
+  });
+  await page.reload();
+  await page.getByRole('button', { name: /Reprendre le devoir/ }).click();
+  await page.getByRole('tab', { name: 'Barème' }).click();
+  const restore = page.getByRole('button', { name: 'Restaurer le barème initial' });
+  await expect(restore).toBeVisible();
+  await restore.click();
+  await expect(page.getByRole('group', { name: 'Confirmer la restauration du barème' })).toContainText('modifications manuelles');
+  await page.getByRole('button', { name: 'Annuler', exact: true }).click();
+  await expect(page.getByRole('group', { name: 'Confirmer la restauration du barème' })).toHaveCount(0);
+  await restore.click();
+  await page.getByRole('button', { name: 'Confirmer la restauration' }).click();
+  await expect(page.getByText('Barème initial actuellement utilisé.')).toBeVisible();
+  await expect(page.getByText('Le barème actuel a évolué depuis la dernière application IA.')).toHaveCount(0);
+  const result = await page.evaluate(() => ({
+    rubric: JSON.parse(localStorage.getItem('companion-correcteur:assignments:v1') ?? '[]')[0].rubric,
+    original: JSON.parse(localStorage.getItem('companion-correcteur:rubric-baseline:v1:assignment-default') ?? '{}').rubric,
+    versions: JSON.parse(localStorage.getItem('companion-correcteur:rubric-versions:v1:assignment-default') ?? '[]').length,
+  }));
+  expect(result.rubric).toEqual(result.original);
+  expect(result.versions).toBe(1);
+  await page.reload();
+  await page.getByRole('button', { name: /Reprendre le devoir/ }).click();
+  await page.getByRole('tab', { name: 'Barème' }).click();
+  await expect(page.getByText('Barème initial actuellement utilisé.')).toBeVisible();
+});

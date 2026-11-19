@@ -9,6 +9,7 @@ import { rubricAuditTokenBudget } from '../../domain/rubricAuditGenerationBudget
 import { parseRecoveredRubricAudit } from '../../domain/rubricAuditModelContract.ts';
 import { createClarifiedRubricVersion, getRubricClarificationChanges, type ClarifiedRubricVersion } from '../../domain/rubricClarification.ts';
 import { getCumulativeRubricChanges, listAppliedRubricEnrichments, removeAppliedRubricEnrichment, type AppliedRubricEnrichment } from '../../domain/rubricEnrichmentHistory.ts';
+import { createInitialRubricBaseline, resolveRubricBaseline, restoreRubricBaseline, rubricIsAtBaseline, type RubricBaseline } from '../../domain/rubricBaseline.ts';
 import './RubricAuditPanel.css';
 
 interface Props {
@@ -21,6 +22,7 @@ interface Props {
 }
 
 const versionsKey = (assignmentId: string) => 'companion-correcteur:rubric-versions:v1:' + assignmentId;
+const baselineKey = (assignmentId: string) => 'companion-correcteur:rubric-baseline:v1:' + assignmentId;
 
 function loadVersions(assignmentId: string): ClarifiedRubricVersion[] {
   try {
@@ -31,6 +33,13 @@ function loadVersions(assignmentId: string): ClarifiedRubricVersion[] {
       && Array.isArray(item.original?.criteria) && Array.isArray(item.clarified?.criteria)
       && Array.isArray(item.decisions)) : [];
   } catch { return []; }
+}
+
+function loadBaseline(assignmentId: string, versions: ClarifiedRubricVersion[]): RubricBaseline | null {
+  try {
+    const saved = window.localStorage.getItem(baselineKey(assignmentId));
+    return resolveRubricBaseline(saved ? JSON.parse(saved) : null, versions);
+  } catch { return resolveRubricBaseline(null, versions); }
 }
 
 function formatElapsed(startedAt: number | undefined, now: number): string {
@@ -100,8 +109,13 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, thinki
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [custom, setCustom] = useState<Record<string, string>>({});
   const [versions, setVersions] = useState<ClarifiedRubricVersion[]>(() => loadVersions(assignmentId));
-  // A manual edit after applying a version must not be labelled as an active IA version.
-  const activeVersion = [...versions].reverse().find((version) => version.clarifiedSignature === signature) ?? null;
+  const [baseline, setBaseline] = useState<RubricBaseline | null>(() => loadBaseline(assignmentId, loadVersions(assignmentId)));
+  const [showRestoreConfirm, setShowRestoreConfirm] = useState(false);
+  const [restoreFeedback, setRestoreFeedback] = useState('');
+  const isAtBaseline = rubricIsAtBaseline(rubric, baseline);
+  // A manual edit or a restoration must not be labelled as an active IA version.
+  const activeVersion = isAtBaseline ? null
+    : [...versions].reverse().find((version) => version.clarifiedSignature === signature) ?? null;
 
   useEffect(() => {
     if (!busy) return;
@@ -124,7 +138,9 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, thinki
     setMessage('');
     setAnswers({});
     setCustom({});
-    setVersions(loadVersions(assignmentId));
+    const storedVersions = loadVersions(assignmentId);
+    setVersions(storedVersions);
+    setBaseline(loadBaseline(assignmentId, storedVersions));
   // Loading depends on the rubric's actual content, not its object identity.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assignmentId, signature]);
@@ -143,7 +159,7 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, thinki
     try { previewVersion = createClarifiedRubricVersion(rubric, current.report, decisions, new Date().toISOString()); }
     catch (error) { previewError = error instanceof Error ? error.message : 'Les propositions ne peuvent pas être appliquées.'; }
   }
-  const cumulativeChanges = getCumulativeRubricChanges(rubric, versions);
+  const cumulativeChanges = getCumulativeRubricChanges(rubric, versions, baseline?.rubric);
   const currentAdditions = listAppliedRubricEnrichments(rubric, versions);
 
   useEffect(() => {
@@ -230,14 +246,39 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, thinki
     try {
       const version = createClarifiedRubricVersion(rubric, current.report, current.decisions, new Date().toISOString());
       // Save the previous and new rubric before changing the active assignment.
-      const next = [...loadVersions(assignmentId), version].slice(-20);
-      window.localStorage.setItem(versionsKey(assignmentId), JSON.stringify(next));
+      const previous = loadVersions(assignmentId);
+      const next = [...previous, version].slice(-20);
+      // Save the true original separately: dropping old history must not erase the restore point.
+      const snapshot = loadBaseline(assignmentId, previous) ?? createInitialRubricBaseline(version.original);
+      const hadBaseline = window.localStorage.getItem(baselineKey(assignmentId)) !== null;
+      if (!hadBaseline) window.localStorage.setItem(baselineKey(assignmentId), JSON.stringify(snapshot));
+      try {
+        window.localStorage.setItem(versionsKey(assignmentId), JSON.stringify(next));
+      } catch (error) {
+        if (!hadBaseline) window.localStorage.removeItem(baselineKey(assignmentId));
+        throw error;
+      }
+      setBaseline(snapshot);
       setVersions(next);
+      setRestoreFeedback('');
       scrollAfterApply.current = true;
       onApply(version.clarified);
       setMessage('Barème enrichi appliqué. Les changements sont visibles ci-dessus ; les anciennes corrections gardent leur barème historique.');
     } catch (cause) {
       setMessage(cause instanceof Error ? cause.message : 'Impossible d’appliquer ces précisions.');
+    }
+  }
+
+  function confirmRestoreBaseline() {
+    if (!baseline || busy || isAtBaseline) return;
+    try {
+      onApply(restoreRubricBaseline(baseline));
+      setShowRestoreConfirm(false);
+      setRestoreFeedback(baseline.source === 'initial'
+        ? 'Barème initial restauré. Il est utilisé pour les prochaines corrections.'
+        : 'Première version conservée restaurée. Elle est utilisée pour les prochaines corrections.');
+    } catch (cause) {
+      setRestoreFeedback(cause instanceof Error ? cause.message : 'Impossible de restaurer cette version.');
     }
   }
 
@@ -259,15 +300,37 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, thinki
       <RubricChanges version={activeVersion} />
       <p className="hint">Le texte initial, les intitulés et les points sont conservés. Les références scientifiques validées restent distinctes des règles de notation. Les copies déjà corrigées gardent leur ancien barème.</p>
     </div>}
-    {!activeVersion && versions.length > 0 && <div className="rubric-audit-version-notice">
+    {isAtBaseline && versions.length > 0 && <div className="rubric-audit-feedback is-success" role="status">
+      <strong>{baseline?.source === 'initial' ? 'Barème initial actuellement utilisé.' : 'Première version conservée actuellement utilisée.'}</strong>
+      <p>Les enrichissements ultérieurs sont conservés dans l’historique mais ne sont plus appliqués au barème courant.</p>
+    </div>}
+    {!isAtBaseline && !activeVersion && versions.length > 0 && <div className="rubric-audit-version-notice">
       <strong>Le barème actuel a évolué depuis la dernière application IA.</strong>
       <p>Les ajouts encore présents restent utilisés pour les prochaines corrections, même si le barème ne correspond plus exactement à une version archivée. Consultez le bilan cumulé ci-dessous.</p>
     </div>}
     {versions.length > 0 && <details className="rubric-audit-cumulative" open>
-      <summary>Bilan cumulé : première version conservée → barème actuel ({cumulativeChanges.length} zone(s) modifiée(s))</summary>
+      <summary>Bilan cumulé : {baseline?.source === 'initial' ? 'barème initial' : 'première version conservée'} → barème actuel ({cumulativeChanges.length} zone(s) de texte ou référence(s) modifiée(s))</summary>
       <p className="hint">Ce bilan inclut les modifications manuelles éventuelles. Les références IA validées encore présentes sont identifiées avec leur modèle et leur date.</p>
-      {cumulativeChanges.length ? <RubricChanges version={{ ...versions[0], clarified: rubric }} />
-        : <p>Aucune différence restante avec la première version conservée.</p>}
+      {baseline && !isAtBaseline && <div className="rubric-audit-restore">
+        <button type="button" className="secondary-button" disabled={busy}
+          onClick={() => { setShowRestoreConfirm((open) => !open); setRestoreFeedback(''); }}>
+          {baseline.source === 'initial' ? 'Restaurer le barème initial' : 'Restaurer la première version conservée'}
+        </button>
+        {baseline.source === 'retained' && <p className="hint">L’historique ancien a pu être limité à 20 applications : il n’est pas possible de garantir que cette version est le tout premier barème.</p>}
+        {showRestoreConfirm && <div className="rubric-audit-restore-confirm" role="group" aria-label="Confirmer la restauration du barème">
+          <strong>Remplacer le barème actuel ?</strong>
+          <p>Cette restauration remplace tous les critères, descriptions, références scientifiques, titres et points actuels, y compris vos modifications manuelles. Les corrections déjà enregistrées ne changent pas. L’historique reste consultable.</p>
+          <div className="rubric-audit-actions">
+            <button type="button" className="primary-button" disabled={busy} onClick={confirmRestoreBaseline}>Confirmer la restauration</button>
+            <button type="button" className="secondary-button" onClick={() => setShowRestoreConfirm(false)}>Annuler</button>
+          </div>
+        </div>}
+      </div>}
+      {cumulativeChanges.length ? <RubricChanges version={{ ...versions[0], original: baseline?.rubric ?? versions[0].original, clarified: rubric }} />
+        : <p>{isAtBaseline
+          ? 'Aucune différence restante avec la version de référence conservée.'
+          : 'Aucune description ou référence scientifique modifiée ; des changements de titre, de points ou de structure peuvent encore exister.'}</p>}
+      {restoreFeedback && <p className="rubric-audit-restore-feedback" role="status">{restoreFeedback}</p>}
       {currentAdditions.length > 0 && <div className="rubric-audit-provenance">
         <strong>Origine des ajouts toujours actifs</strong>
         <ul>{currentAdditions.map((entry) => <li key={entry.id}>
@@ -276,6 +339,7 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, thinki
         </li>)}</ul>
       </div>}
     </details>}
+    {restoreFeedback && versions.length === 0 && <p role="status">{restoreFeedback}</p>}
     <div className="rubric-audit-toolbar">
       <button type="button" className="primary-button rubric-audit-launch" disabled={busy} aria-disabled={busy} onClick={runAudit}>
         {busy && <span className="rubric-audit-spinner" aria-hidden="true" />}

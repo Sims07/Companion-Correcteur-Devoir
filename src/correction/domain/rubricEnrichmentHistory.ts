@@ -124,8 +124,8 @@ export function removeAppliedRubricEnrichment(
 
 /** Total current changes relative to the earliest archived pre-audit snapshot. */
 export function getCumulativeRubricChanges(
-  rubric: Rubric, versions: ClarifiedRubricVersion[],
+  rubric: Rubric, versions: ClarifiedRubricVersion[], baseline?: Rubric,
 ): RubricClarificationChange[] {
   if (!versions.length) return [];
-  return getRubricClarificationChanges({ ...versions[0], clarified: rubric });
+  return getRubricClarificationChanges({ ...versions[0], original: baseline ?? versions[0].original, clarified: rubric });
 }
