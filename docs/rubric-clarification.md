@@ -112,6 +112,10 @@ surcharge de l'interface sur les longues générations.
 
 ## Restaurer le barème de départ
 
-Depuis le **bilan cumulé**, l’enseignant peut restaurer le **barème initial** après une confirmation explicite. Cette opération remplace l’intégralité du barème courant (critères, sous-critères, descriptions, références, titres et points), y compris les changements manuels, sans modifier les corrections archivées ni effacer l’historique des enrichissements. Le panneau indique ensuite que le barème initial est utilisé pour les prochaines corrections et ne le présente pas comme une version IA active.
+Depuis la **synthèse du barème à droite**, l’enseignant peut restaurer le **barème initial** après une confirmation explicite. Cette opération remplace l’intégralité du barème courant (critères, sous-critères, descriptions, références, titres et points), y compris les changements manuels, sans modifier les corrections archivées ni effacer l’historique des enrichissements. Le panneau indique ensuite que le barème initial est utilisé pour les prochaines corrections et ne le présente pas comme une version IA active.
 
 Le barème précédant la toute première application est désormais sauvegardé dans une entrée locale dédiée, distincte de l’historique plafonné à 20 applications, pour permettre une restauration durable. Pour les devoirs créés avant cette sauvegarde dédiée, seul l’original de **la première application encore conservée** est garanti : l’interface précise cette limite et propose « Restaurer la première version conservée ». La restauration n’envoie aucune donnée à Ollama.
+
+## Interface de préparation simplifiée
+
+Le contrôle de restauration est désormais **dans la synthèse à droite**, visible sans ouvrir l’historique. Le bilan cumulé n’affiche plus de deuxième bouton de restauration ; il sert à comparer les versions. Les actions secondaires de réutilisation, d’import et d’export de critères sont regroupées sous « Outils complémentaires », repliés par défaut. Le contrôle reste accessible même si une édition manuelle rend temporairement le barème invalide ; il est désactivé pendant une vérification IA en cours.

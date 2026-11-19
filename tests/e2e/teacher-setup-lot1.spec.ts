@@ -26,6 +26,7 @@ test('teachers reuse selected criteria from an existing local assignment without
   await page.getByRole('button', { name: /Créer et préparer le barème/ }).click();
 
   const reuse = page.locator('.rubric-reuse-panel');
+  await page.locator('.atelier-rubric-secondary-tools > summary').click();
   await expect(reuse.locator('summary')).toBeVisible();
   await reuse.locator('summary').click();
   await expect(reuse.getByLabel('Devoir source')).toContainText('Devoir de biologie');
@@ -108,7 +109,8 @@ test('Atelier B rubric shows compact numbered criteria and a live synthesis at d
   const indices = page.locator('.atelier-criterion-index');
   await expect(indices).toHaveText(['01', '02', '03']);
   await page.screenshot({ path: testInfo.outputPath('atelier-b-rubric-desktop.png'), animations: 'disabled' });
-  await summary.getByRole('button', { name: /Voir les critères disponibles/ }).click();
+  await page.locator('.atelier-rubric-secondary-tools > summary').click();
+  await page.locator('.rubric-reuse-panel > summary').click();
   await expect(page.locator('.rubric-reuse-panel')).toHaveAttribute('open', '');
 
   const firstCriterion = page.locator('.criterion-editor').first();

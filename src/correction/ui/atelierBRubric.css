@@ -140,12 +140,13 @@
   background: var(--ds-color-brand-100);
   border-color: var(--ds-color-border-strong);
 }
-.atelier-rubric-editor > .rubric-reuse-panel { order: 6; margin: 18px 0 0; border-radius: 3px; }
-.atelier-rubric-editor > .rubric-import-panel { order: 7; border-radius: 3px; }
-.atelier-rubric-editor > .rubric-export-panel { order: 8; border-radius: 3px; }
 .atelier-rubric-editor > .rubric-import { order: 7; border-color: var(--ds-color-border); background: var(--ds-color-surface-subtle); border-radius: 3px; }
-.atelier-rubric-editor > .rubric-export-panel { order: 8; }
-.atelier-rubric-editor > .rubric-actions { order: 9; }
+.atelier-rubric-editor > .atelier-rubric-secondary-tools { order: 8; margin-top: 16px; border: 1px solid var(--ds-color-border); border-radius: 3px; }
+.atelier-rubric-secondary-tools > summary { padding: 13px 14px; cursor: pointer; font-weight: 700; }
+.atelier-rubric-secondary-tools > summary small { margin-left: .55rem; font-weight: 400; font-size: .8em; color: var(--ds-color-text-muted); }
+.atelier-rubric-secondary-content { display: grid; gap: .5rem; padding: 0 10px 10px; }
+.atelier-rubric-secondary-content > details { margin: 0; border-radius: 3px; }
+.atelier-rubric-secondary-tools > summary:focus-visible { outline: 2px solid var(--ds-color-brand-700); outline-offset: 2px; }
 
 /* Imported rubric: Vision and extraction are long-running work, never an error.
    The rule applies in the teacher workspace and in model evaluation. */
@@ -218,19 +219,17 @@
   color: var(--ds-color-warning);
   background: var(--ds-color-warning-surface);
 }
-.atelier-rubric-reuse-hint {
-  display: grid;
-  gap: 6px;
-  margin-top: 17px;
-  padding: 12px;
-  background: var(--ds-color-brand-100);
-  border-radius: 3px;
-}
-.atelier-rubric-reuse-hint strong { color: var(--ds-color-brand-700); font-size: 11px; }
-.atelier-rubric-reuse-hint p { margin: 0; line-height: 1.5; font-size: 10px; }
-.atelier-rubric-reuse-hint button { width: fit-content; padding: 5px 0; color: var(--ds-color-brand-700); font-size: 10px; }
-.atelier-rubric-reuse-hint button:focus-visible { outline: 2px solid var(--ds-color-brand-700); outline-offset: 2px; }
-
+.atelier-rubric-restore { display: grid; gap: 7px; padding-top: 15px; margin-top: 16px; border-top: 1px solid var(--ds-color-border); }
+.atelier-rubric-restore > strong { font-size: 12px; }
+.atelier-rubric-restore > p { margin: 0; font-size: 11px; line-height: 1.45; }
+.atelier-rubric-restore-launch { width: 100%; min-height: 44px; padding: 10px 8px; font-size: 12px; font-weight: 700; text-align: center; white-space: normal; }
+.atelier-rubric-restore-help { color: var(--ds-color-text-muted); }
+.atelier-rubric-restore-confirm { display: grid; gap: 8px; padding: 10px; border: 1px solid var(--ds-color-border-strong); border-radius: 3px; background: var(--ds-color-surface-subtle); }
+.atelier-rubric-restore-confirm > strong { font-size: 11px; }
+.atelier-rubric-restore-actions { display: grid; gap: 5px; }
+.atelier-rubric-restore-actions .primary-button { min-height: 38px; white-space: normal; font-size: 11px; }
+.atelier-rubric-restore-feedback { font-weight: 700; }
+.atelier-rubric-restore button:focus-visible { outline: 2px solid var(--ds-color-brand-700); outline-offset: 2px; }
 @media (max-width: 1200px) {
   .atelier-rubric-grid { grid-template-columns: minmax(0, 1fr); }
   .atelier-rubric-synthesis { position: static; }
