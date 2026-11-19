@@ -301,3 +301,43 @@ test('teacher confirms restoration of the original rubric without losing histori
   await page.getByRole('tab', { name: 'Barème' }).click();
   await expect(page.getByText('Barème initial actuellement utilisé.')).toBeVisible();
 });
+
+
+test('legacy assignments can restore the earliest retained rubric from the summary without expanding history', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() => {
+    const firstRetained = { title: 'Version conservée', criteria: [{
+      id: 'title', title: 'Titre commun', description: 'Texte professeur', maxPoints: 2,
+      analysisMode: 'scientific-diagram',
+    }] };
+    const modified = { title: 'Version enrichie', criteria: [{
+      id: 'title', title: 'Titre commun', description: 'Texte modifié', maxPoints: 2,
+      analysisMode: 'scientific-diagram',
+      scientificExpectations: ['Référence scientifique validée'],
+    }] };
+    localStorage.setItem('companion-correcteur:assignments:v1', JSON.stringify([{
+      id: 'assignment-default', title: 'Devoir ancien', question: 'Schéma',
+      correctionMode: 'integrated', kind: 'scientific-diagram', rubric: modified,
+    }]));
+    localStorage.setItem('companion-correcteur:active-assignment:v1', 'assignment-default');
+    localStorage.removeItem('companion-correcteur:rubric-baseline:v1:assignment-default');
+    localStorage.setItem('companion-correcteur:rubric-versions:v1:assignment-default', JSON.stringify([{
+      appliedAt: '2026-11-17T10:00:00Z', model: 'local', original: firstRetained,
+      clarified: modified, originalSignature: 'previous', clarifiedSignature: 'changed', decisions: [],
+    }]));
+  });
+  await page.reload();
+  await page.getByRole('button', { name: /Reprendre le devoir/ }).click();
+  await page.getByRole('tab', { name: 'Barème' }).click();
+  const aside = page.getByRole('complementary', { name: 'Synthèse du barème' });
+  const restore = aside.getByRole('button', { name: 'Restaurer la première version conservée' });
+  await expect(restore).toBeVisible();
+  await expect(aside).toContainText('l’origine exacte n’est pas garantie');
+  await restore.click();
+  await aside.getByRole('button', { name: 'Confirmer la restauration' }).click();
+  await expect(aside.getByText('Première version conservée utilisée.')).toBeVisible();
+  await expect.poll(async () => page.evaluate(() => {
+    const assignments = JSON.parse(localStorage.getItem('companion-correcteur:assignments:v1') ?? '[]');
+    return assignments[0]?.rubric?.title;
+  })).toBe('Version conservée');
+});
