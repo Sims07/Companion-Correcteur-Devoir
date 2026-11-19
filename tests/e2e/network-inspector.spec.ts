@@ -50,7 +50,9 @@ test('Debug exposes live HTTP requests and their response details', async ({ pag
       requestHeaders: {},
       responseHeaders: {},
       requestBody: '{"think":true,"stream":true}',
-      responseBody: JSON.stringify({ message: { thinking: 'Je vérifie la cohérence scientifique.' }, done: false }) + '\n',
+      responseBody: JSON.stringify({ message: { thinking: 'Je vérifie la cohérence scientifique.' }, done: false }) + '\n' +
+        JSON.stringify({ message: { content: '{"score":' }, done: false }) + '\n' +
+        JSON.stringify({ message: { content: '10}' }, done: false }) + '\n',
       thinkingBody: 'Je vérifie la cohérence scientifique.',
       error: null,
     }]));
@@ -94,6 +96,9 @@ test('Debug exposes live HTTP requests and their response details', async ({ pag
   await page.getByRole('button', { name: 'Thinking' }).click();
   await expect(details.getByRole('heading', { name: 'Thinking reçu du modèle' })).toBeVisible();
   await expect(details).toContainText('Je vérifie la cohérence scientifique.');
+  await page.getByRole('button', { name: 'Message' }).click();
+  await expect(details.getByRole('heading', { name: 'Message reçu du modèle' })).toBeVisible();
+  await expect(details).toContainText('"score": 10');
 
   await request.click();
   await page.getByRole('button', { name: 'Response' }).click();

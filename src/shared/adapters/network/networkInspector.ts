@@ -24,6 +24,8 @@ export type NetworkRequestRecord = {
   responseBody: string;
   /** Thinking fragments explicitly transmitted by Ollama (not inferred). */
   thinkingBody?: string;
+  /** Returned message.content (or /api/generate response) without Thinking/NDJSON. */
+  messageBody?: string;
   error: string | null;
 };
 
@@ -108,6 +110,7 @@ function persistedRecords(records: NetworkRequestRecord[]): NetworkRequestRecord
     requestBody: truncate(record.requestBody, PERSISTED_BODY_LENGTH),
     responseBody: truncate(record.responseBody, PERSISTED_BODY_LENGTH),
     ...(typeof record.thinkingBody === 'string' ? { thinkingBody: truncate(record.thinkingBody, PERSISTED_BODY_LENGTH) } : {}),
+    ...(typeof record.messageBody === 'string' ? { messageBody: truncate(record.messageBody, PERSISTED_BODY_LENGTH) } : {}),
   }));
 }
 
@@ -229,6 +232,7 @@ export function installNetworkInspector(): () => void {
           // Publish the first streamed packet immediately; throttle only subsequent ones.
           let lastPublishedAt = -Infinity;
           let publishedThinking = false;
+          let publishedMessage = false;
           const thinking = isOllamaInferenceRequest(url) ? new OllamaThinkingStream() : null;
           const append = (chunk: string) => {
             thinking?.append(chunk);
@@ -245,19 +249,21 @@ export function installNetworkInspector(): () => void {
               append(decoder.decode(value, { stream: true }));
               const now = performance.now();
               const firstThinking: boolean = !publishedThinking && Boolean(thinking?.text);
-              if (now - lastPublishedAt >= 350 || firstThinking) {
-                update({ responseBody: preview(), ...(thinking ? { thinkingBody: thinking.text } : {}) });
+              const firstMessage: boolean = !publishedMessage && Boolean(thinking?.message);
+              if (now - lastPublishedAt >= 350 || firstThinking || firstMessage) {
+                update({ responseBody: preview(), ...(thinking ? { thinkingBody: thinking.text, messageBody: thinking.message } : {}) });
                 publishedThinking = publishedThinking || firstThinking;
+                publishedMessage = publishedMessage || firstMessage;
                 lastPublishedAt = now;
               }
             }
             append(decoder.decode());
             thinking?.finish();
-            update({ responseBody: preview(), ...(thinking ? { thinkingBody: thinking.text } : {}), durationMs: Math.round(performance.now() - started), state: response.ok ? 'success' : 'error',
+            update({ responseBody: preview(), ...(thinking ? { thinkingBody: thinking.text, messageBody: thinking.message } : {}), durationMs: Math.round(performance.now() - started), state: response.ok ? 'success' : 'error',
               ...(response.ok && isOllamaInferenceRequest(url) ? { providerTimings: readOllamaNativeTimings(tail) ?? readOllamaNativeTimings(body) } : {}),
             }, true);
           } catch (cause) {
-            update({ responseBody: body, ...(thinking ? { thinkingBody: thinking.text } : {}), durationMs: Math.round(performance.now() - started), state: 'error', error: cause instanceof Error ? cause.message : 'Lecture de la réponse impossible.' }, true);
+            update({ responseBody: body, ...(thinking ? { thinkingBody: thinking.text, messageBody: thinking.message } : {}), durationMs: Math.round(performance.now() - started), state: 'error', error: cause instanceof Error ? cause.message : 'Lecture de la réponse impossible.' }, true);
           }
         })();
       } else {

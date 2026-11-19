@@ -112,6 +112,62 @@ describe('NetworkInspector live request feedback', () => {
     expect(container.textContent).toContain('Je contrôle le titre principal.');
   });
 
+  it('shows the returned message separately from raw Response and Thinking', async () => {
+    mockNetworkHistory.records = [{
+      ...pendingRecord, status: 200, thinkingBody: 'Vérification des critères.',
+      messageBody: '{"points":10}',
+      responseBody: '{"message":{"thinking":"Vérification des critères."}}\\n{"message":{"content":"{\\\\"points\\\\":10}"}}\\n',
+    }];
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+    await act(async () => { root?.render(<NetworkInspector />); });
+    expect(container.textContent).toContain('Message reçu : 13 caractères');
+    const buttons = [...container.querySelectorAll('.network-detail-tabs button')];
+    const openTab = async (name: string) => {
+      await act(async () => { buttons.find((button) => button.textContent === name)
+        ?.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+    };
+    await openTab('Message');
+    expect(container.textContent).toContain('Message reçu du modèle');
+    expect(container.querySelector('.network-detail-section pre')?.textContent).toContain('"points": 10');
+    await openTab('Thinking');
+    expect(container.textContent).toContain('Vérification des critères.');
+    await openTab('Response');
+    expect(container.textContent).toContain('Response body');
+  });
+
+  it('recovers message.content from a prior raw NDJSON history without new stored fields', async () => {
+    mockNetworkHistory.records = [{ ...pendingRecord, state: 'success', status: 200,
+      responseBody: JSON.stringify({ message: { content: 'Première ' } }) + '\n' +
+        JSON.stringify({ message: { content: 'réponse' } }) + '\n',
+    }];
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+    await act(async () => { root?.render(<NetworkInspector />); });
+    await act(async () => {
+      [...container!.querySelectorAll('.network-detail-tabs button')]
+        .find((button) => button.textContent === 'Message')
+        ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    expect(container.textContent).toContain('Première réponse');
+  });
+
+  it('explains why Message is still empty while Ollama has not produced final content', async () => {
+    mockNetworkHistory.records = [{ ...pendingRecord, status: 200, thinkingBody: 'Analyse en cours' }];
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+    await act(async () => { root?.render(<NetworkInspector />); });
+    await act(async () => {
+      [...container!.querySelectorAll('.network-detail-tabs button')]
+        .find((button) => button.textContent === 'Message')
+        ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    expect(container.textContent).toContain('Aucun fragment de message.content reçu pour le moment');
+  });
+
   it('explains when a model exposes no Thinking, without claiming it is thinking', async () => {
     mockNetworkHistory.records = [{ ...pendingRecord, state: 'success', status: 200,
       requestBody: '{"think":true}', responseBody: '{"message":{"content":"OK"},"done":true}',
