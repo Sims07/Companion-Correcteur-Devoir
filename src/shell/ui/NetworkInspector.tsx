@@ -112,6 +112,7 @@ export function NetworkInspector({ initialFilter = 'all' }: { initialFilter?: 'a
             {selected.state === 'error' && selected.error && <p className="network-error" role="alert"><strong>{selected.status === null ? 'Requête interrompue sans réponse HTTP : ' : 'Erreur réseau : '}</strong>{selected.error}</p>}
           </section>
           <nav className="network-detail-tabs" aria-label="Détails réseau">{(['headers','request','response','message','thinking'] as const).map((item) => <button type="button" key={item} className={tab === item ? 'active' : ''} aria-pressed={tab === item} onClick={() => setTab(item)}>{item === 'headers' ? 'Headers' : item === 'request' ? 'Payload' : item === 'response' ? 'Response' : item === 'message' ? 'Message' : 'Thinking'}</button>)}</nav>
+          <div className={`network-detail-body${tab === 'headers' ? '' : ' network-detail-body--single'}`}>
           {tab === 'headers' && <><Detail title="General" value={{ url: selected.url, method: selected.method, status: selected.status ? `${selected.status} ${selected.statusText}` : 'En attente' }} /><Detail title="Request headers" value={selected.requestHeaders} /><Detail title="Response headers" value={selected.responseHeaders} /></>}
           {tab === 'request' && <Detail title="Request payload" value={selected.requestBody} />}
           {tab === 'response' && <Detail title="Response body" value={selected.responseBody} />}
@@ -131,6 +132,7 @@ export function NetworkInspector({ initialFilter = 'all' }: { initialFilter?: 'a
                  : selected.state === 'pending'
                    ? 'Aucun fragment de thinking reçu pour le moment. Le modèle peut encore charger ou ne pas exposer son raisonnement.'
                    : 'Aucun thinking transmis par le modèle pour cette requête. Le modèle peut ne pas exposer son raisonnement.'}</p>)}
+          </div>
         </> : <p className="network-empty">Sélectionnez une requête pour examiner ses détails.</p>}
       </section>
     </div>
