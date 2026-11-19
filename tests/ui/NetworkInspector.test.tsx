@@ -93,6 +93,39 @@ describe('NetworkInspector live request feedback', () => {
     expect(container.textContent).toContain('16.00 s');
     expect(container.textContent).toContain('En attente du serveur (modèle en cours de chargement ?)');
   });
+  it('shows streamed Thinking separately and no longer claims to wait for server after HTTP headers', async () => {
+    mockNetworkHistory.records = [{
+      ...pendingRecord, status: 200, requestBody: '{"think":true}',
+      thinkingBody: 'Je contrôle le titre principal.',
+      responseBody: JSON.stringify({ message: { thinking: 'Je contrôle le titre principal.' }, done: false }) + '\n',
+    }];
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+    await act(async () => { root?.render(<NetworkInspector />); });
+    expect(container.textContent).toContain('Thinking reçu : 31 caractères');
+    expect(container.querySelector('.network-waiting-hint')).toBeNull();
+    const thinkingButton = [...container.querySelectorAll('.network-detail-tabs button')]
+      .find((button) => button.textContent === 'Thinking');
+    await act(async () => { thinkingButton?.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+    expect(container.textContent).toContain('Thinking reçu du modèle');
+    expect(container.textContent).toContain('Je contrôle le titre principal.');
+  });
+
+  it('explains when a model exposes no Thinking, without claiming it is thinking', async () => {
+    mockNetworkHistory.records = [{ ...pendingRecord, state: 'success', status: 200,
+      requestBody: '{"think":true}', responseBody: '{"message":{"content":"OK"},"done":true}',
+    }];
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+    await act(async () => { root?.render(<NetworkInspector />); });
+    const thinkingButton = [...container.querySelectorAll('.network-detail-tabs button')]
+      .find((button) => button.textContent === 'Thinking');
+    await act(async () => { thinkingButton?.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+    expect(container.textContent).toContain('Aucun thinking transmis par le modèle');
+  });
+
   it('shows Ollama native time first and preserves browser elapsed time for the diagnostic', async () => {
     mockNetworkHistory.records = [{
       ...pendingRecord, id: 'native-ollama', state: 'success', status: 200, durationMs: 37_126_720,
