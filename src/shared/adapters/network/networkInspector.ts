@@ -226,7 +226,8 @@ export function installNetworkInspector(): () => void {
           let body = '';
           let tail = '';
           let truncated = false;
-          let lastPublishedAt = 0;
+          // Publish the first streamed packet immediately; throttle only subsequent ones.
+          let lastPublishedAt = -Infinity;
           const thinking = isOllamaInferenceRequest(url) ? new OllamaThinkingStream() : null;
           const append = (chunk: string) => {
             thinking?.append(chunk);
