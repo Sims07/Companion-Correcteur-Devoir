@@ -276,8 +276,11 @@ test('teacher confirms restoration of the original rubric without losing histori
   await page.reload();
   await page.getByRole('button', { name: /Reprendre le devoir/ }).click();
   await page.getByRole('tab', { name: 'Barème' }).click();
-  const restore = page.getByRole('button', { name: 'Restaurer le barème initial' });
+  const aside = page.getByRole('complementary', { name: 'Synthèse du barème' });
+  const restore = aside.getByRole('button', { name: 'Restaurer le barème initial' });
   await expect(restore).toBeVisible();
+  await expect(page.locator('.rubric-audit-cumulative')).not.toHaveAttribute('open', '');
+  await expect(page.getByRole('button', { name: 'Restaurer le barème initial' })).toHaveCount(1);
   await restore.click();
   await expect(page.getByRole('group', { name: 'Confirmer la restauration du barème' })).toContainText('modifications manuelles');
   await page.getByRole('button', { name: 'Annuler', exact: true }).click();
