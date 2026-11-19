@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { getRubricSubcriteria, rubricEvaluationSignature, type Rubric } from '../../domain/rubric.ts';
 import {
-  matchesRubricAudit, parseRubricAudit, validRubricAuditSession,
+  matchesRubricAudit, validRubricAuditSession,
   type RubricAuditDecision, type RubricAuditIssue, type RubricAuditSession,
 } from '../../domain/rubricAudit.ts';
 import { cancelRubricAuditTask, getRubricAuditTask, launchRubricAuditTask, rubricAuditStorageKey, subscribeRubricAuditTask } from '../../application/rubricAuditTask.ts';
 import { rubricAuditTokenBudget } from '../../domain/rubricAuditGenerationBudget.ts';
+import { parseRecoveredRubricAudit } from '../../domain/rubricAuditModelContract.ts';
 import { createClarifiedRubricVersion, getRubricClarificationChanges, type ClarifiedRubricVersion } from '../../domain/rubricClarification.ts';
 import { getCumulativeRubricChanges, listAppliedRubricEnrichments, removeAppliedRubricEnrichment, type AppliedRubricEnrichment } from '../../domain/rubricEnrichmentHistory.ts';
 import './RubricAuditPanel.css';
@@ -190,7 +191,7 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, thinki
           if (typeof wrapped.model === 'string' && wrapped.model.trim()) sourceModel = wrapped.model;
         }
       } catch { /* A raw model JSON object is also accepted. */ }
-      const report = parseRubricAudit(content, rubric, sourceModel);
+      const report = parseRecoveredRubricAudit(content, rubric, sourceModel);
       persist({ report, decisions: [] });
       setActiveIssueIndex(0);
       setRecoveryText('');
