@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { RubricAuditPanel, RubricCriterionEnrichments, RubricCriterionEnrichmentCount } from '../../src/correction/ui/components/RubricAuditPanel.tsx';
+import { RubricBaselineRestoreControl } from '../../src/correction/ui/components/RubricBaselineRestoreControl.tsx';
 import type { Rubric } from '../../src/correction/domain/rubric.ts';
 import { parseRubricAudit } from '../../src/correction/domain/rubricAudit.ts';
 import { createClarifiedRubricVersion } from '../../src/correction/domain/rubricClarification.ts';
@@ -61,11 +62,12 @@ describe('panneau de clarification enseignant', () => {
       const edited = renderToStaticMarkup(<RubricAuditPanel
         rubric={{ ...version.clarified, title: 'Barème ajusté' }} {...props} />);
       expect(edited).toContain('Le barème actuel a évolué depuis la dernière application IA.');
-      expect(edited).toContain('Restaurer la première version conservée');
-      expect(edited.indexOf('Restaurer la première version conservée'))
-        .toBeLessThan(edited.indexOf('rubric-audit-change-list'));
-      expect(edited).toContain('L’historique ancien a pu');
+      expect(edited).not.toContain('Restaurer la première version conservée');
       expect(edited).not.toContain('BARÈME MODIFIÉ · VERSION ACTIVE');
+      const sidebar = renderToStaticMarkup(<RubricBaselineRestoreControl
+        rubric={{ ...version.clarified, title: 'Barème ajusté' }} assignmentId={assignmentId} onRestore={vi.fn()} />);
+      expect(sidebar).toContain('Restaurer la première version conservée');
+      expect(sidebar).toContain('Sur cet ancien devoir, l’origine exacte n’est pas garantie.');
     } finally {
       vi.unstubAllGlobals();
     }
@@ -103,7 +105,7 @@ describe('panneau de clarification enseignant', () => {
       const panel = renderToStaticMarkup(<RubricAuditPanel
         rubric={{ ...version.clarified, title: 'Mitose modifiée' }} assignmentId={assignmentId}
         endpoint="http://localhost:11434" model="gemma-local" onApply={vi.fn()} />);
-      expect(panel).toContain('Bilan cumulé');
+      expect(panel).toContain('Comparer avec');
       expect(panel).toContain('Origine des ajouts toujours actifs');
       expect(panel).toContain('première version conservée');
       const baselineKey = 'companion-correcteur:rubric-baseline:v1:' + assignmentId;
@@ -114,8 +116,18 @@ describe('panneau de clarification enseignant', () => {
       } });
       const original = renderToStaticMarkup(<RubricAuditPanel rubric={version.clarified} assignmentId={assignmentId}
         endpoint="http://localhost:11434" model="gemma-local" onApply={vi.fn()} />);
-      expect(original).toContain('Restaurer le barème initial');
-      expect(original).toContain('Bilan cumulé : barème initial');
+      expect(original).not.toContain('Restaurer le barème initial');
+      const control = renderToStaticMarkup(<RubricBaselineRestoreControl
+        rubric={version.clarified} assignmentId={assignmentId} onRestore={vi.fn()} />);
+      expect(control).toContain('Restaurer le barème initial');
+      expect(original).toContain('Comparer avec le barème initial');
+      const disabled = renderToStaticMarkup(<RubricBaselineRestoreControl
+        rubric={version.clarified} assignmentId={assignmentId} disabled onRestore={vi.fn()} />);
+      expect(disabled).toContain('disabled=""');
+      const restored = renderToStaticMarkup(<RubricBaselineRestoreControl
+        rubric={scienceRubric} assignmentId={assignmentId} onRestore={vi.fn()} />);
+      expect(restored).toContain('Barème initial utilisé.');
+      expect(restored).not.toContain('Restaurer le barème initial');
     } finally {
       vi.unstubAllGlobals();
     }
