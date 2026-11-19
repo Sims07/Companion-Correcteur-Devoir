@@ -34,6 +34,9 @@ test('teacher audits a rubric locally and retains their choice after refresh', a
   await page.reload();
   await page.getByRole('button', { name: /Reprendre le devoir/ }).click();
   await page.getByRole('tab', { name: 'Barème' }).click();
+  await page.getByRole('link', { name: 'Vérification IA' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading', { name: 'Vérifier et enrichir le barème' })).toBeFocused();
   await page.getByRole('button', { name: 'Vérifier avec l’IA locale' }).click();
   await expect(page.getByText('Faut-il un titre principal commun à tous les schémas ?')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Questions à discuter avec le professeur' })).toBeVisible();
@@ -64,7 +67,7 @@ test('teacher audits a rubric locally and retains their choice after refresh', a
   await expect(page.getByLabel('Version active du barème clarifié')).toBeVisible();
   await expect(page.getByLabel('Version active du barème clarifié').getByText(/Oui, un titre commun/)).toBeVisible();
   await page.getByText(/Historique des clarifications/).click();
-  await page.getByText('Comparer le barème avant et après cette application').click();
+  await expect(page.getByLabel('Application à comparer')).toBeVisible();
   await expect(page.locator('.rubric-audit-history .rubric-audit-change-comparison')).toBeVisible();
   await expect(page.locator('.rubric-audit-history').getByText('Ajout validé par le professeur')).toBeVisible();
 });

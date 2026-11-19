@@ -141,12 +141,12 @@
   border-color: var(--ds-color-border-strong);
 }
 .atelier-rubric-editor > .rubric-import { order: 7; border-color: var(--ds-color-border); background: var(--ds-color-surface-subtle); border-radius: 3px; }
-.atelier-rubric-editor > .atelier-rubric-secondary-tools { order: 8; margin-top: 16px; border: 1px solid var(--ds-color-border); border-radius: 3px; }
-.atelier-rubric-secondary-tools > summary { padding: 13px 14px; cursor: pointer; font-weight: 700; }
-.atelier-rubric-secondary-tools > summary small { margin-left: .55rem; font-weight: 400; font-size: .8em; color: var(--ds-color-text-muted); }
-.atelier-rubric-secondary-content { display: grid; gap: .5rem; padding: 0 10px 10px; }
-.atelier-rubric-secondary-content > details { margin: 0; border-radius: 3px; }
-.atelier-rubric-secondary-tools > summary:focus-visible { outline: 2px solid var(--ds-color-brand-700); outline-offset: 2px; }
+.rubric-section-links { display: flex; flex-wrap: wrap; gap: .25rem 1rem; }
+.rubric-section-links a { padding-block: .5rem; color: var(--ds-color-brand-700); text-underline-offset: .2em; }
+.rubric-section-links a:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+.atelier-rubric-secondary-content { display: grid; gap: .5rem; }
+.atelier-rubric-secondary-content > details { margin: 0; }
+#rubric-audit-heading, #rubric-transfer-heading, #rubric-title { scroll-margin-top: 5rem; }
 
 /* Imported rubric: Vision and extraction are long-running work, never an error.
    The rule applies in the teacher workspace and in model evaluation. */

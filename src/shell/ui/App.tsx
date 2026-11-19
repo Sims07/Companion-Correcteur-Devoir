@@ -4987,6 +4987,11 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
 
       {((interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration' && evaluationJourney === 'custom') || (interfaceMode === 'teacher' && teacherStep === 'rubric')) && <>
       <div id={interfaceMode === 'diagnostic' ? 'evaluation-rubric' : undefined} className="workspace-heading diagnostic-setup-heading"><div><p className="eyebrow">{interfaceMode === 'teacher' ? 'ÉTAPE 1 · DEVOIR' : 'JEU D’ESSAI · BARÈME'}</p><h2>{interfaceMode === 'teacher' ? 'Devoir et barème' : 'Préparer le barème de correction'}</h2><p className="workspace-description">Le devoir identifie votre sujet ; le barème décrit comment noter les réponses.</p></div><span className="step-count">{validation.maximumPoints} POINTS AU TOTAL</span></div>
+      {interfaceMode === 'teacher' && <nav className="rubric-section-links" aria-label="Accès direct dans le barème">
+        <a href="#rubric-title">Modifier le barème</a>
+        {validation.valid && <a href="#rubric-audit-heading">{auditIsRunning ? 'Suivre la vérification IA' : 'Vérification IA'}</a>}
+        <a href="#rubric-transfer-heading">Réutiliser, importer ou exporter</a>
+      </nav>}
       <div className={interfaceMode === "teacher" ? "atelier-rubric-grid" : "atelier-rubric-grid is-diagnostic"}>
       <section className={interfaceMode === "teacher" ? "panel rubric-editor atelier-rubric-editor" : "panel rubric-editor"}>
         <div className="rubric-assignment-context"><span className="eyebrow">BARÈME ASSOCIÉ AU DEVOIR</span><strong>{assignmentTitle.trim() || 'Devoir sans titre'}</strong><p>Vous pouvez donner au barème un nom différent de celui du devoir.</p></div>
@@ -5080,14 +5085,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
             <button className="icon-button" type="button" aria-label={`Supprimer ${criterion.title}`} onClick={() => setRubric((current) => ({ ...current, criteria: current.criteria.filter((item) => item.id !== criterion.id) }))}>×</button>
             </div></details>)}
         </div>
-        {interfaceMode === 'teacher' ? <details className="atelier-rubric-secondary-tools">
-          <summary>Outils complémentaires <small>Réutiliser, importer ou exporter des critères</small></summary>
-          <div className="atelier-rubric-secondary-content">
-            <RubricReusePanel assignments={assignmentProfiles} activeAssignmentId={activeAssignmentId} rubric={rubric} onReuse={(criteria) => { setRubric((current) => ({ ...current, criteria: [...current.criteria, ...criteria] })); setProposal(null); setReview([]); setScientificDiagramAnalysis(null); setTeacherAnnotations(''); setExpandedCriterionId(criteria[0]?.id ?? null); }} />
-            <RubricImportPanel rubric={rubric} onImport={(criteria) => { setRubric((current) => ({ ...current, criteria: [...current.criteria, ...criteria] })); setProposal(null); setReview([]); setScientificDiagramAnalysis(null); setTeacherAnnotations(''); }} />
-            <RubricExportPanel rubric={rubric} />
-          </div>
-        </details> : <RubricExportPanel rubric={rubric} />}
+        {interfaceMode === 'diagnostic' && <RubricExportPanel rubric={rubric} />}
       </section>
       {interfaceMode === 'teacher' && <aside className="atelier-rubric-synthesis" aria-label="Synthèse du barème">
         <p className="eyebrow">SYNTHÈSE</p>
@@ -5109,6 +5107,15 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
       </div>
 
       {interfaceMode === 'teacher' && validation.valid && <RubricAuditPanel key={activeAssignmentId} rubric={rubric} assignmentId={activeAssignmentId} endpoint={endpoint} model={generativeModel} thinking={!apiCompatible && analysisThinking} onApply={(clarified) => { setRubric(clarified); setProposal(null); setReview([]); setScientificDiagramAnalysis(null); }} />}
+
+      {interfaceMode === 'teacher' && <section className="panel atelier-rubric-secondary-tools" aria-labelledby="rubric-transfer-heading">
+        <h3 id="rubric-transfer-heading" tabIndex={-1}>Réutiliser, importer ou exporter des critères</h3>
+          <div className="atelier-rubric-secondary-content">
+            <RubricReusePanel assignments={assignmentProfiles} activeAssignmentId={activeAssignmentId} rubric={rubric} onReuse={(criteria) => { setRubric((current) => ({ ...current, criteria: [...current.criteria, ...criteria] })); setProposal(null); setReview([]); setScientificDiagramAnalysis(null); setTeacherAnnotations(''); setExpandedCriterionId(criteria[0]?.id ?? null); }} />
+            <RubricImportPanel rubric={rubric} onImport={(criteria) => { setRubric((current) => ({ ...current, criteria: [...current.criteria, ...criteria] })); setProposal(null); setReview([]); setScientificDiagramAnalysis(null); setTeacherAnnotations(''); }} />
+            <RubricExportPanel rubric={rubric} />
+          </div>
+      </section>}
 
        {interfaceMode === 'teacher' && <div className="teacher-step-footer"><span>{auditIsRunning ? 'Vérification du barème en cours : terminez-la ou arrêtez-la avant de passer aux copies.' : 'Le devoir est prêt ? Ajoutez les copies à corriger.'}</span><button type="button" className="primary-button" disabled={!validation.valid || auditIsRunning} onClick={() => setTeacherStep('overview')}>Continuer vers les copies <span aria-hidden="true">→</span></button></div>}
       </>}
