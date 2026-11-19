@@ -153,12 +153,12 @@ test('AI recommendations become a guided teacher dialogue even if the result arr
     try {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ done: true,
         message: { content: JSON.stringify({ issues: [
-          { criterionId: 'drawing-clean', subcriterionId: null, priority: 'high',
+          { ref: 'C1.S1', priority: 'high',
             reason: 'Critère subjectif sans seuil de tolérance.',
             question: 'Quels éléments spécifiques rendent un dessin propre ?',
             options: ['Aucune trace de gommage', 'Légères traces acceptées'],
             suggestion: 'Le dessin ne présente pas de ratures gênant la lecture.' },
-          { criterionId: 'drawing-proportions', subcriterionId: null, priority: 'medium',
+          { ref: 'C1.S2', priority: 'medium',
             reason: 'Aucune référence de proportion n’est précisée.',
             question: 'Comment apprécier la fidélité des proportions ?',
             options: ['Comparaison visuelle', 'Échelle explicitement exigée'],

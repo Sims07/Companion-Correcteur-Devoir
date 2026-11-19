@@ -20,6 +20,31 @@ Les propositions non traitées ou refusées ne sont **jamais** ajoutées. Les r�
 
 Les références scientifiques validées sont incluses dans le JSON du barème transmis au modèle lors de la correction, sans requête supplémentaire par légende. Les anciennes copies corrigées conservent leur barème historique et peuvent être recorrigées séparément.
 
+## Contrat compact entre l'IA et le barème
+
+L'audit transmet à Ollama le contenu pédagogique du barème (titre, descriptions,
+points, sous-critères, références scientifiques déjà validées et contrat de correction
+le cas échéant) avec **des références temporaires courtes**, par exemple
+`C1` pour un critère et `C1.S2` pour son deuxième sous-critère.
+Les identifiants persistants (UUID ou identifiants historiques) ne figurent pas dans
+le payload destiné au modèle. L'IA propose seulement des questions, suggestions,
+priorités et une référence courte par proposition ; elle n'a plus à reconstruire
+les relations parent-enfant dans son raisonnement ni dans le JSON.
+
+L'application résout ensuite ces références en identifiants réels **de manière
+déterministe**, avant la validation de domaine préexistante (références autorisées,
+priorités, options, doublons, limites de texte). Une référence inexistante ou
+malformée fait échouer l'audit sans modification du barème. La validation du
+professeur demeure obligatoire. Le nombre de propositions est limité à huit,
+en privilégiant les trois plus utiles et au plus quatre scientifiques.
+
+La récupération manuelle depuis le diagnostic accepte les nouvelles réponses
+avec `ref` mais aussi les anciennes réponses avec `criterionId` /
+`subcriterionId`. Les rapports persistés et les corrections existantes
+conservent leur format d'identifiants habituel. L'optimisation vise à limiter
+la charge de raisonnement structurel du modèle ; la durée réelle reste
+dépendante du modèle Ollama et du matériel local.
+
 ## Feedback et confidentialité
 
 L'audit est **facultatif** et strictement local (endpoint loopback Ollama) ; pas de cloud ni de copie. Pendant l'analyse, le bouton est désactivé, la phase réellement connue est affichée, un compteur de temps est visible et un bouton « Arrêter » permet l'annulation. On peut quitter le panneau pour consulter le diagnostic puis revenir sans perdre le résultat. En cas d'erreur, les décisions précédentes sont conservées. Les références sont conservées uniquement après validation du professeur.

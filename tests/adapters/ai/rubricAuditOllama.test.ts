@@ -52,7 +52,7 @@ describe('audit barème local Ollama', () => {
       expect(payload.messages[0].content).toContain('En une SEULE analyse');
       expect(payload.messages[0].content).toContain('Titre descriptif');
       return new Response(JSON.stringify({ done: true, message: { content: JSON.stringify({ issues: [{
-        kind: 'scientific', criterionId: 'title', priority: 'high',
+        kind: 'scientific', ref: 'C1', priority: 'high',
         reason: 'L’attendu scientifique peut être précisé.', question: 'Faut-il préciser les structures ?',
         options: ['Oui', 'Non'], suggestion: 'Vérifier la compatibilité de la structure et de la phase.',
       }] }) } }), { status: 200 });
@@ -156,6 +156,37 @@ describe('audit barème local Ollama', () => {
     await expect(auditRubricWithOllama(rubric, {
       endpoint: 'http://localhost:11434', model: 'gemma4:12b',
     }, fetcher as typeof fetch)).rejects.toThrow(/insufficient memory/);
+  });
+
+  it('masque les UUID dans le prompt et restaure les liens exacts depuis des références courtes', async () => {
+    const scientificRubric: Rubric = { title: 'Mitose', criteria: [{
+      id: 'criterion-113e-uuid', title: 'Titre', description: 'Titre commun aux quatre panneaux',
+      maxPoints: 1, subcriteria: [{
+        id: 'sub-uuid-72d1', title: 'Position', description: 'Sous la composition complète', maxPoints: 1,
+      }],
+    }] };
+    const fetcher = vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
+      const request = JSON.parse(String(init?.body)) as { messages: Array<{ content: string }> };
+      const prompt = request.messages[0].content;
+      expect(prompt).toContain('C1.S1');
+      expect(prompt).toContain('Sous la composition complète');
+      expect(prompt).not.toContain('criterion-113e-uuid');
+      expect(prompt).not.toContain('sub-uuid-72d1');
+      expect(prompt).not.toContain('Répertoire exact des identifiants');
+      const response = { issues: [{
+        kind: 'clarification', ref: 'C1.S1', priority: 'high',
+        reason: 'Un nom de phase ne suffit pas.', question: 'Quel titre est évalué ?',
+        options: ['Titre global', 'Titre de phase'], suggestion: 'Évaluer uniquement le titre principal.',
+      }] };
+      return new Response(JSON.stringify({ done: true, message: { content: JSON.stringify(response) } }), { status: 200 });
+    });
+    const report = await auditRubricWithOllama(scientificRubric, {
+      endpoint: 'http://localhost:11434', model: 'gemma4:12b', thinking: true,
+    }, fetcher as typeof fetch);
+    expect(report.issues[0]).toMatchObject({
+      criterionId: 'criterion-113e-uuid', subcriterionId: 'sub-uuid-72d1',
+      suggestion: 'Évaluer uniquement le titre principal.',
+    });
   });
 
 });
