@@ -19,9 +19,11 @@ test('teacher audits a rubric locally and retains their choice after refresh', a
     const payload = route.request().postDataJSON() as { stream: boolean; messages: Array<{ content: string }> };
     expect(payload.stream).toBe(true);
     expect(payload.messages[0].content).toContain('Mitose');
+    expect(payload.messages[0].content).toContain('"ref":"C1"');
+    expect(payload.messages[0].content).not.toContain('"id":"title"');
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ done: true,
       message: { content: JSON.stringify({ issues: [{
-        criterionId: 'title', subcriterionId: null, priority: 'high',
+        ref: 'C1', priority: 'high',
         reason: 'Un sous-titre peut être confondu avec un titre global.',
         question: 'Faut-il un titre principal commun à tous les schémas ?',
         options: ['Oui, un titre commun', 'Non, les sous-titres suffisent'],
@@ -84,12 +86,12 @@ test('scientific enrichment is reviewed beside the original, previewed, applied 
     calls++;
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ done: true,
       message: { content: JSON.stringify({ issues: [
-        { kind: 'scientific', criterionId: 'biology', subcriterionId: 'phases', priority: 'high',
+        { kind: 'scientific', ref: 'C1.S1', priority: 'high',
           reason: 'Les attendus biologiques ne sont pas définis.',
           question: 'Souhaitez-vous détailler les phases ?',
           options: ['Oui', 'Adapter'],
           suggestion: 'En métaphase, l’enveloppe nucléaire est absente.' },
-        { kind: 'clarification', criterionId: 'biology', subcriterionId: null, priority: 'medium',
+        { kind: 'clarification', ref: 'C1', priority: 'medium',
           reason: 'Le calcul partiel est imprécis.',
           question: 'Comment attribuer les points partiels ?',
           options: ['Selon les éléments corrects', 'Seulement si toutes les phases sont exactes'],
