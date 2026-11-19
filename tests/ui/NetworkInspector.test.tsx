@@ -129,12 +129,16 @@ describe('NetworkInspector live request feedback', () => {
         ?.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
     };
     await openTab('Message');
+    expect(container.querySelector('.network-detail-body--single')).not.toBeNull();
     expect(container.textContent).toContain('Message reçu du modèle');
     expect(container.querySelector('.network-detail-section pre')?.textContent).toContain('"points": 10');
     await openTab('Thinking');
     expect(container.textContent).toContain('Vérification des critères.');
     await openTab('Response');
+    expect(container.querySelector('.network-detail-body--single')).not.toBeNull();
     expect(container.textContent).toContain('Response body');
+    await openTab('Headers');
+    expect(container.querySelector('.network-detail-body--single')).toBeNull();
   });
 
   it('recovers message.content from a prior raw NDJSON history without new stored fields', async () => {
