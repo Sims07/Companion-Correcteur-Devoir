@@ -3,7 +3,7 @@ import { openActiveAssignment } from './helpers/teacher-workspace';
 
 test('teachers preview a rubric import, detect conflicts and add only selected criteria', async ({ page }) => {
  await page.goto('/'); await openActiveAssignment(page); await page.getByRole('tab', { name: 'Barème' }).click();
- const panel = page.locator('.rubric-import-panel'); await page.locator('.atelier-rubric-secondary-tools > summary').click(); await panel.locator('summary').click();
+ const panel = page.locator('.rubric-import-panel'); await panel.locator('summary').click();
  const payload = { format: 'companion-correcteur-rubric', version: 1, rubricTitle: 'Barème partagé', criteria: [
   { id: 'knowledge', title: 'Connaissances importées', description: 'Attendus spécifiques', maxPoints: 3 },
   { id: 'cell-cycle', title: 'Cycle cellulaire', description: 'Étapes et régulation', maxPoints: 2 },
@@ -22,7 +22,7 @@ test('teachers preview a rubric import, detect conflicts and add only selected c
 
 test('teachers receive a clear message for unsupported import versions', async ({ page }) => {
  await page.goto('/'); await openActiveAssignment(page); await page.getByRole('tab', { name: 'Barème' }).click();
- const panel = page.locator('.rubric-import-panel'); await page.locator('.atelier-rubric-secondary-tools > summary').click(); await panel.locator('summary').click();
+ const panel = page.locator('.rubric-import-panel'); await panel.locator('summary').click();
  const payload = { format: 'companion-correcteur-rubric', version: 99, rubricTitle: 'Futur', criteria: [{ id: 'x', title: 'X', description: '', maxPoints: 1 }] };
  await panel.locator('input[type="file"]').setInputFiles({ name: 'futur.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(payload)) });
  await expect(panel.getByRole('alert')).toContainText('Version d’export non prise en charge');

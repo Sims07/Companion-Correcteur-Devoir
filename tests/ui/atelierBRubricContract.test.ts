@@ -24,7 +24,6 @@ describe('Atelier B rubric composition', () => {
     expect(css).toContain('.atelier-rubric-editor .criterion-editor-summary');
     expect(css).toContain('.atelier-rubric-editor .criterion-editor-content');
     expect(app).toContain('useState<string | null>(null)');
-    expect(css).toContain('.atelier-rubric-editor > .atelier-rubric-secondary-tools { order: 8');
     expect(css).toContain('.rubric-editor-toolbar .validation.valid');
     expect(css).toContain('.rubric-actions .validation.valid');
   });
@@ -57,7 +56,7 @@ describe('Atelier B rubric composition', () => {
     expect(app).toContain('<RubricBaselineRestoreControl');
     expect(app).toContain('onRestore={(restored)');
     expect(app).toContain('<RubricReusePanel');
-    expect(app).toContain('className="atelier-rubric-secondary-tools"');
+    expect(app).toContain('aria-labelledby="rubric-transfer-heading"');
     expect(app).toContain('onReuse={(criteria)');
   });
 });

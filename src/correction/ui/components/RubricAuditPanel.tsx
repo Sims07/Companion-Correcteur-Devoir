@@ -11,6 +11,7 @@ import { createClarifiedRubricVersion, getRubricClarificationChanges, type Clari
 import { getCumulativeRubricChanges, listAppliedRubricEnrichments, removeAppliedRubricEnrichment, type AppliedRubricEnrichment } from '../../domain/rubricEnrichmentHistory.ts';
 import { createInitialRubricBaseline, rubricIsAtBaseline, type RubricBaseline } from '../../domain/rubricBaseline.ts';
 import { baselineKey, loadBaseline, loadVersions, versionsKey } from './rubricVersionStorage.ts';
+import { DesignSystemSelect } from '../../../shared/ui/components/DesignSystemSelect.tsx';
 import './RubricAuditPanel.css';
 
 interface Props {
@@ -90,6 +91,8 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, thinki
   const [custom, setCustom] = useState<Record<string, string>>({});
   const [versions, setVersions] = useState<ClarifiedRubricVersion[]>(() => loadVersions(assignmentId));
   const [baseline, setBaseline] = useState<RubricBaseline | null>(() => loadBaseline(assignmentId, loadVersions(assignmentId)));
+  const [historyDate, setHistoryDate] = useState('');
+  const historyVersion = versions.find(version => version.appliedAt === historyDate) ?? versions.at(-1);
   const isAtBaseline = rubricIsAtBaseline(rubric, baseline);
   // A manual edit or a restoration must not be labelled as an active IA version.
   const activeVersion = isAtBaseline ? null
@@ -144,7 +147,7 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, thinki
     if (task.state !== 'success' || !taskIsCurrent || !current) return;
     // A teacher may have been looking at network diagnostics when Ollama completed.
     // Bring them to their questions instead of leaving the result below the fold.
-    const frame = window.requestAnimationFrame(() => resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    const frame = window.requestAnimationFrame(() => resultRef.current?.scrollIntoView({ block: 'start' }));
     return () => window.cancelAnimationFrame(frame);
   // Do not scroll the page again each time the teacher changes an answer.
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -190,7 +193,7 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, thinki
       setActiveIssueIndex(0);
       setRecoveryText('');
       setMessage('Résultat récupéré : les questions de l’IA sont disponibles ci-dessous.');
-      window.requestAnimationFrame(() => resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+      window.requestAnimationFrame(() => resultRef.current?.scrollIntoView({ block: 'start' }));
     } catch (cause) {
       setMessage('Impossible de récupérer cette réponse : ' +
         (cause instanceof Error ? cause.message : 'format non reconnu.'));
@@ -215,7 +218,7 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, thinki
   useEffect(() => {
     if (!scrollAfterApply.current || !activeVersion) return;
     scrollAfterApply.current = false;
-    const frame = window.requestAnimationFrame(() => appliedRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    const frame = window.requestAnimationFrame(() => appliedRef.current?.scrollIntoView({ block: 'start' }));
     return () => window.cancelAnimationFrame(frame);
   }, [activeVersion]);
 
@@ -240,7 +243,7 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, thinki
       setVersions(next);
       scrollAfterApply.current = true;
       onApply(version.clarified);
-      setMessage('Barème enrichi appliqué. Les changements sont visibles ci-dessus ; les anciennes corrections gardent leur barème historique.');
+      setMessage('Barème enrichi appliqué aux prochaines corrections.');
     } catch (cause) {
       setMessage(cause instanceof Error ? cause.message : 'Impossible d’appliquer ces précisions.');
     }
@@ -248,44 +251,10 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, thinki
 
   return <section className={busy ? "panel rubric-audit-panel is-running" : "panel rubric-audit-panel"} aria-label="Vérifier et enrichir le barème">
     <div className="rubric-audit-heading">
-      <div><p className="eyebrow">FIABILISER LE BARÈME</p><h3>Vérifier et enrichir le barème</h3>
+      <div><p className="eyebrow">FIABILISER LE BARÈME</p><h3 id="rubric-audit-heading" tabIndex={-1}>Vérifier et enrichir le barème</h3>
         <p>Clarifiez les règles et enrichissez les attendus scientifiques <strong>avant de corriger les copies</strong>. Vous décidez de chaque ajout.</p>
       </div>
     </div>
-    {activeVersion && <div className="rubric-audit-applied" ref={appliedRef} aria-label="Version active du barème clarifié">
-      <div className="rubric-audit-applied-heading">
-        <div>
-          <p className="eyebrow">BARÈME MODIFIÉ · VERSION ACTIVE</p>
-          <h4>Voici ce qui a changé dans votre barème</h4>
-          <p role="status">Barème enrichi le {new Date(activeVersion.appliedAt).toLocaleDateString('fr-FR')} avec {activeVersion.model} : {activeVersion.decisions.length} modification(s) acceptée(s).</p>
-        </div>
-        <strong className="rubric-audit-active-label">Utilisé pour les prochaines corrections</strong>
-      </div>
-      <RubricChanges version={activeVersion} />
-      <p className="hint">Le texte initial, les intitulés et les points sont conservés. Les références scientifiques validées restent distinctes des règles de notation. Les copies déjà corrigées gardent leur ancien barème.</p>
-    </div>}
-    {isAtBaseline && versions.length > 0 && <div className="rubric-audit-feedback is-success" role="status">
-      <strong>{baseline?.source === 'initial' ? 'Barème initial actuellement utilisé.' : 'Première version conservée actuellement utilisée.'}</strong>
-      <p>Les enrichissements ultérieurs sont conservés dans l’historique mais ne sont plus appliqués au barème courant.</p>
-    </div>}
-    {!isAtBaseline && !activeVersion && versions.length > 0 && <p className="rubric-audit-version-note">
-      Le barème actuel a évolué depuis la dernière application IA. Les ajouts encore présents restent actifs.
-    </p>}
-    {versions.length > 0 && <details className="rubric-audit-cumulative">
-      <summary>Bilan cumulé · Comparer avec {baseline?.source === 'initial' ? 'le barème initial' : 'la première version conservée'} ({cumulativeChanges.length} texte(s) ou référence(s) modifié(s))</summary>
-      <p className="hint">Ce bilan inclut les modifications manuelles éventuelles. Les références IA validées encore présentes sont identifiées avec leur modèle et leur date.</p>
-      {cumulativeChanges.length ? <RubricChanges version={{ ...versions[0], original: baseline?.rubric ?? versions[0].original, clarified: rubric }} />
-        : <p>{isAtBaseline
-          ? 'Aucune différence restante avec la version de référence conservée.'
-          : 'Aucune description ou référence scientifique modifiée ; des changements de titre, de points ou de structure peuvent encore exister.'}</p>}
-      {currentAdditions.length > 0 && <div className="rubric-audit-provenance">
-        <strong>Origine des ajouts toujours actifs</strong>
-        <ul>{currentAdditions.map((entry) => <li key={entry.id}>
-          <span>Application {entry.historyIndex} · {new Date(entry.appliedAt).toLocaleDateString('fr-FR')} · {entry.model}</span>
-          <p>{entry.kind === 'scientific' ? 'Référence scientifique' : 'Clarification'} : {entry.text}</p>
-        </li>)}</ul>
-      </div>}
-    </details>}
     <div className="rubric-audit-toolbar">
       <button type="button" className="primary-button rubric-audit-launch" disabled={busy} aria-disabled={busy} onClick={runAudit}>
         {busy && <span className="rubric-audit-spinner" aria-hidden="true" />}
@@ -294,15 +263,6 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, thinki
       {busy && <button type="button" className="secondary-button rubric-audit-stop" onClick={() => cancelRubricAuditTask(assignmentId)}>Arrêter la vérification</button>}
     </div>
     <p className="hint rubric-audit-privacy" role="status">Thinking : <strong>{thinking ? 'activé pour cette vérification' : 'désactivé pour cette vérification'}</strong> · plafond de génération : <strong>{configuredBudget.num_predict.toLocaleString('fr-FR')} tokens</strong>{typeof configuredBudget.num_ctx === 'number' ? ` · contexte : ${configuredBudget.num_ctx.toLocaleString('fr-FR')} tokens` : ''}. Une seule analyse recherche les ambiguïtés et les compléments scientifiques. Seul le barème est transmis au modèle Ollama local « {model || 'non configuré'} » ; aucune copie d'étudiant n'est envoyée. Cette vérification est facultative.</p>
-    {!busy && <details className="rubric-audit-recover">
-      <summary>Récupérer une analyse déjà terminée dans le diagnostic</summary>
-      <p>Si Ollama a répondu mais que les questions n’ont pas été affichées, copiez la réponse JSON depuis « Suivi & diagnostic » puis collez-la ici. Aucune nouvelle requête Ollama n’est envoyée.</p>
-      <label className="field-label">Réponse du modèle (JSON brut ou réponse complète Ollama)
-        <textarea rows={5} value={recoveryText} onChange={(event) => setRecoveryText(event.target.value)}
-          placeholder='{"message":{"content":"{\\\"issues\\\":[...]}"}}' />
-      </label>
-      <button type="button" className="secondary-button" disabled={!recoveryText.trim()} onClick={recoverAudit}>Charger les questions déjà générées</button>
-    </details>}
     {busy && <div className="rubric-audit-live" role="status" aria-live="polite">
       <div className="rubric-audit-live-heading">
         <span className="rubric-audit-spinner" aria-hidden="true" />
@@ -474,17 +434,63 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, thinki
       </div>}
       {issues.length > 0 && !allReviewed && <p className="hint">Les questions non traitées ne sont jamais ajoutées automatiquement au barème.</p>}
     </div>}
-    {versions.length > 0 && <details className="rubric-audit-history"><summary>Historique des clarifications ({versions.length})</summary>
-      <ol>{[...versions].reverse().map((version, index) => <li key={version.appliedAt + index}>
-        <strong>Application {versions.length - index}</strong> · {new Date(version.appliedAt).toLocaleDateString('fr-FR')} — {version.decisions.length} précision(s) ; modèle {version.model}
-        {version.clarifiedSignature === signature ? ' · Version actuellement utilisée' : ' · Version archivée'}
-        <details><summary>Comparer le barème avant et après cette application</summary>
-          <RubricChanges version={version} />
-          <details className="rubric-audit-technical"><summary>Afficher le détail technique (JSON)</summary>
-            <div className="rubric-audit-versions"><div><strong>Avant</strong><pre>{JSON.stringify(version.original, null, 2)}</pre></div><div><strong>Après</strong><pre>{JSON.stringify(version.clarified, null, 2)}</pre></div></div>
-          </details>
-        </details>
-      </li>)}</ol>
+    {activeVersion && <div className="rubric-audit-applied" ref={appliedRef} aria-label="Version active du barème clarifié">
+      <div className="rubric-audit-applied-heading">
+        <div>
+          <p className="eyebrow">BARÈME MODIFIÉ · VERSION ACTIVE</p>
+          <h4>Voici ce qui a changé dans votre barème</h4>
+          <p role="status">Barème enrichi le {new Date(activeVersion.appliedAt).toLocaleDateString('fr-FR')} avec {activeVersion.model} : {activeVersion.decisions.length} modification(s) acceptée(s).</p>
+        </div>
+        <strong className="rubric-audit-active-label">Utilisé pour les prochaines corrections</strong>
+      </div>
+      <RubricChanges version={activeVersion} />
+      <p className="hint">Le texte initial, les intitulés et les points sont conservés. Les références scientifiques validées restent distinctes des règles de notation. Les copies déjà corrigées gardent leur ancien barème.</p>
+    </div>}
+    {isAtBaseline && versions.length > 0 && <div className="rubric-audit-feedback is-success" role="status">
+      <strong>{baseline?.source === 'initial' ? 'Barème initial actuellement utilisé.' : 'Première version conservée actuellement utilisée.'}</strong>
+      <p>Les enrichissements ultérieurs sont conservés dans l’historique mais ne sont plus appliqués au barème courant.</p>
+    </div>}
+    {!isAtBaseline && !activeVersion && versions.length > 0 && <p className="rubric-audit-version-note">
+      Le barème actuel a évolué depuis la dernière application IA. Les ajouts encore présents restent actifs.
+    </p>}
+    {versions.length > 0 && <details className="rubric-audit-cumulative">
+      <summary>Bilan cumulé · Comparer avec {baseline?.source === 'initial' ? 'le barème initial' : 'la première version conservée'} ({cumulativeChanges.length} texte(s) ou référence(s) modifié(s))</summary>
+      <p className="hint">Ce bilan inclut les modifications manuelles éventuelles. Les références IA validées encore présentes sont identifiées avec leur modèle et leur date.</p>
+      {cumulativeChanges.length ? <RubricChanges version={{ ...versions[0], original: baseline?.rubric ?? versions[0].original, clarified: rubric }} />
+        : <p>{isAtBaseline
+          ? 'Aucune différence restante avec la version de référence conservée.'
+          : 'Aucune description ou référence scientifique modifiée ; des changements de titre, de points ou de structure peuvent encore exister.'}</p>}
+      {currentAdditions.length > 0 && <div className="rubric-audit-provenance">
+        <strong>Origine des ajouts toujours actifs</strong>
+        <ul>{currentAdditions.map((entry) => <li key={entry.id}>
+          <span>Application {entry.historyIndex} · {new Date(entry.appliedAt).toLocaleDateString('fr-FR')} · {entry.model}</span>
+          <p>{entry.kind === 'scientific' ? 'Référence scientifique' : 'Clarification'} : {entry.text}</p>
+        </li>)}</ul>
+      </div>}
+    </details>}
+    {historyVersion && <details className="rubric-audit-history">
+      <summary>Historique des clarifications ({versions.length})</summary>
+      <label className="field-label">Application à comparer
+        <DesignSystemSelect value={historyVersion.appliedAt} onChange={event => setHistoryDate(event.target.value)}>
+          {[...versions].reverse().map((version, index) => <option key={version.appliedAt} value={version.appliedAt}>
+            Application {versions.length - index} · {new Date(version.appliedAt).toLocaleDateString('fr-FR')} · {version.model}
+          </option>)}
+        </DesignSystemSelect>
+      </label>
+      <p>{historyVersion.decisions.length} modification(s) · {historyVersion.clarifiedSignature === signature ? 'Version actuellement utilisée' : 'Version archivée'}</p>
+      <RubricChanges version={historyVersion} />
+      <details key={historyVersion.appliedAt} className="rubric-audit-technical"><summary>Afficher le détail technique (JSON)</summary>
+        <div className="rubric-audit-versions"><div><strong>Avant</strong><pre>{JSON.stringify(historyVersion.original, null, 2)}</pre></div><div><strong>Après</strong><pre>{JSON.stringify(historyVersion.clarified, null, 2)}</pre></div></div>
+      </details>
+    </details>}
+    {!busy && <details className="rubric-audit-recover">
+      <summary>Récupérer une analyse déjà terminée dans le diagnostic</summary>
+      <p>Si Ollama a répondu mais que les questions n’ont pas été affichées, copiez la réponse JSON depuis « Suivi & diagnostic » puis collez-la ici. Aucune nouvelle requête Ollama n’est envoyée.</p>
+      <label className="field-label">Réponse du modèle (JSON brut ou réponse complète Ollama)
+        <textarea rows={5} value={recoveryText} onChange={(event) => setRecoveryText(event.target.value)}
+          placeholder='{"message":{"content":"{\\\"issues\\\":[...]}"}}' />
+      </label>
+      <button type="button" className="secondary-button" disabled={!recoveryText.trim()} onClick={recoverAudit}>Charger les questions déjà générées</button>
     </details>}
   </section>;
 }
