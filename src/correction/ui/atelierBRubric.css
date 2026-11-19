@@ -222,7 +222,7 @@
 .atelier-rubric-restore { display: grid; gap: 7px; padding-top: 15px; margin-top: 16px; border-top: 1px solid var(--ds-color-border); }
 .atelier-rubric-restore > strong { font-size: 12px; }
 .atelier-rubric-restore > p { margin: 0; font-size: 11px; line-height: 1.45; }
-.atelier-rubric-restore-launch { width: 100%; padding: 10px 8px; font-size: 11px; text-align: center; white-space: normal; }
+.atelier-rubric-restore-launch { width: 100%; min-height: 44px; padding: 10px 8px; font-size: 12px; font-weight: 700; text-align: center; white-space: normal; }
 .atelier-rubric-restore-help { color: var(--ds-color-text-muted); }
 .atelier-rubric-restore-confirm { display: grid; gap: 8px; padding: 10px; border: 1px solid var(--ds-color-border-strong); border-radius: 3px; background: var(--ds-color-surface-subtle); }
 .atelier-rubric-restore-confirm > strong { font-size: 11px; }
