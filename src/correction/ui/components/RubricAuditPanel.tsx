@@ -270,8 +270,8 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, thinki
     </div>}
     {!isAtBaseline && !activeVersion && versions.length > 0 && <p className="rubric-audit-version-note">
       Le barème actuel a évolué depuis la dernière application IA. Les ajouts encore présents restent actifs.
-    </p>
-    {versions.length > 0 && <details className="rubric-audit-cumulative" open>
+    </p>}
+    {versions.length > 0 && <details className="rubric-audit-cumulative">
       <summary>Comparer avec {baseline?.source === 'initial' ? 'le barème initial' : 'la première version conservée'} ({cumulativeChanges.length} texte(s) ou référence(s) modifié(s))</summary>
       <p className="hint">Ce bilan inclut les modifications manuelles éventuelles. Les références IA validées encore présentes sont identifiées avec leur modèle et leur date.</p>
       {cumulativeChanges.length ? <RubricChanges version={{ ...versions[0], original: baseline?.rubric ?? versions[0].original, clarified: rubric }} />
