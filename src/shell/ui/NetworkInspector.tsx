@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { clearNetworkHistory, getNetworkInspectorStatus, loadNetworkHistory, networkInspectorEvent, type NetworkRequestRecord } from '../../shared/adapters/network/networkInspector.ts';
 import '../../shared/ui/networkInspector.css';
 import { isOllamaInferenceRequest } from '../../shared/domain/ollamaTimings.ts';
+import { extractOllamaThinking } from '../../shared/domain/ollamaThinkingStream.ts';
 
 type Filter = 'all' | 'pending' | 'error' | 'success';
 
@@ -20,6 +21,17 @@ function formatDetail(value: unknown): string {
   try { return JSON.stringify(JSON.parse(value), null, 2); } catch { return value; }
 }
 
+function requestedThinking(requestBody: string): boolean | null {
+  try {
+    const parsed: unknown = JSON.parse(requestBody);
+    if (parsed && typeof parsed === 'object' && 'think' in parsed) {
+      const mode = (parsed as { think?: unknown }).think;
+      return typeof mode === 'boolean' ? mode : null;
+    }
+  } catch { /* Older or non-JSON requests have no explicit setting. */ }
+  return null;
+}
+
 function Detail({ title, value }: { title: string; value: unknown }) {
   return <section className="network-detail-section"><h3>{title}</h3><pre>{formatDetail(value)}</pre></section>;
 }
@@ -29,7 +41,7 @@ export function NetworkInspector({ initialFilter = 'all' }: { initialFilter?: 'a
   const [selectedId, setSelectedId] = useState<string | null>(records[0]?.id ?? null);
   const [filter, setFilter] = useState<Filter>(initialFilter);
   const [query, setQuery] = useState('');
-  const [tab, setTab] = useState<'headers' | 'request' | 'response'>('headers');
+  const [tab, setTab] = useState<'headers' | 'request' | 'response' | 'thinking'>('headers');
   const [storageStatus, setStorageStatus] = useState(getNetworkInspectorStatus);
   const [clock, setClock] = useState(() => Date.now());
 
@@ -54,11 +66,15 @@ export function NetworkInspector({ initialFilter = 'all' }: { initialFilter?: 'a
   const pending = records.filter((record) => record.state === 'pending').length;
   const errors = records.filter((record) => record.state === 'error').length;
   const liveDuration = (record: NetworkRequestRecord) => record.state === 'pending' ? Math.max(0, clock - Date.parse(record.startedAt)) : record.durationMs;
-  const waitingForServer = (record: NetworkRequestRecord) => record.state === 'pending' && (liveDuration(record) ?? 0) >= 15_000;
+  const waitingForServer = (record: NetworkRequestRecord) => record.state === 'pending' && record.status === null && (liveDuration(record) ?? 0) >= 15_000;
   const visibleDuration = (record: NetworkRequestRecord) => record.state === 'pending' ? liveDuration(record)
     : isOllamaInferenceRequest(record.url) ? record.providerTimings?.totalMs ?? null : record.durationMs;
   const modelDurationLabel = (record: NetworkRequestRecord) => isOllamaInferenceRequest(record.url) && record.state !== 'pending'
     ? record.providerTimings ? 'Temps Ollama' : 'Temps Ollama indisponible' : record.state === 'pending' ? 'En cours' : 'Temps réseau';
+  const selectedThinking = selected && isOllamaInferenceRequest(selected.url)
+    ? selected.thinkingBody || extractOllamaThinking(selected.responseBody)
+    : '';
+  const thinkingRequested = selected ? requestedThinking(selected.requestBody) : null;
   const unexplainedGap = selected?.providerTimings && selected.durationMs !== null
     ? selected.durationMs - selected.providerTimings.totalMs : null;
 
@@ -84,6 +100,7 @@ export function NetworkInspector({ initialFilter = 'all' }: { initialFilter?: 'a
         {selected ? <>
           <div className="network-selected-heading"><div><span className="network-method">{selected.method}</span><strong>{selected.url}</strong></div><span>{formatTime(selected.startedAt)} · {formatDuration(visibleDuration(selected))} · {modelDurationLabel(selected)}</span></div>
           <section className="network-intent-detail" aria-label="Intention de la requête"><h3>Intention</h3><p>{selected.intent || 'Intention non renseignée'}</p>{selected.context && <small>{selected.context}</small>}{waitingForServer(selected) && <p className="network-waiting-hint" role="status">En attente du serveur (modèle en cours de chargement ?)</p>}
+             {selected.state === 'pending' && selected.status !== null && <p className="network-stream-hint" role="status">{selectedThinking ? `Thinking reçu : ${selectedThinking.length} caractères` : selected.responseBody ? 'Flux de réponse reçu · traitement en cours' : 'Réponse HTTP reçue · en attente des premiers fragments'}</p>}
             {isOllamaInferenceRequest(selected.url) && selected.state !== 'pending' && <div className="network-native-timing" aria-label="Durées de la requête">
               <p><strong>Temps Ollama : {formatDuration(selected.providerTimings?.totalMs ?? null)}</strong> · Temps navigateur : {formatDuration(selected.durationMs)}</p>
               {selected.providerTimings && <p>Chargement : {formatDuration(selected.providerTimings.loadMs ?? null)} · Prompt : {formatDuration(selected.providerTimings.promptEvaluationMs ?? null)} · Génération : {formatDuration(selected.providerTimings.generationMs ?? null)}</p>}
@@ -91,13 +108,22 @@ export function NetworkInspector({ initialFilter = 'all' }: { initialFilter?: 'a
             </div>}
             {selected.state === 'error' && selected.error && <p className="network-error" role="alert"><strong>{selected.status === null ? 'Requête interrompue sans réponse HTTP : ' : 'Erreur réseau : '}</strong>{selected.error}</p>}
           </section>
-          <nav className="network-detail-tabs" aria-label="Détails réseau">{(['headers','request','response'] as const).map((item) => <button type="button" key={item} className={tab === item ? 'active' : ''} aria-pressed={tab === item} onClick={() => setTab(item)}>{item === 'headers' ? 'Headers' : item === 'request' ? 'Payload' : 'Response'}</button>)}</nav>
+          <nav className="network-detail-tabs" aria-label="Détails réseau">{(['headers','request','response','thinking'] as const).map((item) => <button type="button" key={item} className={tab === item ? 'active' : ''} aria-pressed={tab === item} onClick={() => setTab(item)}>{item === 'headers' ? 'Headers' : item === 'request' ? 'Payload' : item === 'response' ? 'Response' : 'Thinking'}</button>)}</nav>
           {tab === 'headers' && <><Detail title="General" value={{ url: selected.url, method: selected.method, status: selected.status ? `${selected.status} ${selected.statusText}` : 'En attente' }} /><Detail title="Request headers" value={selected.requestHeaders} /><Detail title="Response headers" value={selected.responseHeaders} /></>}
           {tab === 'request' && <Detail title="Request payload" value={selected.requestBody} />}
           {tab === 'response' && <Detail title="Response body" value={selected.responseBody} />}
+           {tab === 'thinking' && (selectedThinking
+             ? <Detail title="Thinking reçu du modèle" value={selectedThinking} />
+             : <p className="network-empty" role="status">{!isOllamaInferenceRequest(selected.url)
+               ? 'Le thinking est affiché pour les requêtes Ollama uniquement.'
+               : thinkingRequested === false
+                 ? 'Thinking désactivé pour cette requête.'
+                 : selected.state === 'pending'
+                   ? 'Aucun fragment de thinking reçu pour le moment. Le modèle peut encore charger ou ne pas exposer son raisonnement.'
+                   : 'Aucun thinking transmis par le modèle pour cette requête. Le modèle peut ne pas exposer son raisonnement.'}</p>)}
         </> : <p className="network-empty">Sélectionnez une requête pour examiner ses détails.</p>}
       </section>
     </div>
-    <p className="network-inspector-footnote">Les corps complets sont disponibles pendant la session ; seuls les 4 000 premiers caractères par corps sont conservés dans l’historique. Les clés, tokens et données binaires sont masqués. L’historique est limité aux 100 dernières requêtes.</p>
+    <p className="network-inspector-footnote">Les corps complets sont disponibles pendant la session ; seuls les 4 000 premiers caractères par corps (y compris Thinking) sont conservés dans l’historique. Les clés, tokens et données binaires sont masqués. L’historique est limité aux 100 dernières requêtes.</p>
   </section>;
 }

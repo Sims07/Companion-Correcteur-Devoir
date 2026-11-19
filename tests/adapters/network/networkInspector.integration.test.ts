@@ -460,3 +460,59 @@ describe('Ollama native timings in observed requests', () => {
     restore();
   });
 });
+
+describe('Thinking from local Ollama streams', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('shows reasoning while streaming without consuming the caller response, then persists a bounded preview', async () => {
+    const values = new Map<string, string>();
+    const encoder = new TextEncoder();
+    let complete!: () => void;
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        const first = JSON.stringify({ message: { thinking: 'Je vérifie le barème' }, done: false }) + '\n';
+        controller.enqueue(encoder.encode(first.slice(0, 18)));
+        controller.enqueue(encoder.encode(first.slice(18)));
+        complete = () => {
+          controller.enqueue(encoder.encode(JSON.stringify({ message: { content: '{"critères":2}' }, done: false }) + '\n'));
+          controller.enqueue(encoder.encode(JSON.stringify({ done: true, total_duration: 1_000_000_000 }) + '\n'));
+          controller.close();
+        };
+      },
+    });
+    vi.stubGlobal('window', {
+      fetch: vi.fn(async () => new Response(stream, { status: 200, headers: { 'content-type': 'application/x-ndjson' } })),
+      localStorage: {
+        getItem: (key: string) => values.get(key) ?? null,
+        setItem: (key: string, value: string) => { values.set(key, value); },
+        removeItem: (key: string) => { values.delete(key); },
+      },
+      dispatchEvent: vi.fn(),
+      location: { origin: 'http://localhost' },
+    });
+    vi.stubGlobal('CustomEvent', class { constructor(public type: string) {} });
+    clearNetworkHistory();
+    const restore = installNetworkInspector();
+    try {
+      const response = await window.fetch('https://localhost:11435/api/chat', {
+        method: 'POST', body: JSON.stringify({ think: true, stream: true }),
+      });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(loadNetworkHistory()[0].state).toBe('pending');
+      expect(loadNetworkHistory()[0].thinkingBody).toBe('Je vérifie le barème');
+
+      complete();
+      const body = await response.text();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      const [record] = loadNetworkHistory();
+      expect(record.state).toBe('success');
+      expect(record.responseBody).toBe(body);
+      expect(record.thinkingBody).toBe('Je vérifie le barème');
+      expect(record.providerTimings?.totalMs).toBe(1000);
+      const persisted = JSON.parse(values.get('companion-correcteur:network-inspector:v1') ?? '[]');
+      expect(persisted[0].thinkingBody).toBe('Je vérifie le barème');
+    } finally {
+      restore();
+    }
+  });
+});

@@ -1,5 +1,6 @@
 import { getNetworkRequestMetadata } from '../../ports/networkRequestMetadata.ts';
 import { isOllamaInferenceRequest, readOllamaNativeTimings, type OllamaNativeTimings } from '../../domain/ollamaTimings.ts';
+import { OllamaThinkingStream } from '../../domain/ollamaThinkingStream.ts';
 
 export type NetworkRequestState = 'pending' | 'success' | 'error';
 
@@ -21,6 +22,8 @@ export type NetworkRequestRecord = {
   responseHeaders: Record<string, string>;
   requestBody: string;
   responseBody: string;
+  /** Thinking fragments explicitly transmitted by Ollama (not inferred). */
+  thinkingBody?: string;
   error: string | null;
 };
 
@@ -104,6 +107,7 @@ function persistedRecords(records: NetworkRequestRecord[]): NetworkRequestRecord
     ...record,
     requestBody: truncate(record.requestBody, PERSISTED_BODY_LENGTH),
     responseBody: truncate(record.responseBody, PERSISTED_BODY_LENGTH),
+    ...(typeof record.thinkingBody === 'string' ? { thinkingBody: truncate(record.thinkingBody, PERSISTED_BODY_LENGTH) } : {}),
   }));
 }
 
@@ -222,8 +226,12 @@ export function installNetworkInspector(): () => void {
           let body = '';
           let tail = '';
           let truncated = false;
-          let lastPublishedAt = 0;
+          // Publish the first streamed packet immediately; throttle only subsequent ones.
+          let lastPublishedAt = -Infinity;
+          let publishedThinking = false;
+          const thinking = isOllamaInferenceRequest(url) ? new OllamaThinkingStream() : null;
           const append = (chunk: string) => {
+            thinking?.append(chunk);
             tail = (tail + chunk).slice(-5_000);
             const available = Math.max(0, MAX_BODY_LENGTH - body.length);
             body += chunk.slice(0, available);
@@ -236,17 +244,20 @@ export function installNetworkInspector(): () => void {
               if (done) break;
               append(decoder.decode(value, { stream: true }));
               const now = performance.now();
-              if (now - lastPublishedAt >= 350) {
-                update({ responseBody: preview() });
+              const firstThinking: boolean = !publishedThinking && Boolean(thinking?.text);
+              if (now - lastPublishedAt >= 350 || firstThinking) {
+                update({ responseBody: preview(), ...(thinking ? { thinkingBody: thinking.text } : {}) });
+                publishedThinking = publishedThinking || firstThinking;
                 lastPublishedAt = now;
               }
             }
             append(decoder.decode());
-            update({ responseBody: preview(), durationMs: Math.round(performance.now() - started), state: response.ok ? 'success' : 'error',
+            thinking?.finish();
+            update({ responseBody: preview(), ...(thinking ? { thinkingBody: thinking.text } : {}), durationMs: Math.round(performance.now() - started), state: response.ok ? 'success' : 'error',
               ...(response.ok && isOllamaInferenceRequest(url) ? { providerTimings: readOllamaNativeTimings(tail) ?? readOllamaNativeTimings(body) } : {}),
             }, true);
           } catch (cause) {
-            update({ responseBody: body, durationMs: Math.round(performance.now() - started), state: 'error', error: cause instanceof Error ? cause.message : 'Lecture de la réponse impossible.' }, true);
+            update({ responseBody: body, ...(thinking ? { thinkingBody: thinking.text } : {}), durationMs: Math.round(performance.now() - started), state: 'error', error: cause instanceof Error ? cause.message : 'Lecture de la réponse impossible.' }, true);
           }
         })();
       } else {

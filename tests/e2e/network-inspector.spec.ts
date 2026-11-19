@@ -36,6 +36,23 @@ test('Debug exposes live HTTP requests and their response details', async ({ pag
       requestBody: '',
       responseBody: '',
       error: 'Le modèle n’a pas envoyé de première réponse après 20 minutes.',
+    }, {
+      id: 'network-inspector-thinking-fixture',
+      method: 'POST',
+      url: 'https://localhost:11435/api/chat',
+      intent: 'Vérifier et clarifier le barème',
+      context: 'Modèle local : gemma4:12b',
+      startedAt,
+      durationMs: 5000,
+      state: 'success',
+      status: 200,
+      statusText: 'OK',
+      requestHeaders: {},
+      responseHeaders: {},
+      requestBody: '{"think":true,"stream":true}',
+      responseBody: JSON.stringify({ message: { thinking: 'Je vérifie la cohérence scientifique.' }, done: false }) + '\n',
+      thinkingBody: 'Je vérifie la cohérence scientifique.',
+      error: null,
     }]));
   });
   await page.route('**/network-inspector-probe', async (route) => {
@@ -71,6 +88,12 @@ test('Debug exposes live HTTP requests and their response details', async ({ pag
   await page.getByRole('button', { name: 'Payload' }).click();
   await expect(intentDetails.getByRole('alert')).toContainText('première réponse après 20 minutes');
   await expect(intentDetails.getByRole('alert')).toContainText('sans réponse HTTP');
+
+  const thinkingRequest = page.getByRole('listitem').filter({ hasText: 'Vérifier et clarifier le barème' });
+  await thinkingRequest.click();
+  await page.getByRole('button', { name: 'Thinking' }).click();
+  await expect(details.getByRole('heading', { name: 'Thinking reçu du modèle' })).toBeVisible();
+  await expect(details).toContainText('Je vérifie la cohérence scientifique.');
 
   await request.click();
   await page.getByRole('button', { name: 'Response' }).click();
