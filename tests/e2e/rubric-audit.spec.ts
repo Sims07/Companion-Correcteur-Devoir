@@ -40,6 +40,12 @@ test('teacher audits a rubric locally and retains their choice after refresh', a
   await page.getByRole('button', { name: 'Valider ma réponse' }).click();
   await expect(page.getByText(/Règle retenue/)).toBeVisible();
   await page.getByRole('button', { name: /Appliquer 1 précision/ }).click();
+  const baseline = await page.evaluate(() => JSON.parse(
+    localStorage.getItem('companion-correcteur:rubric-baseline:v1:assignment-default') ?? '{}',
+  ));
+  expect(baseline.source).toBe('initial');
+  expect(baseline.rubric.title).toBe('Mitose');
+  expect(baseline.rubric.criteria[0].description).toBe('');
   const applied = page.getByLabel('Version active du barème clarifié');
   await expect(applied.getByText('Voici ce qui a changé dans votre barème')).toBeVisible();
   await expect(applied.getByText('Utilisé pour les prochaines corrections')).toBeVisible();

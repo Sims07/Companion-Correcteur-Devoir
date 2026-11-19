@@ -62,6 +62,8 @@ describe('panneau de clarification enseignant', () => {
         rubric={{ ...version.clarified, title: 'Barème ajusté' }} {...props} />);
       expect(edited).toContain('Le barème actuel a évolué depuis la dernière application IA.');
       expect(edited).toContain('Restaurer la première version conservée');
+      expect(edited.indexOf('Restaurer la première version conservée'))
+        .toBeLessThan(edited.indexOf('rubric-audit-change-list'));
       expect(edited).toContain('L’historique ancien a pu');
       expect(edited).not.toContain('BARÈME MODIFIÉ · VERSION ACTIVE');
     } finally {

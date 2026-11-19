@@ -308,10 +308,8 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, thinki
       <p>Les ajouts encore présents restent utilisés pour les prochaines corrections, même si le barème ne correspond plus exactement à une version archivée. Consultez le bilan cumulé ci-dessous.</p>
     </div>}
     {versions.length > 0 && <details className="rubric-audit-cumulative" open>
-      <summary>Bilan cumulé : {baseline?.source === 'initial' ? 'barème initial' : 'première version conservée'} → barème actuel ({cumulativeChanges.length} zone(s) modifiée(s))</summary>
+      <summary>Bilan cumulé : {baseline?.source === 'initial' ? 'barème initial' : 'première version conservée'} → barème actuel ({cumulativeChanges.length} zone(s) de texte ou référence(s) modifiée(s))</summary>
       <p className="hint">Ce bilan inclut les modifications manuelles éventuelles. Les références IA validées encore présentes sont identifiées avec leur modèle et leur date.</p>
-      {cumulativeChanges.length ? <RubricChanges version={{ ...versions[0], original: baseline?.rubric ?? versions[0].original, clarified: rubric }} />
-        : <p>Aucune différence restante avec la version de référence conservée.</p>}
       {baseline && !isAtBaseline && <div className="rubric-audit-restore">
         <button type="button" className="secondary-button" disabled={busy}
           onClick={() => { setShowRestoreConfirm((open) => !open); setRestoreFeedback(''); }}>
@@ -327,6 +325,10 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, thinki
           </div>
         </div>}
       </div>}
+      {cumulativeChanges.length ? <RubricChanges version={{ ...versions[0], original: baseline?.rubric ?? versions[0].original, clarified: rubric }} />
+        : <p>{isAtBaseline
+          ? 'Aucune différence restante avec la version de référence conservée.'
+          : 'Aucune description ou référence scientifique modifiée ; des changements de titre, de points ou de structure peuvent encore exister.'}</p>}
       {restoreFeedback && <p className="rubric-audit-restore-feedback" role="status">{restoreFeedback}</p>}
       {currentAdditions.length > 0 && <div className="rubric-audit-provenance">
         <strong>Origine des ajouts toujours actifs</strong>
