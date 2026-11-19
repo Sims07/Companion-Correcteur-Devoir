@@ -22,6 +22,7 @@ test('teacher prepares, persists and exports a question contract without changin
   await expect(panel.getByLabel('Numéro de question')).toHaveValue('1');
   await expect(panel.getByLabel('Relation ou raisonnement attendu')).toHaveValue('Cause puis conséquence');
   await expect(criterion.getByLabel('Points max.')).toHaveValue(points);
+  await page.locator('.atelier-rubric-secondary-tools > summary').click();
   const exported = page.locator('.rubric-export-panel'); await exported.locator('summary').click();
   const downloadPromise = page.waitForEvent('download');
   await exported.getByRole('button', { name: 'Télécharger le JSON' }).click();
