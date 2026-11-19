@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { clearNetworkHistory, getNetworkInspectorStatus, loadNetworkHistory, networkInspectorEvent, type NetworkRequestRecord } from '../../shared/adapters/network/networkInspector.ts';
 import '../../shared/ui/networkInspector.css';
 import { isOllamaInferenceRequest } from '../../shared/domain/ollamaTimings.ts';
-import { extractOllamaThinking } from '../../shared/domain/ollamaThinkingStream.ts';
+import { extractOllamaMessage, extractOllamaThinking } from '../../shared/domain/ollamaThinkingStream.ts';
 
 type Filter = 'all' | 'pending' | 'error' | 'success';
 
@@ -41,7 +41,7 @@ export function NetworkInspector({ initialFilter = 'all' }: { initialFilter?: 'a
   const [selectedId, setSelectedId] = useState<string | null>(records[0]?.id ?? null);
   const [filter, setFilter] = useState<Filter>(initialFilter);
   const [query, setQuery] = useState('');
-  const [tab, setTab] = useState<'headers' | 'request' | 'response' | 'thinking'>('headers');
+  const [tab, setTab] = useState<'headers' | 'request' | 'response' | 'message' | 'thinking'>('headers');
   const [storageStatus, setStorageStatus] = useState(getNetworkInspectorStatus);
   const [clock, setClock] = useState(() => Date.now());
 
@@ -74,6 +74,9 @@ export function NetworkInspector({ initialFilter = 'all' }: { initialFilter?: 'a
   const selectedThinking = selected && isOllamaInferenceRequest(selected.url)
     ? selected.thinkingBody || extractOllamaThinking(selected.responseBody)
     : '';
+  const selectedMessage = selected && isOllamaInferenceRequest(selected.url)
+    ? selected.messageBody ?? extractOllamaMessage(selected.responseBody)
+    : '';
   const thinkingRequested = selected ? requestedThinking(selected.requestBody) : null;
   const unexplainedGap = selected?.providerTimings && selected.durationMs !== null
     ? selected.durationMs - selected.providerTimings.totalMs : null;
@@ -100,7 +103,7 @@ export function NetworkInspector({ initialFilter = 'all' }: { initialFilter?: 'a
         {selected ? <>
           <div className="network-selected-heading"><div><span className="network-method">{selected.method}</span><strong>{selected.url}</strong></div><span>{formatTime(selected.startedAt)} · {formatDuration(visibleDuration(selected))} · {modelDurationLabel(selected)}</span></div>
           <section className="network-intent-detail" aria-label="Intention de la requête"><h3>Intention</h3><p>{selected.intent || 'Intention non renseignée'}</p>{selected.context && <small>{selected.context}</small>}{waitingForServer(selected) && <p className="network-waiting-hint" role="status">En attente du serveur (modèle en cours de chargement ?)</p>}
-             {selected.state === 'pending' && selected.status !== null && <p className="network-stream-hint" role="status">{selectedThinking ? `Thinking reçu : ${selectedThinking.length} caractères` : selected.responseBody ? 'Flux de réponse reçu · traitement en cours' : 'Réponse HTTP reçue · en attente des premiers fragments'}</p>}
+             {selected.state === 'pending' && selected.status !== null && <p className="network-stream-hint" role="status">{[selectedThinking && `Thinking reçu : ${selectedThinking.length} caractères`, selectedMessage && `Message reçu : ${selectedMessage.length} caractères`].filter(Boolean).join(' · ') || (selected.responseBody ? 'Flux de réponse reçu · traitement en cours' : 'Réponse HTTP reçue · en attente des premiers fragments')}</p>}
             {isOllamaInferenceRequest(selected.url) && selected.state !== 'pending' && <div className="network-native-timing" aria-label="Durées de la requête">
               <p><strong>Temps Ollama : {formatDuration(selected.providerTimings?.totalMs ?? null)}</strong> · Temps navigateur : {formatDuration(selected.durationMs)}</p>
               {selected.providerTimings && <p>Chargement : {formatDuration(selected.providerTimings.loadMs ?? null)} · Prompt : {formatDuration(selected.providerTimings.promptEvaluationMs ?? null)} · Génération : {formatDuration(selected.providerTimings.generationMs ?? null)}</p>}
@@ -108,10 +111,17 @@ export function NetworkInspector({ initialFilter = 'all' }: { initialFilter?: 'a
             </div>}
             {selected.state === 'error' && selected.error && <p className="network-error" role="alert"><strong>{selected.status === null ? 'Requête interrompue sans réponse HTTP : ' : 'Erreur réseau : '}</strong>{selected.error}</p>}
           </section>
-          <nav className="network-detail-tabs" aria-label="Détails réseau">{(['headers','request','response','thinking'] as const).map((item) => <button type="button" key={item} className={tab === item ? 'active' : ''} aria-pressed={tab === item} onClick={() => setTab(item)}>{item === 'headers' ? 'Headers' : item === 'request' ? 'Payload' : item === 'response' ? 'Response' : 'Thinking'}</button>)}</nav>
+          <nav className="network-detail-tabs" aria-label="Détails réseau">{(['headers','request','response','message','thinking'] as const).map((item) => <button type="button" key={item} className={tab === item ? 'active' : ''} aria-pressed={tab === item} onClick={() => setTab(item)}>{item === 'headers' ? 'Headers' : item === 'request' ? 'Payload' : item === 'response' ? 'Response' : item === 'message' ? 'Message' : 'Thinking'}</button>)}</nav>
           {tab === 'headers' && <><Detail title="General" value={{ url: selected.url, method: selected.method, status: selected.status ? `${selected.status} ${selected.statusText}` : 'En attente' }} /><Detail title="Request headers" value={selected.requestHeaders} /><Detail title="Response headers" value={selected.responseHeaders} /></>}
           {tab === 'request' && <Detail title="Request payload" value={selected.requestBody} />}
           {tab === 'response' && <Detail title="Response body" value={selected.responseBody} />}
+          {tab === 'message' && (selectedMessage
+            ? <Detail title="Message reçu du modèle" value={selectedMessage} />
+            : <p className="network-empty" role="status">{!isOllamaInferenceRequest(selected.url)
+              ? 'L’onglet Message concerne les réponses Ollama uniquement.'
+              : selected.state === 'pending'
+                ? 'Aucun fragment de message.content reçu pour le moment. Le modèle peut encore réfléchir ou préparer sa réponse.'
+                : 'Aucun message.content transmis par le modèle pour cette requête.'}</p>)}
            {tab === 'thinking' && (selectedThinking
              ? <Detail title="Thinking reçu du modèle" value={selectedThinking} />
              : <p className="network-empty" role="status">{!isOllamaInferenceRequest(selected.url)
@@ -124,6 +134,6 @@ export function NetworkInspector({ initialFilter = 'all' }: { initialFilter?: 'a
         </> : <p className="network-empty">Sélectionnez une requête pour examiner ses détails.</p>}
       </section>
     </div>
-    <p className="network-inspector-footnote">Les corps complets sont disponibles pendant la session ; seuls les 4 000 premiers caractères par corps (y compris Thinking) sont conservés dans l’historique. Les clés, tokens et données binaires sont masqués. L’historique est limité aux 100 dernières requêtes.</p>
+    <p className="network-inspector-footnote">Les corps complets sont disponibles pendant la session ; seuls les 4 000 premiers caractères par corps (y compris Thinking et Message) sont conservés dans l’historique. Les clés, tokens et données binaires sont masqués. L’historique est limité aux 100 dernières requêtes.</p>
   </section>;
 }

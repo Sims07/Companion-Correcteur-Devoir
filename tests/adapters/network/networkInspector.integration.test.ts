@@ -473,8 +473,9 @@ describe('Thinking from local Ollama streams', () => {
         const first = JSON.stringify({ message: { thinking: 'Je vérifie le barème' }, done: false }) + '\n';
         controller.enqueue(encoder.encode(first.slice(0, 18)));
         controller.enqueue(encoder.encode(first.slice(18)));
+        controller.enqueue(encoder.encode(JSON.stringify({ message: { content: '{"cri' }, done: false }) + '\n'));
         complete = () => {
-          controller.enqueue(encoder.encode(JSON.stringify({ message: { content: '{"critères":2}' }, done: false }) + '\n'));
+          controller.enqueue(encoder.encode(JSON.stringify({ message: { content: 'tères":2}' }, done: false }) + '\n'));
           controller.enqueue(encoder.encode(JSON.stringify({ done: true, total_duration: 1_000_000_000 }) + '\n'));
           controller.close();
         };
@@ -500,6 +501,7 @@ describe('Thinking from local Ollama streams', () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
       expect(loadNetworkHistory()[0].state).toBe('pending');
       expect(loadNetworkHistory()[0].thinkingBody).toBe('Je vérifie le barème');
+      expect(loadNetworkHistory()[0].messageBody).toBe('{"cri');
 
       complete();
       const body = await response.text();
@@ -508,9 +510,11 @@ describe('Thinking from local Ollama streams', () => {
       expect(record.state).toBe('success');
       expect(record.responseBody).toBe(body);
       expect(record.thinkingBody).toBe('Je vérifie le barème');
+      expect(record.messageBody).toBe('{"critères":2}');
       expect(record.providerTimings?.totalMs).toBe(1000);
       const persisted = JSON.parse(values.get('companion-correcteur:network-inspector:v1') ?? '[]');
       expect(persisted[0].thinkingBody).toBe('Je vérifie le barème');
+      expect(persisted[0].messageBody).toBe('{"critères":2}');
     } finally {
       restore();
     }
