@@ -228,7 +228,7 @@ test('a diagram devoir has the normal library, several copies, review rail and l
   expect(requests.every((payload) => payload.model === 'qwen3.5:4b')).toBe(true);
   expect(requests.every((payload) => payload.messages?.[0]?.images?.length === 1)).toBe(true);
 
-  await page.locator('.copy-overview-grid .correction-series-card').first().getByRole('button', { name: 'Ouvrir' }).click();
+  await page.locator('.copy-overview-grid .correction-series-card').first().getByRole('button', { name: 'Vérifier la copie' }).click();
   await expect(page.getByRole('complementary', { name: 'Navigation entre les copies' })).toBeVisible();
   await expect(page.locator('.teacher-copy-rail-list > li')).toHaveCount(2);
   await expect(page.locator('.review-source-pane')).toBeVisible();
@@ -276,7 +276,7 @@ test('a failed diagram image call becomes À reprendre and retry restores an unv
   await page.locator('.copy-overview-grid .correction-series-card.is-to-retry').getByRole('button', { name: 'Relancer' }).click();
   await expect(page.locator('.copy-overview-grid .correction-series-card.is-to-review')).toHaveCount(1, { timeout: 30000 });
   expect(requests.length).toBeGreaterThanOrEqual(2);
-  await page.locator('.copy-overview-grid .correction-series-card').first().getByRole('button', { name: 'Ouvrir' }).click();
+  await page.locator('.copy-overview-grid .correction-series-card').first().getByRole('button', { name: 'Vérifier la copie' }).click();
   await expect(page.locator('.copy-review-header-score')).toContainText('0 / 8');
 });
 
