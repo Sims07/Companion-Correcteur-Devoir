@@ -2,6 +2,11 @@ import { expect, type Page } from '@playwright/test';
 
 /** Open the selected assignment and enter the copy-import step used by correction-flow tests. */
 export async function openActiveAssignment(page: Page): Promise<void> {
+  // A refresh now restores the previously visited route. Tests that explicitly
+  // restart the teacher flow must return to the assignment library themselves.
+  if (!(await page.getByRole('heading', { name: 'Mes devoirs' }).isVisible())) {
+    await page.goto('/#/devoirs');
+  }
   await expect(page.getByRole('heading', { name: 'Mes devoirs' })).toBeVisible();
   await page.getByRole('button', { name: /Reprendre le devoir/ }).click();
   await expect(page.locator('.teacher-workspace-navigation')).toBeVisible();

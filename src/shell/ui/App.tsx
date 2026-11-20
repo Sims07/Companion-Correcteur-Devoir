@@ -107,6 +107,7 @@ import type { PilotModelMemoryRelease } from '../../evaluation/ports/pilotModelM
 import { ObservabilityDashboard } from './ObservabilityDashboard.tsx';
 import { NetworkInspector } from './NetworkInspector.tsx';
 import { DeveloperToolsNavigation, type DeveloperTool } from './DeveloperToolsNavigation.tsx';
+import { appBrowserPage, browserPageHash, parseBrowserPage, type BrowserPage } from '../domain/browserNavigation.ts';
 import { AssignmentsHome } from '../../correction/ui/AssignmentsHome.tsx';
 import type { NewAssignmentDetails } from '../../correction/ui/components/AssignmentCreationPanel.tsx';
 import { RubricReusePanel } from '../../correction/ui/components/RubricReusePanel.tsx';
@@ -233,6 +234,13 @@ const activeAssignmentKey = 'companion-correcteur:active-assignment:v1';
 
 function readActiveAssignmentProfile(): AssignmentProfile {
   const profiles = readAssignmentProfiles();
+  // A deep link is authoritative for the selected devoir, without changing
+  // the stored default when the user visits the home or another workspace.
+  const page = parseBrowserPage(window.location.hash);
+  if (page?.kind === 'teacher') {
+    const linked = profiles.find((profile) => profile.id === page.assignmentId);
+    if (linked) return linked;
+  }
   try {
     const savedId = window.localStorage.getItem(activeAssignmentKey);
     const savedProfile = profiles.find((profile) => profile.id === savedId);
@@ -409,6 +417,11 @@ const inactiveDiagramLabArchive: DiagramLabArchiveRepository = {
 
 export function App({ evaluationVision = {}, service, archiveService, evaluationService, backgroundCorrectionService, diagramAnalysisService, diagramLabArchive, loadOnDemandModel, storageDiagnosticsService, releasePilotModels }: { evaluationVision?: EvaluationVisionGateway; service: CorrectionWorkspaceService; archiveService: LocalCorrectionService; evaluationService: ModelEvaluationService; backgroundCorrectionService?: BackgroundCorrectionService; diagramAnalysisService: ScientificDiagramAnalysisService; diagramLabArchive?: DiagramLabArchiveRepository; storageDiagnosticsService?: StorageDiagnosticsService; loadOnDemandModel: (settings: { endpoint: string; apiKey: string; model: string }) => Promise<void>; releasePilotModels?: PilotModelMemoryRelease }) {
   const diagramArchive = diagramLabArchive ?? inactiveDiagramLabArchive;
+  // A route request stays pending until the matching view has been restored.
+  // This prevents intermediate React updates from rewriting browser history.
+  const [browserNavigationRequest, setBrowserNavigationRequest] = useState<BrowserPage | null>(
+    () => parseBrowserPage(window.location.hash));
+  const restoringCopyRef = useRef<string | null>(null);
   const backgroundService: BackgroundCorrectionService = backgroundCorrectionService ?? {
     enqueue: async () => undefined,
     updateImages: async () => undefined,
@@ -433,17 +446,27 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
   const [activeAssignmentId, setActiveAssignmentId] = useState(() => readActiveAssignmentProfile().id);
   const [assignmentKind, setAssignmentKind] = useState<AssignmentKind>(() => readActiveAssignmentProfile().kind ?? 'standard');
   const isScientificDiagramAssignment = assignmentKind === 'scientific-diagram';
-  const [showAssignmentsHome, setShowAssignmentsHome] = useState(true);
+  const [showAssignmentsHome, setShowAssignmentsHome] = useState(
+    () => parseBrowserPage(window.location.hash)?.kind !== 'teacher');
   const [pendingRemoval, setPendingRemoval] = useState<{ kind: 'assignment'; profile: AssignmentProfile } | { kind: 'copy'; job: BackgroundCorrectionJob } | null>(null);
   const [copyOverviewFilter, setCopyOverviewFilter] = useState<CopyOverviewFilter>('all');
-  const [showCopyIntake, setShowCopyIntake] = useState(false);
+  const [showCopyIntake, setShowCopyIntake] = useState(
+    () => { const page = parseBrowserPage(window.location.hash); return page?.kind === 'teacher' && page.section === 'add'; });
   const [copyOverviewNotice, setCopyOverviewNotice] = useState('');
   const [copyOverviewFilterTouched, setCopyOverviewFilterTouched] = useState(false);
   const [assignmentDrafts, setAssignmentDrafts] = useState<Record<string, AssignmentDraft>>({});
   const [assignmentTitle, setAssignmentTitle] = useState(() => readActiveAssignmentProfile().title);
   const [assignmentDescription, setAssignmentDescription] = useState(() => readActiveAssignmentProfile().description ?? '');
   const [educationLevel, setEducationLevel] = useState(() => readActiveAssignmentProfile().educationLevel ?? '');
-  const [teacherStep, setTeacherStep] = useState<'details' | 'rubric' | 'overview' | 'copy' | 'progress' | 'review'>(() => getTeacherEntryStep(readActiveAssignmentProfile().rubric) === 'copies' ? 'overview' : 'rubric');
+  const [teacherStep, setTeacherStep] = useState<'details' | 'rubric' | 'overview' | 'copy' | 'progress' | 'review'>(() => {
+    const page = parseBrowserPage(window.location.hash);
+    if (page?.kind === 'teacher') {
+      if (page.section === 'rubric') return 'rubric';
+      if (page.section === 'new-copy') return 'copy';
+      return 'overview'; // A selected copy must first be loaded from IndexedDB.
+    }
+    return getTeacherEntryStep(readActiveAssignmentProfile().rubric) === 'copies' ? 'overview' : 'rubric';
+  });
   const [showAiSettings, setShowAiSettings] = useState(false);
   const [rubric, setRubric] = useState<Rubric>(() => readActiveAssignmentProfile().rubric);
   const [expandedCriterionId, setExpandedCriterionId] = useState<string | null>(null);
@@ -518,11 +541,17 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     setCampaignFilter(filter);
     setEvaluationWorkspaceStep('campaigns');
   }
-  const [biologyRadarOpen, setBiologyRadarOpen] = useState(false);
+  const [biologyRadarOpen, setBiologyRadarOpen] = useState(
+    () => { const page = parseBrowserPage(window.location.hash); return page?.kind === 'evaluation' && page.view === 'biology-radar'; });
   const [evaluationJourney, setEvaluationJourney] = useState<'custom' | 'diagrams' | 'biology'>(() => {
+    const page = parseBrowserPage(window.location.hash);
+    if (page?.kind === 'evaluation') return page.journey;
     try { const saved = localStorage.getItem('companion:evaluation-test-family'); return saved === 'biology' || saved === 'custom' ? saved : 'diagrams'; } catch { return 'diagrams'; }
   });
-  const [diagramLabView, setDiagramLabView] = useState<'protocols' | 'history' | 'radar'>('protocols');
+  const [diagramLabView, setDiagramLabView] = useState<'protocols' | 'history' | 'radar'>(() => {
+    const page = parseBrowserPage(window.location.hash);
+    return page?.kind === 'evaluation' && page.view !== 'biology-radar' ? page.view : 'protocols';
+  });
   const [radarAutoRequest, setRadarAutoRequest] = useState<RadarMissingTestRequest | null>(null);
   const radarAutoSequence = useRef(0);
   const [radarAutoBusy, setRadarAutoBusy] = useState(false);
@@ -535,7 +564,8 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     domain: RadarDomain; current: number; total: number; label: string;
   } | null>(null);
   const [methodBatchReturnLab, setMethodBatchReturnLab] = useState<RadarDomain | null>(null);
-  const [evaluationWorkspaceStep, setEvaluationWorkspaceStep] = useState<'configuration' | 'execution' | 'results' | 'history' | 'dashboard' | 'campaigns'>('dashboard');
+  const [evaluationWorkspaceStep, setEvaluationWorkspaceStep] = useState<'configuration' | 'execution' | 'results' | 'history' | 'dashboard' | 'campaigns'>(
+    () => { const page = parseBrowserPage(window.location.hash); return page?.kind === 'evaluation' ? page.step : 'dashboard'; });
   // Reopen the comparison once after a batch, not on every future dashboard visit.
   useEffect(() => {
     if (evaluationWorkspaceStep === 'dashboard' && methodBatchReturnLab) setMethodBatchReturnLab(null);
@@ -681,7 +711,10 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
   const [backgroundJobs, setBackgroundJobs] = useState<BackgroundCorrectionJob[]>([]);
   const [selectedSeriesPreviewJob, setSelectedSeriesPreviewJob] = useState<BackgroundCorrectionJob | null>(null);
   const [queuedViewerFullJob, setQueuedViewerFullJob] = useState<BackgroundCorrectionJob | null>(null);
-  const [interfaceMode, setInterfaceMode] = useState<'teacher' | 'diagnostic' | 'debug' | 'observability'>('teacher');
+  const [interfaceMode, setInterfaceMode] = useState<'teacher' | 'diagnostic' | 'debug' | 'observability'>(() => {
+    const page = parseBrowserPage(window.location.hash);
+    return page?.kind === 'evaluation' ? 'diagnostic' : page?.kind === 'observability' ? page.view : 'teacher';
+  });
   useEffect(() => {
     if (interfaceMode !== 'diagnostic' || !['dashboard', 'campaigns'].includes(evaluationWorkspaceStep)) return;
     let active = true;
@@ -4240,6 +4273,191 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
   const activeQueueCopy = processingCopy ?? preparingCopy;
   const showingBiologyRunMonitor = interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration' &&
     evaluationJourney === 'biology' && !biologyRadarOpen && pilotBusy && evaluationBiologyScenario !== 'copies';
+
+
+  const visibleBrowserPage = appBrowserPage({
+    interfaceMode, showAssignmentsHome, activeAssignmentId, teacherStep,
+    showCopyIntake, currentCopyId, evaluationWorkspaceStep, evaluationJourney,
+    diagramLabView, biologyRadarOpen,
+  });
+  const visibleBrowserHash = browserPageHash(visibleBrowserPage);
+
+  useEffect(() => {
+    const onLocationChange = () => {
+      // Direct hash edits and the browser's Previous/Next controls are both supported.
+      restoringCopyRef.current = null;
+      setBrowserNavigationRequest(parseBrowserPage(window.location.hash) ?? { kind: 'assignments' });
+    };
+    // Existing links inside the rubric target headings with #anchor IDs. Do
+    // not let these overwrite the app's #/route (and send the teacher home).
+    // Preserve the familiar keyboard/scroll/focus behavior without URL changes.
+    const onSectionAnchor = (event: MouseEvent) => {
+      if (!(event.target instanceof Element)) return;
+      const link = event.target.closest<HTMLAnchorElement>('a[href^="#"]');
+      const fragment = link?.getAttribute('href');
+      if (!fragment || fragment.startsWith('#/') || event.defaultPrevented) return;
+      event.preventDefault();
+      let id: string;
+      try { id = decodeURIComponent(fragment.slice(1)); } catch { return; }
+      const target = document.getElementById(id);
+      if (!target) return;
+      let ancestor: HTMLElement | null = target.parentElement;
+      while (ancestor) {
+        if (ancestor instanceof HTMLDetailsElement) ancestor.open = true;
+        ancestor = ancestor.parentElement;
+      }
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      target.focus({ preventScroll: true });
+    };
+    document.addEventListener('click', onSectionAnchor, true);
+    window.addEventListener('popstate', onLocationChange);
+    window.addEventListener('hashchange', onLocationChange);
+    return () => {
+      document.removeEventListener('click', onSectionAnchor, true);
+      window.removeEventListener('popstate', onLocationChange);
+      window.removeEventListener('hashchange', onLocationChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (browserNavigationRequest) {
+      if (visibleBrowserHash === browserPageHash(browserNavigationRequest)) {
+        setBrowserNavigationRequest(null);
+      }
+      return;
+    }
+    if (window.location.hash === visibleBrowserHash) return;
+    // On the first load (or with a malformed route), do not create a useless
+    // browser history entry for the empty/invalid location.
+    const method = parseBrowserPage(window.location.hash) ? 'pushState' : 'replaceState';
+    window.history[method](null, '', visibleBrowserHash);
+  }, [visibleBrowserHash, browserNavigationRequest]);
+
+  useEffect(() => {
+    const destination = browserNavigationRequest;
+    if (!destination || visibleBrowserHash === browserPageHash(destination)) return;
+
+    if (destination.kind === 'assignments') {
+      setInterfaceMode('teacher');
+      setShowAiSettings(false);
+      setShowAssignmentsHome(true);
+      return;
+    }
+    if (destination.kind === 'observability') {
+      setShowAiSettings(false);
+      setShowAssignmentsHome(false);
+      setInterfaceMode(destination.view);
+      return;
+    }
+    if (destination.kind === 'evaluation') {
+      setShowAiSettings(false);
+      setShowAssignmentsHome(false);
+      setInterfaceMode('diagnostic');
+      setEvaluationWorkspaceStep(destination.step);
+      if (destination.step !== 'dashboard' && destination.step !== 'campaigns') {
+        setEvaluationJourney(destination.journey);
+        setDiagramLabView(destination.view === 'biology-radar' ? 'protocols' : destination.view);
+        setBiologyRadarOpen(destination.view === 'biology-radar');
+      }
+      return;
+    }
+
+    const profile = assignmentProfiles.find((entry) => entry.id === destination.assignmentId);
+    if (!profile) {
+      // A devoir may have been deleted since the link was created.
+      setInterfaceMode('teacher');
+      setShowAssignmentsHome(true);
+      window.history.replaceState(null, '', '#/devoirs');
+      setBrowserNavigationRequest(null);
+      return;
+    }
+    if (interfaceMode !== 'teacher') { setInterfaceMode('teacher'); return; }
+    if (showAssignmentsHome) { setShowAssignmentsHome(false); return; }
+    if (activeAssignmentId !== profile.id) {
+      if (isAnalyzing) {
+        // The in-flight foreground copy must not be silently discarded.
+        window.history.replaceState(null, '', visibleBrowserHash);
+        setBrowserNavigationRequest(null);
+        return;
+      }
+      switchAssignment(profile);
+      return;
+    }
+    if (showAiSettings) { setShowAiSettings(false); return; }
+
+    if (destination.section === 'rubric') {
+      setTeacherStep('rubric');
+      setShowCopyIntake(false);
+    } else if (destination.section === 'copies' || destination.section === 'add') {
+      setTeacherStep('overview');
+      setShowCopyIntake(destination.section === 'add');
+    } else if (destination.section === 'new-copy') {
+      if (currentCopyId) {
+        // Follow the application's normal copy-switch workflow: save drafts,
+        // rather than clearing a student's answer from React state.
+        if (restoringCopyRef.current !== 'new-copy') {
+          restoringCopyRef.current = 'new-copy';
+          void startNextCopy({ forceNew: true }).finally(() => { restoringCopyRef.current = null; });
+        }
+        return;
+      }
+      setShowCopyIntake(false);
+      setTeacherStep('copy');
+    } else if (destination.section === 'copy' && destination.copyId) {
+      if (currentCopyId === destination.copyId) {
+        setShowCopyIntake(false);
+        setTeacherStep(currentBackgroundJobId || proposal || isFinalized ? 'review' : 'copy');
+        return;
+      }
+      if (destination.copyId === 'current-copy') {
+        if (!foregroundDraft.ready) return;
+        if (images.length > 0) {
+          setTeacherStep(proposal ? 'review' : 'copy');
+          return;
+        }
+      } else {
+        const copyRoute = browserPageHash(destination);
+        if (restoringCopyRef.current !== copyRoute) {
+          restoringCopyRef.current = copyRoute;
+          void (async () => {
+            const job = await loadFullQueuedJob(destination.copyId!);
+            if (window.location.hash !== copyRoute) return;
+            if (job?.assignmentId === destination.assignmentId) {
+              await loadNextQueuedCopy(job.id);
+              return;
+            }
+            const archived = archivedCorrections.find((entry) => entry.id === destination.copyId)
+              ?? await archiveService.getCorrection?.(destination.copyId!);
+            if (window.location.hash !== copyRoute) return;
+            if (archived?.snapshot && archived.assignmentId === destination.assignmentId) {
+              openArchivedCorrection(archived);
+              return;
+            }
+            throw new Error('Copie introuvable sur cet appareil.');
+          })().catch(() => {
+            if (window.location.hash !== copyRoute) return;
+            setCopyOverviewNotice('Cette copie n’est plus disponible sur cet appareil.');
+            setShowCopyIntake(false);
+            setTeacherStep('overview');
+            window.history.replaceState(null, '', browserPageHash({
+              kind: 'teacher', assignmentId: destination.assignmentId, section: 'copies',
+            }));
+            setBrowserNavigationRequest(null);
+          }).finally(() => { if (restoringCopyRef.current === copyRoute) restoringCopyRef.current = null; });
+        }
+        return;
+      }
+      // The unsaved draft was not present in IndexedDB (e.g. it was removed).
+      setCopyOverviewNotice('La copie en cours n’a pas pu être retrouvée.');
+      setTeacherStep('overview');
+      window.history.replaceState(null, '', browserPageHash({
+        kind: 'teacher', assignmentId: destination.assignmentId, section: 'copies',
+      }));
+      setBrowserNavigationRequest(null);
+    }
+  }, [browserNavigationRequest, visibleBrowserHash, interfaceMode, showAssignmentsHome,
+    activeAssignmentId, assignmentProfiles, isAnalyzing, showAiSettings, currentCopyId,
+    proposal, isFinalized, currentBackgroundJobId, foregroundDraft.ready, images.length, archivedCorrections]);
 
   return (
     <main className={interfaceMode === 'teacher' ? `app-shell teacher-flow-shell${showAssignmentsHome ? ' teacher-assignments-home' : ''}` : interfaceMode === 'diagnostic' ? 'app-shell evaluation-workspace-shell ai-tools-view' : 'app-shell ai-tools-view'}>

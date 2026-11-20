@@ -32,6 +32,8 @@ test('teacher audits a rubric locally and retains their choice after refresh', a
     }) });
   });
   await page.reload();
+  // This is the initial refresh from the library after configuring local mocks.
+  // Opening the devoir remains necessary; later refreshes retain the active rubric.
   await page.getByRole('button', { name: /Reprendre le devoir/ }).click();
   await page.getByRole('tab', { name: 'Barème' }).click();
   await page.getByRole('link', { name: 'Vérification IA' }).focus();
@@ -65,8 +67,7 @@ test('teacher audits a rubric locally and retains their choice after refresh', a
     return profiles.find((item: { id: string }) => item.id === 'assignment-default')?.rubric.criteria[0].description;
   })).toContain('Un titre commun est obligatoire pour obtenir les points');
   await page.reload();
-  await page.getByRole('button', { name: /Reprendre le devoir/ }).click();
-  await page.getByRole('tab', { name: 'Barème' }).click();
+  await expect(page.getByRole('tab', { name: 'Barème' })).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByLabel('Version active du barème clarifié')).toBeVisible();
   await expect(page.getByLabel('Version active du barème clarifié').getByText(/Un titre commun est obligatoire pour obtenir les points/)).toBeVisible();
   await page.getByText(/Historique des clarifications/).click();
@@ -112,6 +113,8 @@ test('scientific enrichment is reviewed beside the original, previewed, applied 
     }) });
   });
   await page.reload();
+  // This is the initial refresh from the library after configuring local mocks.
+  // Opening the devoir remains necessary; later refreshes retain the active rubric.
   await page.getByRole('button', { name: /Reprendre le devoir/ }).click();
   await page.getByRole('tab', { name: 'Barème' }).click();
   await page.getByRole('button', { name: 'Vérifier avec l’IA locale' }).click();
@@ -139,8 +142,7 @@ test('scientific enrichment is reviewed beside the original, previewed, applied 
     return items[0]?.rubric?.criteria?.[0]?.subcriteria?.[0]?.scientificExpectations?.[0];
   })).toBe('En métaphase, l’enveloppe nucléaire a disparu.');
   await page.reload();
-  await page.getByRole('button', { name: /Reprendre le devoir/ }).click();
-  await page.getByRole('tab', { name: 'Barème' }).click();
+  await expect(page.getByRole('tab', { name: 'Barème' })).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByLabel('Version active du barème clarifié')).toContainText('En métaphase, l’enveloppe nucléaire a disparu.');
   await expect(page.getByLabel('Version active du barème clarifié')).toContainText('Références scientifiques validées');
   await expect(page.getByText(/Bilan cumulé/)).toBeVisible();

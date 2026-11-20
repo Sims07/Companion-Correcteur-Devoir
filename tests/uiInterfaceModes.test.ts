@@ -42,7 +42,9 @@ describe('teacher and AI diagnostic interface modes', () => {
 
   it('keeps a local archive and next-copy path after finalization', () => {
     const text = app();
-    expect(text).toContain("useState<'details' | 'rubric' | 'overview' | 'copy' | 'progress' | 'review'>(() => getTeacherEntryStep(readActiveAssignmentProfile().rubric) === 'copies' ? 'overview' : 'rubric')");
+    expect(text).toContain("useState<'details' | 'rubric' | 'overview' | 'copy' | 'progress' | 'review'>(() => {");
+    expect(text).toContain("if (page?.kind === 'teacher')");
+    expect(text).toContain("getTeacherEntryStep(readActiveAssignmentProfile().rubric)");
     expect(text).not.toContain("teacherStep === 'archive'");
     expect(text).toContain('filter={copyOverviewFilter}');
     expect(text).toContain('archivedCorrectionsForActiveAssignment');
@@ -89,7 +91,8 @@ describe('teacher and AI diagnostic interface modes', () => {
   });
 
   it('defaults to the teacher correction view', () => {
-    expect(app()).toContain("useState<'teacher' | 'diagnostic' | 'debug' | 'observability'>('teacher')");
+    expect(app()).toContain("useState<'teacher' | 'diagnostic' | 'debug' | 'observability'>(() => {");
+    expect(app()).toContain("return page?.kind === 'evaluation' ? 'diagnostic' : page?.kind === 'observability' ? page.view : 'teacher'");
     expect(app()).toContain("interfaceMode === 'teacher' ? 'view-switch-button active' : 'view-switch-button'");
   });
 
