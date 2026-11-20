@@ -53,6 +53,18 @@ type OverviewItem = {
   message?: string;
 };
 
+type CopyActionIconName = 'open' | 'review' | 'retry' | 'start' | 'more';
+
+function CopyActionIcon({ name }: { name: CopyActionIconName }) {
+  return <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    {name === 'open' && <><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" /><circle cx="12" cy="12" r="3" /></>}
+    {name === 'review' && <><rect x="5" y="4" width="14" height="17" rx="2" /><path d="M9 4.5h6M8.5 13l2.5 2.5 4.5-5" /></>}
+    {name === 'retry' && <><path d="M20 11a8 8 0 1 0-2 6" /><path d="M20 4v7h-7" /></>}
+    {name === 'start' && <path d="m8 5 11 7-11 7z" />}
+    {name === 'more' && <><circle cx="5" cy="12" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /></>}
+  </svg>;
+}
+
 const labels: Record<CopyOverviewFilter, string> = {
   all: 'Toutes',
   'to-do': 'En attente',
@@ -167,6 +179,12 @@ export function CorrectionOverview({ children, jobs, corrections, currentCopy, f
           : key === 'to-retry' ? counts.toRetry
             : counts.completed;
 
+  const openItem = (item: OverviewItem) => {
+    if (item.kind === 'job') onOpenJob(item.id);
+    else if (item.kind === 'correction' && item.correction) onOpenCorrection(item.correction);
+    else if (item.kind === 'current') onOpenCurrentCopy();
+  };
+
   return <section className="copy-overview" aria-labelledby="copy-overview-title">
     <header className="copy-overview-heading">
       <div>
@@ -221,7 +239,7 @@ export function CorrectionOverview({ children, jobs, corrections, currentCopy, f
         <li className={`correction-series-card is-${item.status}${preparingJob?.id === item.id ? ' is-preparing' : ''}`} key={item.id}>
           <div className="correction-series-card-heading">
             <span className="queue-position">{index + 1}</span>
-            <div className="correction-series-copy"><strong title={item.label}>{item.label}</strong><small>{item.pageCount} {item.pageCount === 1 ? 'page' : 'pages'}</small></div>
+            <div className="correction-series-copy"><button type="button" className="copy-overview-title-action" title={'Ouvrir « ' + item.label + ' »'} onClick={() => openItem(item)}>{item.label}</button><small>{item.pageCount} {item.pageCount === 1 ? 'page' : 'pages'}</small></div>
           </div>
           <div className="correction-series-card-score">
             <span className="correction-series-card-score-label">{item.score === null ? 'Note à venir' : item.status === 'completed' ? 'Note finale' : 'Note proposée'}</span>
@@ -236,19 +254,29 @@ export function CorrectionOverview({ children, jobs, corrections, currentCopy, f
               </div>
               {item.message && <p className={item.status === 'to-retry' ? 'copy-overview-error' : 'copy-overview-message'}>{item.message}</p>}
             </div>
-            <div className="correction-series-actions ds-action-group">
+            <div className="correction-series-actions ds-action-group" aria-label={'Actions pour ' + item.label}>
               {item.kind === 'job' && item.job && <>
-                {item.status === 'to-retry' && <Button variant="primary" onClick={() => onRetryJob(item.job!.id)}>Relancer</Button>}
-                {item.status === 'to-review' && <Button variant="primary" className="correction-series-view" onClick={() => onOpenJob(item.job!.id)}>Vérifier la copie</Button>}
-                {item.status === 'to-do' && item.job.error?.startsWith('Correction interrompue par l’enseignant') && <Button variant="primary" onClick={onStartCorrections}>Reprendre les corrections</Button>}
-                {item.status !== 'to-review' && <Button variant={item.status === 'to-retry' || (item.status === 'to-do' && item.job.error?.startsWith('Correction interrompue par l’enseignant')) ? 'secondary' : 'primary'} className="correction-series-view" onClick={() => onOpenJob(item.job!.id)}>Ouvrir</Button>}
-                {item.status === 'to-review' && <Button variant="secondary" onClick={() => onRetryJob(item.job!.id)}>Recorriger</Button>}
-                {item.status !== 'processing' && <Button variant="danger" className="correction-series-remove" aria-label={`Retirer la copie « ${item.label} »`} onClick={() => onRemoveJob(item.id)}>Retirer</Button>}
+                {item.status === 'to-retry' && <Button variant="primary" className="copy-overview-icon-action" aria-label="Relancer" title={'Relancer la correction de ' + item.label} onClick={() => onRetryJob(item.job!.id)}><CopyActionIcon name="retry" /></Button>}
+                {item.status === 'to-review' && <Button variant="primary" className="copy-overview-icon-action" aria-label="Vérifier la copie" title={'Vérifier ' + item.label} onClick={() => onOpenJob(item.job!.id)}><CopyActionIcon name="review" /></Button>}
+                {item.status === 'to-do' && item.job.error?.startsWith('Correction interrompue par l’enseignant') && <Button variant="primary" className="copy-overview-icon-action" aria-label="Reprendre les corrections" title="Reprendre les corrections" disabled={isStartingCorrections} onClick={onStartCorrections}><CopyActionIcon name="start" /></Button>}
+                {item.status !== 'to-review' && <Button variant={item.status === 'to-retry' || (item.status === 'to-do' && item.job.error?.startsWith('Correction interrompue par l’enseignant')) ? 'secondary' : 'primary'} className="copy-overview-icon-action" aria-label="Ouvrir" title={'Ouvrir ' + item.label} onClick={() => onOpenJob(item.job!.id)}><CopyActionIcon name="open" /></Button>}
+                {(item.status === 'to-review' || item.status !== 'processing') && <details className="copy-overview-more">
+                  <summary aria-label={'Autres actions pour ' + item.label} title="Autres actions"><CopyActionIcon name="more" /></summary>
+                  <div className="copy-overview-more-menu">
+                    {item.status === 'to-review' && <Button variant="secondary" onClick={() => onRetryJob(item.job!.id)}>Recorriger</Button>}
+                    {item.status !== 'processing' && <Button variant="danger" aria-label={'Retirer la copie « ' + item.label + ' »'} onClick={() => onRemoveJob(item.id)}>Retirer</Button>}
+                  </div>
+                </details>}
               </>}
-              {item.kind === 'current' && <Button variant="primary" className="correction-series-view" onClick={onOpenCurrentCopy}>Reprendre la copie</Button>}
+              {item.kind === 'current' && <Button variant="primary" className="copy-overview-icon-action" aria-label="Reprendre la copie" title="Reprendre la copie" onClick={onOpenCurrentCopy}><CopyActionIcon name="open" /></Button>}
               {item.kind === 'correction' && item.correction && <>
-                <Button variant="primary" className="correction-series-view" onClick={() => onOpenCorrection(item.correction!)}>Consulter la correction <span aria-hidden="true">→</span></Button>
-                <Button variant="secondary" disabled={Boolean(regradingCorrectionId)} onClick={() => onRegradeCorrection(item.correction!)}>{regradingCorrectionId === item.id ? 'Préparation…' : 'Recorriger'}</Button>
+                <Button variant="primary" className="copy-overview-icon-action" aria-label="Consulter la correction" title={'Consulter la correction de ' + item.label} onClick={() => onOpenCorrection(item.correction!)}><CopyActionIcon name="open" /></Button>
+                <details className="copy-overview-more">
+                  <summary aria-label={'Autres actions pour ' + item.label} title="Autres actions"><CopyActionIcon name="more" /></summary>
+                  <div className="copy-overview-more-menu">
+                    <Button variant="secondary" disabled={Boolean(regradingCorrectionId)} onClick={() => onRegradeCorrection(item.correction!)}>{regradingCorrectionId === item.id ? 'Préparation…' : 'Recorriger'}</Button>
+                  </div>
+                </details>
               </>}
             </div>
           </div>
