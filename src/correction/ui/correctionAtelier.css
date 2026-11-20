@@ -540,3 +540,74 @@
 
 .diagram-assignment-cumulative { display:block; margin-top:3px; color:var(--ds-color-text-muted); font-size:.78rem; font-variant-numeric:tabular-nums; }
 .diagram-review-enlarge { margin-top:8px; margin-bottom:8px; font-size:.78rem; }
+
+
+/* One decision sequence: disclosure first, actual confirmation button last.
+ * The disclosure is a text link with the native details chevron, never a button skin. */
+.review-decision-actions {
+  display: grid;
+  justify-items: start;
+  gap: var(--ds-space-3);
+  margin-top: var(--ds-space-4);
+}
+.review-decision-actions .review-quick-edit {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.review-decision-actions .review-quick-edit > summary.review-edit-toggle {
+  display: list-item;
+  width: fit-content;
+  max-width: 100%;
+  padding: var(--ds-space-1) 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--ds-color-brand-700);
+  font-size: .88rem;
+  font-weight: 650;
+  line-height: 1.5;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.review-decision-actions .review-quick-edit > summary.review-edit-toggle::marker {
+  color: var(--ds-color-brand-700);
+}
+.review-decision-actions .review-quick-edit > summary.review-edit-toggle:focus-visible {
+  outline: 2px solid var(--ds-color-brand-700);
+  outline-offset: var(--ds-space-1);
+}
+.review-decision-actions .review-quick-edit > .review-controls {
+  margin-top: var(--ds-space-3);
+  padding: var(--ds-space-3);
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-surface-subtle);
+}
+.review-edit-comment-indicator {
+  display: inline;
+  margin-left: var(--ds-space-2);
+  color: var(--ds-color-success);
+  font-size: .78rem;
+  font-weight: 650;
+  text-decoration: none;
+}
+.review-confirmation-action {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ds-space-2);
+}
+.review-confirmation-action .ds-button {
+  min-height: 40px;
+}
+@media (max-width: 680px) {
+  .review-decision-actions .review-quick-edit > .review-controls { padding: var(--ds-space-2); }
+  .review-confirmation-action { width: 100%; }
+}
