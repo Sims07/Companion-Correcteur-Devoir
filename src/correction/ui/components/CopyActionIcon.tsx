@@ -1,4 +1,4 @@
-type CopyActionIconName = 'open' | 'review' | 'retry' | 'start' | 'remove' | 'edit' | 'add' | 'close' | 'next';
+type CopyActionIconName = 'open' | 'review' | 'retry' | 'start' | 'remove' | 'edit' | 'add' | 'close' | 'next' | 'back' | 'duplicate' | 'download' | 'distribute' | 'connect';
 
 export function CopyActionIcon({ name }: { name: CopyActionIconName }) {
   return <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -11,5 +11,10 @@ export function CopyActionIcon({ name }: { name: CopyActionIconName }) {
     {name === 'add' && <path d="M12 5v14M5 12h14" />}
     {name === 'close' && <path d="m6 6 12 12M18 6 6 18" />}
     {name === 'next' && <path d="M4 12h15m-6-6 6 6-6 6" />}
+    {name === 'back' && <path d="M20 12H5m6-6-6 6 6 6" />}
+    {name === 'duplicate' && <><rect x="8" y="8" width="12" height="13" rx="2" /><path d="M15 5V4a1 1 0 0 0-1-1H5a2 2 0 0 0-2 2v10a1 1 0 0 0 1 1h1" /></>}
+    {name === 'download' && <path d="M12 3v12m-5-5 5 5 5-5M4 16v4h16v-4" />}
+    {name === 'distribute' && <path d="M5 9h14M5 15h14" />}
+    {name === 'connect' && <path d="m7 7 3-3m1 7 3-3M5 7l7 7-2 2a5 5 0 0 1-7-7l2-2Zm-1 9-2 4" />}
   </svg>;
 }

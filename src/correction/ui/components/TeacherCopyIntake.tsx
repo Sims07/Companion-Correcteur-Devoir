@@ -1,3 +1,4 @@
+import { CopyActionIcon } from './CopyActionIcon.tsx';
 import { FilePicker } from '../../../shared/ui/components/FilePicker.tsx';
 import { Button, Field, StatusNotice, TextInput } from '../../../shared/ui/design-system/index.ts';
 import './TeacherCopyIntake.css';
@@ -25,7 +26,7 @@ export function TeacherCopyIntake({
   return <section id="teacher-copy-intake" className="teacher-copy-intake panel" aria-labelledby="teacher-copy-intake-title">
     <header className="teacher-copy-intake-header">
       <div><h3 id="teacher-copy-intake-title">Ajouter des copies</h3><p>Choisissez comment regrouper vos fichiers : une copie peut contenir plusieurs pages.</p></div>
-      <Button variant="secondary" onClick={onClose}>Fermer</Button>
+      <Button variant="secondary" onClick={onClose}><CopyActionIcon name="close" />Fermer</Button>
     </header>
     <fieldset className="teacher-copy-intake-grouping">
       <legend>Comment sont organisés vos fichiers ?</legend>
@@ -56,6 +57,6 @@ export function TeacherCopyIntake({
       actionLabel={busy ? 'Ajout en cours…' : 'Ajouter au suivi'}
     />}
     <p className="teacher-copy-intake-footer">Les copies rejoignent le suivi du devoir. Vous pouvez renouveler l’ajout sans perdre celles déjà présentes.</p>
-    <button type="button" className="text-button teacher-copy-intake-detailed" onClick={onOpenDetailedCopy}>Préparer manuellement une copie et ses pages</button>
+    <button type="button" className="text-button teacher-copy-intake-detailed" onClick={onOpenDetailedCopy}><CopyActionIcon name="edit" />Préparer manuellement une copie et ses pages</button>
   </section>;
 }

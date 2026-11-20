@@ -1,3 +1,4 @@
+import { CopyActionIcon } from './CopyActionIcon.tsx';
 import { useState } from 'react';
 
 export type TeacherCopyNavigationItem = {
@@ -104,7 +105,7 @@ export function TeacherWorkspaceNavigation({
                 </ol>
               ) : <p className="teacher-copy-rail-empty">Aucune copie dans ce devoir.</p>
             ) : <p className="teacher-copy-rail-collapsed-count">{copies.length} copie(s)</p>}
-            {railExpanded && <button type="button" className="secondary-button teacher-copy-rail-next-review" onClick={onOpenNextReviewCopy} disabled={!canOpenNextReviewCopy || isAnalyzing} title={nextReviewCopyLabel ? 'Prochaine copie à vérifier : ' + nextReviewCopyLabel + ' · À vérifier' : 'Aucune autre copie à vérifier pour le moment'}>Prochaine copie à vérifier</button>}
+            {railExpanded && <button type="button" className="secondary-button teacher-copy-rail-next-review" onClick={onOpenNextReviewCopy} disabled={!canOpenNextReviewCopy || isAnalyzing} title={nextReviewCopyLabel ? 'Prochaine copie à vérifier : ' + nextReviewCopyLabel + ' · À vérifier' : 'Aucune autre copie à vérifier pour le moment'}><CopyActionIcon name="review" />Prochaine copie à vérifier</button>}
           </aside>
         )}
         <div className="atelier-sidebar-footer">

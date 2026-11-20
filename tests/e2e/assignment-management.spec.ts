@@ -31,8 +31,10 @@ test('teachers can create and delete an assignment from the library', async ({ p
 
   const card = page.locator('.assignment-overview-card').filter({ hasText: 'Contrôle de biologie' });
   await expect(card).toBeVisible();
-  await card.locator('details.assignment-overview-menu summary').click();
-  await card.getByRole('button', { name: 'Supprimer', exact: true }).click();
+  const remove = card.getByRole('button', { name: 'Supprimer', exact: true });
+  await expect(remove.locator('svg')).toBeVisible();
+  await expect(remove).toHaveCSS('box-shadow', 'none');
+  await remove.click();
   const confirmation = page.getByRole('dialog', { name: 'Supprimer ce devoir ?' });
   await expect(confirmation).toBeVisible();
   await expect(confirmation).toContainText('Contrôle de biologie');

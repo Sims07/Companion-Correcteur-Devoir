@@ -1,3 +1,4 @@
+import { CopyActionIcon } from './CopyActionIcon.tsx';
 import { useEffect, useState, type KeyboardEvent } from 'react';
 import { Button } from '../../../shared/ui/design-system/components/Button.tsx';
 import { TextInput } from '../../../shared/ui/design-system/components/TextInput.tsx';
@@ -77,10 +78,7 @@ export function CopyReviewHeader({
                 <h2 title={studentLabel || 'Étudiant à identifier'}>{studentLabel.trim() || 'Étudiant à identifier'}</h2>
                 <Button variant="secondary" className="copy-review-edit-button" aria-label="Modifier le nom de l’étudiant"
                   title="Modifier le nom de l’étudiant" onClick={() => { setDraftName(studentLabel); setIsEditing(true); }}>
-                  <svg viewBox="0 0 20 20" width="16" height="16" fill="none" aria-hidden="true">
-                    <path d="m4 13.5-.5 3 3-.5L15.5 7a2 2 0 0 0-2.5-2.5L4 13.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-                    <path d="m11.5 6 2.5 2.5" stroke="currentColor" strokeWidth="1.5" />
-                  </svg>
+                  <CopyActionIcon name="edit" />
                 </Button>
               </>
             )}

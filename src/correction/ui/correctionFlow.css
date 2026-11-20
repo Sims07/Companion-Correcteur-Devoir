@@ -1953,13 +1953,6 @@
 .assignment-overview-actions { padding-top:12px; border-top:1px solid #edf1eb; }
 .assignment-open-button { padding:0; border:0; background:transparent; color:#376f43; font:inherit; font-size:11px; font-weight:750; cursor:pointer; }
 .assignment-open-button:disabled { opacity:.5; cursor:not-allowed; }
-.assignment-overview-menu { position:relative; }
-.assignment-overview-menu summary { display:grid; place-items:center; width:30px; height:28px; border-radius:7px; color:#718071; font-size:16px; cursor:pointer; list-style:none; }
-.assignment-overview-menu summary::-webkit-details-marker { display:none; }
-.assignment-overview-menu[open] summary { background:#f0f4ee; }
-.assignment-overview-menu > div { position:absolute; z-index:2; right:0; bottom:34px; min-width:130px; padding:5px; border:1px solid #e0e8df; border-radius:8px; background:#fff; box-shadow:0 8px 24px rgb(30 58 35 / 12%); }
-.assignment-overview-menu button { width:100%; padding:8px; border:0; border-radius:5px; background:transparent; color:#a0443d; text-align:left; font:inherit; font-size:11px; cursor:pointer; }
-.assignment-overview-menu button:hover { background:#fff2ef; }
 .assignments-empty { display:grid; justify-items:center; gap:9px; padding:60px 20px; border:1px dashed #d5e0d3; border-radius:14px; color:#718071; text-align:center; }
 .assignments-empty > span { font-size:28px; }
 .assignments-empty h3 { margin:0; color:#354a39; font-size:16px; }

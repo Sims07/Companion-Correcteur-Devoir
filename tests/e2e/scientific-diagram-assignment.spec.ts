@@ -35,10 +35,10 @@ test('all rubric criteria can expose teacher-defined subcriteria with an exact e
   await page.getByRole('button', { name: /Créer et préparer le barème/ }).click();
   await page.getByRole('button', { name: /Ajouter un critère/ }).click();
   await page.getByRole('checkbox', { name: /Analyse de schéma scientifique/ }).first().uncheck();
-  await expect(page.getByRole('button', { name: '+ Ajouter un sous-critère' })).toBeVisible();
-  await page.getByRole('button', { name: '+ Ajouter un sous-critère' }).click();
-  await page.getByRole('button', { name: '+ Ajouter un sous-critère' }).click();
-  await page.getByRole('button', { name: '+ Ajouter un sous-critère' }).click();
+  await expect(page.getByRole('button', { name: 'Ajouter un sous-critère' })).toBeVisible();
+  await page.getByRole('button', { name: 'Ajouter un sous-critère' }).click();
+  await page.getByRole('button', { name: 'Ajouter un sous-critère' }).click();
+  await page.getByRole('button', { name: 'Ajouter un sous-critère' }).click();
   const firstLabel = page.getByLabel('Sous-critère 1 — Nouveau critère', { exact: true });
   await firstLabel.fill('Membrane');
   await page.getByLabel('Sous-critère 2 — Nouveau critère', { exact: true }).fill('Noyau');

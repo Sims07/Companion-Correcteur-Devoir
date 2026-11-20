@@ -1,3 +1,4 @@
+import { CopyActionIcon } from './components/CopyActionIcon.tsx';
 import { useMemo, useState } from 'react';
 import { AssignmentCreationPanel, type NewAssignmentDetails } from './components/AssignmentCreationPanel.tsx';
 import type { Rubric } from '../domain/rubric.ts';
@@ -44,7 +45,7 @@ export function AssignmentsHome({ assignments, activeAssignmentId, archivedCorre
   return <section className="assignments-home" aria-labelledby="assignments-home-title">
     <div className="assignments-home-heading">
       <div><p className="eyebrow">ESPACE ENSEIGNANT</p><h2 id="assignments-home-title">Mes devoirs</h2><p>Retrouvez vos évaluations, reprenez une correction ou préparez un nouveau devoir.</p></div>
-      {!creating && <button type="button" className="primary-button assignments-create-button" onClick={() => setCreating(true)} disabled={disabled}><span aria-hidden="true">＋</span> Créer un devoir</button>}
+      {!creating && <button type="button" className="primary-button assignments-create-button" onClick={() => setCreating(true)} disabled={disabled}><CopyActionIcon name="add" /> Créer un devoir</button>}
     </div>
     {creating ? <AssignmentCreationPanel onCreate={(details) => { onCreate(details); setCreating(false); }} onCancel={() => setCreating(false)} /> : <>
     <div className="assignments-home-toolbar">
@@ -71,10 +72,14 @@ export function AssignmentsHome({ assignments, activeAssignmentId, archivedCorre
         {profile.description && <p className="assignment-overview-description">{profile.description}</p>}
         <div className="assignment-overview-stats"><strong>{totalCopies}</strong><span>copie(s)</span><span className="assignment-stat-separator">·</span><span>{profile.rubric.criteria.length} critères</span><span className="assignment-stat-separator">·</span><span>{maximumPoints} points</span></div>
         {copyCounts.active > 0 && <p className="assignment-overview-activity">{retryCount} à reprendre · {reviewCount} à réviser · {processingCount} en cours · {pendingCount} à corriger</p>}
-        <div className="assignment-overview-actions"><button type="button" className="assignment-open-button" onClick={() => onOpen(profile)} disabled={disabled}>{active ? 'Reprendre le devoir' : ready ? 'Ouvrir le devoir' : 'Configurer le devoir'} <span aria-hidden="true">→</span></button><details className="assignment-overview-menu"><summary aria-label={'Actions pour ' + (profile.title.trim() || 'devoir sans titre')}>···</summary><div><button type="button" onClick={() => onDuplicate(profile)} disabled={disabled}>Dupliquer sans les copies</button><button type="button" onClick={() => onDelete(profile)} disabled={disabled || assignments.length <= 1}>Supprimer</button></div></details></div>
+        <div className="assignment-overview-actions" role="group" aria-label={'Actions pour ' + profile.title}>
+          <button type="button" className="assignment-open-button" onClick={() => onOpen(profile)} disabled={disabled}><CopyActionIcon name="open" />{active ? 'Reprendre le devoir' : ready ? 'Ouvrir le devoir' : 'Configurer le devoir'}</button>
+          <button type="button" className="secondary-button" onClick={() => onDuplicate(profile)} disabled={disabled} aria-label="Dupliquer sans les copies" title="Dupliquer sans les copies"><CopyActionIcon name="duplicate" /></button>
+          <button type="button" className="secondary-button" onClick={() => onDelete(profile)} disabled={disabled || assignments.length <= 1} aria-label="Supprimer" title="Supprimer le devoir"><CopyActionIcon name="remove" /></button>
+        </div>
       </article>;
     })}</div> : <div className="assignments-empty"><span aria-hidden="true">⌕</span><h3>Aucun devoir trouvé</h3><p>Modifiez votre recherche ou créez un nouveau devoir.</p><button type="button" className="secondary-button" onClick={() => { setQuery(''); setFilter('all'); }}>Effacer les filtres</button></div>}
-    <div className="assignments-home-footer"><button type="button" className="text-button" onClick={onReturn} disabled={disabled}>Retour au devoir actif</button></div>
+    <div className="assignments-home-footer"><button type="button" className="text-button" onClick={onReturn} disabled={disabled}><CopyActionIcon name="back" />Retour au devoir actif</button></div>
     </>}
   </section>;
 }

@@ -51,7 +51,6 @@ test('teachers reuse selected criteria from an existing local assignment without
 test('teachers duplicate a devoir without copying its corrections and with editable rubric', async ({ page }) => {
   await page.goto('/');
   const source = page.locator('.assignment-overview-card').first();
-  await source.locator('.assignment-overview-menu summary').click();
   await source.getByRole('button', { name: 'Dupliquer sans les copies' }).click();
   await expect(page.getByRole('heading', { name: 'Devoir et barème' })).toBeVisible();
   await expect(page.locator('.criterion-editor')).toHaveCount(3);
@@ -92,7 +91,7 @@ test('Atelier pédagogique is visible from assignment library through rubric pre
   await page.getByLabel(/Nom du devoir/).fill('Atelier de mitose');
   await page.getByRole('button', { name: /Créer et préparer le barème/ }).click();
   await expect(page.getByRole('heading', { name: 'Devoir et barème' })).toBeVisible();
-  await page.getByRole('button', { name: '＋ Ajouter un critère' }).click();
+  await page.getByRole('button', { name: 'Ajouter un critère' }).click();
   await expect(page.locator('.criterion-editor').first()).toBeVisible();
   await expect(page.locator('.criterion-editor').first()).toHaveCSS('background-color', 'rgb(255, 253, 249)');
 });

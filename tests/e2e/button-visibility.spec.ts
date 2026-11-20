@@ -6,7 +6,7 @@ test('teacher can distinguish rubric primary and secondary actions on a pale bac
   await openActiveAssignment(page);
   await page.getByRole('tab', { name: 'Barème' }).click();
 
-  const addCriterion = page.getByRole('button', { name: '＋ Ajouter un critère' });
+  const addCriterion = page.getByRole('button', { name: 'Ajouter un critère' });
   await expect(addCriterion).toBeVisible();
   await expect(addCriterion).toHaveCSS('background-color', 'rgb(161, 77, 55)');
   await expect(addCriterion).toHaveCSS('color', 'rgb(255, 255, 255)');
@@ -17,19 +17,19 @@ test('teacher can distinguish rubric primary and secondary actions on a pale bac
     await criterion.locator('summary').click();
   }
 
-  const addSubcriterion = criterion.getByRole('button', { name: '+ Ajouter un sous-critère' });
+  const addSubcriterion = criterion.getByRole('button', { name: 'Ajouter un sous-critère' });
   const suggest = criterion.getByRole('button', { name: 'Proposer des sous-critères depuis les attendus' });
   for (const action of [addSubcriterion, suggest]) {
     await expect(action).toBeVisible();
-    await expect(action).toHaveCSS('background-color', 'rgb(247, 232, 220)');
-    await expect(action).toHaveCSS('border-top-color', 'rgb(161, 77, 55)');
-    await expect(action).toHaveCSS('border-top-style', 'solid');
-    await expect(action).toHaveCSS('border-top-width', '2px');
+    await expect(action).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+    await expect(action.locator('svg')).toBeVisible();
+    await expect(action).toHaveCSS('box-shadow', 'none');
+    await expect(action).toHaveCSS('border-top-width', '0px');
     await expect(action).toHaveCSS('min-height', '44px');
   }
 
   const distribute = criterion.getByRole('button', { name: 'Répartir également' });
-  await expect(distribute).toHaveCSS('border-top-width', '2px');
+  await expect(distribute).toHaveCSS('border-top-width', '0px');
   await addSubcriterion.focus();
   await expect(addSubcriterion).toBeFocused();
 });
@@ -45,6 +45,6 @@ test('secondary rubric actions remain clear on a narrow screen', async ({ page }
   }
   const suggest = criterion.getByRole('button', { name: 'Proposer des sous-critères depuis les attendus' });
   await expect(suggest).toBeVisible();
-  await expect(suggest).toHaveCSS('border-top-color', 'rgb(161, 77, 55)');
+  await expect(suggest).toHaveCSS('border-top-width', '0px');
   await expect(suggest).toHaveCSS('min-height', '44px');
 });
