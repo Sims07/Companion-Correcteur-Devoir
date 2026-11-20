@@ -63,7 +63,8 @@
 .assignment-overview-description,
 .assignment-overview-stats { color: var(--ds-color-text-muted); }
 .assignment-overview-stats strong { color: var(--ds-color-text); }
-.assignment-overview-actions { border-top-color: var(--ds-color-border); }
+.assignment-overview-actions { flex-wrap: wrap; justify-content: flex-end; gap: var(--ds-space-1); border-top-color: var(--ds-color-border); }
+.assignment-overview-actions .assignment-open-button { margin-right: auto; }
 .assignment-open-button, .assignment-open-button:hover:not(:disabled) {
   border: 0;
   padding: 0;
@@ -71,7 +72,7 @@
   color: var(--ds-color-brand-700);
   box-shadow: none;
 }
-.assignment-open-button:focus-visible, .assignment-overview-menu summary:focus-visible {
+.assignment-open-button:focus-visible {
   outline: none;
   box-shadow: var(--ds-focus-ring);
 }

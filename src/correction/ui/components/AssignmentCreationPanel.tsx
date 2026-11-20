@@ -1,3 +1,4 @@
+import { CopyActionIcon } from './CopyActionIcon.tsx';
 import { useState, type FormEvent } from 'react';
 import { Button, Field, TextArea, TextInput } from '../../../shared/ui/design-system/index.ts';
 import { DesignSystemSelect } from '../../../shared/ui/components/DesignSystemSelect.tsx';
@@ -65,7 +66,7 @@ export function AssignmentCreationPanel({ onCreate, onCancel }: Props) {
         <TextArea id="new-assignment-description" rows={3} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Ex. Identifier les phases de la mitose et argumenter les mécanismes." />
       </Field>
       <div className="assignment-creation-actions">
-        <Button variant="secondary" onClick={onCancel}>Annuler</Button>
+        <Button variant="secondary" onClick={onCancel}><CopyActionIcon name="close" />Annuler</Button>
         <Button type="submit">{kind === 'scientific-diagram' ? 'Créer le devoir de schéma →' : 'Créer et préparer le barème →'}</Button>
       </div>
     </form>

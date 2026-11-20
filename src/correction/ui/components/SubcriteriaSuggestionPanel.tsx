@@ -1,3 +1,4 @@
+import { CopyActionIcon } from './CopyActionIcon.tsx';
 import { useState } from 'react';
 import { appendSuggestedSubcriteria, normalizedSubcriterionTitle, suggestSubcriteriaFromDescription, type SuggestedSubcriterion } from '../../domain/rubricSubcriteriaSuggestion.ts';
 import { getRubricSubcriteria, type RubricCriterion } from '../../domain/rubric.ts';
@@ -55,7 +56,7 @@ export function SubcriteriaSuggestionPanel({ criterion, onApply }: Props) {
   }
 
   return <div className="rubric-subcriteria-suggestion">
-    <Button variant="secondary" disabled={!criterion.description.trim()} onClick={propose}>Proposer des sous-critères depuis les attendus</Button>
+    <Button variant="secondary" disabled={!criterion.description.trim()} onClick={propose}><CopyActionIcon name="edit" />Proposer des sous-critères depuis les attendus</Button>
     {unchanged && message && <StatusNotice tone={messageTone}>{message}</StatusNotice>}
     {unchanged && drafts.length > 0 && <section className="rubric-subcriteria-suggestion-preview" role="region" aria-label="Proposition de sous-critères">
       <div className="rubric-subcriteria-suggestion-heading"><strong>{drafts.length} sous-critère{drafts.length > 1 ? 's' : ''} proposé{drafts.length > 1 ? 's' : ''}</strong><span>À vérifier avant ajout</span></div>
