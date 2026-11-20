@@ -153,16 +153,18 @@ export function RadarTimeline({
     {!points.length ? <p>Aucun essai enregistré pour ce modèle.</p> : <>
       {sorted.length ? <>
       <section aria-label="Choix de méthode"><h3>{decision.title}</h3><p>{decision.detail}</p>
-        {decision.winner && (decision.winner.scienceMethod || decision.winner.biologyMethod) &&
-          <Button variant="secondary" onClick={() => selectMethod(decision.winner!)}>Choisir la recommandation pour le prochain essai</Button>}
-        <a href="#method-batteries">Examiner ou compléter les batteries</a></section>
+        <div className="ds-action-group lab-recommendation-actions" role="group" aria-label="Actions de recommandation">
+          {decision.winner && (decision.winner.scienceMethod || decision.winner.biologyMethod) &&
+            <Button variant="secondary" onClick={() => selectMethod(decision.winner!)}>Choisir la recommandation pour le prochain essai</Button>}
+          <a href="#method-batteries">Examiner ou compléter les batteries</a>
+        </div></section>
       <section><h3>Évolution des notes</h3>
         <div className="lab-controls"><label>Méthode affichée<select value={activeFilter} onChange={e => setFilter(e.target.value)}>
           <option value="">Toutes les méthodes</option>{methods.map(m => <option key={m}>{m}</option>)}</select></label>
           <label>Mesure affichée<select value={axis} onChange={e => setAxis(e.target.value)}><option value="">Indice de l’essai</option>{axes.map(a => <option key={a}>{a}</option>)}</select></label></div>
         {current && <ScoreChart select={setSelected} current={current} points={[...filtered].reverse()} axis={axis}/>}
       </section>
-      <div role="group" aria-label="Affichage des radars">
+      <div className="ds-action-group lab-radar-display-actions" role="group" aria-label="Affichage des radars">
         <Button variant="secondary" aria-pressed={!overlay} onClick={() => setOverlay(false)}>Côte à côte</Button>
         <Button variant="secondary" aria-pressed={overlay} onClick={() => setOverlay(true)}>Superposer</Button>
       </div>
