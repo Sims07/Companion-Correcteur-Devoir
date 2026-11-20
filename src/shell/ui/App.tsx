@@ -5667,7 +5667,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
                 document.getElementById(`review-copy-page-${item.pageNumber}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
               } : undefined}
               onResolveSubcriterion={(subcriterionId, action) => verifySubcriterion(item.criterionId, subcriterionId, action)}
-              disabled={isAnalyzing || isFinalized}
+              disabled={isAnalyzing}
             />}
             {isFlagged && criterion.description && <p className="review-rubric-context"><strong>Attendu du barème</strong><br />{criterion.description}</p>}
             {isFlagged && <TeacherReviewAlert
