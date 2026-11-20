@@ -4382,7 +4382,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     } else if (destination.section === 'copy' && destination.copyId) {
       if (currentCopyId === destination.copyId) {
         setShowCopyIntake(false);
-        setTeacherStep(proposal || isFinalized ? 'review' : 'copy');
+        setTeacherStep(currentBackgroundJobId || proposal || isFinalized ? 'review' : 'copy');
         return;
       }
       if (destination.copyId === 'current-copy') {
@@ -4433,7 +4433,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     }
   }, [browserNavigationRequest, visibleBrowserHash, interfaceMode, showAssignmentsHome,
     activeAssignmentId, assignmentProfiles, isAnalyzing, showAiSettings, currentCopyId,
-    proposal, isFinalized, foregroundDraft.ready, images.length, archivedCorrections]);
+    proposal, isFinalized, currentBackgroundJobId, foregroundDraft.ready, images.length, archivedCorrections]);
 
   return (
     <main className={interfaceMode === 'teacher' ? `app-shell teacher-flow-shell${showAssignmentsHome ? ' teacher-assignments-home' : ''}` : interfaceMode === 'diagnostic' ? 'app-shell evaluation-workspace-shell ai-tools-view' : 'app-shell ai-tools-view'}>
