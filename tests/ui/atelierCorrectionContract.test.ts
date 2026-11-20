@@ -111,6 +111,21 @@ describe('Atelier pédagogique correction workspace', () => {
     expect(css).toContain('var(--ds-color-border-strong)');
   });
 
+  it('puts an actual confirmation action after a native disclosure, never two competing buttons', () => {
+    const app = read('src/shell/ui/App.tsx');
+    const sequence = app.slice(app.indexOf('className="review-decision-actions"'));
+    expect(sequence).toContain('<details className="review-quick-edit">');
+    expect(sequence).toContain('<summary className="review-edit-toggle">');
+    expect(sequence).not.toContain('<summary className="secondary-button">Ajuster la note');
+    expect(sequence.indexOf('<summary className="review-edit-toggle">')).toBeLessThan(sequence.indexOf('onClick={() => confirmReview(item)}'));
+    expect(sequence).toContain("item.teacherComment.trim() ? 'Confirmer la note et le commentaire' : 'Confirmer la note'");
+    const css = read('src/correction/ui/correctionAtelier.css');
+    expect(css).toContain('.review-quick-edit > summary.review-edit-toggle');
+    expect(css).toContain('text-decoration: underline');
+    expect(css).toContain('background: transparent');
+    expect(css).toContain('.review-edit-comment-indicator');
+  });
+
   it('preserves all existing evidence, note adjustments and teacher comments', () => {
     const app = read('src/shell/ui/App.tsx');
     expect(app).toContain('<TeacherReviewAlert');
