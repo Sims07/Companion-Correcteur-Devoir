@@ -146,7 +146,7 @@ test('a copy awaiting review is a compact responsive row with a clear primary ac
   expect(iconSize?.width).toBe(44);
   expect(iconSize?.height).toBe(44);
   expect(await verify.evaluate((element) => getComputedStyle(element).paddingLeft)).toBe('0px');
-  await expect(card.getByRole('button', { name: 'Copie à vérifier' })).toBeVisible();
+  await expect(card.getByRole('button', { name: 'Copie à vérifier', exact: true })).toBeVisible();
   const more = card.getByRole('button', { name: 'Autres actions pour Copie à vérifier' });
   await expect(more).toBeVisible();
   await expect(card.getByRole('button', { name: 'Recorriger' })).toBeHidden();
@@ -177,7 +177,7 @@ test('copy name itself opens the copy without a second oversized button', async 
   await openActiveAssignment(page);
   await copyNavigation(page).click();
   const card = page.locator('.copy-overview-grid .correction-series-card');
-  await card.getByRole('button', { name: 'Ma copie' }).click();
+  await card.getByRole('button', { name: 'Ma copie', exact: true }).click();
   await expect(page.locator('.copy-review-identity-title h2')).toHaveText('Ma copie');
 });
 
