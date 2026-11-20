@@ -194,8 +194,6 @@ test('teacher verifies a flagged criterion, validates the copy and lands on the 
   const flaggedCard = page.locator('.review-card').filter({ has: page.getByRole('heading', { name: 'Connaissances scientifiques' }) });
   await expect(flaggedCard.getByText('Point retiré', { exact: true })).toBeVisible();
   await flaggedCard.focus();
-  await page.keyboard.press('Enter');
-  await expect(flaggedCard.getByText('Confirmé', { exact: true })).toBeVisible();
   await page.keyboard.press('ArrowDown');
   await expect(page.locator('.review-card').nth(1)).toBeFocused();
   await page.keyboard.press('ArrowUp');
@@ -205,6 +203,9 @@ test('teacher verifies a flagged criterion, validates the copy and lands on the 
   await adjustment.locator('summary').click();
   await flaggedCard.getByLabel('Votre note').fill('7');
   await expect(flaggedCard.getByText('7 / 8')).toBeVisible();
+  await flaggedCard.getByRole('button', { name: 'Confirmer la note' }).click();
+  await expect(flaggedCard).toHaveCount(0);
+  await expect(page.locator('.copy-review-validation-bar')).toContainText('2 critères à examiner');
 
   await page.keyboard.press('Control+Enter');
   await expect(studentName).toHaveText('Copie ancienne');
