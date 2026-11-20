@@ -254,13 +254,13 @@ export function CorrectionOverview({ children, jobs, corrections, currentCopy, f
               </div>
               {item.message && <p className={item.status === 'to-retry' ? 'copy-overview-error' : 'copy-overview-message'}>{item.message}</p>}
             </div>
-            <div className="correction-series-actions ds-action-group" aria-label={'Actions pour ' + item.label}>
+            <div className="correction-series-actions ds-action-group" role="group" aria-label={'Actions pour ' + item.label}>
               {item.kind === 'job' && item.job && <>
                 {item.status === 'to-retry' && <Button variant="primary" className="copy-overview-icon-action" aria-label="Relancer" title={'Relancer la correction de ' + item.label} onClick={() => onRetryJob(item.job!.id)}><CopyActionIcon name="retry" /></Button>}
                 {item.status === 'to-review' && <Button variant="primary" className="copy-overview-icon-action" aria-label="Vérifier la copie" title={'Vérifier ' + item.label} onClick={() => onOpenJob(item.job!.id)}><CopyActionIcon name="review" /></Button>}
                 {item.status === 'to-do' && item.job.error?.startsWith('Correction interrompue par l’enseignant') && <Button variant="primary" className="copy-overview-icon-action" aria-label="Reprendre les corrections" title="Reprendre les corrections" disabled={isStartingCorrections} onClick={onStartCorrections}><CopyActionIcon name="start" /></Button>}
                 {item.status !== 'to-review' && <Button variant={item.status === 'to-retry' || (item.status === 'to-do' && item.job.error?.startsWith('Correction interrompue par l’enseignant')) ? 'secondary' : 'primary'} className="copy-overview-icon-action" aria-label="Ouvrir" title={'Ouvrir ' + item.label} onClick={() => onOpenJob(item.job!.id)}><CopyActionIcon name="open" /></Button>}
-                {(item.status === 'to-review' || item.status !== 'processing') && <details className="copy-overview-more">
+                {item.status !== 'processing' && <details className="copy-overview-more">
                   <summary aria-label={'Autres actions pour ' + item.label} title="Autres actions"><CopyActionIcon name="more" /></summary>
                   <div className="copy-overview-more-menu">
                     {item.status === 'to-review' && <Button variant="secondary" onClick={() => onRetryJob(item.job!.id)}>Recorriger</Button>}
