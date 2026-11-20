@@ -66,8 +66,10 @@ test('a teacher can cancel or confirm removing one imported copy without affecti
   const cards = page.locator('.copy-overview-grid .correction-series-card');
   await expect(cards).toHaveCount(2);
   const first = cards.filter({ hasText: 'etudiant-a.png' });
+  const more = first.getByRole('button', { name: 'Autres actions pour etudiant-a.png' });
   const remove = first.getByRole('button', { name: 'Retirer la copie « etudiant-a.png »' });
 
+  await more.click();
   await remove.click();
   const confirmation = page.getByRole('dialog', { name: 'Retirer cette copie ?' });
   await expect(confirmation).toBeVisible();
