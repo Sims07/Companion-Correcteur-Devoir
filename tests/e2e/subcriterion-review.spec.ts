@@ -62,14 +62,18 @@ test('the teacher can arbitrate only the doubtful subcriterion without erasing i
   await page.locator('.copy-overview-filters').getByRole('button', { name:/Corrigées/ }).click();
   await page.getByRole('button', { name:'Consulter la correction' }).click();
   const card = page.locator('.review-card').filter({ has: page.getByRole('heading', { name:'Mesures expérimentales' }) });
-  await expect(card.getByText('1 à vérifier sur 2')).toBeVisible();
-  await expect(card.locator('.review-quality-details').getByText('La pression est relevée.')).toBeVisible();
+  // The awarded/removed points and the underlying proof are visible without opening any details.
+  await expect(card.locator('.review-evidence-spotlight')).toBeVisible();
+  await expect(card.locator('.review-evidence-scoreline')).toContainText('Points accordés');
+  await expect(card.locator('.review-evidence-breakdown').getByText('La pression est relevée.')).toBeVisible();
+  await expect(card.locator('details.review-explanation')).not.toHaveAttribute('open', '');
   await expect(card.getByRole('group', { name:'Arbitrage du sous-critère Pression mesurée' })).toHaveCount(0);
   const pending = card.getByRole('group', { name:'Arbitrage du sous-critère Température relevée' });
   await expect(pending.getByRole('button', { name:'Confirmer 1 pt' })).toBeVisible();
   await pending.getByRole('button', { name:'Refuser · 0 pt' }).click();
   await expect(card.getByText('1 / 2', { exact:true }).first()).toBeVisible();
-  await expect(card.getByText('2 évalués')).toBeVisible();
+  await expect(card.locator('.review-evidence-item.is-pending')).toHaveCount(0);
+  await expect(card.locator('.review-evidence-scoreline')).toContainText('−1 pt');
   await expect(card.getByText('Vérifié par le professeur')).toBeVisible();
   await expect(card.getByRole('group', { name:'Arbitrage du sous-critère Température relevée' })).toHaveCount(0);
 });

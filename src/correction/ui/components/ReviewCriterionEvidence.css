@@ -1,0 +1,87 @@
+/* The proof and the point balance come before teacher actions, without nested disclosures. */
+.review-evidence-spotlight {
+  display: grid;
+  gap: var(--ds-space-3);
+  margin-top: var(--ds-space-3);
+  padding: var(--ds-space-4);
+  border: 1px solid var(--ds-color-border-strong);
+  border-radius: var(--ds-radius-lg);
+  background: var(--ds-color-surface);
+}
+.review-evidence-scoreline {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ds-space-2);
+}
+.review-evidence-scoreline > div {
+  display: grid;
+  gap: var(--ds-space-1);
+  min-width: 0;
+  padding: var(--ds-space-3);
+  border-radius: var(--ds-radius-md);
+}
+.review-evidence-awarded { background: var(--ds-color-success-surface); color: var(--ds-color-success); }
+.review-evidence-removed { background: var(--ds-color-warning-surface); color: var(--ds-color-warning); }
+.review-evidence-scoreline span { font-size: .82rem; font-weight: 650; }
+.review-evidence-scoreline strong { font-size: 1.25rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.review-evidence-breakdown h4, .review-evidence-source h4 {
+  margin: 0 0 var(--ds-space-2);
+  color: var(--ds-color-text);
+  font-size: .9rem;
+}
+.review-evidence-breakdown ul { display: grid; gap: var(--ds-space-2); margin: 0; padding: 0; list-style: none; }
+.review-evidence-item {
+  display: grid;
+  gap: var(--ds-space-2);
+  padding: var(--ds-space-3);
+  border: 1px solid var(--ds-color-border);
+  border-left: 3px solid var(--ds-color-success);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-surface-subtle);
+}
+.review-evidence-item.has-deduction { border-left-color: var(--ds-color-warning); }
+.review-evidence-item.is-pending { border-color: var(--ds-color-warning); border-left-width: 3px; }
+.review-evidence-item-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--ds-space-2);
+}
+.review-evidence-item-head > strong { font-size: .9rem; color: var(--ds-color-text); }
+.review-evidence-item-points { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ds-space-2); font-variant-numeric: tabular-nums; font-size: .88rem; font-weight: 750; }
+.review-evidence-item-awarded { color: var(--ds-color-success); }
+.review-evidence-item-deduction {
+  padding: var(--ds-space-1) var(--ds-space-2);
+  border-radius: var(--ds-radius-sm);
+  background: var(--ds-color-warning-surface);
+  color: var(--ds-color-warning);
+}
+.review-evidence-item p, .review-evidence-source p, .review-evidence-pending p {
+  margin: 0;
+  color: var(--ds-color-text);
+  font-size: .88rem;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+.review-evidence-source {
+  display: grid;
+  justify-items: start;
+  gap: var(--ds-space-1);
+  padding-top: var(--ds-space-3);
+  border-top: 1px solid var(--ds-color-border);
+}
+.review-evidence-pending {
+  display: grid;
+  gap: var(--ds-space-2);
+  padding-top: var(--ds-space-2);
+  border-top: 1px solid var(--ds-color-border);
+}
+.review-evidence-pending p { color: var(--ds-color-warning); }
+.review-evidence-item-actions { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); }
+.review-evidence-verified { color: var(--ds-color-success); font-size: .8rem; font-weight: 650; }
+@media (max-width: 680px) {
+  .review-evidence-spotlight { padding: var(--ds-space-3); }
+  .review-evidence-scoreline { grid-template-columns: minmax(0, 1fr); }
+  .review-evidence-item-head { align-items: flex-start; flex-direction: column; }
+}
