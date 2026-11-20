@@ -302,17 +302,21 @@
 }
 .atelier-review-decision-heading {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 8px 12px;
   order: -10;
-  padding: 13px 15px;
+  padding: 10px 13px;
   border: 1px solid var(--ds-color-border);
   background: var(--ds-color-surface-subtle);
   border-radius: 3px;
 }
-.atelier-review-decision-heading strong { font-size: 13px; font-weight: 750; }
-.atelier-review-decision-heading span { color: var(--ds-color-text-muted); font-size: 11px; text-align: right; }
+.atelier-review-decision-status { display: flex; flex: 1 1 220px; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; min-width: 0; }
+.atelier-review-decision-status strong { font-size: 13px; font-weight: 750; }
+.atelier-review-decision-status span { color: var(--ds-color-text-muted); font-size: 11px; }
+.atelier-review-decision-status .atelier-review-reading-warning { color: var(--ds-color-warning); font-weight: 650; }
+.atelier-review-decision-heading .review-criteria-filter { flex: 0 0 auto; font-size: 12px; }
 .teacher-flow-shell .review-main-column .copy-review-alert-strip {
   order: -8;
   margin: 0;
