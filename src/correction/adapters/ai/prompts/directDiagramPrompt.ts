@@ -38,6 +38,7 @@ export function buildDirectDiagramPointRepairPrompt(
     'Tu assistes un professeur de biologie. Tu as déjà examiné les images de ce schéma.',
     'UNE SEULE VALEUR DE POINTS EST INVALIDE. Ne réévalue pas les autres sous-critères et ne fournis pas une nouvelle correction complète.',
     `Sous-critère à corriger : ${issue.criterionTitle} / ${issue.subcriterionTitle} (champ ${issue.criterionId}${issue.subcriterionId ? `.subcriteria.${issue.subcriterionId}` : ''}.points).`,
+    `Barème applicable : ${issue.rubricContext}`,
     `Valeur initiale invalide : ${originalValue}. Barème réel autorisé : 0 à ${issue.maximum} point(s), bornes incluses.`,
     `Observation initiale du modèle, à VÉRIFIER SUR L'IMAGE : ${issue.originalEvidence || 'aucune preuve disponible'}.`,
     'Conserve la distinction : absent ou incorrect = points: 0 ; complètement satisfait = points égaux au maximum EXACT du barème (si le maximum vaut 0.33, réponds 0.33 et jamais 1).',
@@ -57,7 +58,7 @@ export function buildDirectDiagramPointsRepairPrompt(
     ...issues.map((issue, index) => {
       const value = typeof issue.originalValue === 'number' || issue.originalValue === null
         ? JSON.stringify(issue.originalValue) : typeof issue.originalValue;
-      return `item${index + 1} : ${issue.criterionTitle} / ${issue.subcriterionTitle} (${issue.criterionId}${issue.subcriterionId ? '.subcriteria.' + issue.subcriterionId : ''}.points). Valeur invalide : ${value}. Intervalle : 0 à ${issue.maximum}. Observation initiale à vérifier : ${issue.originalEvidence || 'aucune'}.`;
+      return `item${index + 1} : ${issue.criterionTitle} / ${issue.subcriterionTitle} (${issue.criterionId}${issue.subcriterionId ? '.subcriteria.' + issue.subcriterionId : ''}.points). Valeur invalide : ${value}. Intervalle : 0 à ${issue.maximum}. Barème applicable : ${issue.rubricContext}. Observation initiale à vérifier : ${issue.originalEvidence || 'aucune'}.`;
     }),
     'Chaque item doit contenir exactement points (nombre JSON entre 0 et le maximum indiqué) et evidence (observation visuelle courte non vide).',
     'Critère absent ou incorrect = 0 ; entièrement satisfait = maximum EXACT, jamais une valeur binaire 1 quand le maximum est inférieur à 1. Le partiel exige une preuve visible.',

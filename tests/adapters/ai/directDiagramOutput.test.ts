@@ -4,9 +4,9 @@ import { createOllamaProvider } from '../../../src/correction/adapters/ai/ollama
 import { diagramAnalysisDiagnostics, diagramFailureCategory } from '../../../src/evaluation/domain/scientificDiagramProtocol.ts';
 import { SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC } from '../../../src/evaluation/domain/scientificDiagramFixtures.ts';
 
-const criteria = [{ id: 'title', title: 'Titre', description: '', maxPoints: 1,
-  subcriteria: [{ id: 'position', title: 'Position', description: '', maxPoints: 0.66 },
-    { id: 'content', title: 'Contenu', description: '', maxPoints: 0.34 }] }];
+const criteria = [{ id: 'title', title: 'Titre', description: 'Examiner le titre commun.', maxPoints: 1,
+  subcriteria: [{ id: 'position', title: 'Position', description: 'Situer le titre sous la composition.', scientificExpectations: ['Exclure les noms de phase.'], maxPoints: 0.66 },
+    { id: 'content', title: 'Contenu', description: 'Identifier le sujet représenté.', maxPoints: 0.34 }] }];
 const answer = () => ({ criteria: { title: { evidence: 'Titre sous le dessin', confidence: 'medium', questionForTeacher: '',
   subcriteria: { position: { points: 0.33, evidence: 'Titre décalé' }, content: { points: 0.34, evidence: 'Sujet précisé' } } } } });
 const stream = (raw: string, done_reason = 'stop') => new Response(
@@ -145,7 +145,12 @@ describe('compact direct diagram output', () => {
     const first = JSON.parse(fetchMock.mock.calls[0]![1].body);
     const repair = JSON.parse(fetchMock.mock.calls[1]![1].body);
     expect(first.messages[0].content).toContain('jamais une chaîne, null ou une pénalité négative');
-    expect(repair.messages[0].content).toContain('Position');
+    for (const body of [first, repair]) {
+      expect(body.messages[0].content).toContain('Examiner le titre commun.');
+      expect(body.messages[0].content).toContain('Situer le titre sous la composition.');
+      expect(body.messages[0].content).toContain('Exclure les noms de phase.');
+    }
+    expect(repair.messages[0].content).not.toContain('Identifier le sujet représenté.');
     expect(repair.messages[0].content).toContain('0 à 0.66');
     expect(repair.messages[0].images).toEqual(first.messages[0].images);
     expect(Object.keys(repair.format.properties).sort()).toEqual(['evidence','points']);
@@ -192,7 +197,8 @@ describe('compact direct diagram output', () => {
     expect(repairRequest.format.properties.criteria).toBeUndefined();
     expect(Object.keys(repairRequest.format.properties.corrections.properties)).toEqual(['item1', 'item2']);
     expect(repairRequest.messages[0].content).toContain('UNIQUEMENT');
-    expect(repairRequest.messages[0].content).toContain('Position');
+    expect(repairRequest.messages[0].content).toContain('Exclure les noms de phase.');
+    expect(repairRequest.messages[0].content).toContain('Identifier le sujet représenté.');
     expect(repairRequest.messages[0].images).toEqual(['aW1hZ2U=']);
   });
 

@@ -335,9 +335,11 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, thinki
           const source = getRubricSubcriteria(original!).find((entry) => entry.id === activeIssue.subcriterionId) ?? original;
           const chosenOption = answers[activeIssue.id] ?? selected?.choice ?? '';
           const chosenCustom = custom[activeIssue.id] ?? '';
+          const rule = chosenCustom.trim() || chosenOption;
+          const needsRule = activeIssue.kind === 'clarification' && /^(oui|non|ok|d[’']accord)[.!]?$/i.test(rule);
           const canAccept = activeIssue.kind === 'scientific'
             ? Boolean(chosenCustom.trim() || chosenOption === 'accept-suggested')
-            : Boolean(chosenCustom.trim() || activeIssue.options.includes(chosenOption));
+            : !needsRule && Boolean(chosenCustom.trim() || activeIssue.options.includes(chosenOption));
           return <div className="rubric-audit-conversation" key={activeIssue.id}>
             <div className="rubric-audit-conversation-heading">
               <span className="rubric-audit-step-number">{activeIssue.kind === 'scientific' ? 'Enrichissement scientifique' : 'Question'} {activeIssueIndex + 1} sur {issues.length}</span>
@@ -390,6 +392,10 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, thinki
               </button>
             </div>
             </>}
+            {activeIssue.kind === 'clarification' && rule && <p role="status">
+              {needsRule ? 'Précisez la règle à appliquer dans votre propre réponse ou choisissez une reformulation.'
+                : <><strong>Règle qui sera transmise après application</strong><br />{rule}</>}
+            </p>}
             {selected && <p className="rubric-audit-saved" role="status">
               {selected.decision === 'accepted' ? (activeIssue.kind === 'scientific' ? '✓ Référence scientifique validée : ' : '✓ Règle retenue : ') + selected.choice : '✓ Le barème initial a été conservé pour ce point.'}
             </p>}

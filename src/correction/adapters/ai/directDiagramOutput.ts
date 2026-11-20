@@ -82,6 +82,7 @@ export interface DirectDiagramPointRepair {
   subcriterionId?: string;
   subcriterionTitle: string;
   maximum: number;
+  rubricContext: string;
   originalValue: unknown;
   originalEvidence: string;
 }
@@ -111,6 +112,12 @@ export function findInvalidDiagramPoints(
           ...(sub ? { subcriterionId: sub.id } : {}),
           subcriterionTitle: sub?.title ?? criterion.title,
           maximum,
+          rubricContext: JSON.stringify({
+            description: criterion.description,
+            scientificExpectations: criterion.scientificExpectations,
+            correctionContract: criterion.correctionContract,
+            ...(sub ? { subcriterion: { description: sub.description, scientificExpectations: sub.scientificExpectations } } : {}),
+          }),
           originalValue: grade,
           originalEvidence: typeof value.evidence === 'string' ? value.evidence : '',
         });

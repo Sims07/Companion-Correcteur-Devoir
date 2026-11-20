@@ -26,7 +26,7 @@ test('teacher audits a rubric locally and retains their choice after refresh', a
         ref: 'C1', priority: 'high',
         reason: 'Un sous-titre peut être confondu avec un titre global.',
         question: 'Faut-il un titre principal commun à tous les schémas ?',
-        options: ['Oui, un titre commun', 'Non, les sous-titres suffisent'],
+        options: ['Oui', 'Un titre commun est obligatoire pour obtenir les points.'],
         suggestion: 'Un titre commun est attendu.',
       }] }) },
     }) });
@@ -41,7 +41,10 @@ test('teacher audits a rubric locally and retains their choice after refresh', a
   await expect(page.getByText('Faut-il un titre principal commun à tous les schémas ?')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Questions à discuter avec le professeur' })).toBeVisible();
   await expect(page.getByText('Un titre commun est attendu.', { exact: true })).toBeVisible();
-  await page.getByText('Oui, un titre commun', { exact: true }).click();
+  await page.getByRole('radio', { name: 'Oui', exact: true }).check();
+  await expect(page.getByRole('button', { name: 'Valider ma réponse' })).toBeDisabled();
+  await page.getByRole('radio', { name: 'Un titre commun est obligatoire pour obtenir les points.' }).check();
+  await expect(page.getByText('Règle qui sera transmise après application').locator('..')).toContainText('Un titre commun est obligatoire pour obtenir les points.');
   await page.getByRole('button', { name: 'Valider ma réponse' }).click();
   await expect(page.getByText(/Règle retenue/)).toBeVisible();
   await page.getByRole('button', { name: /Appliquer 1 précision/ }).click();
@@ -56,16 +59,16 @@ test('teacher audits a rubric locally and retains their choice after refresh', a
   await expect(applied.getByText('Utilisé pour les prochaines corrections')).toBeVisible();
   await expect(applied.getByText('Titre principal', { exact: true })).toBeVisible();
   await expect(applied.getByText('Aucune précision renseignée.')).toBeVisible();
-  await expect(applied.getByText(/Décision du professeur : Oui, un titre commun/)).toBeVisible();
+  await expect(applied.getByText(/Décision du professeur : Un titre commun est obligatoire pour obtenir les points/)).toBeVisible();
   await expect.poll(async () => page.evaluate(() => {
     const profiles = JSON.parse(localStorage.getItem('companion-correcteur:assignments:v1') ?? '[]');
     return profiles.find((item: { id: string }) => item.id === 'assignment-default')?.rubric.criteria[0].description;
-  })).toContain('Oui, un titre commun');
+  })).toContain('Un titre commun est obligatoire pour obtenir les points');
   await page.reload();
   await page.getByRole('button', { name: /Reprendre le devoir/ }).click();
   await page.getByRole('tab', { name: 'Barème' }).click();
   await expect(page.getByLabel('Version active du barème clarifié')).toBeVisible();
-  await expect(page.getByLabel('Version active du barème clarifié').getByText(/Oui, un titre commun/)).toBeVisible();
+  await expect(page.getByLabel('Version active du barème clarifié').getByText(/Un titre commun est obligatoire pour obtenir les points/)).toBeVisible();
   await page.getByText(/Historique des clarifications/).click();
   await expect(page.getByLabel('Application à comparer')).toBeVisible();
   await expect(page.locator('.rubric-audit-history .rubric-audit-change-comparison')).toBeVisible();
