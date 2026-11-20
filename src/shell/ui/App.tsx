@@ -5675,11 +5675,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
               rationale={item.rationale}
               questionForTeacher={item.subcriteria?.some((entry) => entry.assessmentStatus === 'not-evaluated') ? undefined : item.questionForTeacher}
               annotationSuggestion={item.annotationSuggestion}
-              pageNumber={item.pageNumber !== undefined && item.pageNumber >= 1 && item.pageNumber <= images.length ? item.pageNumber : undefined}
-              onShowEvidence={item.pageNumber !== undefined && item.pageNumber >= 1 && item.pageNumber <= images.length ? () => {
-                setFocusedEvidencePage(item.pageNumber!);
-                document.getElementById(`review-copy-page-${item.pageNumber}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              } : undefined}
+              onShowEvidence={undefined}
             />}
             <details className="review-explanation" open={!isFlagged && (item.subcriteria?.some((sub) => sub.assessmentStatus === 'not-evaluated' || sub.verificationSource === 'teacher') || undefined)}>
               <summary>{isFlagged ? 'Compléments de l’analyse IA' : 'Voir la preuve et la justification détaillées'}</summary>
