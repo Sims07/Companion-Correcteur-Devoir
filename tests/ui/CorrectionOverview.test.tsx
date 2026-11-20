@@ -189,6 +189,37 @@ describe('teacher correction overview and partial grade safety', () => {
     expect(html).not.toContain('2<span> / 4</span>');
   });
 
+  it('makes verification primary, regrading secondary and removal an explicit danger action', () => {
+    const html = display({
+      ...job, status: 'ready', completedCriteria: 2,
+      proposal: {
+        summary: 'Complète', criteria: [criterion('text', 2), criterion('visual', 1.5)],
+        finalScore: 3.5, questionsForTeacher: [],
+      },
+    });
+    expect(html).toContain('correction-series-actions ds-action-group');
+    expect(html).toMatch(/ds-button--primary correction-series-view[^>]*>Vérifier la copie<\\/button>/);
+    expect(html).toMatch(/ds-button--secondary[^>]*>Recorriger<\\/button>/);
+    expect(html).toContain('ds-button--danger correction-series-remove');
+    expect(html).not.toContain('Proposition prête à vérifier');
+    expect(html).not.toContain('aria-label="Dernière correction disponible"');
+  });
+
+  it('keeps the most recent correction shortcut when multiple copies are visible', () => {
+    const html = renderToStaticMarkup(
+      <CorrectionOverview
+        jobs={[toBackgroundJobSummary({ ...job, status: 'ready' }), toBackgroundJobSummary({ ...job, id: 'copy-2', label: 'Autre copie', status: 'ready', updatedAt: '2026-11-02T09:00:00.000Z' })]}
+        corrections={[]} currentCopy={null} filter="to-review" onFilterChange={vi.fn()}
+        onAddCopy={vi.fn()} addCopyExpanded={false} pendingCount={0}
+        isStartingCorrections={false} isStoppingCorrections={false} onStopCorrections={vi.fn()} onStartCorrections={vi.fn()}
+        onOpenJob={vi.fn()} onRetryJob={vi.fn()} onRemoveJob={vi.fn()} notice=""
+        onOpenCorrection={vi.fn()} onRegradeCorrection={vi.fn()} onOpenCurrentCopy={vi.fn()} onReviewNextCopy={vi.fn()}
+      />,
+    );
+    expect(html).toContain('aria-label="Dernière correction disponible"');
+    expect(html).toContain('Autre copie');
+  });
+
   it('shows a valid proposed score only after every rubric criterion has been assessed', () => {
     const html = display({
       ...job, status: 'ready', completedCriteria: 2,
