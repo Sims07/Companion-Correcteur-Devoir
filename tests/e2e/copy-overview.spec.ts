@@ -142,6 +142,10 @@ test('a copy awaiting review is a compact responsive row with a clear primary ac
   await expect(card).not.toContainText('Proposition prête à vérifier');
   await expect(page.getByLabel('Dernière correction disponible')).toHaveCount(0);
   await expect(verify).toHaveClass(/ds-button--primary copy-overview-icon-action/);
+  const iconSize = await verify.boundingBox();
+  expect(iconSize?.width).toBe(44);
+  expect(iconSize?.height).toBe(44);
+  expect(await verify.evaluate((element) => getComputedStyle(element).paddingLeft)).toBe('0px');
   await expect(card.getByRole('button', { name: 'Copie à vérifier' })).toBeVisible();
   const more = card.getByRole('button', { name: 'Autres actions pour Copie à vérifier' });
   await expect(more).toBeVisible();
