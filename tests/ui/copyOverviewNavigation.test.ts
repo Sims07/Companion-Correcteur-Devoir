@@ -164,7 +164,7 @@ describe('CorrectionOverview — comportement enseignant', () => {
 
   it('lets teachers explicitly regrade an already assessed copy', async () => {
     await render('to-review', [reviewJob]);
-    const action = [...container.querySelectorAll('button')].find((button) => button.textContent?.trim() === 'Recorriger');
+    const action = container.querySelector<HTMLButtonElement>('button[aria-label="Recorriger"]');
     expect(action).toBeDefined();
     await act(async () => action?.click());
     expect(onRetryJob).toHaveBeenCalledWith('review-copy');
