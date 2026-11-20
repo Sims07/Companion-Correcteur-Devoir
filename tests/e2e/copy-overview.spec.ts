@@ -234,7 +234,7 @@ test('teacher verifies a flagged criterion, validates the copy and lands on the 
   await expect(adjustment).not.toHaveAttribute('open', '');
   await adjustment.locator('summary').click();
   await flaggedCard.getByLabel('Votre note').fill('7');
-  await expect(flaggedCard.getByText('7 / 8')).toBeVisible();
+  await expect(flaggedCard.locator('.review-card-result > strong')).toHaveText('7 / 8');
   await flaggedCard.getByRole('button', { name: 'Confirmer la note' }).click();
   await expect(flaggedCard).toHaveCount(0);
   await expect(page.locator('.copy-review-validation-bar')).toContainText('2 critères à examiner');
