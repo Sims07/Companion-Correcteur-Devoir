@@ -5721,14 +5721,21 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
               {!item.scientificDiagramElements && <p>{item.rationale}</p>}
             </details>}
             {scientificDiagramAnalysis?.diagrams.some((diagram) => diagram.criteria.some((result) => result.criterionId === item.criterionId)) && <details className="scientific-diagram-criterion-details"><summary>Analyse du schéma scientifique · {scientificDiagramAnalysis.diagrams.filter((diagram) => diagram.criteria.some((result) => result.criterionId === item.criterionId)).length} résultat(s)</summary>{scientificDiagramAnalysis.diagrams.filter((diagram) => diagram.criteria.some((result) => result.criterionId === item.criterionId)).map((diagram) => { const result = diagram.criteria.find((entry) => entry.criterionId === item.criterionId)!; return <article key={diagram.id}><strong>{diagram.diagramType || 'Schéma'} · page {diagram.pageNumber}</strong><p>{diagram.summary}</p><p>{result.evidence}</p><small>Confiance indicative : {Math.round(result.confidence * 100)} %{result.requiresTeacherReview ? ' · Vérification requise' : ''}</small>{diagram.uncertainties.map((uncertainty, index) => <p className="review-alert review-alert-warning" key={index}>{uncertainty}</p>)}</article>; })}{scientificDiagramAnalysis.overallUncertainties.map((uncertainty, index) => <p className="review-alert review-alert-warning" key={index}>{uncertainty}</p>)}</details>}
-            {isFlagged && !isAnalyzing && !isFinalized && item.assessmentStatus !== 'not-evaluated' && <Button variant="secondary" onClick={() => confirmReview(item)}>Confirmer la note</Button>}
-            <details className="review-quick-edit">
-              <summary className="secondary-button">Ajuster la note ou ajouter un commentaire</summary>
-              <div className="review-controls">
-              <label><span className="field-label">Votre note</span><input type="number" min={Math.min(0, criterion?.maxPoints ?? 0)} max={Math.max(0, criterion?.maxPoints ?? 0)} step="0.01" value={item.assessmentStatus === 'not-evaluated' ? '' : item.teacherPoints} placeholder={item.assessmentStatus === 'not-evaluated' ? 'À attribuer' : undefined} onChange={(event) => { if (event.target.value.trim()) updateReview(item.criterionId, { teacherPoints: normalizeGradeScore(Number(event.target.value)), decision: 'adjusted', reviewedByTeacher: false }); }} /></label>
-              <label className="comment-field"><span className="field-label">Commentaire enseignant</span><input value={item.teacherComment} onChange={(event) => updateReview(item.criterionId, { teacherComment: event.target.value })} placeholder="Précision ou correction éventuelle" /></label>
-              </div>
-            </details>
+            <div className="review-decision-actions" role="group" aria-label={`Décision du professeur pour ${criterion.title}`}>
+              <details className="review-quick-edit">
+                <summary className="review-edit-toggle">
+                  Modifier la note ou ajouter un commentaire
+                  {item.teacherComment.trim() && <span className="review-edit-comment-indicator">Commentaire renseigné</span>}
+                </summary>
+                <div className="review-controls">
+                  <label><span className="field-label">Votre note</span><input type="number" min={Math.min(0, criterion?.maxPoints ?? 0)} max={Math.max(0, criterion?.maxPoints ?? 0)} step="0.01" value={item.assessmentStatus === 'not-evaluated' ? '' : item.teacherPoints} placeholder={item.assessmentStatus === 'not-evaluated' ? 'À attribuer' : undefined} onChange={(event) => { if (event.target.value.trim()) updateReview(item.criterionId, { teacherPoints: normalizeGradeScore(Number(event.target.value)), decision: 'adjusted', reviewedByTeacher: false }); }} /></label>
+                  <label className="comment-field"><span className="field-label">Commentaire enseignant</span><input value={item.teacherComment} onChange={(event) => updateReview(item.criterionId, { teacherComment: event.target.value })} placeholder="Précision ou correction éventuelle" /></label>
+                </div>
+              </details>
+              {isFlagged && !isAnalyzing && !isFinalized && item.assessmentStatus !== 'not-evaluated' && <div className="review-confirmation-action">
+                <Button variant="secondary" onClick={() => confirmReview(item)}>{item.teacherComment.trim() ? 'Confirmer la note et le commentaire' : 'Confirmer la note'}</Button>
+              </div>}
+            </div>
           </article>;
         })}
         {isFinalized && <div className="panel finalized-next-actions"><div><span className="eyebrow">COPIE ARCHIVÉE</span><h3>Correction enregistrée</h3><p>Vous pouvez la consulter plus tard ou passer à la copie d’un autre étudiant sans perdre ce résultat.</p></div><div><button type="button" className="primary-button" disabled={Boolean(regradingCorrectionId)} onClick={() => { const correction = archivedCorrections.find((item) => item.id === currentCorrectionId); if (correction) void regradeArchivedCorrection(correction); }}>Recorriger la copie</button><button type="button" className="secondary-button" onClick={() => startNextCopy()}>Corriger une autre copie</button><button type="button" className="secondary-button" onClick={() => { setCopyOverviewFilter('completed'); setCopyOverviewFilterTouched(true); setTeacherStep('overview'); setShowAiSettings(false); }}>Voir les copies corrigées</button></div></div>}
