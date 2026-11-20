@@ -6,15 +6,28 @@ const meta = {
   component: TeacherReviewAlert,
   tags: ['autodocs'],
   args: {
-    reasons: ['Point retiré', 'Confiance à vérifier'],
-    rationale: 'Le mécanisme de séparation des chromatides n’est pas expliqué. Une réponse plus longue a été produite par le modèle, mais le professeur ne la lit que sur demande.',
-    questionForTeacher: 'Le terme manuscrit correspond-il bien à anaphase ?',
-    annotationSuggestion: 'Précise le rôle du fuseau mitotique lors de l’anaphase.',
-    pageNumber: 1,
-    onShowEvidence: () => undefined,
+    reasons: ['Point retiré', 'Confiance à vérifier', 'Question pour vous'],
+    rationale: '',
+    evidence: 'La télophase est représentée, mais l’interphase est absente.',
+    questionForTeacher: 'L’interphase n’est pas représentée parmi les 4 panneaux.',
+    annotationSuggestion: 'Vérifier la présence de l’interphase.',
   },
 } satisfies Meta<typeof TeacherReviewAlert>;
 export default meta;
 type Story = StoryObj<typeof meta>;
-export const PointRetire: Story = {};
-export const SansQuestion: Story = { args: { questionForTeacher: null, annotationSuggestion: null } };
+
+export const VerificationCiblee: Story = {};
+export const IncertitudeSansQuestion: Story = {
+  args: {
+    reasons: ['Confiance à vérifier'],
+    rationale: 'Le terme manuscrit est difficile à distinguer.',
+    questionForTeacher: null, annotationSuggestion: null,
+  },
+};
+export const SousCritereDejaSignale: Story = {
+  args: {
+    reasons: ['Non évalué'],
+    questionForTeacher: 'L’interphase est-elle présente ?',
+    hasPendingSubcriteria: true, annotationSuggestion: null,
+  },
+};

@@ -58,4 +58,37 @@ describe('alerte de revue enseignant', () => {
     await act(async () => container.querySelector<HTMLButtonElement>('.teacher-review-alert-actions button')?.click());
     expect(onShowEvidence).toHaveBeenCalledOnce();
   });
+  it('remplace les badges techniques et la justification vide par une seule vérification', async () => {
+    const container = document.createElement('div'); document.body.append(container); containers.push(container);
+    const root = createRoot(container); roots.push(root);
+    await act(async () => root.render(createElement(TeacherReviewAlert, {
+      reasons: ['Point retiré', 'Confiance à vérifier', 'Question pour vous'],
+      rationale: '  ',
+      evidence: 'Pas d’interphase visible.',
+      questionForTeacher: 'L’interphase n’est pas représentée parmi les 4 panneaux.',
+    })));
+    expect(container.querySelectorAll('.teacher-review-attention')).toHaveLength(1);
+    expect(container.textContent).toContain('À confirmer sur la copie');
+    expect(container.textContent).toContain('L’interphase n’est pas représentée parmi les 4 panneaux.');
+    expect(container.textContent).not.toContain('Justification non fournie');
+    expect(container.textContent).not.toContain('Question pour vous');
+    expect(container.textContent).not.toContain('Confiance à vérifier');
+    expect(container.textContent).not.toContain('Point retiré');
+    expect(container.querySelectorAll('.teacher-review-attention p')).toHaveLength(1);
+  });
+
+  it('ne duplique ni une question de sous-critère ni une preuve déjà visible', async () => {
+    const container = document.createElement('div'); document.body.append(container); containers.push(container);
+    const root = createRoot(container); roots.push(root);
+    await act(async () => root.render(createElement(TeacherReviewAlert, {
+      reasons: ['Non évalué'],
+      rationale: 'Interphase absente.',
+      evidence: 'Interphase absente.',
+      questionForTeacher: 'L’interphase est-elle visible ?',
+      hasPendingSubcriteria: true,
+    })));
+    expect(container.textContent).toBe('');
+    expect(container.querySelector('.teacher-review-attention')).toBeNull();
+  });
+
 });

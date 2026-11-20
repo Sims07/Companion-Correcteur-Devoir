@@ -5673,9 +5673,10 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
             {isFlagged && <TeacherReviewAlert
               reasons={alertReasons}
               rationale={item.rationale}
-              questionForTeacher={item.subcriteria?.some((entry) => entry.assessmentStatus === 'not-evaluated') ? undefined : item.questionForTeacher}
+              evidence={item.evidence}
+              questionForTeacher={item.questionForTeacher}
+              hasPendingSubcriteria={item.subcriteria?.some((entry) => entry.assessmentStatus === 'not-evaluated')}
               annotationSuggestion={item.annotationSuggestion}
-              onShowEvidence={undefined}
             />}
             <details className="review-explanation" open={!isFlagged && (item.subcriteria?.some((sub) => sub.assessmentStatus === 'not-evaluated' || sub.verificationSource === 'teacher') || undefined)}>
               <summary>{isFlagged ? 'Compléments de l’analyse IA' : 'Voir la preuve et la justification détaillées'}</summary>

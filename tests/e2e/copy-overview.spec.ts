@@ -224,7 +224,8 @@ test('teacher verifies a flagged criterion, validates the copy and lands on the 
   await expect(studentName).toHaveText('Copie récente');
 
   const flaggedCard = page.locator('.review-card').filter({ has: page.getByRole('heading', { name: 'Connaissances scientifiques' }) });
-  await expect(flaggedCard.getByText('Point retiré', { exact: true })).toBeVisible();
+  await expect(flaggedCard.locator('.review-evidence-removed')).toContainText('Points retirés');
+  await expect(flaggedCard.getByText('Point retiré', { exact: true })).toHaveCount(0);
   await flaggedCard.focus();
   await page.keyboard.press('ArrowDown');
   await expect(page.locator('.review-card').nth(1)).toBeFocused();
