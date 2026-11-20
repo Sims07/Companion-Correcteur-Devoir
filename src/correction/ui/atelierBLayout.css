@@ -374,19 +374,49 @@
   margin-top: 12px;
   gap: 12px;
 }
+/* Keep progress near the criteria; the final total lives only in the sticky validation bar. */
 .teacher-flow-shell .review-score-summary {
-  order: 20;
+  order: 0;
   position: static;
-  margin-top: 6px;
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding: 12px 14px;
   border: 1px solid var(--ds-color-border);
-  border-radius: 3px;
+  border-radius: var(--ds-radius-sm);
   background: var(--ds-color-brand-100);
   box-shadow: none;
 }
-.teacher-flow-shell .review-safe-summary-row { order: 15; }
+.teacher-flow-shell .review-score-summary > span { font-variant-numeric: tabular-nums; }
+.teacher-flow-shell .review-score-summary > small { color: var(--ds-color-text-muted); }
+.teacher-flow-shell .review-analysis-summary {
+  margin: 0;
+  padding: 10px 13px;
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-sm);
+  background: var(--ds-color-surface);
+}
+.teacher-flow-shell .review-analysis-summary > summary {
+  color: var(--ds-color-text);
+  font-size: 12px;
+  font-weight: 700;
+}
+.teacher-flow-shell .review-analysis-summary > p {
+  margin: 0;
+  color: var(--ds-color-text-muted);
+  line-height: 1.5;
+}
+.teacher-flow-shell .review-safe-summary-row { order: 0; }
+/* A true last item: no negative margins and no summary rendered under the sticky footer. */
 .teacher-flow-shell .copy-review-validation-bar {
-  border-color: var(--ds-color-border);
-  background: var(--ds-color-brand-100);
+  order: 30;
+  bottom: 12px;
+  margin: 12px 0 0;
+  padding: 12px 15px;
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-sm);
+  background: var(--ds-color-surface);
+  box-shadow: 0 3px 14px rgb(70 41 26 / 9%);
 }
 /* Atelier B reference: a quiet, single-row reading header, never a bordered card. */
 .teacher-flow-shell .copy-review-header {

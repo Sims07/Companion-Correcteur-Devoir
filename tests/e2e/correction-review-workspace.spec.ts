@@ -151,10 +151,20 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await expect(page.getByRole('button', { name: 'Ignorer' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Correction validée' }).first()).toBeVisible();
   await expect(page.locator('.copy-review-validation-bar')).toBeVisible();
+  await expect(page.locator('.copy-review-validation-bar > div > span')).toHaveText('Note validée');
   await expect(page.getByRole('complementary', { name: 'Copie de l’étudiant' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Rôle de la membrane' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Transport membranaire' })).toBeVisible();
   const flaggedCard = page.locator('.review-card').filter({ has: page.getByRole('heading', { name: 'Rôle de la membrane' }) });
+  // The proposed total belongs to the persistent validation bar, never to a second card below it.
+  await expect(page.locator('.review-score-summary')).toHaveCount(0);
+  await expect(page.locator('.review-analysis-summary')).toBeVisible();
+  await expect(page.locator('.review-analysis-summary > summary')).toHaveText('Synthèse de l’analyse IA');
+  const analysisBox = await page.locator('.review-analysis-summary').boundingBox();
+  const firstCriterionBox = await flaggedCard.boundingBox();
+  expect(analysisBox).not.toBeNull();
+  expect(firstCriterionBox).not.toBeNull();
+  expect(analysisBox!.y + analysisBox!.height).toBeLessThanOrEqual(firstCriterionBox!.y);
   await expect(page.locator('.review-source-pane')).toBeInViewport();
   await expect(flaggedCard.getByText('Expliquer la barrière sélective.', { exact: false }).first()).toBeVisible();
   await expect(flaggedCard.locator('.review-result-status')).toHaveText('À examiner');
@@ -225,6 +235,16 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await gradeAdjustment.locator('summary').click();
   await expect(gradeAdjustment.getByText('Votre note')).toBeVisible();
   await gradeAdjustment.locator('summary').click();
+  // At the end of the document the footer rejoins normal flow, after export and questions.
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  const bottomLayout = await page.evaluate(() => {
+    const questions = document.querySelector('.review-extra-tools')!.getBoundingClientRect();
+    const footerElement = document.querySelector<HTMLElement>('.copy-review-validation-bar')!;
+    const footer = footerElement.getBoundingClientRect();
+    return { questionsBottom: questions.bottom, footerTop: footer.top, footerBottom: footer.bottom, position: getComputedStyle(footerElement).position };
+  });
+  expect(bottomLayout.position).toBe('sticky');
+  expect(bottomLayout.footerTop).toBeGreaterThanOrEqual(bottomLayout.questionsBottom - 1);
   await page.screenshot({ path: testInfo.outputPath('atelier-b-review-desktop.png'), fullPage: true, animations: 'disabled' });
 
   await page.setViewportSize({ width: 390, height: 844 });

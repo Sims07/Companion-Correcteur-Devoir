@@ -31,7 +31,8 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).not.toContain('Tout confirmer');
     expect(text).toContain('<TeacherReviewAlert');
     expect(text).not.toContain('review-focus-overview');
-    expect(text).toContain('Voir la synthèse de l’analyse');
+    expect(text).toContain('Synthèse de l’analyse IA');
+    expect(text).toContain('className="review-summary-details review-analysis-summary"');
     expect(text).not.toContain('Vérifications prioritaires');
     expect(text).not.toContain('reviewInsights.flaggedCriteriaIds.length');
     expect(text).not.toContain('<p>{proposal?.summary ??');
