@@ -32,11 +32,12 @@ const failed: BackgroundJobSummary = {
   error: 'Le modèle local n’a pas répondu',
 };
 
-type Mode = 'ensemble' | 'en-cours' | 'a-verifier';
+type Mode = 'ensemble' | 'en-cours' | 'a-verifier' | 'une-copie';
 const mockSets: Record<Mode, BackgroundJobSummary[]> = {
   ensemble: [pending, running, ready, failed],
   'en-cours': [pending, running],
   'a-verifier': [ready, failed],
+  'une-copie': [ready],
 };
 
 function SuiviFictif({ mode }: { mode: Mode }) {
@@ -93,3 +94,4 @@ type Story = StoryObj<typeof meta>;
 export const EnsembleDesEtats: Story = {};
 export const CorrectionEnCours: Story = { args: { mode: 'en-cours' } };
 export const VerificationEtRelance: Story = { args: { mode: 'a-verifier' } };
+export const FicheCopieAValider: Story = { args: { mode: 'une-copie' } };
