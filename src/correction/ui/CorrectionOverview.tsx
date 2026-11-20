@@ -1,4 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react';
+import { Button } from '../../shared/ui/design-system/components/Button.tsx';
 import type { BackgroundJobSummary } from '../domain/backgroundCorrection.ts';
 import type { LocalCorrection } from '../domain/localCorrection.ts';
 import { sumGradeScores } from '../../shared/domain/scorePrecision.ts';
@@ -91,7 +92,7 @@ function jobMessage(job: BackgroundJobSummary, status: CopyOverviewStatus): stri
       : `Correction · ${job.progress.completedCriteria}/${job.progress.totalCriteria} critères évalués`;
   if (status === 'to-do') return job.error?.startsWith('Correction interrompue par l’enseignant') ? 'Interrompue à votre demande. La copie est conservée.' : 'En attente de correction';
   if (job.status === 'needs-review') return 'Des éléments restent à vérifier avant de poursuivre';
-  return 'Proposition prête à vérifier';
+  return ''; // The « À vérifier » status already explains that a complete proposal is available.
 }
 
 export function CorrectionOverview({ children, jobs, corrections, currentCopy, filter, onFilterChange, onAddCopy, addCopyExpanded, pendingCount, isStartingCorrections, isStoppingCorrections, onStopCorrections, onStartCorrections, onOpenJob, onRetryJob, onRemoveJob, notice, onOpenCorrection, onRegradeCorrection, regradingCorrectionId, onOpenCurrentCopy, onReviewNextCopy }: Props) {
@@ -187,7 +188,7 @@ export function CorrectionOverview({ children, jobs, corrections, currentCopy, f
       <div><strong>{counts.toRetry}</strong><span>À reprendre</span></div>
       <div><strong>{counts.completed}</strong><span>Corrigées</span></div>
     </div>
-    {latestCorrection && <div className="copy-overview-latest" aria-label="Dernière correction disponible">
+    {latestCorrection && !(visibleItems.length === 1 && visibleItems[0].id === latestCorrection.id) && <div className="copy-overview-latest" aria-label="Dernière correction disponible">
       <div className="copy-overview-latest-details">
         <span className="eyebrow">DERNIÈRE CORRECTION</span>
         <strong>{latestCorrection.label}</strong>
@@ -235,17 +236,19 @@ export function CorrectionOverview({ children, jobs, corrections, currentCopy, f
               </div>
               {item.message && <p className={item.status === 'to-retry' ? 'copy-overview-error' : 'copy-overview-message'}>{item.message}</p>}
             </div>
-            <div className="correction-series-actions">
+            <div className="correction-series-actions ds-action-group">
               {item.kind === 'job' && item.job && <>
-                {item.status === 'to-retry' && <button type="button" className="primary-button" onClick={() => onRetryJob(item.job!.id)}>Relancer</button>}
-                {item.status === 'to-review' && <button type="button" className="primary-button" onClick={() => onRetryJob(item.job!.id)}>Recorriger</button>}{item.status === 'to-do' && item.job.error?.startsWith('Correction interrompue par l’enseignant') && <button type="button" className="primary-button" onClick={onStartCorrections}>Reprendre les corrections</button>}
-                <button type="button" className="secondary-button correction-series-view" onClick={() => onOpenJob(item.job!.id)}>Ouvrir</button>
-                {item.status !== 'processing' && <button type="button" className="text-button correction-series-remove" aria-label={`Retirer la copie « ${item.label} »`} onClick={() => onRemoveJob(item.id)}>Retirer</button>}
+                {item.status === 'to-retry' && <Button variant="primary" onClick={() => onRetryJob(item.job!.id)}>Relancer</Button>}
+                {item.status === 'to-review' && <Button variant="primary" className="correction-series-view" onClick={() => onOpenJob(item.job!.id)}>Vérifier la copie</Button>}
+                {item.status === 'to-do' && item.job.error?.startsWith('Correction interrompue par l’enseignant') && <Button variant="primary" onClick={onStartCorrections}>Reprendre les corrections</Button>}
+                {item.status !== 'to-review' && <Button variant={item.status === 'to-retry' || (item.status === 'to-do' && item.job.error?.startsWith('Correction interrompue par l’enseignant')) ? 'secondary' : 'primary'} className="correction-series-view" onClick={() => onOpenJob(item.job!.id)}>Ouvrir</Button>}
+                {item.status === 'to-review' && <Button variant="secondary" onClick={() => onRetryJob(item.job!.id)}>Recorriger</Button>}
+                {item.status !== 'processing' && <Button variant="danger" className="correction-series-remove" aria-label={`Retirer la copie « ${item.label} »`} onClick={() => onRemoveJob(item.id)}>Retirer</Button>}
               </>}
-              {item.kind === 'current' && <button type="button" className="secondary-button correction-series-view" onClick={onOpenCurrentCopy}>Reprendre la copie</button>}
+              {item.kind === 'current' && <Button variant="primary" className="correction-series-view" onClick={onOpenCurrentCopy}>Reprendre la copie</Button>}
               {item.kind === 'correction' && item.correction && <>
-                <button type="button" className="secondary-button correction-series-view" onClick={() => onOpenCorrection(item.correction!)}>Consulter la correction <span aria-hidden="true">→</span></button>
-                <button type="button" className="primary-button" disabled={Boolean(regradingCorrectionId)} onClick={() => onRegradeCorrection(item.correction!)}>{regradingCorrectionId === item.id ? 'Préparation…' : 'Recorriger'}</button>
+                <Button variant="primary" className="correction-series-view" onClick={() => onOpenCorrection(item.correction!)}>Consulter la correction <span aria-hidden="true">→</span></Button>
+                <Button variant="secondary" disabled={Boolean(regradingCorrectionId)} onClick={() => onRegradeCorrection(item.correction!)}>{regradingCorrectionId === item.id ? 'Préparation…' : 'Recorriger'}</Button>
               </>}
             </div>
           </div>
