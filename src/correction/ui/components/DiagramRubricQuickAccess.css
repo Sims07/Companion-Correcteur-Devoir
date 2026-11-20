@@ -1,0 +1,44 @@
+/* A compact rubric reference for the copy-review workflow (DS buttons and modal). */
+.diagram-rubric-quick-access {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-3);
+  min-width: 0;
+  margin: var(--ds-space-2) 0;
+  padding: var(--ds-space-3) var(--ds-space-4);
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-surface);
+}
+.diagram-rubric-quick-heading, .diagram-rubric-quick-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ds-space-3);
+  min-width: 0;
+}
+.diagram-rubric-quick-heading strong { font-size: .86rem; }
+.diagram-rubric-quick-icon { color: var(--ds-color-brand-700); font-size: 1.1rem; }
+.diagram-rubric-quick-points { color: var(--ds-color-text-muted); font-size: .8rem; white-space: nowrap; }
+.diagram-rubric-quick-actions .ds-button { min-height: 44px; padding: 8px 13px; }
+.diagram-rubric-quick-issue { flex-basis: 100%; margin: 0; color: var(--ds-color-text-muted); font-size: .82rem; }
+.diagram-rubric-readonly-caption { color: var(--ds-color-text-muted); font-size: .86rem; }
+.diagram-rubric-quick-criteria { display: grid; gap: var(--ds-space-4); margin: 0; padding-left: 22px; }
+.diagram-rubric-quick-criteria > li { padding: 0 0 var(--ds-space-3); border-bottom: 1px solid var(--ds-color-border); }
+.diagram-rubric-quick-criteria > li:last-child { border: 0; padding-bottom: 0; }
+.diagram-rubric-quick-criterion-heading { display: flex; justify-content: space-between; gap: var(--ds-space-3); }
+.diagram-rubric-quick-criterion-heading > span { white-space: nowrap; font-weight: 700; }
+.diagram-rubric-quick-criteria p, .diagram-rubric-quick-criteria small { color: var(--ds-color-text-muted); }
+.diagram-rubric-quick-criteria p { margin: var(--ds-space-1) 0; font-size: .83rem; }
+.diagram-rubric-quick-subcriteria, .diagram-rubric-quick-expectations { padding-left: var(--ds-space-3); margin: var(--ds-space-2) 0 0; }
+.diagram-rubric-quick-subcriteria { list-style: none; display: grid; gap: var(--ds-space-2); }
+.diagram-rubric-quick-subcriteria li { display: flex; justify-content: space-between; align-items: baseline; gap: var(--ds-space-3); font-size: .82rem; }
+.diagram-rubric-quick-subcriteria li > span:first-child { display: grid; gap: 2px; }
+.diagram-rubric-quick-subcriteria li > span:last-child { white-space: nowrap; }
+.diagram-rubric-quick-expectations { font-size: .82rem; }
+@media (max-width: 650px) {
+  .diagram-rubric-quick-heading, .diagram-rubric-quick-actions { width: 100%; }
+  .diagram-rubric-quick-actions .ds-button { flex: 1 1 auto; }
+}

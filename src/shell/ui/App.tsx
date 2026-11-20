@@ -90,7 +90,7 @@ import { radarEvaluationOutcome, RADAR_TEST_PROTOCOL_NAMES } from '../../evaluat
 import { shouldRetryInvalidDiagramRecord } from '../../evaluation/domain/diagramRunRecovery.ts';
 import type { DiagramLabArchiveRepository } from '../../evaluation/ports/diagramLabArchiveRepository.ts';
 import { initialAssignmentRubric, type AssignmentKind } from '../../correction/domain/assignmentKind.ts';
-import { buildDiagramReview } from '../../correction/domain/diagramTeacherReview.ts';
+import { DiagramRubricQuickAccess } from '../../correction/ui/components/DiagramRubricQuickAccess.tsx';
 import { correctScientificDiagramDirect, directDiagramAssignmentIssue } from '../../correction/application/directScientificDiagramCorrection.ts';
 import { SCIENTIFIC_DIAGRAM_PROTOCOL_ID, buildScientificDiagramProtocolReport, diagramMethodIssue, diagramMethodLabels, selectDiagramMethods, usesDirectDiagramVision, type DiagramMethod, type DiagramMethodSelection, type DiagramProtocolCount } from '../../evaluation/domain/scientificDiagramProtocol.ts';
 import { SCIENTIFIC_DIAGRAM_FIXTURE_CONTEXT, SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC, buildScientificDiagramFixtureReport, type ScientificDiagramFixtureId, type ScientificDiagramFixtureRun } from '../../evaluation/domain/scientificDiagramFixtures.ts';
@@ -4310,20 +4310,13 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
                 </p>
               : null
       )}
-      {interfaceMode === 'teacher' && isScientificDiagramAssignment && !showAiSettings && <section
-        className="panel diagram-assignment-context" aria-label="Devoir de schéma scientifique">
-        <div><p className="eyebrow">DEVOIR · SCHÉMA SCIENTIFIQUE</p>
-          <strong>Correction directe du dessin, sans transcription OCR</strong>
-          <p>Les copies de ce devoir suivent les mêmes états et la même vérification que vos autres devoirs.</p>
-        </div>
-        <details><summary>Voir le barème graphique · {validation.maximumPoints} points</summary>
-          <ol>{buildDiagramReview(rubric, null).items.map((item) => <li key={item.id}><strong>{item.title} · {item.maxPoints} pt</strong>
-            <small className="diagram-assignment-cumulative">Barème cumulé : {item.cumulativeMaximum} / {validation.maximumPoints} pts</small>
-            <ul>{item.subcriteria.map((sub) => <li key={sub.id}>{sub.title} · {sub.maxPoints} pt</li>)}</ul>
-          </li>)}</ol>
-        </details>
-        {diagramIssue && <p className="hint" role="status">{diagramIssue}</p>}
-      </section>}
+      {interfaceMode === 'teacher' && isScientificDiagramAssignment && teacherStep !== 'rubric' && teacherStep !== 'details' && !showAiSettings && <DiagramRubricQuickAccess
+        rubric={rubric}
+        maximumPoints={validation.maximumPoints}
+        issue={diagramIssue}
+        editDisabled={isAnalyzing}
+        onEdit={() => { restoreCurrentAssignmentSettings(); setShowAiSettings(false); setTeacherStep('rubric'); }}
+      />}
       {interfaceMode === 'teacher' && showAiSettings && <section id="teacher-ai-settings-panel" className={`panel ollama-panel teacher-model-panel ai-settings-view ${gradingModelsReady ? 'setup-complete' : 'setup-needed'}`} aria-labelledby="teacher-model-title">
         <div className="workspace-heading"><div><p className="eyebrow">CONFIGURATION DE L’IA</p><h2 id="teacher-model-title">Paramètres IA</h2></div></div>
         <p className="settings-intro">Configurez les modèles utilisés par le parcours de correction.</p>
@@ -4974,6 +4967,11 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
       </details>}
 
       {interfaceMode === 'teacher' && teacherStep === 'rubric' && <>
+        {copyNavigation.copies.length > 0 && <section className="rubric-existing-copies-warning" role="note" aria-label="Conséquences des modifications du barème">
+          <div><strong>Des copies sont déjà enregistrées pour ce devoir.</strong>
+            <p>Le barème des copies en cours ou déjà corrigées ne change pas automatiquement. Pour appliquer les nouvelles règles, retournez au suivi et recorrigez les copies concernées.</p></div>
+          <Button variant="secondary" onClick={() => { setCopyOverviewFilter('all'); setCopyOverviewFilterTouched(true); setTeacherStep('overview'); }}>Retourner au suivi des copies</Button>
+        </section>}
         <details className="assignment-details-collapsible">
           <summary><span><strong>Devoir</strong><small>{validation.maximumPoints} points · {rubric.criteria.length} critères</small></span><span className="assignment-details-edit">Modifier</span></summary>
         <section className="panel assignment-details-panel" aria-labelledby="assignment-details-title">

@@ -59,7 +59,7 @@ export function TeacherWorkspaceNavigation({
   const activeCopy = copies.find((copy) => copy.id === activeCopyId);
   const breadcrumbCurrent = showCopyRail
     ? (activeCopy?.label.trim() || studentLabel.trim() || 'Vérification de la copie')
-    : activeSection === 'rubric' ? 'Barème' : 'Copies';
+    : activeSection === 'rubric' ? 'Barème et consignes' : 'Copies';
 
   return (
     <>
@@ -75,7 +75,7 @@ export function TeacherWorkspaceNavigation({
           <span className="eyebrow">MON DEVOIR</span>
           <div className="atelier-sidebar-tabs" role="tablist" aria-label="Sections du devoir">
             <button type="button" role="tab" aria-label="Barème" aria-selected={activeSection === 'rubric'} className={activeSection === 'rubric' ? 'is-active' : ''} onClick={onSelectRubric} disabled={isAnalyzing}>
-              <span className="atelier-sidebar-tab-icon" aria-hidden="true">✓</span> Préparer le barème
+              <span className="atelier-sidebar-tab-icon" aria-hidden="true">✓</span> Barème et consignes
             </button>
             <button type="button" role="tab" aria-label="Copies" aria-selected={activeSection === 'copies'} className={activeSection === 'copies' ? 'is-active' : ''} onClick={onSelectCopies} disabled={isAnalyzing}>
               <span className="atelier-sidebar-tab-icon" aria-hidden="true">▤</span> Suivre les copies
