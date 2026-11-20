@@ -109,7 +109,8 @@ describe('Diagnostic IA — comparaison graphique des essais conservés', () => 
 
 describe('Évaluation des modèles — navigation par espace', () => {
   it('provides task-centered views without misleading numbered steps', () => {
-    expect(appSource).toContain("useState<'configuration' | 'execution' | 'results' | 'history' | 'dashboard' | 'campaigns'>('dashboard')");
+    expect(appSource).toContain("useState<'configuration' | 'execution' | 'results' | 'history' | 'dashboard' | 'campaigns'>(");
+    expect(appSource).toContain("return page?.kind === 'evaluation' ? page.step : 'dashboard'");
     expect(appSource).toContain('Espaces de l’évaluation');
     expect(appSource).toContain('<strong>Campagnes</strong>');
     expect(appSource).toContain('aria-label="Espaces de l’évaluation"');
