@@ -3190,6 +3190,15 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     });
   }
 
+  function confirmReview(item: ReviewedCriterion) {
+    updateReview(item.criterionId, { decision: item.decision === 'adjusted' ? 'adjusted' : 'accepted', reviewedByTeacher: true });
+    requestAnimationFrame(() => {
+      const next = document.querySelector<HTMLElement>('.review-card.is-flagged')
+        ?? document.querySelector<HTMLElement>('.copy-review-validation-bar button');
+      next?.focus();
+    });
+  }
+
   function updateReview(id: string, patch: Partial<ReviewedCriterion>) {
     setIsFinalized(false);
     setReviewMessage('');
@@ -5589,7 +5598,8 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
               const criterionId = target.dataset.criterionId;
               if (criterionId) {
                 event.preventDefault();
-                if (review.find((item) => item.criterionId === criterionId)?.assessmentStatus !== 'not-evaluated') updateReview(criterionId, { decision: review.find((item) => item.criterionId === criterionId)?.decision === 'adjusted' ? 'adjusted' : 'accepted', reviewedByTeacher: true });
+                const item = review.find((entry) => entry.criterionId === criterionId);
+                if (item && item.assessmentStatus !== 'not-evaluated') confirmReview(item);
               }
             }
           }}>
@@ -5692,7 +5702,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
               {!item.scientificDiagramElements && <p>{item.rationale}</p>}
             </details>}
             {scientificDiagramAnalysis?.diagrams.some((diagram) => diagram.criteria.some((result) => result.criterionId === item.criterionId)) && <details className="scientific-diagram-criterion-details"><summary>Analyse du schéma scientifique · {scientificDiagramAnalysis.diagrams.filter((diagram) => diagram.criteria.some((result) => result.criterionId === item.criterionId)).length} résultat(s)</summary>{scientificDiagramAnalysis.diagrams.filter((diagram) => diagram.criteria.some((result) => result.criterionId === item.criterionId)).map((diagram) => { const result = diagram.criteria.find((entry) => entry.criterionId === item.criterionId)!; return <article key={diagram.id}><strong>{diagram.diagramType || 'Schéma'} · page {diagram.pageNumber}</strong><p>{diagram.summary}</p><p>{result.evidence}</p><small>Confiance indicative : {Math.round(result.confidence * 100)} %{result.requiresTeacherReview ? ' · Vérification requise' : ''}</small>{diagram.uncertainties.map((uncertainty, index) => <p className="review-alert review-alert-warning" key={index}>{uncertainty}</p>)}</article>; })}{scientificDiagramAnalysis.overallUncertainties.map((uncertainty, index) => <p className="review-alert review-alert-warning" key={index}>{uncertainty}</p>)}</details>}
-            {isFlagged && !isAnalyzing && !isFinalized && item.assessmentStatus !== 'not-evaluated' && <Button variant="secondary" onClick={() => updateReview(item.criterionId, { decision: item.decision === 'adjusted' ? 'adjusted' : 'accepted', reviewedByTeacher: true })}>Confirmer la note</Button>}
+            {isFlagged && !isAnalyzing && !isFinalized && item.assessmentStatus !== 'not-evaluated' && <Button variant="secondary" onClick={() => confirmReview(item)}>Confirmer la note</Button>}
             <details className="review-quick-edit">
               <summary className="secondary-button">Ajuster la note ou ajouter un commentaire</summary>
               <div className="review-controls">
