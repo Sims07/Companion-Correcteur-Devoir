@@ -1,3 +1,4 @@
+import { CopyActionIcon } from './components/CopyActionIcon.tsx';
 import { useMemo, useState, type ReactNode } from 'react';
 import { Button } from '../../shared/ui/design-system/components/Button.tsx';
 import type { BackgroundJobSummary } from '../domain/backgroundCorrection.ts';
@@ -52,18 +53,6 @@ type OverviewItem = {
   correction?: LocalCorrection;
   message?: string;
 };
-
-type CopyActionIconName = 'open' | 'review' | 'retry' | 'start' | 'remove';
-
-function CopyActionIcon({ name }: { name: CopyActionIconName }) {
-  return <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    {name === 'open' && <><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" /><circle cx="12" cy="12" r="3" /></>}
-    {name === 'review' && <><rect x="5" y="4" width="14" height="17" rx="2" /><path d="M9 4.5h6M8.5 13l2.5 2.5 4.5-5" /></>}
-    {name === 'retry' && <><path d="M20 11a8 8 0 1 0-2 6" /><path d="M20 4v7h-7" /></>}
-    {name === 'start' && <path d="m8 5 11 7-11 7z" />}
-    {name === 'remove' && <path d="M3 6h18M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7m4-7v7" />}
-  </svg>;
-}
 
 const labels: Record<CopyOverviewFilter, string> = {
   all: 'Toutes',
@@ -193,9 +182,9 @@ export function CorrectionOverview({ children, jobs, corrections, currentCopy, f
         <p>Retrouvez les copies en attente, celles à vérifier et les corrections validées.</p>
       </div>
       <div className="copy-overview-primary-actions">
-        {pendingCount > 0 && !processingItem && <button type="button" className="primary-button" onClick={onStartCorrections} disabled={isStartingCorrections}>{isStartingCorrections ? 'Préparation en cours…' : `Démarrer les corrections (${pendingCount})`}</button>}
-        {counts.toReview > 0 && <button type="button" className="primary-button" onClick={onReviewNextCopy}>Vérifier la copie suivante</button>}
-        <button type="button" className="secondary-button" onClick={onAddCopy} aria-expanded={addCopyExpanded} aria-controls="teacher-copy-intake">{addCopyExpanded ? 'Fermer l’ajout' : '＋ Ajouter des copies'}</button>
+        {pendingCount > 0 && !processingItem && <Button variant="primary" onClick={onStartCorrections} disabled={isStartingCorrections}><CopyActionIcon name="start" />{isStartingCorrections ? 'Préparation en cours…' : `Démarrer les corrections (${pendingCount})`}</Button>}
+        {counts.toReview > 0 && <Button variant="primary" onClick={onReviewNextCopy}><CopyActionIcon name="review" />Vérifier la copie suivante</Button>}
+        <Button variant="secondary" onClick={onAddCopy} aria-expanded={addCopyExpanded} aria-controls="teacher-copy-intake"><CopyActionIcon name={addCopyExpanded ? 'close' : 'add'} />{addCopyExpanded ? 'Fermer l’ajout' : 'Ajouter des copies'}</Button>
       </div>
     </header>
     {children}
@@ -212,11 +201,11 @@ export function CorrectionOverview({ children, jobs, corrections, currentCopy, f
         <strong>{latestCorrection.label}</strong>
         <small>{latestCorrection.status === 'completed' ? 'Enregistrée' : 'À vérifier'}{latestCorrection.score === null ? '' : ' · ' + number(latestCorrection.score) + ' / ' + number(latestCorrection.maximumPoints)}</small>
       </div>
-      <button type="button" className="secondary-button" onClick={() => {
+      <Button variant="secondary" onClick={() => {
         if (latestCorrection.kind === 'job' && latestCorrection.job) onOpenJob(latestCorrection.job.id);
         else if (latestCorrection.kind === 'correction' && latestCorrection.correction) onOpenCorrection(latestCorrection.correction);
         else if (latestCorrection.kind === 'current') onOpenCurrentCopy();
-      }}>Voir la dernière correction <span aria-hidden="true">→</span></button>
+      }}>Voir la dernière correction<CopyActionIcon name="next" /></Button>
     </div>}
     {preparingJob && <div className="teacher-copy-live is-preparing" role="status"><div><strong>Préparation : {jobLabel(preparingJob)}</strong><p>Le modèle IA se prépare. La lecture de cette copie commencera ensuite.</p></div><div className="teacher-copy-live-actions"><button type="button" className="secondary-button" onClick={() => onOpenJob(preparingJob.id)}>Voir la copie</button><button type="button" className="context-stop-button" disabled={isStoppingCorrections} onClick={onStopCorrections}>{isStoppingCorrections ? 'Arrêt en cours…' : 'Arrêter'}</button></div></div>}
     {processingItem && <div className="teacher-copy-live" role="status"><div><strong>Copie en cours : {processingItem.label}</strong><p>{processingItem.message}</p></div><div className="teacher-copy-live-actions"><button type="button" className="secondary-button" onClick={() => { if (processingItem.kind === 'job') onOpenJob(processingItem.id); else onOpenCurrentCopy(); }}>Voir la copie</button><button type="button" className="context-stop-button" disabled={isStoppingCorrections} onClick={onStopCorrections}>{isStoppingCorrections ? 'Arrêt en cours…' : 'Arrêter'}</button></div></div>}

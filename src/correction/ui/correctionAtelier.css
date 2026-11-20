@@ -432,33 +432,40 @@
   padding: 0;
   border: 0;
 }
-.copy-overview-grid .correction-series-actions.ds-action-group > .ds-button {
-  flex: 0 0 auto;
-  width: auto;
-  min-width: 44px;
-  min-height: 44px;
-  padding: 0 var(--ds-space-2);
-  gap: var(--ds-space-2);
-  border: 0;
-  border-radius: var(--ds-radius-md);
-  background: transparent;
-  box-shadow: none;
-  color: var(--ds-color-text-muted);
-}
-.copy-overview-grid .correction-series-actions.ds-action-group > .ds-button--primary {
-  color: var(--ds-color-brand-700);
-}
-.copy-overview-grid .correction-series-actions.ds-action-group > .ds-button:is(:hover, :focus-visible):not(:disabled) {
-  background: var(--ds-color-surface-subtle);
-  color: var(--ds-color-text);
-}
-.copy-overview-grid .correction-series-actions.ds-action-group > .ds-button--danger:is(:hover, :focus-visible):not(:disabled) {
-  color: var(--ds-color-danger);
-  background: var(--ds-color-danger-surface);
-}
-.copy-overview-grid .correction-series-actions.ds-action-group > .ds-button:focus-visible {
-  outline: 2px solid var(--ds-color-brand-700);
-  outline-offset: 2px;
+:is(
+  .copy-overview-grid .correction-series-actions.ds-action-group,
+  .diagram-rubric-quick-actions,
+  .copy-overview-primary-actions,
+  .copy-overview-latest
+) {
+  & > .ds-button {
+    flex: 0 0 auto;
+    width: auto;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0 var(--ds-space-2);
+    gap: var(--ds-space-2);
+    border: 0;
+    border-radius: var(--ds-radius-md);
+    background: transparent;
+    box-shadow: none;
+    color: var(--ds-color-text-muted);
+  }
+  & > .ds-button--primary {
+    color: var(--ds-color-brand-700);
+  }
+  & > .ds-button:is(:hover, :focus-visible):not(:disabled) {
+    background: var(--ds-color-surface-subtle);
+    color: var(--ds-color-text);
+  }
+  & > .ds-button--danger:is(:hover, :focus-visible):not(:disabled) {
+    color: var(--ds-color-danger);
+    background: var(--ds-color-danger-surface);
+  }
+  & > .ds-button:focus-visible {
+    outline: 2px solid var(--ds-color-brand-700);
+    outline-offset: 2px;
+  }
 }
 @media (max-width: 1250px) {
   .teacher-flow-shell .copy-overview-grid > li.correction-series-card {

@@ -20,6 +20,7 @@ describe('accès rapide au barème depuis les copies', () => {
     expect(html).toContain('Barème · Schéma scientifique');
     expect(html).toContain('2 points');
     expect(html).toContain('aria-haspopup="dialog"');
+    expect(html.match(/<svg aria-hidden="true"/g)).toHaveLength(2);
     expect(html).toContain('Consulter');
     expect(html).toContain('Modifier le barème');
     expect(html).not.toContain('Sens des flèches');
@@ -30,8 +31,8 @@ describe('accès rapide au barème depuis les copies', () => {
     const html = renderToStaticMarkup(createElement(DiagramRubricQuickAccess, {
       rubric, maximumPoints: 2, onEdit: vi.fn(), editDisabled: true, issue: 'Barème à vérifier',
     }));
-    expect(html).toMatch(/disabled=""[^>]*>Modifier le barème/);
-    expect(html).not.toMatch(/disabled=""[^>]*>Consulter/);
+    expect(html).toMatch(/<button[^>]*disabled=""[^>]*><svg.*?<\/svg>Modifier le barème/);
+    expect(html).not.toMatch(/<button[^>]*disabled=""[^>]*><svg.*?<\/svg>Consulter/);
     expect(html).toContain('role="status"');
     expect(html).toContain('Barème à vérifier');
   });

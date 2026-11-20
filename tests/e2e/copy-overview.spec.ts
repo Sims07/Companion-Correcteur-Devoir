@@ -113,6 +113,13 @@ test('la dernière correction reste accessible après retour au suivi sans réaf
   const latest = page.getByLabel('Dernière correction disponible');
   await expect(latest).toContainText('Correction la plus récente');
   await expect(latest).toContainText('15 / 20');
+  for (const name of ['Vérifier la copie suivante', 'Ajouter des copies', 'Voir la dernière correction']) {
+    const action = page.getByRole('button', { name, exact: true });
+    await expect(action.locator('svg')).toBeVisible();
+    await expect(action).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+    await expect(action).toHaveCSS('box-shadow', 'none');
+    expect((await action.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  }
   await latest.getByRole('button', { name: 'Voir la dernière correction' }).click();
   await expect(page.locator('.copy-review-identity-title h2')).toHaveText('Correction la plus récente');
   await expect(page.locator('.copy-review-header-score')).toContainText('15 / 20');
