@@ -26,6 +26,41 @@ describe('design system foundations', () => {
     expect(controls).toContain('prefers-reduced-motion');
   });
 
+  it('keeps command buttons recognizable across ivory, page and ochre surfaces', () => {
+    const tokens = read('src/shared/ui/design-system/tokens.css');
+    const controls = read('src/shared/ui/design-system/controls.css');
+    const theme = read('src/shared/ui/design-system/application-theme.css');
+    const story = read('src/shared/ui/design-system/components/Button.stories.tsx');
+
+    const hex = (name: string) => {
+      const value = tokens.match(new RegExp(`^\\s*${name}:\\s*(#[0-9a-f]{6});`, 'mi'))?.[1];
+      expect(value, `missing token ${name}`).toBeTruthy();
+      return value!;
+    };
+    const luminance = (color: string) => {
+      const rgb = [1, 3, 5].map((index) => parseInt(color.slice(index, index + 2), 16) / 255);
+      return rgb.map((value) => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4)
+        .reduce((sum, value, index) => sum + value * [0.2126, 0.7152, 0.0722][index], 0);
+    };
+    const contrast = (a: string, b: string) => {
+      const values = [luminance(a), luminance(b)].sort((left, right) => right - left);
+      return (values[0] + 0.05) / (values[1] + 0.05);
+    };
+    const outline = hex('--ds-color-brand-700');
+    const secondary = hex('--ds-color-brand-100');
+    for (const paper of ['--ds-color-surface', '--ds-color-surface-subtle', '--ds-color-brand-100']) {
+      expect(contrast(outline, hex(paper))).toBeGreaterThanOrEqual(3);
+    }
+    expect(contrast(hex('--ds-color-text'), secondary)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(outline, '#ffffff')).toBeGreaterThanOrEqual(4.5);
+    expect(tokens).toContain('--ds-shadow-action');
+    expect(controls).toContain('border: 2px solid transparent');
+    expect(controls).toContain('.ds-button--secondary { border-color: var(--ds-color-brand-700)');
+    expect(theme).toMatch(/\\.secondary-button,\\s*\\.teacher-ai-settings-button \\{[^}]*border: 2px solid var\\(--ds-color-brand-700\\)/s);
+    expect(story).toContain('SurfacesContrastees');
+    expect(story).toContain("Panneau ocre");
+  });
+
   it('shares the exact application CSS cascade with Storybook, including the tools IA', () => {
     const app = read('src/main.tsx');
     const preview = read('.storybook/preview.ts');
