@@ -201,6 +201,31 @@ textarea.ds-textarea {
 .ds-button--secondary:hover:not(:disabled) { background: var(--ds-color-action-secondary-hover); }
 .ds-button--danger { background: var(--ds-color-danger-surface); color: var(--ds-color-danger); border-color: var(--ds-color-danger); }
 
+/* Actions are separate touch targets, not joined button segments.
+   Use on action containers rather than margins on individual buttons. */
+.ds-action-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ds-space-2) var(--ds-space-3);
+}
+.ds-action-group > a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+.ds-button--secondary[aria-pressed="true"] {
+  background: var(--ds-color-brand-700);
+  border-color: var(--ds-color-brand-700);
+  color: #fff;
+}
+.ds-button--secondary[aria-pressed="true"]:hover:not(:disabled) {
+  background: var(--ds-color-brand-600);
+  border-color: var(--ds-color-brand-600);
+  color: #fff;
+}
+
+
 .ds-card {
   min-width: 0;
   border: 1px solid var(--ds-color-border);
