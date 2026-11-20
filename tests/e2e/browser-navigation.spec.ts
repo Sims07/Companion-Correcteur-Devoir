@@ -97,7 +97,7 @@ test('rubric anchors scroll and focus without replacing the addressable teacher 
   await page.goto('/');
   await page.getByRole('button', { name: /Reprendre le devoir/ }).click();
   await page.getByRole('tab', { name: 'Barème' }).click();
-  const expectedRoute = /#\\/devoir\\/assignment-default\\/bareme$/;
+  const expectedRoute = /#\/devoir\/assignment-default\/bareme$/;
   await expect(page).toHaveURL(expectedRoute);
 
   await page.getByRole('link', { name: 'Réutiliser, importer ou exporter' }).click();
