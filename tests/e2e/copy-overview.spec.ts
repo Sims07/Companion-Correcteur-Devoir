@@ -240,7 +240,7 @@ test('a copy without alerts can be validated in one action and advances to the n
   await expect(page.locator('.review-card')).toHaveCount(0);
   await expect(page.locator('.review-safe-summary-row')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Tout confirmer' })).toHaveCount(0);
-  await expect(page.locator('.copy-review-validation-bar')).toContainText('Tous les critères sont notés');
+  await expect(page.locator('.copy-review-validation-bar')).toContainText('Prête à valider');
   const validate = page.getByRole('button', { name: 'Valider et passer à la suivante' }).first();
   await expect(validate).toBeEnabled();
   await validate.click();

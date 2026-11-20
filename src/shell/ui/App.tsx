@@ -1066,9 +1066,9 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
   }, [activeAssignmentId, allBackgroundJobs, archivedCorrectionsForActiveAssignment, copyOverviewFilterTouched, currentBackgroundJobId, images.length, isAnalyzing, isFinalized, proposal]);
 
   const reviewFocus = useMemo(() => getReviewFocus(review, rubric.criteria), [review, rubric.criteria]);
-  const flaggedCriteriaIds = useMemo(() => new Set(reviewFocus.flaggedCriteriaIds), [reviewFocus]);
+  const flaggedCriteriaIds = useMemo(() => new Set(reviewFocus.flaggedCriteriaIds.filter((id) => !review.some((item) => item.criterionId === id && item.reviewedByTeacher && item.assessmentStatus !== 'not-evaluated'))), [reviewFocus, review]);
   const reliableCriteriaCount = reviewFocus.reliableCriteriaIds.length;
-  const shouldFocusExceptions = showOnlyFlagged && review.length === rubric.criteria.length;
+  const shouldFocusExceptions = showOnlyFlagged && flaggedCriteriaIds.size > 0 && review.length === rubric.criteria.length;
   const orderedReviewCriteria = useMemo(() => [
     ...rubric.criteria.filter((criterion) => flaggedCriteriaIds.has(criterion.id)),
     ...rubric.criteria.filter((criterion) => !flaggedCriteriaIds.has(criterion.id)),
@@ -5562,7 +5562,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
                 const pageNumber = index + 1;
                 return <figure id={`review-copy-page-${pageNumber}`} className={focusedEvidencePage === pageNumber ? 'live-copy-page evidence-page-focused' : 'live-copy-page'} key={image.fileName + '-review-' + index}>
                   <div className="evidence-image-stage">
-                    <ZoomableImage src={`data:${image.mimeType};base64,${image.base64}`} alt={`Page de travail ${pageNumber} de la copie`} />
+                    {isScientificDiagramAssignment ? <img src={`data:${image.mimeType};base64,${image.base64}`} alt={`Page de travail ${pageNumber} de la copie`} style={{ maxWidth: '100%' }} /> : <ZoomableImage src={`data:${image.mimeType};base64,${image.base64}`} alt={`Page de travail ${pageNumber} de la copie`} />}
                     {isScientificDiagramAssignment && <Button variant="secondary" className="diagram-review-enlarge" aria-label={`Agrandir la page ${pageNumber} du schéma`} onClick={() => setCopyViewerPage(index)}>Agrandir · Zoom</Button>}
                     <div className="copy-image-rotation-controls review-image-rotation-controls"><button type="button" className="text-button" aria-label={`Réorienter la page ${pageNumber} à gauche de 90 degrés`} disabled={isAnalyzing} onClick={() => { void rotateCopyPage(index, 270); }}>↶ 90°</button><button type="button" className="text-button" aria-label={`Réorienter la page ${pageNumber} à droite de 90 degrés`} disabled={isAnalyzing} onClick={() => { void rotateCopyPage(index, 90); }}>↷ 90°</button></div>
                     {originalImages[pageNumber - 1] && originalImages[pageNumber - 1].base64 !== image.base64 && <details className="original-image-details"><summary>Voir l’image originale non tournée</summary><ZoomableImage src={`data:${originalImages[pageNumber - 1].mimeType};base64,${originalImages[pageNumber - 1].base64}`} alt={`Image originale non modifiée de la page ${pageNumber}`} /></details>}
@@ -5589,7 +5589,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
               const criterionId = target.dataset.criterionId;
               if (criterionId) {
                 event.preventDefault();
-                if (review.find((item) => item.criterionId === criterionId)?.assessmentStatus !== 'not-evaluated') updateReview(criterionId, { decision: 'accepted' });
+                if (review.find((item) => item.criterionId === criterionId)?.assessmentStatus !== 'not-evaluated') updateReview(criterionId, { decision: 'accepted', reviewedByTeacher: true });
               }
             }
           }}>
@@ -5634,9 +5634,10 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
               <div><h3>{criterion.title}</h3><p>Maximum : {criterion?.maxPoints ?? 0} points</p></div>
               <div className="review-card-result">
                 <strong>{item.assessmentStatus === 'not-evaluated' ? 'À évaluer' : item.teacherPoints + ' / ' + (criterion?.maxPoints ?? 0)}</strong>
-                <span className={item.decision === 'accepted' ? 'review-result-status is-confirmed' : flaggedCriteriaIds.has(item.criterionId) ? 'review-result-status needs-review' : 'review-result-status'}>{item.decision === 'accepted' ? 'Confirmé' : flaggedCriteriaIds.has(item.criterionId) ? 'À examiner' : 'Sans alerte'}</span>
+                <span className={item.reviewedByTeacher && !isFlagged ? 'review-result-status is-confirmed' : isFlagged ? 'review-result-status needs-review' : 'review-result-status'}>{isFlagged ? 'À examiner' : item.reviewedByTeacher ? 'Vérifié' : 'Sans alerte'}</span>
               </div>
             </div>
+            {isFlagged && criterion.description && <p><strong>Attendu du barème</strong><br />{criterion.description}</p>}
             {isFlagged && <TeacherReviewAlert
               reasons={alertReasons}
               rationale={item.rationale}
@@ -5691,10 +5692,11 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
               {!item.scientificDiagramElements && <p>{item.rationale}</p>}
             </details>}
             {scientificDiagramAnalysis?.diagrams.some((diagram) => diagram.criteria.some((result) => result.criterionId === item.criterionId)) && <details className="scientific-diagram-criterion-details"><summary>Analyse du schéma scientifique · {scientificDiagramAnalysis.diagrams.filter((diagram) => diagram.criteria.some((result) => result.criterionId === item.criterionId)).length} résultat(s)</summary>{scientificDiagramAnalysis.diagrams.filter((diagram) => diagram.criteria.some((result) => result.criterionId === item.criterionId)).map((diagram) => { const result = diagram.criteria.find((entry) => entry.criterionId === item.criterionId)!; return <article key={diagram.id}><strong>{diagram.diagramType || 'Schéma'} · page {diagram.pageNumber}</strong><p>{diagram.summary}</p><p>{result.evidence}</p><small>Confiance indicative : {Math.round(result.confidence * 100)} %{result.requiresTeacherReview ? ' · Vérification requise' : ''}</small>{diagram.uncertainties.map((uncertainty, index) => <p className="review-alert review-alert-warning" key={index}>{uncertainty}</p>)}</article>; })}{scientificDiagramAnalysis.overallUncertainties.map((uncertainty, index) => <p className="review-alert review-alert-warning" key={index}>{uncertainty}</p>)}</details>}
+            {isFlagged && !isAnalyzing && !isFinalized && item.assessmentStatus !== 'not-evaluated' && <Button variant="secondary" onClick={() => updateReview(item.criterionId, { decision: 'accepted', reviewedByTeacher: true })}>Confirmer la note</Button>}
             <details className="review-quick-edit">
-              <summary>Ajuster la note ou ajouter un commentaire</summary>
+              <summary className="secondary-button">Ajuster la note ou ajouter un commentaire</summary>
               <div className="review-controls">
-              <label><span className="field-label">Votre note</span><input type="number" min={Math.min(0, criterion?.maxPoints ?? 0)} max={Math.max(0, criterion?.maxPoints ?? 0)} step="0.01" value={item.assessmentStatus === 'not-evaluated' ? '' : item.teacherPoints} placeholder={item.assessmentStatus === 'not-evaluated' ? 'À attribuer' : undefined} onChange={(event) => { if (event.target.value.trim()) updateReview(item.criterionId, { teacherPoints: normalizeGradeScore(Number(event.target.value)), decision: 'adjusted' }); }} /></label>
+              <label><span className="field-label">Votre note</span><input type="number" min={Math.min(0, criterion?.maxPoints ?? 0)} max={Math.max(0, criterion?.maxPoints ?? 0)} step="0.01" value={item.assessmentStatus === 'not-evaluated' ? '' : item.teacherPoints} placeholder={item.assessmentStatus === 'not-evaluated' ? 'À attribuer' : undefined} onChange={(event) => { if (event.target.value.trim()) updateReview(item.criterionId, { teacherPoints: normalizeGradeScore(Number(event.target.value)), decision: 'adjusted', reviewedByTeacher: true }); }} /></label>
               <label className="comment-field"><span className="field-label">Commentaire enseignant</span><input value={item.teacherComment} onChange={(event) => updateReview(item.criterionId, { teacherComment: event.target.value })} placeholder="Précision ou correction éventuelle" /></label>
               </div>
             </details>
