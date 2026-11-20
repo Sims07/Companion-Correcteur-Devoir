@@ -141,19 +141,44 @@ test('a copy awaiting review is a compact responsive row with a clear primary ac
   await expect(card).toContainText('À vérifier');
   await expect(card).not.toContainText('Proposition prête à vérifier');
   await expect(page.getByLabel('Dernière correction disponible')).toHaveCount(0);
-  await expect(verify).toHaveClass(/ds-button--primary/);
+  await expect(verify).toHaveClass(/ds-button--primary copy-overview-icon-action/);
+  const iconSize = await verify.boundingBox();
+  expect(iconSize?.width).toBe(44);
+  expect(iconSize?.height).toBe(44);
+  expect(await verify.evaluate((element) => getComputedStyle(element).paddingLeft)).toBe('0px');
+  await expect(card.getByRole('button', { name: 'Copie à vérifier', exact: true })).toBeVisible();
+  const more = card.getByRole('button', { name: 'Autres actions pour Copie à vérifier' });
+  await expect(more).toBeVisible();
+  await expect(card.getByRole('button', { name: 'Recorriger' })).toBeHidden();
+  await more.click();
   await expect(card.getByRole('button', { name: 'Recorriger' })).toHaveClass(/ds-button--secondary/);
   await expect(card.getByRole('button', { name: 'Retirer la copie' })).toHaveClass(/ds-button--danger/);
+  await expect(card.getByRole('button', { name: 'Recorriger' })).toBeVisible();
+  await more.click();
   expect(await card.evaluate((element) => getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/).length)).toBe(3);
   expect((await card.boundingBox())!.height).toBeLessThan(230);
 
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await card.evaluate((element) => getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/).length)).toBe(1);
   await expect(verify).toBeVisible();
+  await expect(more).toBeVisible();
+  await more.click();
   await expect(card.getByRole('button', { name: 'Recorriger' })).toBeVisible();
+  await more.click();
   expect(await card.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
   await verify.click();
   await expect(page.locator('.copy-review-identity-title h2')).toHaveText('Copie à vérifier');
+});
+
+test('copy name itself opens the copy without a second oversized button', async ({ page }) => {
+  await prepareLocalWorkspace(page);
+  await seedJobs(page, [{ id: 'copy-title', label: 'Ma copie', status: 'ready', updatedAt: '2026-11-02T09:00:00.000Z' }]);
+  await page.reload();
+  await openActiveAssignment(page);
+  await copyNavigation(page).click();
+  const card = page.locator('.copy-overview-grid .correction-series-card');
+  await card.getByRole('button', { name: 'Ma copie', exact: true }).click();
+  await expect(page.locator('.copy-review-identity-title h2')).toHaveText('Ma copie');
 });
 
 test('a processing copy without an active worker is recovered as retryable after reload', async ({ page }) => {

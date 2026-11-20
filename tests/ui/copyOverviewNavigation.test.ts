@@ -131,9 +131,12 @@ describe('CorrectionOverview — comportement enseignant', () => {
     await render('to-retry');
     expect(container.querySelectorAll('.correction-series-card')).toHaveLength(1);
     expect(container.textContent).toContain('Alice Martin');
-    const buttons = [...container.querySelectorAll('button')];
-    await act(async () => buttons.find((button) => button.textContent?.trim() === 'Relancer')?.click());
-    await act(async () => buttons.find((button) => button.textContent?.trim() === 'Ouvrir')?.click());
+    const retry = container.querySelector<HTMLButtonElement>('.copy-overview-grid button[aria-label="Relancer"]');
+    const open = container.querySelector<HTMLButtonElement>('.copy-overview-grid button[aria-label="Ouvrir"]');
+    expect(retry).not.toBeNull();
+    expect(open).not.toBeNull();
+    await act(async () => retry?.click());
+    await act(async () => open?.click());
     expect(onRetryJob).toHaveBeenCalledWith('failed-copy');
     expect(onOpenJob).toHaveBeenCalledWith('failed-copy');
   });
@@ -189,7 +192,7 @@ describe('CorrectionOverview — comportement enseignant', () => {
       studentIdentity: { firstName: 'Alice', lastName: 'Martin', studentNumber: null, confidence: 'high' as const },
     };
     await render('all', [customJob]);
-    expect(container.querySelector('.correction-series-copy strong')?.textContent).toBe('Copie à corriger en priorité');
+    expect(container.querySelector('.correction-series-copy .copy-overview-title-action')?.textContent).toBe('Copie à corriger en priorité');
     expect(container.querySelector('.correction-series-copy strong')?.textContent).not.toBe('Martin Alice');
     const input = container.querySelector<HTMLInputElement>('input[type="search"]');
     await act(async () => {
