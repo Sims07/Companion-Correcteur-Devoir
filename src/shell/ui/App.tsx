@@ -5613,7 +5613,15 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
               <strong>{flaggedCriteriaIds.size > 0 ? `${flaggedCriteriaIds.size} critère${flaggedCriteriaIds.size > 1 ? 's' : ''} à examiner` : 'Proposition de correction'}</strong>
               <span>{reliableCriteriaCount > 0 ? `${reliableCriteriaCount} autre${reliableCriteriaCount > 1 ? 's' : ''} critère${reliableCriteriaCount > 1 ? 's' : ''} sans alerte` : 'Décisions fondées sur le barème'}</span>
             </div>
-            <div className={`summary-panel review-score-summary ${isAnalyzing ? 'is-provisional' : ''}`} aria-live="polite"><strong>{isAnalyzing ? 'Note provisoire · calcul en cours' : unassessedCount > 0 ? 'Note partielle · critères non évalués' : criterionProgress.isComplete ? 'Note proposée' : 'Note partielle · analyse incomplète'}</strong>{isAnalyzing && <small>Cette note n’est pas définitive et évoluera avec les prochains critères.</small>}<span>{criterionProgress.completedCount > 0 ? `${reviewedTotal} / ${validation.maximumPoints} points` : 'En attente de la première note'} · {criterionProgress.completedCount - unassessedCount} / {criterionProgress.totalCount} critères évalués</span>{proposal?.summary && <details className="review-summary-details"><summary>Voir la synthèse de l’analyse</summary><p>{proposal.summary}</p></details>}</div>
+            {(isAnalyzing || unassessedCount > 0 || !criterionProgress.isComplete) && <div className={`summary-panel review-score-summary ${isAnalyzing ? 'is-provisional' : ''}`} aria-live="polite">
+              <strong>{isAnalyzing ? 'Note provisoire · calcul en cours' : unassessedCount > 0 ? 'Note partielle · critères non évalués' : 'Note partielle · analyse incomplète'}</strong>
+              <span>{criterionProgress.completedCount > 0 ? `${reviewedTotal.toLocaleString('fr-FR')} / ${validation.maximumPoints.toLocaleString('fr-FR')} points` : 'En attente de la première note'}</span>
+              <small>{criterionProgress.completedCount - unassessedCount} / {criterionProgress.totalCount} critères évalués</small>
+            </div>}
+            {proposal?.summary && <details className="review-summary-details review-analysis-summary">
+              <summary>Synthèse de l’analyse IA</summary>
+              <p>{proposal.summary}</p>
+            </details>}
         {flaggedCriteriaIds.size > 0 && <div className="review-criteria-toolbar">
           <button type="button" className="text-action" onClick={() => setShowOnlyFlagged((current) => !current)}>{shouldFocusExceptions ? 'Afficher tous les critères' : 'Afficher uniquement les points à examiner'}</button>
         </div>}
