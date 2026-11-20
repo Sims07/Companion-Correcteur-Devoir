@@ -144,11 +144,11 @@ test('a copy awaiting review is a compact responsive row with a clear primary ac
   await expect(verify).toHaveClass(/ds-button--primary/);
   await expect(card.getByRole('button', { name: 'Recorriger' })).toHaveClass(/ds-button--secondary/);
   await expect(card.getByRole('button', { name: 'Retirer la copie' })).toHaveClass(/ds-button--danger/);
-  expect(await card.evaluate((element) => getComputedStyle(element).gridTemplateColumns.trim().split(/\\s+/).length)).toBe(3);
+  expect(await card.evaluate((element) => getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/).length)).toBe(3);
   expect((await card.boundingBox())!.height).toBeLessThan(230);
 
   await page.setViewportSize({ width: 390, height: 844 });
-  expect(await card.evaluate((element) => getComputedStyle(element).gridTemplateColumns.trim().split(/\\s+/).length)).toBe(1);
+  expect(await card.evaluate((element) => getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/).length)).toBe(1);
   await expect(verify).toBeVisible();
   await expect(card.getByRole('button', { name: 'Recorriger' })).toBeVisible();
   expect(await card.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
