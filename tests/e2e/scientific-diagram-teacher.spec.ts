@@ -32,15 +32,18 @@ async function createDiagramAssignment(page: Page, title = 'Mitose · L1') {
   await page.getByLabel('Nom du devoir').fill(title);
   await page.getByRole('button', { name: 'Créer le devoir de schéma' }).click();
   await expect(page.getByRole('heading', { name: 'Suivi des copies' })).toBeVisible();
-  const diagram = page.getByRole('region', { name: 'Devoir de schéma scientifique' });
-  await expect(diagram).toContainText('Correction directe du dessin, sans transcription OCR');
+  const diagram = page.getByRole('region', { name: 'Barème du schéma scientifique' });
+  await expect(diagram).toContainText('Barème · Schéma scientifique');
   await expect(diagram).toContainText('8 points');
-  await diagram.getByText('Voir le barème graphique', { exact: false }).click();
-  await expect(diagram.locator('ol > li')).toHaveCount(3);
-  await expect(diagram.locator('ul > li')).toHaveCount(15);
-  await expect(diagram.getByText('Barème cumulé : 4 / 8 pts')).toBeVisible();
-  await expect(diagram.getByText('Barème cumulé : 6 / 8 pts')).toBeVisible();
-  await expect(diagram.getByText('Barème cumulé : 8 / 8 pts')).toBeVisible();
+  await expect(diagram).not.toContainText('Correction directe du dessin, sans transcription OCR');
+  await expect(diagram.getByRole('button', { name: 'Consulter' })).toBeVisible();
+  await diagram.getByRole('button', { name: 'Consulter' }).click();
+  const preview = page.getByRole('dialog', { name: 'Consulter le barème' });
+  await expect(preview.locator('.diagram-rubric-quick-criteria > li')).toHaveCount(3);
+  await expect(preview.locator('.diagram-rubric-quick-subcriteria > li')).toHaveCount(15);
+  await expect(preview.locator('.diagram-rubric-quick-criterion-heading > span')).toHaveText(['4 pt', '2 pt', '2 pt']);
+  await preview.getByRole('button', { name: 'Fermer la fenêtre' }).click();
+  await expect(preview).toHaveCount(0);
   return diagram;
 }
 
@@ -84,6 +87,25 @@ test.beforeEach(async ({ page }, testInfo) => {
   }, testInfo.title.startsWith('remote diagram assignments')
     ? { ...configuration, endpoint: 'https://ai.example/v1/chat/completions', apiCompatible: true }
     : configuration);
+});
+
+test('rubric consultation stays read-only and editing moves to Barème et consignes with a clear regrading warning', async ({ page }) => {
+  await page.goto('/');
+  await createDiagramAssignment(page, 'Schéma à vérifier');
+  const preview = page.getByRole('region', { name: 'Barème du schéma scientifique' });
+  await expect(page.getByRole('tab', { name: 'Barème' })).toContainText('Barème et consignes');
+  await preview.getByRole('button', { name: 'Modifier le barème' }).click();
+  await expect(page.getByRole('heading', { name: 'Devoir et barème' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Barème du schéma scientifique' })).toHaveCount(0);
+  await expect(page.getByRole('note', { name: 'Conséquences des modifications du barème' })).toHaveCount(0);
+  await page.getByRole('tab', { name: 'Copies' }).click();
+  await addCopies(page, ['diagramme.png']);
+  await page.getByRole('tab', { name: 'Barème' }).click();
+  const warning = page.getByRole('note', { name: 'Conséquences des modifications du barème' });
+  await expect(warning).toContainText('ne change pas automatiquement');
+  await warning.getByRole('button', { name: 'Retourner au suivi des copies' }).click();
+  await expect(page.getByRole('heading', { name: 'Suivi des copies' })).toBeVisible();
+  await expect(page.locator('.copy-overview-grid .correction-series-card')).toHaveCount(1);
 });
 
 test('an individually corrected scientific diagram uses one direct image request without any Vision classification', async ({ page }) => {
