@@ -73,6 +73,8 @@ describe('Atelier B : organisation réelle du poste enseignant', () => {
 
   it('keeps grade and comment edits optional, not removed from correction', () => {
     const app = readFileSync('src/shell/ui/App.tsx', 'utf8');
+    expect(app).toContain("isFinalized ? 'Note validée' : 'Note proposée'");
+    expect(app).toContain('aria-live="polite"');
     expect(app).toContain('className="review-quick-edit"');
     expect(app).toContain('Ajuster la note ou ajouter un commentaire');
     expect(app).toContain('normalizeGradeScore(Number(event.target.value))');
