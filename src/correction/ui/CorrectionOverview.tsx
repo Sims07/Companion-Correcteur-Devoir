@@ -264,7 +264,7 @@ export function CorrectionOverview({ children, jobs, corrections, currentCopy, f
                   <summary aria-label={'Autres actions pour ' + item.label} title="Autres actions"><CopyActionIcon name="more" /></summary>
                   <div className="copy-overview-more-menu">
                     {item.status === 'to-review' && <Button variant="secondary" onClick={() => onRetryJob(item.job!.id)}>Recorriger</Button>}
-                    {item.status !== 'processing' && <Button variant="danger" aria-label={'Retirer la copie « ' + item.label + ' »'} onClick={() => onRemoveJob(item.id)}>Retirer</Button>}
+                    <Button variant="danger" aria-label={'Retirer la copie « ' + item.label + ' »'} onClick={() => onRemoveJob(item.id)}>Retirer</Button>
                   </div>
                 </details>}
               </>}
