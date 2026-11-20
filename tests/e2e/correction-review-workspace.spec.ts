@@ -269,6 +269,43 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await expect(page.locator('.review-workspace')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Rôle de la membrane' })).toBeVisible();
 
+  // Empty or duplicated model explanations must not add a disclosure to an already
+  // visible teacher evidence / alert block.
+  await page.evaluate(async () => {
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('companion-correcteur-devoir', 7);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const transaction = database.transaction('local-corrections', 'readwrite');
+    const store = transaction.objectStore('local-corrections');
+    const correction = await new Promise<any>((resolve, reject) => {
+      const request = store.get('design-review-copy');
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const membrane = correction.snapshot.review.find((item: { criterionId: string }) => item.criterionId === 'membrane');
+    membrane.annotationSuggestion = '   ';
+    membrane.rationale = membrane.evidence;
+    correction.snapshot.proposal.summary = '   ';
+    store.put(correction);
+    await new Promise<void>((resolve, reject) => {
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+    });
+    database.close();
+  });
+  await page.reload();
+  await openActiveAssignment(page);
+  await page.getByRole('tab', { name: /Copies/ }).click();
+  await page.locator('.copy-overview-filters').getByRole('button', { name: /Corrigées/ }).click();
+  await page.getByRole('button', { name: 'Consulter la correction' }).click();
+  const conciseCard = page.locator('.review-card').filter({ has: page.getByRole('heading', { name: 'Rôle de la membrane' }) });
+  await expect(conciseCard).toHaveClass(/is-flagged/);
+  await expect(conciseCard.locator('.review-evidence-source')).toBeVisible();
+  await expect(conciseCard.locator('details.review-explanation')).toHaveCount(0);
+  await expect(page.locator('.review-analysis-summary')).toHaveCount(0);
+
   await page.evaluate(async () => {
     const request = indexedDB.open('companion-correcteur-devoir', 7);
     const database = await new Promise<IDBDatabase>((resolve, reject) => {
