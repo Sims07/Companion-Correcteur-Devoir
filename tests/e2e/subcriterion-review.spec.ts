@@ -66,7 +66,7 @@ test('the teacher can arbitrate only the doubtful subcriterion without erasing i
   await expect(card.locator('.review-evidence-spotlight')).toBeVisible();
   await expect(card.locator('.review-evidence-scoreline')).toContainText('Points accordés');
   await expect(card.locator('.review-evidence-breakdown').getByText('La pression est relevée.')).toBeVisible();
-  await expect(card.locator('details.review-explanation')).not.toHaveAttribute('open', '');
+  await expect(card.locator('details.review-explanation')).toHaveCount(0);
   await expect(card.getByRole('group', { name:'Arbitrage du sous-critère Pression mesurée' })).toHaveCount(0);
   const pending = card.getByRole('group', { name:'Arbitrage du sous-critère Température relevée' });
   await expect(pending.getByRole('button', { name:'Confirmer 1 pt' })).toBeVisible();

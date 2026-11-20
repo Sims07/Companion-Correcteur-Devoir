@@ -77,6 +77,19 @@ describe('alerte de revue enseignant', () => {
     expect(container.querySelectorAll('.teacher-review-attention p')).toHaveLength(1);
   });
 
+  it('ignore les suggestions de commentaire composées uniquement d’espaces', async () => {
+    const container = document.createElement('div'); document.body.append(container); containers.push(container);
+    const root = createRoot(container); roots.push(root);
+    await act(async () => root.render(createElement(TeacherReviewAlert, {
+      reasons: [],
+      rationale: ' ',
+      evidence: ' ',
+      annotationSuggestion: '   ',
+    })));
+    expect(container.querySelector('.teacher-review-alert')).toBeNull();
+    expect(container.textContent).not.toContain('Copier le commentaire');
+  });
+
   it('ne duplique ni une question de sous-critère ni une preuve déjà visible', async () => {
     const container = document.createElement('div'); document.body.append(container); containers.push(container);
     const root = createRoot(container); roots.push(root);

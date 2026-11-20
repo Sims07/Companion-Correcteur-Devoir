@@ -261,9 +261,9 @@ test('a diagram devoir has the normal library, several copies, review rail and l
   await expect(page.locator('.review-main-column .review-card')).toHaveCount(3);
   await expect(page.locator('.copy-review-header-score')).toContainText('0 / 8');
   const firstCriterion = page.locator('.review-main-column .review-card').first();
-  // The teacher sees the evidence immediately, even before opening the AI complements.
+  // The proof is immediately visible; empty AI complements are not shown.
   await expect(firstCriterion.locator('.review-evidence-source').getByText('Observation à vérifier')).toBeVisible();
-  await expect(firstCriterion.locator('details.review-explanation')).not.toHaveAttribute('open', '');
+  await expect(firstCriterion.locator('details.review-explanation')).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Valider et passer à la suivante' }).click();
   await page.getByRole('button', { name: 'Mes devoirs' }).click();
