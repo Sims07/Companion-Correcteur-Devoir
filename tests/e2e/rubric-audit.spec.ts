@@ -32,8 +32,7 @@ test('teacher audits a rubric locally and retains their choice after refresh', a
     }) });
   });
   await page.reload();
-  await page.getByRole('button', { name: /Reprendre le devoir/ }).click();
-  await page.getByRole('tab', { name: 'Barème' }).click();
+  await expect(page.getByRole('tab', { name: 'Barème' })).toHaveAttribute('aria-selected', 'true');
   await page.getByRole('link', { name: 'Vérification IA' }).focus();
   await page.keyboard.press('Enter');
   await expect(page.getByRole('heading', { name: 'Vérifier et enrichir le barème' })).toBeFocused();
@@ -65,8 +64,7 @@ test('teacher audits a rubric locally and retains their choice after refresh', a
     return profiles.find((item: { id: string }) => item.id === 'assignment-default')?.rubric.criteria[0].description;
   })).toContain('Un titre commun est obligatoire pour obtenir les points');
   await page.reload();
-  await page.getByRole('button', { name: /Reprendre le devoir/ }).click();
-  await page.getByRole('tab', { name: 'Barème' }).click();
+  await expect(page.getByRole('tab', { name: 'Barème' })).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByLabel('Version active du barème clarifié')).toBeVisible();
   await expect(page.getByLabel('Version active du barème clarifié').getByText(/Un titre commun est obligatoire pour obtenir les points/)).toBeVisible();
   await page.getByText(/Historique des clarifications/).click();
@@ -112,8 +110,7 @@ test('scientific enrichment is reviewed beside the original, previewed, applied 
     }) });
   });
   await page.reload();
-  await page.getByRole('button', { name: /Reprendre le devoir/ }).click();
-  await page.getByRole('tab', { name: 'Barème' }).click();
+  await expect(page.getByRole('tab', { name: 'Barème' })).toHaveAttribute('aria-selected', 'true');
   await page.getByRole('button', { name: 'Vérifier avec l’IA locale' }).click();
   await expect(page.getByRole('heading', { name: 'Clarifications et enrichissements scientifiques' })).toBeVisible();
   await expect(page.getByText('Conformité biologique', { exact: false })).toBeVisible();
@@ -139,8 +136,7 @@ test('scientific enrichment is reviewed beside the original, previewed, applied 
     return items[0]?.rubric?.criteria?.[0]?.subcriteria?.[0]?.scientificExpectations?.[0];
   })).toBe('En métaphase, l’enveloppe nucléaire a disparu.');
   await page.reload();
-  await page.getByRole('button', { name: /Reprendre le devoir/ }).click();
-  await page.getByRole('tab', { name: 'Barème' }).click();
+  await expect(page.getByRole('tab', { name: 'Barème' })).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByLabel('Version active du barème clarifié')).toContainText('En métaphase, l’enveloppe nucléaire a disparu.');
   await expect(page.getByLabel('Version active du barème clarifié')).toContainText('Références scientifiques validées');
   await expect(page.getByText(/Bilan cumulé/)).toBeVisible();
