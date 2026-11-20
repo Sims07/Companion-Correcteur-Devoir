@@ -4968,9 +4968,9 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
 
       {interfaceMode === 'teacher' && teacherStep === 'rubric' && <>
         {copyNavigation.copies.length > 0 && <section className="rubric-existing-copies-warning" role="note" aria-label="Conséquences des modifications du barème">
-          <div><strong>Ce barème est déjà utilisé pour des copies.</strong>
-            <p>Modifier les critères ne recalcule pas les notes déjà proposées ou validées. Pour appliquer le nouveau barème, recorrigez les copies concernées.</p></div>
-          <Button variant="secondary" onClick={() => { setCopyOverviewFilter('completed'); setCopyOverviewFilterTouched(true); setTeacherStep('overview'); }}>Voir les copies à recorriger</Button>
+          <div><strong>Des copies sont déjà enregistrées pour ce devoir.</strong>
+            <p>Le barème des copies en cours ou déjà corrigées ne change pas automatiquement. Pour appliquer les nouvelles règles, retournez au suivi et recorrigez les copies concernées.</p></div>
+          <Button variant="secondary" onClick={() => { setCopyOverviewFilter('all'); setCopyOverviewFilterTouched(true); setTeacherStep('overview'); }}>Retourner au suivi des copies</Button>
         </section>}
         <details className="assignment-details-collapsible">
           <summary><span><strong>Devoir</strong><small>{validation.maximumPoints} points · {rubric.criteria.length} critères</small></span><span className="assignment-details-edit">Modifier</span></summary>
