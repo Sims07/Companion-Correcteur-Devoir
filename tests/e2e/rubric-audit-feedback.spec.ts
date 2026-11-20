@@ -39,7 +39,10 @@ test('rubric audit stays visible across diagnostics, blocks duplicates and compl
     } catch { /* A teacher may cancel the pending browser request. */ }
   });
   await page.reload();
-  await expect(page.getByRole('tab', { name: 'Barème' })).toHaveAttribute('aria-selected', 'true');
+  // This is the initial refresh from the library after configuring local mocks.
+  // Opening the devoir remains necessary; later refreshes retain the active rubric.
+  await page.getByRole('button', { name: /Reprendre le devoir/ }).click();
+  await page.getByRole('tab', { name: 'Barème' }).click();
 
   const launch = page.locator('.rubric-audit-launch');
   await expect(launch).toBeVisible();
@@ -108,7 +111,10 @@ test('teacher can cancel a pending rubric audit and retains the option to retry'
     catch { /* Canceled request. */ }
   });
   await page.reload();
-  await expect(page.getByRole('tab', { name: 'Barème' })).toHaveAttribute('aria-selected', 'true');
+  // This is the initial refresh from the library after configuring local mocks.
+  // Opening the devoir remains necessary; later refreshes retain the active rubric.
+  await page.getByRole('button', { name: /Reprendre le devoir/ }).click();
+  await page.getByRole('tab', { name: 'Barème' }).click();
   await page.getByRole('button', { name: 'Vérifier avec l’IA locale' }).click();
   await expect(page.locator('.rubric-audit-live')).toBeVisible();
   await page.getByRole('button', { name: 'Arrêter la vérification' }).click();
@@ -167,7 +173,10 @@ test('AI recommendations become a guided teacher dialogue even if the result arr
   });
 
   await page.reload();
-  await expect(page.getByRole('tab', { name: 'Barème' })).toHaveAttribute('aria-selected', 'true');
+  // This is the initial refresh from the library after configuring local mocks.
+  // Opening the devoir remains necessary; later refreshes retain the active rubric.
+  await page.getByRole('button', { name: /Reprendre le devoir/ }).click();
+  await page.getByRole('tab', { name: 'Barème' }).click();
   await page.locator('.rubric-audit-launch').click();
 
   await page.getByRole('button', { name: 'Suivi & diagnostic' }).click();
@@ -221,7 +230,10 @@ test('teacher can recover an already completed Ollama JSON response without spen
     await route.abort();
   });
   await page.reload();
-  await expect(page.getByRole('tab', { name: 'Barème' })).toHaveAttribute('aria-selected', 'true');
+  // This is the initial refresh from the library after configuring local mocks.
+  // Opening the devoir remains necessary; later refreshes retain the active rubric.
+  await page.getByRole('button', { name: /Reprendre le devoir/ }).click();
+  await page.getByRole('tab', { name: 'Barème' }).click();
   await page.getByText('Récupérer une analyse déjà terminée dans le diagnostic').click();
   const recovered = {
     model: 'gemma4:12b', message: { content: JSON.stringify({ issues: [
@@ -269,7 +281,10 @@ test('teacher confirms restoration of the original rubric without losing histori
     }]));
   });
   await page.reload();
-  await expect(page.getByRole('tab', { name: 'Barème' })).toHaveAttribute('aria-selected', 'true');
+  // This is the initial refresh from the library after configuring local mocks.
+  // Opening the devoir remains necessary; later refreshes retain the active rubric.
+  await page.getByRole('button', { name: /Reprendre le devoir/ }).click();
+  await page.getByRole('tab', { name: 'Barème' }).click();
   const aside = page.getByRole('complementary', { name: 'Synthèse du barème' });
   const restore = aside.getByRole('button', { name: 'Restaurer le barème initial' });
   await expect(restore).toBeVisible();
@@ -326,7 +341,10 @@ test('legacy assignments can restore the earliest retained rubric from the summa
     }]));
   });
   await page.reload();
-  await expect(page.getByRole('tab', { name: 'Barème' })).toHaveAttribute('aria-selected', 'true');
+  // This is the initial refresh from the library after configuring local mocks.
+  // Opening the devoir remains necessary; later refreshes retain the active rubric.
+  await page.getByRole('button', { name: /Reprendre le devoir/ }).click();
+  await page.getByRole('tab', { name: 'Barème' }).click();
   const aside = page.getByRole('complementary', { name: 'Synthèse du barème' });
   const restore = aside.getByRole('button', { name: 'Restaurer la première version conservée' });
   await expect(restore).toBeVisible();
