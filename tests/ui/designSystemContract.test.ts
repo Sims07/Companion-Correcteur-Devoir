@@ -67,9 +67,9 @@ describe('design system foundations', () => {
     const story = read('src/shared/ui/design-system/components/Button.stories.tsx');
     expect(tokens).toContain('--ds-space-2: 8px');
     expect(tokens).toContain('--ds-space-3: 12px');
-    expect(controls).toMatch(/\\.ds-action-group\\s*\\{[^}]*display: flex;[^}]*flex-wrap: wrap;[^}]*gap: var\\(--ds-space-2\\) var\\(--ds-space-3\\)/s);
+    expect(controls).toMatch(/\.ds-action-group\s*\{[^}]*display: flex;[^}]*flex-wrap: wrap;[^}]*gap: var\(--ds-space-2\) var\(--ds-space-3\)/s);
     expect(controls).toContain('.ds-button--secondary[aria-pressed="true"]');
-    expect(controls).toMatch(/\\.ds-action-group > a\\s*\\{[^}]*min-height: 44px/s);
+    expect(controls).toMatch(/\.ds-action-group > a\s*\{[^}]*min-height: 44px/s);
     expect(story).toContain('GroupesDActions');
     expect(story).toContain('aria-pressed="true"');
   });
