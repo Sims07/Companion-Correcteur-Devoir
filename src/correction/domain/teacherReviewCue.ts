@@ -40,7 +40,7 @@ export function getTeacherReviewCue({
 }
 
 function comparable(value: string): string {
-  return value.normalize('NFKC').replace(/\s+/gu, ' ').trim().toLocaleLowerCase('fr-FR').replace(/[.!?]+$/u, '');
+  return value.normalize('NFKC').replace(/\s+/gu, ' ').trim().toLocaleLowerCase('fr-FR').replace(/\s*[.!?]+\s*$/u, '').trim();
 }
 
 /** Keep an actual explanation only when it adds information to the already-visible proof. */
