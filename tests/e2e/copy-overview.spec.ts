@@ -124,6 +124,38 @@ test('la dernière correction reste accessible après retour au suivi sans réaf
   await expect(page.locator('.copy-review-header-score')).toContainText('15 / 20');
 });
 
+test('a copy awaiting review is a compact responsive row with a clear primary action', async ({ page }) => {
+  await prepareLocalWorkspace(page);
+  await seedJobs(page, [
+    { id: 'copy-review', label: 'Copie à vérifier', status: 'ready', updatedAt: '2026-11-02T09:00:00.000Z' },
+  ]);
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await page.reload();
+  await openActiveAssignment(page);
+  await copyNavigation(page).click();
+
+  const card = page.locator('.copy-overview-grid .correction-series-card');
+  const verify = card.getByRole('button', { name: 'Vérifier la copie' });
+  await expect(card).toHaveCount(1);
+  await expect(card).toContainText('Note proposée');
+  await expect(card).toContainText('À vérifier');
+  await expect(card).not.toContainText('Proposition prête à vérifier');
+  await expect(page.getByLabel('Dernière correction disponible')).toHaveCount(0);
+  await expect(verify).toHaveClass(/ds-button--primary/);
+  await expect(card.getByRole('button', { name: 'Recorriger' })).toHaveClass(/ds-button--secondary/);
+  await expect(card.getByRole('button', { name: 'Retirer la copie' })).toHaveClass(/ds-button--danger/);
+  expect(await card.evaluate((element) => getComputedStyle(element).gridTemplateColumns.trim().split(/\\s+/).length)).toBe(3);
+  expect((await card.boundingBox())!.height).toBeLessThan(230);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await card.evaluate((element) => getComputedStyle(element).gridTemplateColumns.trim().split(/\\s+/).length)).toBe(1);
+  await expect(verify).toBeVisible();
+  await expect(card.getByRole('button', { name: 'Recorriger' })).toBeVisible();
+  expect(await card.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+  await verify.click();
+  await expect(page.locator('.copy-review-identity-title h2')).toHaveText('Copie à vérifier');
+});
+
 test('a processing copy without an active worker is recovered as retryable after reload', async ({ page }) => {
   await prepareLocalWorkspace(page);
   await seedJobs(page, [
