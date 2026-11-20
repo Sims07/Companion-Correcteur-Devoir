@@ -309,20 +309,36 @@
 .teacher-copy-rail-score { color: var(--ds-color-text); }
 
 
-/* Copy cards: a compact editorial hierarchy, with saved date never stuck to status. */
-.copy-overview-grid > li.correction-series-card {
-  gap: var(--ds-space-3);
+/* Copy overview: one compact, scan-friendly row per copy. The action hierarchy
+ * follows the teacher's workflow; shared Button owns every control's appearance. */
+.teacher-flow-shell .copy-overview-grid {
+  grid-template-columns: minmax(0, 1fr);
+  grid-auto-rows: auto;
+}
+.teacher-flow-shell .copy-overview-grid > li.correction-series-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(115px, .55fr) minmax(0, 2fr);
+  align-items: center;
+  justify-content: stretch;
+  gap: var(--ds-space-4);
   min-height: 0;
-  padding: var(--ds-space-5);
+  height: auto;
+  padding: var(--ds-space-4) var(--ds-space-5);
+  border-radius: var(--ds-radius-sm);
+  background: var(--ds-color-surface);
   transition: border-color var(--ds-transition-fast), box-shadow var(--ds-transition-fast);
 }
 .copy-overview-grid > li.correction-series-card:hover {
   box-shadow: var(--ds-shadow-panel);
 }
+.teacher-flow-shell .copy-overview-grid > li.correction-series-card.is-to-review {
+  background: var(--ds-color-surface);
+}
 .copy-overview-grid .correction-series-card-heading {
-  align-items: flex-start;
+  align-items: center;
 }
 .copy-overview-grid .correction-series-card-heading .queue-position {
+  flex: 0 0 auto;
   background: var(--ds-color-surface-subtle);
   border: 1px solid var(--ds-color-border);
   color: var(--ds-color-text-muted);
@@ -337,23 +353,31 @@
   color: var(--ds-color-text);
 }
 .copy-overview-grid .correction-series-card-score {
+  align-content: center;
+  min-width: 0;
   min-height: 0;
-  padding: var(--ds-space-3) 0;
-  border-color: var(--ds-color-border);
+  padding: 0 0 0 var(--ds-space-4);
+  border: 0;
+  border-left: 1px solid var(--ds-color-border);
 }
 .copy-overview-grid .correction-series-card-score-label {
   color: var(--ds-color-text-muted);
 }
 .copy-overview-grid .correction-series-card-score > strong {
   color: var(--ds-color-text);
-  font-size: 2rem;
+  font-size: 1.65rem;
 }
 .copy-overview-grid .correction-series-card-footer {
-  gap: var(--ds-space-3);
-  align-items: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-4);
+  min-width: 0;
+  margin-top: 0;
 }
 .copy-overview-grid .correction-series-card-info {
   display: grid;
+  flex: 1 1 150px;
   gap: var(--ds-space-2);
   min-width: 0;
 }
@@ -382,14 +406,10 @@
   color: var(--ds-color-progress);
 }
 .copy-overview-grid .correction-series-card-status.is-completed {
-  border-color: var(--ds-color-border);
   background: var(--ds-color-success-surface);
   color: var(--ds-color-success);
 }
-.copy-overview-grid .correction-series-card-status.is-to-review {
-  background: var(--ds-color-warning-surface);
-  color: var(--ds-color-warning);
-}
+.copy-overview-grid .correction-series-card-status.is-to-review,
 .copy-overview-grid .correction-series-card-status.is-to-retry {
   border-color: var(--ds-color-border-strong);
   background: var(--ds-color-warning-surface);
@@ -397,36 +417,56 @@
 }
 .copy-overview-grid .correction-series-card-date {
   color: var(--ds-color-text-muted);
-  font-size: 0.74rem;
+  font-size: .74rem;
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
-.copy-overview-grid .correction-series-actions {
-  padding-top: var(--ds-space-3);
-  border-top: 1px solid var(--ds-color-border);
-}
-.copy-overview-grid .correction-series-actions > button.correction-series-view {
+.copy-overview-grid .correction-series-actions.ds-action-group {
   display: flex;
+  flex: 0 1 auto;
+  justify-content: flex-end;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--ds-space-2);
-  min-height: 40px;
-  padding: 9px 12px;
-  border: 1px solid var(--ds-color-border);
-  border-radius: var(--ds-radius-sm);
-  background: var(--ds-color-surface-subtle);
-  color: var(--ds-color-text);
-  font-weight: 700;
-  text-align: left;
+  gap: var(--ds-space-2) var(--ds-space-3);
+  min-width: 0;
+  padding: 0;
+  border: 0;
+}
+.copy-overview-grid .correction-series-actions.ds-action-group > button {
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding: 10px 15px;
+  font-size: 13px;
   white-space: normal;
 }
-.copy-overview-grid .correction-series-actions > button.correction-series-view:hover:not(:disabled) {
-  border-color: var(--ds-color-border-strong);
-  background: var(--ds-color-brand-100);
+@media (max-width: 1250px) {
+  .teacher-flow-shell .copy-overview-grid > li.correction-series-card {
+    grid-template-columns: minmax(0, 1fr) minmax(125px, auto);
+  }
+  .copy-overview-grid .correction-series-card-footer {
+    grid-column: 1 / -1;
+  }
 }
-.copy-overview-grid .correction-series-actions > button.correction-series-view:focus-visible {
-  outline: 2px solid var(--ds-color-brand-700);
-  outline-offset: 2px;
+@media (max-width: 700px) {
+  .teacher-flow-shell .copy-overview-grid > li.correction-series-card {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--ds-space-3);
+    padding: var(--ds-space-4);
+  }
+  .copy-overview-grid .correction-series-card-score {
+    padding: var(--ds-space-3) 0;
+    border-left: 0;
+    border-top: 1px solid var(--ds-color-border);
+    border-bottom: 1px solid var(--ds-color-border);
+  }
+  .copy-overview-grid .correction-series-card-footer {
+    grid-column: auto;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--ds-space-3);
+  }
+  .copy-overview-grid .correction-series-actions.ds-action-group {
+    justify-content: flex-start;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .copy-overview-grid > li.correction-series-card { transition: none; }

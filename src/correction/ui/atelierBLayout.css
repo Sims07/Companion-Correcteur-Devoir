@@ -567,7 +567,7 @@
   border-radius: 3px;
   background: var(--ds-color-surface);
 }
-.teacher-flow-shell .copy-overview-grid { grid-template-columns: repeat(auto-fit,minmax(min(100%,270px),1fr)); }
+.teacher-flow-shell .copy-overview-grid { grid-template-columns: minmax(0, 1fr); }
 .teacher-flow-shell .copy-overview-grid .correction-series-card { border-radius: 3px; }
 
 /* Responsive : la navigation s'empile sans cacher ni devoir ni actions. */

@@ -58,7 +58,7 @@ test('navigue entre huit copies de statuts variés en gardant compteur et rail s
   await openActiveAssignment(page);
   await page.getByRole('tab', { name: /Copies/ }).click();
   await page.locator('.copy-overview-filters').getByRole('button', { name: /À vérifier/ }).click();
-  await page.locator('.copy-overview-grid li').filter({ hasText: '01-reprendre' }).getByRole('button', { name: 'Ouvrir', exact: true }).click();
+  await page.locator('.copy-overview-grid li').filter({ hasText: '01-reprendre' }).getByRole('button', { name: 'Vérifier la copie', exact: true }).click();
 
   await expect(page.locator('.copy-review-position-label')).toHaveText('Copie 1 / 8');
   await expect(page.locator('.copy-review-identity-title h2')).toHaveText('01-reprendre');
