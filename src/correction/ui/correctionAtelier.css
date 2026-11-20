@@ -317,7 +317,7 @@
 }
 .teacher-flow-shell .copy-overview-grid > li.correction-series-card {
   display: grid;
-  grid-template-columns: minmax(0, 1.3fr) minmax(115px, .55fr) minmax(0, 2fr);
+  grid-template-columns: minmax(0, 1fr) minmax(115px, .45fr) minmax(0, 2.5fr);
   align-items: center;
   justify-content: stretch;
   gap: var(--ds-space-4);
@@ -424,6 +424,7 @@
 .copy-overview-grid .correction-series-actions.ds-action-group {
   display: flex;
   flex: 0 1 auto;
+  flex-wrap: wrap;
   justify-content: flex-end;
   align-items: center;
   gap: var(--ds-space-2) var(--ds-space-3);
@@ -431,12 +432,12 @@
   padding: 0;
   border: 0;
 }
-.copy-overview-grid .correction-series-actions.ds-action-group > .copy-overview-icon-action {
-  flex: 0 0 44px;
-  width: 44px;
-  height: 44px;
+.copy-overview-grid .correction-series-actions.ds-action-group > .ds-button {
+  flex: 0 0 auto;
+  width: auto;
   min-height: 44px;
-  padding: 0;
+  padding: 0 var(--ds-space-3);
+  gap: var(--ds-space-2);
   border-width: 1px;
   border-radius: var(--ds-radius-md);
 }
@@ -467,7 +468,8 @@
     gap: var(--ds-space-3);
   }
   .copy-overview-grid .correction-series-actions.ds-action-group {
-    justify-content: flex-end;
+    margin-left: 0;
+    justify-content: flex-start;
   }
 }
 @media (prefers-reduced-motion: reduce) {

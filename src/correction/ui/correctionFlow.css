@@ -2933,62 +2933,7 @@
   cursor: pointer;
 }
 .copy-overview-title-action:hover { text-decoration: underline; text-underline-offset: 3px; }
-.copy-overview-title-action:focus-visible,
-.copy-overview-more > summary:focus-visible { outline: 2px solid var(--ds-color-brand-700); outline-offset: 3px; }
-.copy-overview-grid .correction-series-actions > .copy-overview-icon-action {
-  flex: 0 0 44px;
-  width: 44px;
-  height: 44px;
-  min-height: 44px;
-  padding: 0;
-  border-radius: var(--ds-radius-md);
-}
-.copy-overview-icon-action svg,
-.copy-overview-more svg { display: block; pointer-events: none; }
-.copy-overview-more { position: relative; flex: 0 0 auto; }
-.copy-overview-more > summary {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  border: 1px solid var(--ds-color-border);
-  border-radius: var(--ds-radius-md);
-  background: var(--ds-color-surface-subtle);
-  color: var(--ds-color-text);
-  list-style: none;
-  cursor: pointer;
-}
-.copy-overview-more > summary::-webkit-details-marker { display: none; }
-.copy-overview-more > summary::marker { content: ''; }
-.copy-overview-more > summary:hover,
-.copy-overview-more[open] > summary { border-color: var(--ds-color-brand-700); background: var(--ds-color-brand-100); }
-.copy-overview-more-menu {
-  position: absolute;
-  z-index: 20;
-  top: calc(100% + 6px);
-  right: 0;
-  display: grid;
-  gap: 4px;
-  min-width: 176px;
-  padding: 5px;
-  border: 1px solid var(--ds-color-border);
-  border-radius: var(--ds-radius-md);
-  background: var(--ds-color-surface);
-  box-shadow: 0 8px 25px rgb(20 35 25 / 16%);
-}
-.copy-overview-more-menu .ds-button {
-  justify-content: flex-start;
-  min-height: 42px;
-  width: 100%;
-  padding: 8px 10px;
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--ds-color-text);
-  text-align: left;
-}
-.copy-overview-more-menu .ds-button:hover:not(:disabled) { background: var(--ds-color-brand-100); }
-.copy-overview-more-menu .ds-button--danger { color: var(--ds-color-danger); }
-.copy-overview-more-menu .ds-button--danger:hover:not(:disabled) { background: var(--ds-color-danger-surface); }
+.copy-overview-title-action:focus-visible { outline: 2px solid var(--ds-color-brand-700); outline-offset: 3px; }
 
 .copy-overview-notice { margin: 0; padding: 0.65rem 0.85rem; border: 1px solid var(--flow-border); border-radius: 10px; color: var(--flow-text); background: var(--flow-accent-soft); font-size: 0.85rem; }
 .assignment-overview-activity { margin: -0.35rem 0 0; color: var(--flow-muted); font-size: 0.72rem; }
