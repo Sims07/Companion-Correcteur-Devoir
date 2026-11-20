@@ -18,7 +18,7 @@ export function ReviewAttentionSummary({
       <strong>{flaggedCriteriaCount > 0
         ? `${flaggedCriteriaCount} critère${flaggedCriteriaCount > 1 ? 's' : ''} à vérifier sur la copie`
         : 'Proposition de correction'}</strong>
-      {reliableCriteriaCount > 0 && <span>${reliableCriteriaCount} autre${reliableCriteriaCount > 1 ? 's' : ''} critère${reliableCriteriaCount > 1 ? 's' : ''} sans alerte</span>}
+      {reliableCriteriaCount > 0 && <span>{reliableCriteriaCount} autre{reliableCriteriaCount > 1 ? 's' : ''} critère{reliableCriteriaCount > 1 ? 's' : ''} sans alerte</span>}
       {readingNeedsReview && <span className="atelier-review-reading-warning" role="status">Lecture à vérifier sur l’image</span>}
     </div>
     {flaggedCriteriaCount > 0 && <Button
