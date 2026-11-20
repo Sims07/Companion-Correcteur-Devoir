@@ -18,25 +18,25 @@ test('method laboratory displays a full-width illustrated panel for every strate
   await expect(panel.getByRole('img', { name: /Schéma scientifique et barème fournis directement/ })).toBeVisible();
   await expect(panel.getByRole('heading', { name: 'Principe scientifique' })).toBeVisible();
 
-  await tabs.nth(1).click();
+  await lab.locator('[data-method-id="pixel-v1"]').click();
   await expect(panel).toHaveAttribute('data-selected-method', 'pixel-v1');
   await expect(panel.locator('[data-illustration="small-tips"]')).toBeVisible();
-  await tabs.nth(2).click();
+  await lab.locator('[data-method-id="leaders-v1"]').click();
   await expect(panel.locator('[data-illustration="long-shafts"]')).toBeVisible();
-  await tabs.nth(3).click();
+  await lab.locator('[data-method-id="direct-v1"]').click();
   await expect(panel.locator('[data-illustration="direct-graph"]')).toBeVisible();
-  await tabs.nth(4).click();
+  await lab.locator('[data-method-id="guided-v1"]').click();
   await expect(panel.locator('[data-illustration="guided"]')).toBeVisible();
-  await tabs.nth(5).click();
+  await lab.locator('[data-method-id="graph-first-v1"]').click();
   await expect(panel.locator('[data-illustration="graph-first"]')).toBeVisible();
-  await tabs.nth(6).click();
+  await lab.locator('[data-method-id="graph-first-v2"]').click();
   await expect(panel.locator('[data-illustration="relations-v2"]')).toBeVisible();
-  await tabs.nth(7).click();
+  await lab.locator('[data-method-id="vision-then-analysis"]').click();
   await expect(panel).toHaveAttribute('data-selected-method', 'vision-then-analysis');
   await expect(panel.locator('[data-illustration="vision-analysis"]')).toBeVisible();
-  await tabs.nth(8).click();
+  await lab.locator('[data-method-id="direct-image-generative-thinking"]').click();
   await expect(panel.locator('[data-illustration="thinking-grading"]')).toBeVisible();
-  await tabs.nth(9).click();
+  await lab.locator('[data-method-id="direct-image-systemone"]').click();
   await expect(panel.locator('[data-illustration="systemone-grading"]')).toBeVisible();
 
   await page.setViewportSize({ width: 390, height: 844 });
@@ -61,7 +61,20 @@ test('method laboratory displays a full-width illustrated panel for every strate
 
   await tabs.first().focus();
   await page.keyboard.press('ArrowRight');
-  await expect(panel).toHaveAttribute('data-selected-method', 'pixel-v1');
+  await expect(panel).toHaveAttribute('data-selected-method', 'direct-v1');
+
+  // Reclassification must be visible immediately and survive a page reload.
+  await lab.locator('[data-method-id="pixel-v1"]').click();
+  await panel.getByLabel('Classement').selectOption('candidate');
+  await expect(lab.locator('[data-status-group="candidate"] [data-method-id="pixel-v1"]')).toBeVisible();
+  await expect(panel.getByRole('status')).toContainText('enregistré');
+  await page.reload();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Radars' }).click();
+  await page.getByRole('region', { name: 'Tableau de bord des radars' })
+    .getByRole('article', { name: 'Schémas scientifiques' }).getByRole('button', { name: 'Analyse des méthodes' }).click();
+  await expect(page.getByRole('region', { name: 'Laboratoire des méthodes' })
+    .locator('[data-status-group="candidate"] [data-method-id="pixel-v1"]')).toBeVisible();
 
   await lab.getByRole('button', { name: 'Retour aux radars' }).click();
   // The mobile dashboard presents its articles as display:contents. Navigate

@@ -98,3 +98,29 @@
 @media (prefers-reduced-motion: reduce) {
   .lab-guide-tab { transition: none; }
 }
+
+
+/* Three research-status groups — descriptive, not performance scores. */
+.lab-guide-heading .lab-guide-intro { margin-top: .55rem; color: var(--ds-color-text); font-weight: 650; }
+.lab-guide-groups { display: grid; gap: 1.3rem; margin-bottom: 1.3rem; }
+.lab-guide-group { border: 1px solid var(--ds-color-border); border-radius: 14px; padding: 1rem; background: var(--ds-color-surface); min-width: 0; }
+.lab-guide-group[data-status-group='shelved'] { background: var(--ds-color-surface-subtle); }
+.lab-guide-group-heading { margin: 0 0 .9rem; }
+.lab-guide-group-heading h4 { margin: 0 0 .25rem; font-size: 1.08rem; line-height: 1.35; color: var(--ds-color-text); }
+.lab-guide-group-count { display: inline-flex; align-items: center; justify-content: center; min-width: 1.65em; padding: .1em .4em; border-radius: 999px; background: var(--ds-color-surface-subtle); border: 1px solid var(--ds-color-border); font-size: .8rem; font-variant-numeric: tabular-nums; vertical-align: middle; }
+.lab-guide-group-heading p, .lab-guide-empty { margin: 0; font-size: .83rem; line-height: 1.5; color: var(--ds-color-text-muted); }
+.lab-guide-group .lab-guide-tabs { margin-bottom: 0; }
+.lab-guide-group[data-status-group='shelved'] .lab-guide-tab:not([aria-selected='true']) { opacity: .86; }
+.lab-guide-classification { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem 1.5rem; margin: 0 0 1.5rem; padding: 1rem; border-radius: 12px; border: 1px solid var(--ds-color-border); background: var(--ds-color-surface-subtle); }
+.lab-guide-classification > div { flex: 1 1 270px; }
+.lab-guide-classification strong { font-size: .91rem; }
+.lab-guide-classification p { margin: .25rem 0 0; color: var(--ds-color-text-muted); font-size: .8rem; line-height: 1.45; }
+.lab-guide-classification label { display: grid; gap: .4rem; font-size: .82rem; font-weight: 700; }
+.lab-guide-classification select { min-width: min(100%, 245px); }
+.lab-guide-classification .lab-guide-save-status { flex: 1 0 100%; color: var(--ds-color-text); font-weight: 650; margin: 0; }
+@media (max-width: 640px) {
+  .lab-guide-group { padding: .75rem; }
+  .lab-guide-groups { gap: .85rem; }
+  .lab-guide-classification { padding: .75rem; }
+  .lab-guide-classification label, .lab-guide-classification select { width: 100%; }
+}
