@@ -261,7 +261,7 @@ export function CorrectionOverview({ children, jobs, corrections, currentCopy, f
                 {item.status === 'to-do' && item.job.error?.startsWith('Correction interrompue par l’enseignant') && <Button variant="primary" className="copy-overview-icon-action" aria-label="Reprendre les corrections" title="Reprendre les corrections" disabled={isStartingCorrections} onClick={onStartCorrections}><CopyActionIcon name="start" /></Button>}
                 {item.status !== 'to-review' && <Button variant={item.status === 'to-retry' || (item.status === 'to-do' && item.job.error?.startsWith('Correction interrompue par l’enseignant')) ? 'secondary' : 'primary'} className="copy-overview-icon-action" aria-label="Ouvrir" title={'Ouvrir ' + item.label} onClick={() => onOpenJob(item.job!.id)}><CopyActionIcon name="open" /></Button>}
                 {item.status !== 'processing' && <details className="copy-overview-more">
-                  <summary aria-label={'Autres actions pour ' + item.label} title="Autres actions"><CopyActionIcon name="more" /></summary>
+                  <summary role="button" aria-label={'Autres actions pour ' + item.label} title="Autres actions"><CopyActionIcon name="more" /></summary>
                   <div className="copy-overview-more-menu">
                     {item.status === 'to-review' && <Button variant="secondary" onClick={() => onRetryJob(item.job!.id)}>Recorriger</Button>}
                     <Button variant="danger" aria-label={'Retirer la copie « ' + item.label + ' »'} onClick={() => onRemoveJob(item.id)}>Retirer</Button>
@@ -272,7 +272,7 @@ export function CorrectionOverview({ children, jobs, corrections, currentCopy, f
               {item.kind === 'correction' && item.correction && <>
                 <Button variant="primary" className="copy-overview-icon-action" aria-label="Consulter la correction" title={'Consulter la correction de ' + item.label} onClick={() => onOpenCorrection(item.correction!)}><CopyActionIcon name="open" /></Button>
                 <details className="copy-overview-more">
-                  <summary aria-label={'Autres actions pour ' + item.label} title="Autres actions"><CopyActionIcon name="more" /></summary>
+                  <summary role="button" aria-label={'Autres actions pour ' + item.label} title="Autres actions"><CopyActionIcon name="more" /></summary>
                   <div className="copy-overview-more-menu">
                     <Button variant="secondary" disabled={Boolean(regradingCorrectionId)} onClick={() => onRegradeCorrection(item.correction!)}>{regradingCorrectionId === item.id ? 'Préparation…' : 'Recorriger'}</Button>
                   </div>
