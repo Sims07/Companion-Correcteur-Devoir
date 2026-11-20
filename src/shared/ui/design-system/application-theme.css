@@ -90,9 +90,17 @@ body {
 .secondary-button,
 .teacher-ai-settings-button {
   border-radius: var(--ds-radius-md);
-  border-color: var(--ds-color-border-strong);
-  background: var(--ds-color-surface);
+  border: 2px solid var(--ds-color-brand-700);
+  min-height: 44px;
+  background: var(--ds-color-brand-100);
   color: var(--ds-color-text);
+  font-size: 13px;
+  font-weight: 750;
+  box-shadow: var(--ds-shadow-action);
+}
+.secondary-button:hover:not(:disabled),
+.teacher-ai-settings-button:hover:not(:disabled) {
+  background: var(--ds-color-action-secondary-hover);
 }
 
 .primary-button:focus-visible,
@@ -105,7 +113,7 @@ body {
 .observability-filter-buttons button:focus-visible,
 .memory-panel button:focus-visible {
   outline: none;
-  box-shadow: var(--ds-focus-ring);
+  box-shadow: var(--ds-focus-ring), var(--ds-shadow-action);
 }
 
 .teacher-workspace-navigation {
@@ -350,6 +358,12 @@ body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", 
   color: #fff;
   background: var(--ds-color-brand-700);
 }
+.primary-button {
+  min-height: 44px;
+  border: 1px solid var(--ds-color-brand-700);
+  font-size: 13px;
+  box-shadow: var(--ds-shadow-action);
+}
 .primary-button:hover:not(:disabled),
 .assignment-open-button:hover:not(:disabled),
 .ds-button--primary:hover:not(:disabled) {
@@ -357,9 +371,9 @@ body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", 
   background: #8b3f2e;
 }
 .secondary-button, .ds-button--secondary {
-  background: var(--ds-color-surface);
+  background: var(--ds-color-brand-100);
   color: var(--ds-color-text);
-  border-color: var(--ds-color-border-strong);
+  border-color: var(--ds-color-brand-700);
 }
 .local-badge {
   border-color: var(--ds-color-border);
