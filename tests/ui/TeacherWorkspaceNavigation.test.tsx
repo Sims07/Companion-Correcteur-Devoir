@@ -37,7 +37,7 @@ describe('navigation de l’espace enseignant', () => {
     expect(html).toContain('aria-label="Sections du devoir"');
     expect(html).toContain('aria-selected="true"');
     expect(html).toContain('Copies');
-    expect(html).toContain('Barème');
+    expect(html).toContain('Barème et consignes');
     expect(html).toContain('Réglages IA');
     expect(html).not.toContain('Étapes du devoir');
   });
