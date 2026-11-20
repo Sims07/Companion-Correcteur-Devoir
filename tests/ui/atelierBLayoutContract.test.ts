@@ -65,6 +65,9 @@ describe('Atelier B : organisation réelle du poste enseignant', () => {
     expect(layout).toContain('.copy-review-header-actions');
     expect(layout).toContain('grid-template-columns: 16px minmax(0,1fr) 16px');
     expect(layout).toContain('body:has(.teacher-flow-shell .copy-review-validation-bar) .memory-fab');
+    expect(layout).toContain('.teacher-flow-shell .review-analysis-summary');
+    expect(layout).toContain('.teacher-flow-shell .review-safe-summary-row { order: 0; }');
+    expect(layout).toMatch(/\.teacher-flow-shell \.copy-review-validation-bar \{[\s\S]*?order: 30;[\s\S]*?margin: 12px 0 0;/);
     expect(layout).toContain('prefers-reduced-motion');
   });
 
