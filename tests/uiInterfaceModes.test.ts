@@ -6,6 +6,7 @@ const source = (path: string) => readFileSync(new URL(path, import.meta.url), 'u
 describe('teacher and AI diagnostic interface modes', () => {
   const app = () => source('../src/shell/ui/App.tsx');
   const teacherNavigation = () => source('../src/correction/ui/components/TeacherWorkspaceNavigation.tsx');
+  const reviewAttentionSummary = () => source('../src/correction/ui/components/ReviewAttentionSummary.tsx');
 
   it('shows optional teacher-facing annotation suggestions linked to the source page without region localization', () => {
     const text = app();
@@ -25,7 +26,8 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('review-explanation');
     expect(text).not.toContain('Confirmer les critères sans alerte');
     expect(text).not.toContain('undoGroupConfirmation');
-    expect(text).toContain('Afficher tous les critères');
+    expect(text).toContain('<ReviewAttentionSummary');
+    expect(reviewAttentionSummary()).toContain('Voir tous les critères');
     expect(text).toContain('{reliableCriteriaCount} critères sans alerte · preuves disponibles');
     expect(text).toContain('review-safe-summary-row');
     expect(text).not.toContain('Tout confirmer');

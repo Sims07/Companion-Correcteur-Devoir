@@ -22,6 +22,7 @@ import { useScientificDiagramDraft } from '../../shared/ui/useScientificDiagramD
 import type { ScientificDiagramAnalysisService } from '../../correction/application/scientificDiagramAnalysisService.ts';
 import { DesignSystemSelect } from '../../shared/ui/components/DesignSystemSelect.tsx';
 import { CopyReviewHeader } from '../../correction/ui/components/CopyReviewHeader.tsx';
+import { ReviewAttentionSummary } from '../../correction/ui/components/ReviewAttentionSummary.tsx';
 import { TeacherReviewAlert } from '../../correction/ui/components/TeacherReviewAlert.tsx';
 import { ReviewCriterionEvidence } from '../../correction/ui/components/ReviewCriterionEvidence.tsx';
 import { teacherReviewStatus } from '../../correction/domain/teacherReviewSummary.ts';
@@ -5602,16 +5603,17 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
               }
             }
           }}>
-        {(flaggedCriteriaIds.size > 0 || unreadableCopySignal || (studentIdentity !== null && studentIdentity.confidence !== 'high')) && <section className="copy-review-alert-strip" aria-label="Éléments à examiner">
-          {flaggedCriteriaIds.size > 0 && <button type="button" onClick={() => { setShowOnlyFlagged(true); document.querySelector('.review-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}>⚠ {flaggedCriteriaIds.size} critère(s) à examiner</button>}
+        {((studentIdentity !== null && studentIdentity.confidence !== 'high') || pageClassifications?.some((page) => page.kind === 'ambiguous')) && <section className="copy-review-alert-strip" aria-label="Éléments à examiner">
           {studentIdentity && studentIdentity.confidence !== 'high' && <button type="button" className="copy-review-alert-chip" onClick={() => document.getElementById('student-label')?.focus()}>Nom à confirmer</button>}
           {pageClassifications?.filter((page) => page.kind === 'ambiguous').map((page) => <div className="copy-review-alert-chip copy-review-classification-alert" role="group" aria-label={`Classification incertaine de la page ${page.pageNumber}`} key={page.pageNumber}><span role="alert">{page.warning ?? (page.confidence < 0.75 ? `Page ${page.pageNumber} : schéma possible, confiance faible.` : `Page ${page.pageNumber} : classification incertaine, à vérifier.`)}</span><button type="button" className="secondary-button" onClick={() => setPageClassifications((current) => current ? resolveAmbiguousPageClassification(current, page.pageNumber, 'scientific-diagram') : current)}>Analyser comme schéma</button><button type="button" className="text-button" onClick={() => setPageClassifications((current) => current ? resolveAmbiguousPageClassification(current, page.pageNumber, 'text') : current)}>Ignorer</button></div>)}
-          {unreadableCopySignal && !pageClassifications?.some((page) => page.kind === 'ambiguous') && <span className="copy-review-alert-chip" role="alert">Lecture à vérifier sur l’image</span>}
         </section>}
-            <div className="atelier-review-decision-heading">
-              <strong>{flaggedCriteriaIds.size > 0 ? `${flaggedCriteriaIds.size} critère${flaggedCriteriaIds.size > 1 ? 's' : ''} à examiner` : 'Proposition de correction'}</strong>
-              <span>{reliableCriteriaCount > 0 ? `${reliableCriteriaCount} autre${reliableCriteriaCount > 1 ? 's' : ''} critère${reliableCriteriaCount > 1 ? 's' : ''} sans alerte` : 'Décisions fondées sur le barème'}</span>
-            </div>
+        <ReviewAttentionSummary
+          flaggedCriteriaCount={flaggedCriteriaIds.size}
+          reliableCriteriaCount={reliableCriteriaCount}
+          readingNeedsReview={unreadableCopySignal && !pageClassifications?.some((page) => page.kind === 'ambiguous')}
+          showOnlyFlagged={shouldFocusExceptions}
+          onShowOnlyFlaggedChange={setShowOnlyFlagged}
+        />
             {(isAnalyzing || unassessedCount > 0 || !criterionProgress.isComplete) && <div className={`summary-panel review-score-summary ${isAnalyzing ? 'is-provisional' : ''}`} aria-live="polite">
               <strong>{isAnalyzing ? 'Note provisoire · calcul en cours' : unassessedCount > 0 ? 'Note partielle · critères non évalués' : 'Note partielle · analyse incomplète'}</strong>
               <span>{criterionProgress.completedCount > 0 ? `${reviewedTotal.toLocaleString('fr-FR')} / ${validation.maximumPoints.toLocaleString('fr-FR')} points` : 'En attente de la première note'}</span>
@@ -5622,9 +5624,6 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
               <summary>Synthèse de l’analyse IA</summary>
               <p>{proposal.summary}</p>
             </details>}
-        {flaggedCriteriaIds.size > 0 && <div className="review-criteria-toolbar">
-          <button type="button" className="text-action" onClick={() => setShowOnlyFlagged((current) => !current)}>{shouldFocusExceptions ? 'Afficher tous les critères' : 'Afficher uniquement les points à examiner'}</button>
-        </div>}
         {shouldFocusExceptions && reliableCriteriaCount > 0 && <div className="review-safe-summary-row">
           <details className="review-safe-summary">
             <summary>{reliableCriteriaCount} critères sans alerte · preuves disponibles</summary>

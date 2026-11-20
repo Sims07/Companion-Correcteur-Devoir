@@ -198,7 +198,14 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await expect(elementDetails.getByText('Le contour est incomplet.')).toBeVisible();
   await expect(elementDetails.getByText('Partiel · 1 / 2 pt')).toBeVisible();
   await expect(flaggedCard.locator('details.review-explanation')).not.toHaveAttribute('open', '');
-  await page.getByRole('button', { name: 'Afficher uniquement les points à examiner' }).click();
+  const summary = page.locator('.atelier-review-decision-heading');
+  await expect(summary).toContainText('1 critère à vérifier sur la copie');
+  await expect(summary).toContainText('1 autre critère sans alerte');
+  await expect(summary.getByText('1 critère à vérifier sur la copie', { exact: true })).toHaveCount(1);
+  await expect(page.locator('.copy-review-alert-strip')).not.toContainText('critère(s) à examiner');
+  await expect(page.locator('.review-criteria-toolbar')).toHaveCount(0);
+  await summary.getByRole('button', { name: 'Voir uniquement à vérifier' }).click();
+  await expect(summary.getByRole('button', { name: 'Voir tous les critères' })).toHaveAttribute('aria-pressed', 'true');
   const safeSummary = page.locator('details.review-safe-summary');
   await expect(safeSummary).toBeVisible();
   await expect(page.getByRole('button', { name: 'Tout confirmer' })).toHaveCount(0);
@@ -234,7 +241,7 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   expect(flaggedPosition).not.toBeNull();
   expect(railPosition!.x).toBeLessThan(sourcePosition!.x);
   expect(sourcePosition!.x + sourcePosition!.width).toBeLessThan(flaggedPosition!.x + 6);
-  await expect(page.locator('.atelier-review-decision-heading')).toContainText('critère à examiner');
+  await expect(page.locator('.atelier-review-decision-heading')).toContainText('critère à vérifier sur la copie');
   const gradeAdjustment = flaggedCard.locator('details.review-quick-edit');
   await expect(gradeAdjustment).not.toHaveAttribute('open', '');
   await gradeAdjustment.locator('summary').click();

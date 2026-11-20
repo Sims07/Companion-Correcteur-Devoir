@@ -9,6 +9,7 @@ const memoryStylesheet = readFileSync(new URL('../src/correction/ui/localMemory.
 const memoryComponent = readFileSync(new URL('../src/correction/ui/LocalMemoryCompanion.tsx', import.meta.url), 'utf8');
 const mainEntry = readFileSync(new URL('../src/main.tsx', import.meta.url), 'utf8');
 const appComponent = readFileSync(new URL('../src/shell/ui/App.tsx', import.meta.url), 'utf8');
+const reviewAttentionSummary = readFileSync(new URL('../src/correction/ui/components/ReviewAttentionSummary.tsx', import.meta.url), 'utf8');
 const observabilityComponent = readFileSync(new URL('../src/shell/ui/ObservabilityDashboard.tsx', import.meta.url), 'utf8');
 const observabilityStyles = readFileSync(new URL('../src/shared/ui/observability.css', import.meta.url), 'utf8');
 const copyIntakeComponent = readFileSync(new URL('../src/correction/ui/components/TeacherCopyIntake.tsx', import.meta.url), 'utf8');
@@ -210,7 +211,8 @@ describe('UI design system', () => {
     expect(appComponent).toContain('Analyser comme schéma');
     expect(appComponent).toContain('resolveAmbiguousPageClassification');
     expect(appComponent).toContain('Ignorer');
-    expect(appComponent).toContain('Lecture à vérifier sur l’image');
+    expect(appComponent).toContain('<ReviewAttentionSummary');
+    expect(reviewAttentionSummary).toContain('Lecture à vérifier sur l’image');
     expect(appComponent).not.toContain('correction-batch-progress');
     expect(appComponent).toContain('Valider et passer à la suivante');
     expect(appComponent).toContain('copy-overview-queue');
