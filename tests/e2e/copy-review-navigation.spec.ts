@@ -71,6 +71,25 @@ test('navigue entre huit copies de statuts variés en gardant compteur et rail s
   await page.getByRole('textbox', { name: 'Nom de l’étudiant' }).press('Escape');
   await expect(page.locator('.copy-review-identity-title h2')).toHaveText('01-reprendre');
   await expect(page.locator('.teacher-copy-rail-list button[aria-current="page"]')).toContainText('01-reprendre');
+
+  // A teacher rename must update the active copy, rail and breadcrumb, then survive
+  // leaving the review and a complete reload of IndexedDB-backed state.
+  await page.getByRole('button', { name: 'Modifier le nom de l’étudiant' }).click();
+  await page.getByRole('textbox', { name: 'Nom de l’étudiant' }).fill('Copie renommée par le professeur');
+  await page.getByRole('textbox', { name: 'Nom de l’étudiant' }).press('Enter');
+  await expect(page.locator('.copy-review-identity-title h2')).toHaveText('Copie renommée par le professeur');
+  await expect(page.locator('.teacher-copy-rail-list button[aria-current="page"]')).toContainText('Copie renommée par le professeur');
+  await expect(page.locator('.teacher-breadcrumb [aria-current="page"]')).toHaveText('Copie renommée par le professeur');
+  await page.getByRole('tab', { name: /Copies/ }).click();
+  await expect(page.locator('.copy-overview-grid')).toContainText('Copie renommée par le professeur');
+  await page.reload();
+  await openActiveAssignment(page);
+  await page.getByRole('tab', { name: /Copies/ }).click();
+  await page.locator('.copy-overview-filters').getByRole('button', { name: /À vérifier/ }).click();
+  await page.locator('.copy-overview-grid li').filter({ hasText: 'Copie renommée par le professeur' })
+    .getByRole('button', { name: 'Vérifier la copie', exact: true }).click();
+  await expect(page.locator('.copy-review-identity-title h2')).toHaveText('Copie renommée par le professeur');
+  await expect(page.locator('.teacher-breadcrumb [aria-current="page"]')).toHaveText('Copie renommée par le professeur');
   // A persisted processing copy is recovered as failed after reload, so it is prioritized for retry.
   const expectedLabels = ['03-analyse', '02-verifier', '04-attente', '08-archivée', '07-archivée', '06-archivée', '05-archivée'];
   for (let index = 0; index < expectedLabels.length; index += 1) {
@@ -87,4 +106,18 @@ test('navigue entre huit copies de statuts variés en gardant compteur et rail s
   await page.getByRole('textbox', { name: 'Nom de l’étudiant' }).fill('Étudiant identifié');
   await page.getByRole('textbox', { name: 'Nom de l’étudiant' }).press('Enter');
   await expect(page.locator('.copy-review-identity-title h2')).toHaveText('Étudiant identifié');
+  await expect(page.locator('.teacher-copy-rail-list button[aria-current="page"]')).toContainText('Étudiant identifié');
+  await expect(page.locator('.teacher-breadcrumb [aria-current="page"]')).toHaveText('Étudiant identifié');
+
+  await page.getByRole('tab', { name: /Copies/ }).click();
+  await page.locator('.copy-overview-filters').getByRole('button', { name: /Corrigées/ }).click();
+  await expect(page.locator('.copy-overview-grid')).toContainText('Étudiant identifié');
+  await page.reload();
+  await openActiveAssignment(page);
+  await page.getByRole('tab', { name: /Copies/ }).click();
+  await page.locator('.copy-overview-filters').getByRole('button', { name: /Corrigées/ }).click();
+  await page.locator('.copy-overview-grid li').filter({ hasText: 'Étudiant identifié' })
+    .getByRole('button', { name: /Consulter la correction/ }).click();
+  await expect(page.locator('.copy-review-identity-title h2')).toHaveText('Étudiant identifié');
+  await expect(page.locator('.teacher-breadcrumb [aria-current="page"]')).toHaveText('Étudiant identifié');
 });
