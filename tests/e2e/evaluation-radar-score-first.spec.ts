@@ -74,6 +74,7 @@ test('reopens two dated scores for the same model and selects the older method',
   });
   expect(gap).toBeGreaterThanOrEqual(11.5); // 12 px design-system spacing, no joined borders.
   await superpose.click();
+  await page.mouse.move(0, 0); // leave the hover state before checking the selected fill
   await expect(superpose).toHaveAttribute('aria-pressed', 'true');
   await expect(superpose).toHaveCSS('background-color', 'rgb(161, 77, 55)');
   await expect(sideBySide).toHaveAttribute('aria-pressed', 'false');
