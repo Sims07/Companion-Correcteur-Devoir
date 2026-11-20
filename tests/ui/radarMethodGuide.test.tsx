@@ -109,9 +109,9 @@ it('illustrates biology contracts, standard rubric and historical pilot without 
       expect.stringContaining(biologyMethodLabels.pilot),
     ]));
     expect(panel.querySelector('[data-illustration="question-contracts"]')).not.toBeNull();
-    await act(async () => tab('pixel-v1').click());
+    await act(async () => tabs[1]!.click());
     expect(panel.querySelector('[data-illustration="standard-rubric"]')).not.toBeNull();
-    await act(async () => tab('leaders-v1').click());
+    await act(async () => tabs[2]!.click());
     expect(panel.querySelector('[data-illustration="historical-pilot"]')).not.toBeNull();
     expect(panel.textContent).toContain('historique');
   } finally { await act(async () => root.unmount()); }
