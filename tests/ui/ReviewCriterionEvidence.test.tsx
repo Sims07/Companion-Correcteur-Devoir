@@ -67,7 +67,7 @@ describe('preuve immédiate du critère à examiner', () => {
     expect(onShowPage).toHaveBeenCalledOnce();
   });
 
-  it('ne laisse pas arbitrer une copie finalisée', async () => {
+  it('ne laisse pas arbitrer pendant une analyse en cours', async () => {
     const { container } = await render(true);
     expect(container.textContent).toContain('Aucune interphase ne figure.');
     expect(container.querySelector('.review-evidence-item-actions')).toBeNull();
