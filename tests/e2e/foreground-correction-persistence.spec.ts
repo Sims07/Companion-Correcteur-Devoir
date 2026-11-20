@@ -55,9 +55,8 @@ test('individual correction retains every page after AI failure, refresh and ret
   // Browser is completely reloaded: this path previously erased a foreground
   // copy because it had never become a background job or archived correction.
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'Mes devoirs' })).toBeVisible();
-  await page.locator('.assignment-overview-card').first()
-    .getByRole('button', { name: /Reprendre le devoir|Ouvrir le devoir/ }).click();
+  await expect(page.locator('.teacher-workspace-navigation')).toBeVisible();
+  await page.getByRole('tab', { name: /Copies/ }).click();
   const copy = page.locator('.copy-overview-grid .correction-series-card').filter({
     hasText: 'copie-page-1.png',
   });
@@ -85,6 +84,10 @@ test('foreground correction draft is stored separately for each assignment', asy
   await expect(page.getByRole('heading', { name: 'Devoir et barème' })).toBeVisible();
 
   await page.reload();
+  // Reload keeps the rubric of the second assignment; return to the library
+  // explicitly to verify the first assignment's independent draft.
+  await expect(page.getByRole('heading', { name: 'Devoir et barème' })).toBeVisible();
+  await page.getByRole('button', { name: 'Mes devoirs' }).click();
   await expect(page.locator('.assignment-overview-card').filter({ hasText: 'Deuxième devoir indépendant' })).toBeVisible();
   const first = page.locator('.assignment-overview-card').filter({ hasNotText: 'Deuxième devoir indépendant' }).first();
   await first.getByRole('button', { name: /Reprendre le devoir|Ouvrir le devoir/ }).click();
