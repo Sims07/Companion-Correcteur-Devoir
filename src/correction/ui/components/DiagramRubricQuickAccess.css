@@ -22,7 +22,7 @@
 .diagram-rubric-quick-heading strong { font-size: .86rem; }
 .diagram-rubric-quick-icon { color: var(--ds-color-brand-700); font-size: 1.1rem; }
 .diagram-rubric-quick-points { color: var(--ds-color-text-muted); font-size: .8rem; white-space: nowrap; }
-.diagram-rubric-quick-actions .ds-button { min-height: 40px; padding: 7px 13px; }
+.diagram-rubric-quick-actions .ds-button { min-height: 44px; padding: 8px 13px; }
 .diagram-rubric-quick-issue { flex-basis: 100%; margin: 0; color: var(--ds-color-text-muted); font-size: .82rem; }
 .diagram-rubric-readonly-caption { color: var(--ds-color-text-muted); font-size: .86rem; }
 .diagram-rubric-quick-criteria { display: grid; gap: var(--ds-space-4); margin: 0; padding-left: 22px; }
