@@ -4287,9 +4287,32 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
       restoringCopyRef.current = null;
       setBrowserNavigationRequest(parseBrowserPage(window.location.hash) ?? { kind: 'assignments' });
     };
+    // Existing links inside the rubric target headings with #anchor IDs. Do
+    // not let these overwrite the app's #/route (and send the teacher home).
+    // Preserve the familiar keyboard/scroll/focus behavior without URL changes.
+    const onSectionAnchor = (event: MouseEvent) => {
+      if (!(event.target instanceof Element)) return;
+      const link = event.target.closest<HTMLAnchorElement>('a[href^="#"]');
+      const fragment = link?.getAttribute('href');
+      if (!fragment || fragment.startsWith('#/') || event.defaultPrevented) return;
+      event.preventDefault();
+      let id: string;
+      try { id = decodeURIComponent(fragment.slice(1)); } catch { return; }
+      const target = document.getElementById(id);
+      if (!target) return;
+      let ancestor: HTMLElement | null = target.parentElement;
+      while (ancestor) {
+        if (ancestor instanceof HTMLDetailsElement) ancestor.open = true;
+        ancestor = ancestor.parentElement;
+      }
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      target.focus({ preventScroll: true });
+    };
+    document.addEventListener('click', onSectionAnchor, true);
     window.addEventListener('popstate', onLocationChange);
     window.addEventListener('hashchange', onLocationChange);
     return () => {
+      document.removeEventListener('click', onSectionAnchor, true);
       window.removeEventListener('popstate', onLocationChange);
       window.removeEventListener('hashchange', onLocationChange);
     };
