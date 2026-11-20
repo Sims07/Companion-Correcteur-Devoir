@@ -91,7 +91,7 @@ export function getCopyNavigation(
     const maximum = job.rubric.criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0);
     entries.push({
       id: job.id, kind: 'job',
-      label: (job.studentIdentity ? [job.studentIdentity.lastName, job.studentIdentity.firstName].filter(Boolean).join(' ') : '') || job.label || 'Étudiant non identifié',
+      label: job.label || (job.studentIdentity ? [job.studentIdentity.lastName, job.studentIdentity.firstName].filter(Boolean).join(' ') : '') || 'Étudiant non identifié',
       status,
       score: score === null ? null : `${score.toLocaleString('fr-FR')} / ${maximum.toLocaleString('fr-FR')}`,
       updatedAt: job.updatedAt, job, stableOrder: stableOrder++,

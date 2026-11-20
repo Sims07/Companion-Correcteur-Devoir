@@ -421,6 +421,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     subscribe: () => () => undefined,
     subscribeSummaries: () => () => undefined,
     markForReview: async () => undefined,
+    renameJob: async () => undefined,
     saveReviewDraft: async () => undefined,
     markCompleted: async () => undefined,
     remove: async () => undefined,
@@ -998,6 +999,8 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
   const reviewedTotal = criterionProgress.provisionalPoints;
   const unassessedCount = review.filter((item) => item.assessmentStatus === 'not-evaluated').length;
   const currentCopyId = currentBackgroundJobId ?? currentCorrectionId ?? (images.length > 0 ? 'current-copy' : null);
+  const currentCopyIdRef = useRef(currentCopyId);
+  currentCopyIdRef.current = currentCopyId;
   const currentDraftNavigationItem = images.length > 0 && !currentBackgroundJobId && !currentCorrectionId
     ? {
       id: 'current-copy',
@@ -4182,6 +4185,34 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
   }
 
 
+  async function renameDisplayedCopy(value: string) {
+    const label = value.trim();
+    if (!label) {
+      setError('Le nom de la copie ne peut pas être vide.');
+      return;
+    }
+    if (label === studentLabel.trim()) return;
+    const jobId = currentBackgroundJobId;
+    const correctionId = currentCorrectionId;
+    const copyId = jobId ?? correctionId;
+    try {
+      if (jobId) {
+        await backgroundService.renameJob(jobId, label);
+        setBackgroundJobs(await loadQueueOverviews(activeAssignmentId));
+      } else if (correctionId) {
+        const updated = await archiveService.renameCorrection(correctionId, label);
+        setArchivedCorrections((copies) => copies.map((copy) =>
+          copy.id === correctionId ? { ...copy, label: updated.label, updatedAt: updated.updatedAt } : copy));
+      }
+      // Do not overwrite a different copy if navigation occurred during the async save.
+      if (!copyId || currentCopyIdRef.current === copyId) setStudentLabel(label);
+      setError('');
+    } catch (cause) {
+      setError(cause instanceof Error ? 'Nom non enregistré : ' + cause.message
+        : 'Impossible d’enregistrer le nouveau nom de cette copie.');
+    }
+  }
+
   async function stopCurrentOperations() {
     if (isStoppingOperation) return;
     setIsStoppingOperation(true);
@@ -5539,7 +5570,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
 
       {activeBackgroundJob?.status === 'pending' && interfaceMode === 'teacher' && teacherStep === 'review' && <section className="analysis-progress teacher-progress-card" role="status"><strong>{preparingCopy?.id === activeBackgroundJob.id ? 'Préparation de cette copie' : 'Copie en attente de correction'}</strong><p>{preparingCopy?.id === activeBackgroundJob.id ? 'Le modèle IA se prépare. La lecture commencera ensuite.' : 'La copie sera analysée lorsque viendra son tour. Aucune note n’a encore été attribuée.'}</p></section>}
       {(currentBackgroundJobId || currentCorrectionId) && activeBackgroundJob?.status !== 'processing' && interfaceMode === 'teacher' && !showAiSettings && <section className="review-section copy-navigation-only">
-        <CopyReviewHeader studentLabel={studentLabel} onStudentLabelChange={setStudentLabel} position={reviewPosition} totalCopies={reviewTotalCopies}
+        <CopyReviewHeader studentLabel={studentLabel} onStudentLabelChange={(value) => { void renameDisplayedCopy(value); }} position={reviewPosition} totalCopies={reviewTotalCopies}
           status={isFinalized ? 'Corrigée' : activeBackgroundJob?.status === 'pending' ? 'En attente' : activeBackgroundJob?.status === 'failed' || activeBackgroundJob?.status === 'needs-review' || (activeBackgroundJob?.status === 'reviewing' && activeBackgroundJob.completedCriteria < activeBackgroundJob.totalCriteria) ? 'À reprendre' : 'À vérifier'}
           score={isFinalized || (proposal && review.length > 0 && activeBackgroundJob?.status !== 'pending') ? reviewedTotal : null} scoreIncomplete={unassessedCount > 0 || review.length !== rubric.criteria.length} maximumPoints={validation.maximumPoints} isFinalized={isFinalized}
           canPrevious={Boolean(copyNavigation.previousCopy)} canNext={Boolean(copyNavigation.nextCopy)}

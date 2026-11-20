@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createBackgroundCorrection } from '../../../src/correction/domain/backgroundCorrection.ts';
-import { getNewlyAvailableReviewJob } from '../../../src/correction/domain/backgroundCorrectionReviewNavigation.ts';
+import { getCopyNavigation, getNewlyAvailableReviewJob } from '../../../src/correction/domain/backgroundCorrectionReviewNavigation.ts';
 
 const baseJob = createBackgroundCorrection({
   id: 'copy-current', assignmentId: 'biology', label: 'Copie 1', question: 'Mitose',
@@ -33,5 +33,19 @@ describe('actualisation de la correction ouverte en fin de traitement', () => {
     expect(getNewlyAvailableReviewJob('biology', 'another-copy', false, [readyJob])).toBeNull();
     expect(getNewlyAvailableReviewJob('biology', null, false, [readyJob])).toBeNull();
     expect(getNewlyAvailableReviewJob('biology', 'copy-current', false, [{ ...readyJob, status: 'failed' }])).toBeNull();
+  });
+});
+
+describe('libellé enseignant dans la navigation', () => {
+  it('uses the saved copy name before any automatically recognized identity', () => {
+    const job = {
+      ...readyJob,
+      label: 'Copie renommée par le professeur',
+      labelManuallyEdited: true,
+      studentIdentity: { firstName: 'Marie', lastName: 'Dupont', studentNumber: null, confidence: 'high' as const },
+    };
+    const navigation = getCopyNavigation('biology', job.id, [job], []);
+    expect(navigation.copies[0].label).toBe('Copie renommée par le professeur');
+    expect(navigation.currentPosition).toBe(1);
   });
 });

@@ -31,6 +31,32 @@ function repository(): LocalCorrectionRepository {
 }
 
 describe('local correction application use cases', () => {
+  it('renames the durable archive without losing full pages or the original review', async () => {
+    const repo = repository();
+    const saved = new Map<string, LocalCorrection>();
+    repo.saveCorrection = async (copy) => { saved.set(copy.id, structuredClone(copy)); };
+    repo.getCorrection = async (id) => saved.get(id) ?? null;
+    repo.listCorrectionSummaries = async () => [...saved.values()].map((copy) => ({ ...copy, imagesDeferred: true, snapshot: undefined }));
+    const service = createLocalCorrectionService(repo);
+    const original = {
+      id: 'archive-renamed', label: 'copie.png', rubricTitle: 'Mitose',
+      rubricFingerprint: 'rubric-mitose', createdAt: '2026-11-01T08:00:00Z',
+      updatedAt: '2026-11-01T08:00:00Z',
+      snapshot: { images: [{ fileName: 'copie.png', mimeType: 'image/png', base64: 'cGFnZQ==' }], review: [{ criterionId: 'c1', teacherPoints: 9 }] },
+    } as unknown as LocalCorrection;
+    await repo.saveCorrection(original);
+
+    const renamed = await service.renameCorrection(original.id, '  Copie de Marie  ');
+    expect(renamed.label).toBe('Copie de Marie');
+    expect(renamed.createdAt).toBe(original.createdAt);
+    expect(renamed.updatedAt).not.toBe(original.updatedAt);
+    expect(renamed.snapshot).toEqual(original.snapshot);
+    expect((await repo.getCorrection(original.id))?.snapshot).toEqual(original.snapshot);
+    expect((await service.listCorrectionSummaries?.())?.[0].label).toBe('Copie de Marie');
+    await expect(service.renameCorrection(original.id, '  ')).rejects.toThrow('vide');
+    await expect(service.renameCorrection('missing', 'Copie')).rejects.toThrow('introuvable');
+  });
+
   it('validates correction identity before delegating to persistence', async () => {
     const service = createLocalCorrectionService(repository());
     await expect(service.saveCorrection({
