@@ -186,7 +186,8 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await expect(flaggedCard.locator('.teacher-review-alert .rationale')).toHaveText('Le mécanisme est partiellement expliqué.');
   await expect(flaggedCard.getByText('Précise le rôle de la membrane.')).toBeHidden();
   await expect(flaggedCard.getByRole('button', { name: 'Copier le commentaire' })).toBeVisible();
-  await expect(flaggedCard.getByRole('button', { name: 'Voir la page 1' })).toBeVisible();
+  await expect(flaggedCard.getByRole('button', { name: 'Repérer sur la page 1' })).toBeVisible();
+  await expect(flaggedCard.getByRole('button', { name: 'Voir la page 1' })).toHaveCount(0);
   const elementDetails = flaggedCard.locator('details.review-quality-details');
   await expect(elementDetails).not.toHaveAttribute('open', '');
   await elementDetails.locator('summary').click();
