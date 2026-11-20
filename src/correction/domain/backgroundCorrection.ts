@@ -38,6 +38,8 @@ export interface BackgroundCorrectionJob {
   id: string;
   assignmentId: string;
   label: string;
+  /** A teacher's chosen name always wins over subsequent automated identification. */
+  labelManuallyEdited?: boolean;
   studentIdentity?: StudentIdentity | null;
   /** Links this attempt to a previous validated local archive without replacing it. */
   regradeOfCorrectionId?: string;
