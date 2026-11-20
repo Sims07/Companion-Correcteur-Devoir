@@ -44,3 +44,18 @@ export const SurfacesContrastees: Story = {
     </section>)}
   </div>,
 };
+
+/** Convention partagée : les boutons indépendants respirent, y compris à côté d'un lien. */
+export const GroupesDActions: Story = {
+  render: () => <section style={{ maxWidth: 440, background: 'var(--ds-color-brand-100)', padding: 'var(--ds-space-4)' }}>
+    <p>Actions et modes sur un fond ocre</p>
+    <div className="ds-action-group" role="group" aria-label="Affichage">
+      <Button variant="secondary" aria-pressed="true">Côte à côte</Button>
+      <Button variant="secondary" aria-pressed="false">Superposer</Button>
+    </div>
+    <div className="ds-action-group" style={{ marginTop: 'var(--ds-space-4)' }}>
+      <Button variant="secondary">Choisir la recommandation</Button>
+      <a href="#batteries">Examiner les batteries</a>
+    </div>
+  </section>,
+};
