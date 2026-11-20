@@ -92,3 +92,19 @@ test('copy route is recovered from local IndexedDB after refresh', async ({ page
   await expect(page.locator('.copy-review-identity-title h2')).toHaveText('Copie locale à retrouver');
   await expect(page.locator('.teacher-copy-rail-list button[aria-current="page"]')).toContainText('Copie locale à retrouver');
 });
+
+test('rubric anchors scroll and focus without replacing the addressable teacher route', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /Reprendre le devoir/ }).click();
+  await page.getByRole('tab', { name: 'Barème' }).click();
+  const expectedRoute = /#\\/devoir\\/assignment-default\\/bareme$/;
+  await expect(page).toHaveURL(expectedRoute);
+
+  await page.getByRole('link', { name: 'Réutiliser, importer ou exporter' }).click();
+  await expect(page.getByRole('heading', { name: 'Réutiliser, importer ou exporter des critères' })).toBeFocused();
+  await expect(page).toHaveURL(expectedRoute);
+
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Devoir et barème' })).toBeVisible();
+  await expect(page).toHaveURL(expectedRoute);
+});
