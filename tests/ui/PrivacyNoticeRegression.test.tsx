@@ -47,8 +47,12 @@ describe('parcours sans bandeaux de consentement ou de confidentialité répéti
 
   it('ne montre aucune case de consentement dans le parcours Copies', () => {
     const app = source('../../src/shell/ui/App.tsx');
-    expect(app).toContain('Correction directe du dessin, sans transcription OCR');
-    expect(app).toContain('Voir le barème graphique');
+    expect(app).toContain('<DiagramRubricQuickAccess');
+    expect(app).not.toContain('Voir le barème graphique');
+    const quickAccess = source('../../src/correction/ui/components/DiagramRubricQuickAccess.tsx');
+    expect(quickAccess).toContain('Consultation en lecture seule');
+    expect(quickAccess).not.toContain('J’autorise');
+    expect(quickAccess).not.toContain('Serveur non local');
     expect(app).not.toContain('diagram-assignment-consent');
     expect(app).not.toContain('diagramConsentEndpoint');
     expect(app).not.toContain('J’autorise l’envoi');
