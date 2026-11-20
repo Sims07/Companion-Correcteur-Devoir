@@ -151,6 +151,7 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await expect(page.getByRole('button', { name: 'Ignorer' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Correction validée' }).first()).toBeVisible();
   await expect(page.locator('.copy-review-validation-bar')).toBeVisible();
+  await expect(page.locator('.copy-review-validation-bar > div > span')).toHaveText('Note validée');
   await expect(page.getByRole('complementary', { name: 'Copie de l’étudiant' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Rôle de la membrane' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Transport membranaire' })).toBeVisible();
