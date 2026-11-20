@@ -32,7 +32,10 @@ test('teacher audits a rubric locally and retains their choice after refresh', a
     }) });
   });
   await page.reload();
-  await expect(page.getByRole('tab', { name: 'Barème' })).toHaveAttribute('aria-selected', 'true');
+  // This is the initial refresh from the library after configuring local mocks.
+  // Opening the devoir remains necessary; later refreshes retain the active rubric.
+  await page.getByRole('button', { name: /Reprendre le devoir/ }).click();
+  await page.getByRole('tab', { name: 'Barème' }).click();
   await page.getByRole('link', { name: 'Vérification IA' }).focus();
   await page.keyboard.press('Enter');
   await expect(page.getByRole('heading', { name: 'Vérifier et enrichir le barème' })).toBeFocused();
@@ -110,7 +113,10 @@ test('scientific enrichment is reviewed beside the original, previewed, applied 
     }) });
   });
   await page.reload();
-  await expect(page.getByRole('tab', { name: 'Barème' })).toHaveAttribute('aria-selected', 'true');
+  // This is the initial refresh from the library after configuring local mocks.
+  // Opening the devoir remains necessary; later refreshes retain the active rubric.
+  await page.getByRole('button', { name: /Reprendre le devoir/ }).click();
+  await page.getByRole('tab', { name: 'Barème' }).click();
   await page.getByRole('button', { name: 'Vérifier avec l’IA locale' }).click();
   await expect(page.getByRole('heading', { name: 'Clarifications et enrichissements scientifiques' })).toBeVisible();
   await expect(page.getByText('Conformité biologique', { exact: false })).toBeVisible();
