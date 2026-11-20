@@ -4,6 +4,7 @@ import type { LocalCorrectionRepository } from '../ports/localCorrectionReposito
 
 export interface LocalCorrectionService {
   saveCorrection(correction: LocalCorrection): Promise<void>;
+  renameCorrection(correctionId: string, label: string): Promise<LocalCorrection>;
   listCorrections(): Promise<LocalCorrection[]>;
   listCorrectionSummaries?(): Promise<LocalCorrection[]>;
   getCorrection?(id: string): Promise<LocalCorrection | null>;
@@ -28,6 +29,18 @@ export function createLocalCorrectionService(repository: LocalCorrectionReposito
         throw new Error('Une correction doit être associée à une empreinte de barème.');
       }
       await repository.saveCorrection(correction);
+    },
+    async renameCorrection(correctionId, label) {
+      const nextLabel = label.trim();
+      if (!nextLabel) throw new Error('Le nom de la copie ne peut pas être vide.');
+      const correction = repository.getCorrection
+        ? await repository.getCorrection(correctionId)
+        : (await repository.listCorrections()).find((item) => item.id === correctionId) ?? null;
+      if (!correction) throw new Error('Cette correction archivée est introuvable.');
+      // Preserve full images and review snapshots: summaries are deliberately incomplete.
+      const updated = { ...correction, label: nextLabel, updatedAt: new Date().toISOString() };
+      await repository.saveCorrection(updated);
+      return updated;
     },
     listCorrections: () => repository.listCorrections(),
     listCorrectionSummaries: () => repository.listCorrectionSummaries?.() ?? repository.listCorrections(),
