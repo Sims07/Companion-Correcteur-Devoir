@@ -1,3 +1,4 @@
+import { CopyActionIcon } from './CopyActionIcon.tsx';
 import { useState } from 'react';
 import { getRubricSubcriteria, type Rubric } from '../../domain/rubric.ts';
 import { Button, Dialog } from '../../../shared/ui/design-system/index.ts';
@@ -25,8 +26,8 @@ export function DiagramRubricQuickAccess({
       <span className="diagram-rubric-quick-points">{points(maximumPoints)} points</span>
     </div>
     <div className="diagram-rubric-quick-actions">
-      <Button variant="secondary" aria-haspopup="dialog" onClick={() => setIsOpen(true)}>Consulter</Button>
-      <Button variant="secondary" onClick={onEdit} disabled={editDisabled}>Modifier le barème</Button>
+      <Button variant="secondary" aria-haspopup="dialog" onClick={() => setIsOpen(true)}><CopyActionIcon name="open" />Consulter</Button>
+      <Button variant="secondary" onClick={onEdit} disabled={editDisabled}><CopyActionIcon name="edit" />Modifier le barème</Button>
     </div>
     {issue && <p role="status" className="diagram-rubric-quick-issue">{issue}</p>}
     {isOpen && <Dialog
