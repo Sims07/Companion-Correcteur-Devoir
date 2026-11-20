@@ -260,13 +260,13 @@ export function CorrectionOverview({ children, jobs, corrections, currentCopy, f
                 {item.status === 'to-review' && <Button variant="primary" aria-label="Vérifier la copie" title={'Vérifier ' + item.label} onClick={() => onOpenJob(item.job!.id)}><CopyActionIcon name="review" />Vérifier</Button>}
                 {item.status === 'to-do' && item.job.error?.startsWith('Correction interrompue par l’enseignant') && <Button variant="primary" aria-label="Reprendre les corrections" title="Reprendre les corrections" disabled={isStartingCorrections} onClick={onStartCorrections}><CopyActionIcon name="start" />Reprendre</Button>}
                 {item.status !== 'to-review' && <Button variant={item.status === 'to-retry' || (item.status === 'to-do' && item.job.error?.startsWith('Correction interrompue par l’enseignant')) ? 'secondary' : 'primary'} aria-label="Ouvrir" title={'Ouvrir ' + item.label} onClick={() => onOpenJob(item.job!.id)}><CopyActionIcon name="open" />Ouvrir</Button>}
-                {item.status === 'to-review' && <Button variant="secondary" onClick={() => onRetryJob(item.job!.id)}><CopyActionIcon name="retry" />Recorriger</Button>}
-                {item.status !== 'processing' && <Button variant="danger" aria-label={'Retirer la copie « ' + item.label + ' »'} onClick={() => onRemoveJob(item.id)}><CopyActionIcon name="remove" />Retirer</Button>}
+                {item.status === 'to-review' && <Button variant="secondary" aria-label="Recorriger" title="Recorriger la copie" onClick={() => onRetryJob(item.job!.id)}><CopyActionIcon name="retry" /></Button>}
+                {item.status !== 'processing' && <Button variant="danger" title="Retirer la copie" aria-label={'Retirer la copie « ' + item.label + ' »'} onClick={() => onRemoveJob(item.id)}><CopyActionIcon name="remove" /></Button>}
               </>}
               {item.kind === 'current' && <Button variant="primary" aria-label="Reprendre la copie" title="Reprendre la copie" onClick={onOpenCurrentCopy}><CopyActionIcon name="open" />Reprendre</Button>}
               {item.kind === 'correction' && item.correction && <>
                 <Button variant="primary" aria-label="Consulter la correction" title={'Consulter la correction de ' + item.label} onClick={() => onOpenCorrection(item.correction!)}><CopyActionIcon name="open" />Consulter</Button>
-                <Button variant="secondary" disabled={Boolean(regradingCorrectionId)} onClick={() => onRegradeCorrection(item.correction!)}><CopyActionIcon name="retry" />{regradingCorrectionId === item.id ? 'Préparation…' : 'Recorriger'}</Button>
+                <Button variant="secondary" aria-label={regradingCorrectionId === item.id ? 'Préparation…' : 'Recorriger'} title="Recorriger la copie" disabled={Boolean(regradingCorrectionId)} onClick={() => onRegradeCorrection(item.correction!)}><CopyActionIcon name="retry" />{regradingCorrectionId === item.id && 'Préparation…'}</Button>
               </>}
             </div>
           </div>

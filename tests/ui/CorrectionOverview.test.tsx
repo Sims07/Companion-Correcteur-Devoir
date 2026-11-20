@@ -90,7 +90,7 @@ describe('teacher correction overview and partial grade safety', () => {
     expect(html).toContain('aria-label="Consulter la correction"');
     expect(html).not.toContain('Autres actions');
     expect(html).toContain('class="copy-overview-title-action"');
-    expect(html).toContain('>Recorriger</button>');
+    expect(html).toContain('aria-label="Recorriger"');
     expect(html).not.toContain('CorrigéeEnregistrée');
   });
 
@@ -113,7 +113,7 @@ describe('teacher correction overview and partial grade safety', () => {
     expect(html).toContain('1 page</small>');
     expect(html).toContain('3,5');
     expect(html).toContain('Consulter la correction');
-    expect(html).toContain('>Recorriger</button>');
+    expect(html).toContain('aria-label="Recorriger"');
   });
 
   it('names the first queued copy while the model is starting and exposes its preview', () => {
@@ -238,7 +238,7 @@ describe('teacher correction overview and partial grade safety', () => {
       },
     });
     expect(html).toContain('Note proposée');
-    expect(html).toContain('>Recorriger</button>');
+    expect(html).toContain('aria-label="Recorriger"');
     expect(html).toContain('3,5');
     expect(html).toContain('4');
   });

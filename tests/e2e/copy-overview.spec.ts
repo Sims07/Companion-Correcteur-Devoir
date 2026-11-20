@@ -144,9 +144,17 @@ test('a copy awaiting review is a compact responsive row with a clear primary ac
   const regrade = card.getByRole('button', { name: 'Recorriger' });
   const remove = card.getByRole('button', { name: 'Retirer la copie' });
   await expect(verify).toHaveText('Vérifier');
+  for (const icon of [regrade, remove]) {
+    await expect(icon).toHaveText('');
+    await expect(icon).toHaveAttribute('title', /la copie/);
+    await expect(icon.locator('svg')).toBeVisible();
+    expect((await icon.boundingBox())!.width).toBeGreaterThanOrEqual(44);
+  }
   await expect(card.getByRole('button', { name: /Autres actions/ })).toHaveCount(0);
   for (const button of [verify, regrade, remove]) {
     await expect(button).toBeVisible();
+    await expect(button).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+    await expect(button).toHaveCSS('box-shadow', 'none');
     expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   }
   expect((await verify.boundingBox())!.y).toBe((await remove.boundingBox())!.y);
@@ -158,6 +166,12 @@ test('a copy awaiting review is a compact responsive row with a clear primary ac
   await expect(verify).toBeVisible();
   await expect(regrade).toBeVisible();
   await expect(remove).toBeVisible();
+  await verify.focus();
+  await page.keyboard.press('Tab');
+  await expect(regrade).toBeFocused();
+  await expect(regrade).toHaveCSS('outline-style', 'solid');
+  await page.keyboard.press('Tab');
+  await expect(remove).toBeFocused();
   expect(await card.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
   await verify.click();
   await expect(page.locator('.copy-review-identity-title h2')).toHaveText('Copie à vérifier');
