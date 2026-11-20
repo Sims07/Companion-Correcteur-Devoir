@@ -156,6 +156,8 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await expect(page.getByRole('heading', { name: 'Transport membranaire' })).toBeVisible();
   const flaggedCard = page.locator('.review-card').filter({ has: page.getByRole('heading', { name: 'Rôle de la membrane' }) });
   await expect(page.locator('.review-source-pane')).toBeInViewport();
+  await expect(flaggedCard.getByText('Expliquer la barrière sélective.', { exact: false }).first()).toBeVisible();
+  await expect(flaggedCard.locator('.review-result-status')).toHaveText('À examiner');
   await expect(flaggedCard).toBeInViewport();
   await expect(flaggedCard).toHaveClass(/is-flagged/);
   const attentionColor = await page.evaluate(() => {

@@ -50,6 +50,7 @@ export interface GradingProposal {
 }
 
 export interface ReviewedCriterion extends CriterionProposal {
+  reviewedByTeacher?: boolean;
   teacherPoints: number;
   teacherComment: string;
   decision: 'pending' | 'accepted' | 'adjusted';

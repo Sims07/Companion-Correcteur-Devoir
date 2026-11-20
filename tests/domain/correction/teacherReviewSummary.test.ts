@@ -21,8 +21,8 @@ describe('résumé de revue pour le professeur', () => {
   });
 
   it('ne prétend pas que tous les critères nécessitent une confirmation', () => {
-    expect(teacherReviewStatus(0, 0)).toBe('Tous les critères sont notés');
-    expect(teacherReviewStatus(0, 2)).toBe('2 point(s) signalé(s) à examiner');
+    expect(teacherReviewStatus(0, 0)).toBe('Prête à valider');
+    expect(teacherReviewStatus(0, 2)).toBe('2 critères à examiner');
     expect(teacherReviewStatus(1, 2)).toBe('1 critère(s) à noter manuellement');
   });
 });
