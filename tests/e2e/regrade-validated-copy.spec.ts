@@ -79,6 +79,7 @@ test('a validated copy can be regraded from saved pages with the edited assignme
   await page.getByRole('button', { name: /Reprendre le devoir/ }).click();
   await expect(page.getByRole('heading', { name: 'Suivi des copies' })).toBeVisible();
   await page.locator('.copy-overview-filters').getByRole('button', { name: /Corrigées/ }).click();
+  await page.getByRole('button', { name: 'Autres actions pour Copie déjà validée' }).click();
   await expect(page.getByRole('button', { name: 'Recorriger', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Consulter la correction' }).click();
   await expect(page.getByRole('button', { name: 'Recorriger la copie' })).toBeVisible();
