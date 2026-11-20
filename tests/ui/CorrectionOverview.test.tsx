@@ -88,7 +88,7 @@ describe('teacher correction overview and partial grade safety', () => {
     expect(html).toContain('class="correction-series-card-date"');
     expect(html).toContain('Enregistrée le 05/11/2026');
     expect(html).toContain('aria-label="Consulter la correction"');
-    expect(html).toContain('aria-label="Autres actions pour Copie de démonstration"');
+    expect(html).not.toContain('Autres actions');
     expect(html).toContain('class="copy-overview-title-action"');
     expect(html).toContain('>Recorriger</button>');
     expect(html).not.toContain('CorrigéeEnregistrée');
@@ -200,12 +200,12 @@ describe('teacher correction overview and partial grade safety', () => {
       },
     });
     expect(html).toContain('correction-series-actions ds-action-group');
-    expect(html).toContain('ds-button--primary copy-overview-icon-action');
+    expect(html).toContain('ds-button--primary');
     expect(html).toContain('aria-label="Vérifier la copie"');
     expect(html).toContain('title="Vérifier Copie de biologie"');
     expect(html).toContain('class="copy-overview-title-action"');
-    expect(html).toContain('aria-label="Autres actions pour Copie de biologie"');
-    expect(html).toContain('ds-button--secondary">Recorriger</button>');
+    expect(html).not.toContain('Autres actions');
+    expect(html).toContain('>Vérifier</button>');
     expect(html).toContain('ds-button--danger');
     expect(html).toContain('aria-label="Retirer la copie');
     expect(html).toContain('aria-hidden="true" focusable="false" viewBox="0 0 24 24"');

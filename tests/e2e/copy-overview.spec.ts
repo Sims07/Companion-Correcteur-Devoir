@@ -141,30 +141,23 @@ test('a copy awaiting review is a compact responsive row with a clear primary ac
   await expect(card).toContainText('À vérifier');
   await expect(card).not.toContainText('Proposition prête à vérifier');
   await expect(page.getByLabel('Dernière correction disponible')).toHaveCount(0);
-  await expect(verify).toHaveClass(/ds-button--primary copy-overview-icon-action/);
-  const iconSize = await verify.boundingBox();
-  expect(iconSize?.width).toBe(44);
-  expect(iconSize?.height).toBe(44);
-  expect(await verify.evaluate((element) => getComputedStyle(element).paddingLeft)).toBe('0px');
-  await expect(card.getByRole('button', { name: 'Copie à vérifier', exact: true })).toBeVisible();
-  const more = card.getByRole('button', { name: 'Autres actions pour Copie à vérifier' });
-  await expect(more).toBeVisible();
-  await expect(card.getByRole('button', { name: 'Recorriger' })).toBeHidden();
-  await more.click();
-  await expect(card.getByRole('button', { name: 'Recorriger' })).toHaveClass(/ds-button--secondary/);
-  await expect(card.getByRole('button', { name: 'Retirer la copie' })).toHaveClass(/ds-button--danger/);
-  await expect(card.getByRole('button', { name: 'Recorriger' })).toBeVisible();
-  await more.click();
+  const regrade = card.getByRole('button', { name: 'Recorriger' });
+  const remove = card.getByRole('button', { name: 'Retirer la copie' });
+  await expect(verify).toHaveText('Vérifier');
+  await expect(card.getByRole('button', { name: /Autres actions/ })).toHaveCount(0);
+  for (const button of [verify, regrade, remove]) {
+    await expect(button).toBeVisible();
+    expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  }
+  expect((await verify.boundingBox())!.y).toBe((await remove.boundingBox())!.y);
   expect(await card.evaluate((element) => getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/).length)).toBe(3);
   expect((await card.boundingBox())!.height).toBeLessThan(230);
 
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await card.evaluate((element) => getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/).length)).toBe(1);
   await expect(verify).toBeVisible();
-  await expect(more).toBeVisible();
-  await more.click();
-  await expect(card.getByRole('button', { name: 'Recorriger' })).toBeVisible();
-  await more.click();
+  await expect(regrade).toBeVisible();
+  await expect(remove).toBeVisible();
   expect(await card.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
   await verify.click();
   await expect(page.locator('.copy-review-identity-title h2')).toHaveText('Copie à vérifier');
