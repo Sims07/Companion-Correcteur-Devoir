@@ -61,6 +61,19 @@ describe('design system foundations', () => {
     expect(story).toContain("Panneau ocre");
   });
 
+  it('keeps independent action buttons spaced and selected modes distinct across screens', () => {
+    const controls = read('src/shared/ui/design-system/controls.css');
+    const tokens = read('src/shared/ui/design-system/tokens.css');
+    const story = read('src/shared/ui/design-system/components/Button.stories.tsx');
+    expect(tokens).toContain('--ds-space-2: 8px');
+    expect(tokens).toContain('--ds-space-3: 12px');
+    expect(controls).toMatch(/\.ds-action-group\s*\{[^}]*display: flex;[^}]*flex-wrap: wrap;[^}]*gap: var\(--ds-space-2\) var\(--ds-space-3\)/s);
+    expect(controls).toContain('.ds-button--secondary[aria-pressed="true"]');
+    expect(controls).toMatch(/\.ds-action-group > a\s*\{[^}]*min-height: 44px/s);
+    expect(story).toContain('GroupesDActions');
+    expect(story).toContain('aria-pressed="true"');
+  });
+
   it('shares the exact application CSS cascade with Storybook, including the tools IA', () => {
     const app = read('src/main.tsx');
     const preview = read('.storybook/preview.ts');

@@ -83,6 +83,8 @@ import { Button, Checkbox, Field, TextArea, TextInput } from './design-system/in
 
 Un bouton doit se distinguer d'un champ et d'un texte **sur chaque fond papier** (ivoire, fond de page, ocre). Les actions principales (`primary-button` et `Button` primaire) restent pleines en terre cuite ; les actions secondaires (`secondary-button` et `Button` secondaire) utilisent une surface terre cuite claire, une **bordure continue de 2 px** et une ombre visible. Ne pas retirer ces signes pour alléger une carte ou une barre d'outils. Les commandes destructrices utilisent le rouge sémantique, et les liens de navigation restent des liens.
 
+Pour des actions indépendantes dans un même bloc, utiliser le conteneur `.ds-action-group` (12 px entre colonnes, 8 px entre lignes, retour à la ligne sur petit écran). L'espacement appartient au parent, jamais aux marges individuelles des boutons. Les liens restent des liens et conservent une cible d'au moins 44 px dans un tel groupe. Un bouton secondaire de sélection (`aria-pressed="true"`) est rempli en terre cuite pour identifier nettement le mode actif.
+
 Les boutons standard font au moins 44 px de hauteur, conservent un focus clavier visible et un état désactivé reconnaissable. Pour vérifier : Storybook `Composants/Button/Surfaces contrastées` sur trois fonds, et un test navigateur sur les vraies commandes du barème.
 
 ## Validation
