@@ -214,3 +214,39 @@ it('excludes a named biological variant from both the gallery and automatic futu
     expect(batch).toHaveBeenCalledWith('profile-1', ['standard']);
   } finally { await act(async () => root.unmount()); }
 });
+
+it('groups independent laboratory actions and clearly identifies the selected radar layout', async () => {
+  const points: TimelinePoint[] = (['pixel-v1', 'direct-v1'] as const).map((method, index) => ({
+    id: method, date: '2026-11-15T10:00:00Z', model: 'qwen:4b',
+    label: scienceMethods[method].label, scienceMethod: method,
+    prompts: [], score: 90 - index * 20,
+    axes: { Flèches: 90 - index * 20, Relations: 90 - index * 20 },
+    comparisonBasis: 'same',
+  }));
+  const node = document.createElement('div');
+  const root = createRoot(node);
+  try {
+    await act(async () => root.render(createElement(RadarTimeline, {
+      model: 'qwen:4b', points, domain: 'diagrams', domainLabel: 'Schémas scientifiques',
+      onBack: vi.fn(), onExport: vi.fn(), selectMethod: vi.fn(), children: null,
+    })));
+    const recommendation = node.querySelector('.lab-recommendation-actions')!;
+    expect(recommendation.classList.contains('ds-action-group')).toBe(true);
+    expect(recommendation.querySelector('button')?.textContent).toContain('Choisir la recommandation');
+    expect(recommendation.querySelector('a')?.getAttribute('href')).toBe('#method-batteries');
+
+    const display = node.querySelector('.lab-radar-display-actions')!;
+    const buttons = display.querySelectorAll<HTMLButtonElement>('button');
+    expect(display.classList.contains('ds-action-group')).toBe(true);
+    expect(buttons).toHaveLength(2);
+    expect(buttons[0]?.getAttribute('aria-pressed')).toBe('true');
+    expect(buttons[1]?.getAttribute('aria-pressed')).toBe('false');
+    await act(async () => buttons[1]!.click());
+    expect(buttons[0]?.getAttribute('aria-pressed')).toBe('false');
+    expect(buttons[1]?.getAttribute('aria-pressed')).toBe('true');
+    expect(node.querySelector('.lab-radar-gallery')).toBeNull();
+  } finally {
+    await act(async () => root.unmount());
+    node.remove();
+  }
+});
