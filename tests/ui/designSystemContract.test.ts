@@ -56,7 +56,7 @@ describe('design system foundations', () => {
     expect(tokens).toContain('--ds-shadow-action');
     expect(controls).toContain('border: 2px solid transparent');
     expect(controls).toContain('.ds-button--secondary { border-color: var(--ds-color-brand-700)');
-    expect(theme).toMatch(/\\.secondary-button,\\s*\\.teacher-ai-settings-button \\{[^}]*border: 2px solid var\\(--ds-color-brand-700\\)/s);
+    expect(theme).toMatch(/\.secondary-button,\s*\.teacher-ai-settings-button \{[^}]*border: 2px solid var\(--ds-color-brand-700\)/s);
     expect(story).toContain('SurfacesContrastees');
     expect(story).toContain("Panneau ocre");
   });
