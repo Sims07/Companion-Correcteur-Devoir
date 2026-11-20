@@ -76,7 +76,9 @@ describe('Atelier B : organisation réelle du poste enseignant', () => {
     expect(app).toContain("isFinalized ? 'Note validée' : 'Note proposée'");
     expect(app).toContain('aria-live="polite"');
     expect(app).toContain('className="review-quick-edit"');
-    expect(app).toContain('Ajuster la note ou ajouter un commentaire');
+    expect(app).toContain('Modifier la note ou ajouter un commentaire');
+    expect(app).toContain('className="review-edit-toggle"');
+    expect(app).toContain("item.teacherComment.trim() ? 'Confirmer la note et le commentaire' : 'Confirmer la note'");
     expect(app).toContain('normalizeGradeScore(Number(event.target.value))');
     expect(app).toContain('className="review-controls"');
   });
