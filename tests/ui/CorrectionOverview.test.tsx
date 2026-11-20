@@ -198,8 +198,8 @@ describe('teacher correction overview and partial grade safety', () => {
       },
     });
     expect(html).toContain('correction-series-actions ds-action-group');
-    expect(html).toMatch(/ds-button--primary correction-series-view[^>]*>Vérifier la copie<\\/button>/);
-    expect(html).toMatch(/ds-button--secondary[^>]*>Recorriger<\\/button>/);
+    expect(html).toContain('ds-button--primary correction-series-view">Vérifier la copie</button>');
+    expect(html).toContain('ds-button--secondary">Recorriger</button>');
     expect(html).toContain('ds-button--danger correction-series-remove');
     expect(html).not.toContain('Proposition prête à vérifier');
     expect(html).not.toContain('aria-label="Dernière correction disponible"');
