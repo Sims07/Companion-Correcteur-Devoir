@@ -231,18 +231,57 @@ test('teacher verifies a flagged criterion, validates the copy and lands on the 
   await expect(page.locator('.review-card').nth(1)).toBeFocused();
   await page.keyboard.press('ArrowUp');
   await expect(flaggedCard).toBeFocused();
-  const adjustment = flaggedCard.locator('details.review-quick-edit');
+  const actions = flaggedCard.locator('.review-decision-actions');
+  const adjustment = actions.locator('details.review-quick-edit');
+  const toggle = adjustment.locator('summary');
+  const confirm = actions.getByRole('button', { name: 'Confirmer la note', exact: true });
   await expect(adjustment).not.toHaveAttribute('open', '');
-  await adjustment.locator('summary').click();
+  await expect(toggle).toHaveText('Modifier la note ou ajouter un commentaire');
+  await expect(toggle).not.toHaveClass(/secondary-button|ds-button/);
+  await expect(toggle).toHaveCSS('text-decoration-line', 'underline');
+  await expect(toggle).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  expect(await actions.evaluate((element) => {
+    const summary = element.querySelector('summary');
+    const button = element.querySelector('.review-confirmation-action button');
+    return Boolean(summary && button && (summary.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING));
+  })).toBe(true);
+  await toggle.click();
   await flaggedCard.getByLabel('Votre note').fill('7');
+  await flaggedCard.getByLabel('Commentaire enseignant').fill('Mitose expliquée partiellement ; point revu par le professeur.');
   await expect(flaggedCard.locator('.review-card-result > strong')).toHaveText('7 / 8');
-  await flaggedCard.getByRole('button', { name: 'Confirmer la note' }).click();
+  await expect(toggle).toContainText('Commentaire renseigné');
+  await expect(confirm).toHaveCount(0);
+  await actions.getByRole('button', { name: 'Confirmer la note et le commentaire' }).click();
   await expect(flaggedCard).toHaveCount(0);
   await expect(page.locator('.copy-review-validation-bar')).toContainText('2 critères à examiner');
 
   await page.keyboard.press('Control+Enter');
   await expect(studentName).toHaveText('Copie ancienne');
   await expect(page.getByRole('heading', { name: 'Connaissances scientifiques' })).toBeVisible();
+
+  // The single confirmation included both fields: the final local archive retains them together.
+  const savedCriterion = await page.evaluate(async () => {
+    const request = indexedDB.open('companion-correcteur-devoir', 7);
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const transaction = database.transaction('local-corrections', 'readonly');
+    const lookup = transaction.objectStore('local-corrections').getAll();
+    const copies = await new Promise<any[]>((resolve, reject) => {
+      lookup.onsuccess = () => resolve(lookup.result);
+      lookup.onerror = () => reject(lookup.error);
+    });
+    database.close();
+    return copies.find((entry) => entry.label === 'Copie récente')
+      ?.snapshot?.review?.find((criterion: { criterionId: string }) => criterion.criterionId === 'knowledge') ?? null;
+  });
+  expect(savedCriterion).toMatchObject({
+    teacherPoints: 7,
+    teacherComment: 'Mitose expliquée partiellement ; point revu par le professeur.',
+    reviewedByTeacher: true,
+    decision: 'adjusted',
+  });
 });
 
 test('a copy without alerts can be validated in one action and advances to the next copy', async ({ page }) => {
