@@ -63,7 +63,20 @@ test('reopens two dated scores for the same model and selects the older method',
   await bio.getByRole('button', {name:'Analyse des méthodes'}).click();
   const lab = page.getByRole('region', {name:'Laboratoire des méthodes'});
   await expect(lab.getByRole('region', {name:'Tous les radars par méthode'})).toBeVisible();
-  await lab.getByRole('button', {name:'Superposer'}).click();
+  const radarLayout = lab.getByRole('group', { name: 'Affichage des radars' });
+  const sideBySide = radarLayout.getByRole('button', { name: 'Côte à côte' });
+  const superpose = radarLayout.getByRole('button', { name: 'Superposer' });
+  await expect(sideBySide).toHaveAttribute('aria-pressed', 'true');
+  await expect(sideBySide).toHaveCSS('background-color', 'rgb(161, 77, 55)');
+  const gap = await radarLayout.evaluate(group => {
+    const [left, right] = group.querySelectorAll('button');
+    return right!.getBoundingClientRect().left - left!.getBoundingClientRect().right;
+  });
+  expect(gap).toBeGreaterThanOrEqual(11.5); // 12 px design-system spacing, no joined borders.
+  await superpose.click();
+  await expect(superpose).toHaveAttribute('aria-pressed', 'true');
+  await expect(superpose).toHaveCSS('background-color', 'rgb(161, 77, 55)');
+  await expect(sideBySide).toHaveAttribute('aria-pressed', 'false');
   await lab.getByLabel('Méthode affichée').selectOption('');
   await lab.getByText('Détail des essais et historique', {exact:true}).click();
   await expect(lab.getByRole('img', {name:'Radars superposés des méthodes sur 100'}).locator('g[data-method] polygon')).toHaveCount(2);
