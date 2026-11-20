@@ -46,7 +46,8 @@ describe('UI design system', () => {
 
 
   it('does not present a location hint as a handwritten comment', () => {
-    expect(appComponent).toContain('{item.annotationSuggestion && <section className="annotation-suggestion"');
+    expect(appComponent).toContain('{explanation.annotation && <section className="annotation-suggestion"');
+    expect(appComponent).toContain('const explanation = reviewExplanationContent(item, isFlagged');
     expect(appComponent).not.toContain('{(item.annotationSuggestion || item.locationHint) && <section className="annotation-suggestion"');
   });
 
