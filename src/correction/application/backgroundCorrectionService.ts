@@ -65,6 +65,7 @@ export interface BackgroundCorrectionService {
   subscribeOverviews?(listener: (jobs: BackgroundCorrectionJob[]) => void): () => void;
   subscribeSummaries(listener: (jobs: BackgroundJobSummary[]) => void): () => void;
   markForReview(jobId: string): Promise<void>;
+  renameJob(jobId: string, label: string): Promise<void>;
   saveReviewDraft(jobId: string, reviewDraft: BackgroundCorrectionJob['reviewDraft'], teacherQuestionsDraft: string): Promise<void>;
   markCompleted(jobId: string): Promise<void>;
   remove(jobId: string): Promise<void>;
@@ -186,7 +187,7 @@ export function createBackgroundCorrectionService(
     // the existing recovery logic. Only this exceptional path reads full jobs.
     const needsRecovery = overviews.some((job) =>
       (job.status === 'processing' && activeLoopAssignmentId !== job.assignmentId) ||
-      (job.studentIdentity && job.status !== 'processing' &&
+      (job.studentIdentity && !job.labelManuallyEdited && job.status !== 'processing' &&
         resolveIdentifiedCopyLabel(job.label, job.studentIdentity, job.images[0]?.fileName) !== job.label)
     );
     if (needsRecovery) return (await listWithIdentifiedLabels(assignmentId)).map(toBackgroundJobOverview);
@@ -206,7 +207,7 @@ export function createBackgroundCorrectionService(
       // No in-memory worker survives a reload. A persisted processing state
       // without its owning worker must never leave the teacher blocked.
       const interrupted = job.status === 'processing' && activeLoopAssignmentId !== job.assignmentId;
-      const nextLabel = job.studentIdentity && (job.status !== 'processing' || interrupted)
+      const nextLabel = job.studentIdentity && !job.labelManuallyEdited && (job.status !== 'processing' || interrupted)
         ? resolveIdentifiedCopyLabel(job.label, job.studentIdentity, job.images[0]?.fileName)
         : job.label;
       if (nextLabel !== job.label || interrupted) {
@@ -488,7 +489,7 @@ export function createBackgroundCorrectionService(
                       const studentIdentity = JSON.parse(text) as StudentIdentity;
                       queueProgress({
                         studentIdentity,
-                        label: resolveIdentifiedCopyLabel(current.label, studentIdentity, current.images[0]?.fileName),
+                        label: current.labelManuallyEdited ? current.label : resolveIdentifiedCopyLabel(current.label, studentIdentity, current.images[0]?.fileName),
                       });
                     } catch { /* Invalid identity metadata never changes the queued copy label. */ }
                   } else if (kind !== 'annotations' && kind !== 'warning') queueProgress({ transcription: text, transcriptionPageNumbers: textPageNumbers, phase: 'grading', completedPages: textPageNumbers.length });
@@ -729,6 +730,16 @@ export function createBackgroundCorrectionService(
         void this.prewarm(settings).catch(() => undefined);
         void run(settings, job.assignmentId);
       }
+    },
+    async renameJob(jobId, label) {
+      const nextLabel = label.trim();
+      if (!nextLabel) throw new Error('Le nom de la copie ne peut pas être vide.');
+      const job = await readStoredJob(jobId);
+      if (!job) throw new Error('Cette copie n’existe plus dans la file de correction.');
+      if (job.status === 'completed') throw new Error('Cette copie a déjà été archivée.');
+      if (job.status === 'processing') throw new Error('Attendez la fin de l’analyse avant de renommer cette copie.');
+      if (job.label === nextLabel && job.labelManuallyEdited) return;
+      await persist({ ...job, label: nextLabel, labelManuallyEdited: true, updatedAt: new Date().toISOString() });
     },
     async markForReview(jobId) {
       const job = await readStoredJob(jobId);
