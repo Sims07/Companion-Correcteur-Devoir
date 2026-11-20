@@ -206,12 +206,13 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await expect(explanation).toHaveCount(1);
   await expect(explanation).not.toHaveAttribute('open', '');
   await explanation.locator('summary').click();
-  await expect(explanation.getByText('La réponse mentionne la membrane.')).toBeVisible();
+  await expect(flaggedCard.locator('.review-evidence-source').getByText('La réponse mentionne la membrane.')).toBeVisible();
+  await expect(flaggedCard.locator('.review-evidence-scoreline')).toContainText('−2 pt');
   await expect(explanation.getByText('Précise le rôle de la membrane.')).toBeVisible();
   await expect(page.locator('.copy-review-header').getByRole('button', { name: /Valider et passer à la suivante/ })).toHaveCount(0);
   await expect(page.getByRole('img', { name: 'Page de travail 1 de la copie' })).toBeVisible();
   await expect(page.getByText('Transcription de la copie')).toBeVisible();
-  const locateEvidence = page.getByRole('button', { name: 'Repérer la preuve du critère Rôle de la membrane sur la page 1' });
+  const locateEvidence = flaggedCard.getByRole('button', { name: 'Repérer sur la page 1' });
   await expect(locateEvidence).toBeVisible();
   await locateEvidence.click();
   await expect(page.locator('#review-copy-page-1')).toHaveClass(/evidence-page-focused/);
