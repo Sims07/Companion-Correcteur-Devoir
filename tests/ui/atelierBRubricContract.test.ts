@@ -38,6 +38,16 @@ describe('Atelier B rubric composition', () => {
     expect(css).toContain('.rubric-import-step.is-active .rubric-import-step-number');
   });
 
+  it('keeps the rubric add action visually primary instead of looking like a pale field', () => {
+    const add = css.split('.atelier-rubric-editor .rubric-editor-toolbar .primary-button {')[1]?.split('}')[0] ?? '';
+    expect(add).toContain('background: var(--ds-color-brand-700)');
+    expect(add).toContain('color: #fff');
+    expect(add).toContain('min-height: 44px');
+    expect(add).toContain('box-shadow: var(--ds-shadow-action)');
+    expect(add).not.toContain('background: var(--ds-color-surface)');
+    expect(app).toContain('className="secondary-button" disabled={getRubricSubcriteria(criterion).length === 0}');
+  });
+
   it('keeps diagnostic settings unchanged and the teacher layout responsive', () => {
     expect(app).toContain('atelier-rubric-grid is-diagnostic');
     expect(css).toContain('.atelier-rubric-grid.is-diagnostic { display: block; }');

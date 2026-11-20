@@ -172,21 +172,22 @@ textarea.ds-textarea {
   align-items: center;
   justify-content: center;
   gap: var(--ds-space-2);
-  min-height: 40px;
-  padding: 9px 15px;
-  border: 1px solid transparent;
+  min-height: 44px;
+  padding: 10px 15px;
+  border: 2px solid transparent;
   border-radius: var(--ds-radius-md);
   font: inherit;
   font-size: 13px;
   font-weight: 700;
   line-height: 1.3;
   cursor: pointer;
+  box-shadow: var(--ds-shadow-action);
   transition: background-color var(--ds-transition-fast), border-color var(--ds-transition-fast), box-shadow var(--ds-transition-fast), transform var(--ds-transition-fast);
 }
 
 .ds-button:focus-visible {
   outline: none;
-  box-shadow: var(--ds-focus-ring);
+  box-shadow: var(--ds-focus-ring), var(--ds-shadow-action);
 }
 
 .ds-button:disabled {
@@ -194,11 +195,11 @@ textarea.ds-textarea {
   opacity: .55;
 }
 
-.ds-button--primary { background: var(--ds-color-brand-700); color: #fff; }
-.ds-button--primary:hover:not(:disabled) { background: var(--ds-color-brand-600); }
-.ds-button--secondary { border-color: var(--ds-color-border-strong); background: var(--ds-color-surface); color: var(--ds-color-text); }
-.ds-button--secondary:hover:not(:disabled) { background: var(--ds-color-surface-subtle); }
-.ds-button--danger { background: var(--ds-color-danger-surface); color: var(--ds-color-danger); border-color: var(--ds-color-border); }
+.ds-button--primary { background: var(--ds-color-brand-700); color: #fff; border-color: var(--ds-color-brand-700); }
+.ds-button--primary:hover:not(:disabled) { background: var(--ds-color-brand-600); border-color: var(--ds-color-brand-600); }
+.ds-button--secondary { border-color: var(--ds-color-brand-700); background: var(--ds-color-brand-100); color: var(--ds-color-text); }
+.ds-button--secondary:hover:not(:disabled) { background: var(--ds-color-action-secondary-hover); }
+.ds-button--danger { background: var(--ds-color-danger-surface); color: var(--ds-color-danger); border-color: var(--ds-color-danger); }
 
 .ds-card {
   min-width: 0;

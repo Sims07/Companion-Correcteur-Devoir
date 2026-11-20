@@ -130,15 +130,17 @@
   padding: 16px 0 0;
 }
 .atelier-rubric-editor .rubric-editor-toolbar .primary-button {
-  background: var(--ds-color-surface);
-  color: var(--ds-color-text);
-  border: 1px solid var(--ds-color-border);
-  border-radius: 3px;
-  min-height: 37px;
+  background: var(--ds-color-brand-700);
+  color: #fff;
+  border: 1px solid var(--ds-color-brand-700);
+  border-radius: var(--ds-radius-md);
+  min-height: 44px;
+  font-size: 13px;
+  box-shadow: var(--ds-shadow-action);
 }
-.atelier-rubric-editor .rubric-editor-toolbar .primary-button:hover {
-  background: var(--ds-color-brand-100);
-  border-color: var(--ds-color-border-strong);
+.atelier-rubric-editor .rubric-editor-toolbar .primary-button:hover:not(:disabled) {
+  background: var(--ds-color-brand-600);
+  border-color: var(--ds-color-brand-600);
 }
 .atelier-rubric-editor > .rubric-import { order: 7; border-color: var(--ds-color-border); background: var(--ds-color-surface-subtle); border-radius: 3px; }
 .rubric-section-links { display: flex; flex-wrap: wrap; gap: .25rem 1rem; }

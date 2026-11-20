@@ -79,6 +79,12 @@ import { Button, Checkbox, Field, TextArea, TextInput } from './design-system/in
 7. **Responsive by default.** Controls fill their available width and must not force a fixed-width form layout.
 8. **Stories are part of the component contract.** New shared components and meaningful variants must have Storybook stories. Keep stories representative of real teacher workflows, not arbitrary showcase content.
 
+## Visibilité des actions
+
+Un bouton doit se distinguer d'un champ et d'un texte **sur chaque fond papier** (ivoire, fond de page, ocre). Les actions principales (`primary-button` et `Button` primaire) restent pleines en terre cuite ; les actions secondaires (`secondary-button` et `Button` secondaire) utilisent une surface terre cuite claire, une **bordure continue de 2 px** et une ombre visible. Ne pas retirer ces signes pour alléger une carte ou une barre d'outils. Les commandes destructrices utilisent le rouge sémantique, et les liens de navigation restent des liens.
+
+Les boutons standard font au moins 44 px de hauteur, conservent un focus clavier visible et un état désactivé reconnaissable. Pour vérifier : Storybook `Composants/Button/Surfaces contrastées` sur trois fonds, et un test navigateur sur les vraies commandes du barème.
+
 ## Validation
 
 The design-system contract tests live in `tests/ui/designSystemContract.test.ts` and run with `npm test`. The normal CI typecheck/build validates the React component contracts. The CI also builds Storybook to ensure stories and their configuration remain valid. Add browser-level tests for any new interactive composite control.
