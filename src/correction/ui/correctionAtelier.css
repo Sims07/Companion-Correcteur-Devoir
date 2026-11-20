@@ -431,12 +431,14 @@
   padding: 0;
   border: 0;
 }
-.copy-overview-grid .correction-series-actions.ds-action-group > button {
-  flex: 0 0 auto;
+.copy-overview-grid .correction-series-actions.ds-action-group > .copy-overview-icon-action {
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
   min-height: 44px;
-  padding: 10px 15px;
-  font-size: 13px;
-  white-space: normal;
+  padding: 0;
+  border-width: 1px;
+  border-radius: var(--ds-radius-md);
 }
 @media (max-width: 1250px) {
   .teacher-flow-shell .copy-overview-grid > li.correction-series-card {
@@ -465,7 +467,7 @@
     gap: var(--ds-space-3);
   }
   .copy-overview-grid .correction-series-actions.ds-action-group {
-    justify-content: flex-start;
+    justify-content: flex-end;
   }
 }
 @media (prefers-reduced-motion: reduce) {
