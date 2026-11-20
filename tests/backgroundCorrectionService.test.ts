@@ -74,6 +74,37 @@ function fixture() {
 }
 
 describe('background correction service', () => {
+  it('persists a teacher-renamed queued copy and protects it against automatic identity recovery', async () => {
+    const f = fixture();
+    f.jobs.set(f.job.id, {
+      ...f.job,
+      studentIdentity: { firstName: 'Marie', lastName: 'Dupont', studentNumber: null, confidence: 'high' },
+    });
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    const summaries: string[][] = [];
+    service.subscribeSummaries((jobs) => summaries.push(jobs.map((job) => job.label)));
+
+    await service.renameJob('copy-1', '  Copie de Marie (revue)  ');
+    expect(f.jobs.get('copy-1')).toMatchObject({
+      label: 'Copie de Marie (revue)', labelManuallyEdited: true, status: 'pending',
+    });
+    expect(summaries.at(-1)).toContain('Copie de Marie (revue)');
+    // Simulate a new page load: identity reconciliation must never reset teacher input.
+    expect((await service.listJobs('assignment-1'))[0].label).toBe('Copie de Marie (revue)');
+    expect((await service.listJobSummaries('assignment-1'))[0].label).toBe('Copie de Marie (revue)');
+    expect(f.jobs.get('copy-1')?.images[0].base64).toBe('aGVsbG8=');
+  });
+
+  it('rejects blank or unavailable queued copy names without overwriting saved data', async () => {
+    const f = fixture();
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    await expect(service.renameJob('copy-1', '  ')).rejects.toThrow('vide');
+    await expect(service.renameJob('missing', 'Nouveau nom')).rejects.toThrow('existe plus');
+    f.jobs.set(f.job.id, { ...f.job, status: 'processing' });
+    await expect(service.renameJob('copy-1', 'Nom incorrect')).rejects.toThrow('fin de l’analyse');
+    expect(f.jobs.get('copy-1')?.label).toBe('Copie 1');
+  });
+
   it('groups all remaining criteria in a single decision request even for an unrecognized model name', async () => {
     const f = fixture();
     f.jobs.set('copy-1', { ...f.job, correctionMethod: 'decision' });
