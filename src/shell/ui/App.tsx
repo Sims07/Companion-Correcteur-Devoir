@@ -25,6 +25,7 @@ import { CopyReviewHeader } from '../../correction/ui/components/CopyReviewHeade
 import { ReviewAttentionSummary } from '../../correction/ui/components/ReviewAttentionSummary.tsx';
 import { TeacherReviewAlert } from '../../correction/ui/components/TeacherReviewAlert.tsx';
 import { ReviewCriterionEvidence } from '../../correction/ui/components/ReviewCriterionEvidence.tsx';
+import { reviewExplanationContent } from '../../correction/domain/reviewOptionalSections.ts';
 import { teacherReviewStatus } from '../../correction/domain/teacherReviewSummary.ts';
 import type { CorrectionWorkspaceService } from '../../correction/application/correctionWorkspaceService.ts';
 import { isModelEvaluationQuotaError, type ModelEvaluationService } from '../../evaluation/application/modelEvaluationService.ts';
@@ -5562,7 +5563,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
         {interfaceMode !== 'teacher' && (readingElapsedMs !== null || analysisElapsedMs !== null) && <p className="completed-stage-timings" aria-label="Durée des étapes de traitement"><span>Lecture de l’image : {readingElapsedMs === null ? 'non mesurée' : formatElapsed(Math.round(readingElapsedMs / 1000))}</span><span>Analyse et notation : {analysisElapsedMs === null ? 'non mesurée' : formatElapsed(Math.round(analysisElapsedMs / 1000))}</span></p>}
         {scientificDiagramError && <p className="review-alert review-alert-warning" role="alert">{scientificDiagramError}</p>}
 
-        {teacherAnnotations && <details className="review-annotations-details"><summary>✎ {teacherAnnotations.split('\n').filter((line) => line.trim()).length} annotations repérées</summary><pre>{teacherAnnotations}</pre></details>}
+        {teacherAnnotations?.trim() && <details className="review-annotations-details"><summary>✎ {teacherAnnotations.split('\n').filter((line) => line.trim()).length} annotations repérées</summary><pre>{teacherAnnotations}</pre></details>}
         <div className="review-workspace">
           <aside className="review-source-pane" aria-labelledby="review-source-pane-title">
             <div className="review-source-heading"><h3 id="review-source-pane-title">Copie de l’étudiant</h3><p>Pages de la copie · rotation modifiable si nécessaire.</p></div>
@@ -5620,7 +5621,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
               {isAnalyzing && <small>Cette note n’est pas définitive et évoluera avec les prochains critères.</small>}
               <small>{criterionProgress.completedCount - unassessedCount} / {criterionProgress.totalCount} critères évalués</small>
             </div>}
-            {proposal?.summary && <details className="review-summary-details review-analysis-summary">
+            {proposal?.summary?.trim() && <details className="review-summary-details review-analysis-summary">
               <summary>Synthèse de l’analyse IA</summary>
               <p>{proposal.summary}</p>
             </details>}
@@ -5646,6 +5647,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
           }
           const isFlagged = flaggedCriteriaIds.has(item.criterionId);
           const alertReasons = getReviewAlertReasons(item, criterion?.maxPoints ?? 0);
+          const explanation = reviewExplanationContent(item, isFlagged, item.pageNumber !== undefined && item.pageNumber >= 1 && item.pageNumber <= images.length);
           return <article tabIndex={0} data-criterion-id={item.criterionId} className={isFlagged ? "panel review-card is-flagged" : "panel review-card"} key={item.criterionId}>
             <div className="review-card-heading">
               <div><h3>{criterion.title}</h3><p>Maximum : {criterion?.maxPoints ?? 0} points</p></div>
@@ -5675,18 +5677,18 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
               hasPendingSubcriteria={item.subcriteria?.some((entry) => entry.assessmentStatus === 'not-evaluated')}
               annotationSuggestion={item.annotationSuggestion}
             />}
-            <details className="review-explanation" open={!isFlagged && (item.subcriteria?.some((sub) => sub.assessmentStatus === 'not-evaluated' || sub.verificationSource === 'teacher') || undefined)}>
+            {explanation.visible && <details className="review-explanation" open={!isFlagged && (item.subcriteria?.some((sub) => sub.assessmentStatus === 'not-evaluated' || sub.verificationSource === 'teacher') || undefined)}>
               <summary>{isFlagged ? 'Compléments de l’analyse IA' : 'Voir la preuve et la justification détaillées'}</summary>
-            {!isFlagged && <div className="evidence"><span>ÉLÉMENTS REPÉRÉS</span><p>{item.evidence}</p>{item.pageNumber !== undefined && item.pageNumber >= 1 && item.pageNumber <= images.length && <button type="button" className="evidence-location-button" aria-label={`Repérer la preuve du critère ${criterion?.title ?? item.criterionId} sur la page ${item.pageNumber}`} onClick={() => { setFocusedEvidencePage(item.pageNumber!); document.getElementById(`review-copy-page-${item.pageNumber}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}>Repérer sur la page {item.pageNumber}</button>}</div>}
-            {item.annotationSuggestion && item.pageNumber !== undefined && item.pageNumber >= 1 && item.pageNumber <= images.length && <button type="button" className="evidence-location-button" aria-label={`Afficher la page ${item.pageNumber} pour le commentaire proposé`} onClick={() => { setFocusedEvidencePage(item.pageNumber!); document.getElementById(`review-copy-page-${item.pageNumber}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}>Afficher la page liée</button>}
-            {item.annotationSuggestion && <section className="annotation-suggestion" aria-label={`Suggestion d’annotation pour le critère ${criterion?.title ?? item.criterionId}`}>
+            {explanation.evidence && <div className="evidence"><span>ÉLÉMENTS REPÉRÉS</span>{item.evidence.trim() && <p>{item.evidence}</p>}{item.pageNumber !== undefined && item.pageNumber >= 1 && item.pageNumber <= images.length && <button type="button" className="evidence-location-button" aria-label={`Repérer la preuve du critère ${criterion?.title ?? item.criterionId} sur la page ${item.pageNumber}`} onClick={() => { setFocusedEvidencePage(item.pageNumber!); document.getElementById(`review-copy-page-${item.pageNumber}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}>Repérer sur la page {item.pageNumber}</button>}</div>}
+            {explanation.annotation && item.pageNumber !== undefined && item.pageNumber >= 1 && item.pageNumber <= images.length && <button type="button" className="evidence-location-button" aria-label={`Afficher la page ${item.pageNumber} pour le commentaire proposé`} onClick={() => { setFocusedEvidencePage(item.pageNumber!); document.getElementById(`review-copy-page-${item.pageNumber}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}>Afficher la page liée</button>}
+            {explanation.annotation && <section className="annotation-suggestion" aria-label={`Suggestion d’annotation pour le critère ${criterion?.title ?? item.criterionId}`}>
               <div className="annotation-suggestion-heading"><span className="eyebrow">COMMENTAIRE ÉVENTUEL À REPORTER AU STYLO</span><span className="annotation-suggestion-status">Suggestion IA</span></div>
               <p className="annotation-suggestion-text">{item.annotationSuggestion}</p>
             </section>}
-            {item.rationale && <p className="rationale">{item.rationale}</p>}
+            {explanation.rationale && <p className="rationale">{item.rationale}</p>}
 
 
-            {!isFlagged && item.subcriteria && <details className="scientific-diagram-quality-details review-quality-details" open={item.subcriteria.some((entry) => entry.assessmentStatus === 'not-evaluated' || entry.verificationSource === 'teacher') || undefined}>
+            {explanation.subcriteria && item.subcriteria && <details className="scientific-diagram-quality-details review-quality-details" open={item.subcriteria.some((entry) => entry.assessmentStatus === 'not-evaluated' || entry.verificationSource === 'teacher') || undefined}>
               <summary>Sous-critères · {item.subcriteria.filter((entry) => entry.assessmentStatus === 'not-evaluated').length
                 ? item.subcriteria.filter((entry) => entry.assessmentStatus === 'not-evaluated').length + ' à vérifier sur ' + item.subcriteria.length
                 : item.subcriteria.length + ' évalués'}</summary>
@@ -5706,9 +5708,9 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
                 </>}
               </li>)}</ul>
             </details>}
-            {!isFlagged && item.questionForTeacher && <p className="teacher-question"><strong>Question pour vous :</strong> {item.questionForTeacher}</p>}
-            </details>
-            {item.scientificDiagramPages && <details className="scientific-diagram-quality-details review-quality-details">
+            {explanation.question && <p className="teacher-question"><strong>Question pour vous :</strong> {item.questionForTeacher}</p>}
+            </details>}
+            {Boolean(item.scientificDiagramPages?.length) && <details className="scientific-diagram-quality-details review-quality-details">
               <summary>Évaluation du schéma · pages {(item.scientificDiagramPages ?? []).join(', ') || 'à identifier'}</summary>
               <p>{item.evidence}</p>
               {item.scientificDiagramElements && !item.subcriteria && <ul>{item.scientificDiagramElements.map((element) => <li key={element.label}>
