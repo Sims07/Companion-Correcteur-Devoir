@@ -7,18 +7,6 @@ import type { ScienceMethod } from './radarTimeline.ts';
 
 export type RadarTestProtocol = 'reference' | 'arrows' | 'semantic' | 'graph';
 
-/** The current OpenAI-compatible adapter exposes tokens, but no authoritative
- * inference duration. Re-running its calls cannot populate the native-speed axis.
- * An Ollama profile for the same LLM remains a valid recovery path. */
-export function nativeSpeedUnavailable(
-  profiles: readonly RadarModelConfiguration[], modelId: string,
-): boolean {
-  const matching = profiles.filter((profile) =>
-    profile.configuration.analysisModel.trim() === modelId ||
-    profile.configuration.visionModel.trim() === modelId);
-  return matching.length > 0 && matching.every((profile) => profile.configuration.apiCompatible === true);
-}
-
 /** Find the exact successful radar batteries whose selected evidence lacks
  * provider-native timings, rather than repeatedly testing an unrelated A/B/C. */
 export function untimedRadarProtocols(
@@ -32,8 +20,10 @@ export function untimedRadarProtocols(
     const runs = entry.report.cases.flatMap((testCase) =>
       testCase.experiments.filter((run) => run.model?.trim() === candidate.id));
     return runs.some((run) => {
-      const duration = 'providerDurationMs' in run ? run.providerDurationMs : null;
-      return typeof duration !== 'number' || !Number.isFinite(duration) || duration < 0;
+      const native = 'providerDurationMs' in run ? run.providerDurationMs : null;
+      const client = 'clientDurationMs' in run ? run.clientDurationMs : null;
+      return !([native, client].some(duration =>
+        typeof duration === 'number' && Number.isFinite(duration) && duration >= 0));
     });
   }));
 }
@@ -177,10 +167,8 @@ export function radarPlanDescription(steps: readonly RadarTestStep[]) {
 export function planRadarModelEvaluation(
   candidate: RadarCandidate,
   entries: readonly DiagramLabArchiveEntry[] = [],
-  options: { nativeTimingAvailable?: boolean } = {},
-): Omit<RadarMissingTestRequest, 'id'> | null {
-  const missing = RADAR_AXES.filter((axis) => candidate.axes[axis.id].value === null &&
-    (axis.id !== 'speed' || options.nativeTimingAvailable !== false));
+  ): Omit<RadarMissingTestRequest, 'id'> | null {
+  const missing = RADAR_AXES.filter((axis) => candidate.axes[axis.id].value === null);
   if (!missing.length) return null;
 
   const steps = new Map<RadarTestProtocol, RadarTestStep>();
