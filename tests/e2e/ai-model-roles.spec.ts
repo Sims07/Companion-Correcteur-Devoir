@@ -24,8 +24,11 @@ test('models stay independent across method switches, saved profiles, reload and
   await thinking.check();
   await expect(editor.locator('#evaluation-analysis-thinking-status')).toContainText('activé');
   await editor.getByLabel('Fournisseur IA').selectOption('openai');
-  await expect(thinking).toBeDisabled();
-  await expect(editor.locator('#evaluation-analysis-thinking-status')).toContainText('indisponible');
+  await expect(thinking).toBeEnabled();
+  await expect(editor.locator('#evaluation-analysis-thinking-status')).toContainText('Thinking demandé');
+  await thinking.uncheck();
+  await expect(editor.locator('#evaluation-analysis-thinking-status')).toContainText('désactivé demandé');
+  await thinking.check();
   await editor.getByLabel('Fournisseur IA').selectOption('ollama');
   await expect(thinking).toBeEnabled();
   await expect(thinking).toBeChecked();
@@ -64,6 +67,36 @@ test('models stay independent across method switches, saved profiles, reload and
   await expect(panel.getByLabel('Modèle génératif', { exact: true })).toBeVisible();
   await expect(panel.getByLabel('Méthode de correction', { exact: true })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('ai-model-roles-mobile.png'), fullPage: true });
+});
+
+test('teacher can turn off Thinking for LM Studio and keep the choice after reload', async ({ page }) => {
+  await page.addInitScript(key => {
+    localStorage.setItem(key, JSON.stringify({
+      endpoint: 'https://macmini.local:8443/v1/chat/completions',
+      apiCompatible: true,
+      generativeModel: 'google/gemma-4-12b-qat',
+      analysisModel: 'google/gemma-4-12b-qat',
+      visionModel: 'google/gemma-4-12b-qat',
+      analysisThinking: true,
+      correctionMethod: 'generative',
+    }));
+  }, settingsKey);
+  await page.goto('/');
+  await openActiveAssignment(page);
+  await page.getByRole('button', { name: /Réglages IA|Configurer l’IA/ }).click();
+  let panel = page.locator('#teacher-ai-settings-panel');
+  const thinking = panel.getByRole('checkbox', { name: /Activer Thinking/ });
+  await expect(thinking).toBeChecked();
+  await expect(thinking).toBeEnabled();
+  await thinking.uncheck();
+  await expect(panel.locator('#ai-analysis-thinking-status')).toContainText('désactivé demandé');
+  await expect.poll(() => page.evaluate(key => JSON.parse(localStorage.getItem(key) ?? '{}').analysisThinking, settingsKey)).toBe(false);
+  await page.reload();
+  await openActiveAssignment(page);
+  await page.getByRole('button', { name: /Réglages IA|Configurer l’IA/ }).click();
+  panel = page.locator('#teacher-ai-settings-panel');
+  await expect(panel.getByRole('checkbox', { name: /Activer Thinking/ })).not.toBeChecked();
+  await expect(panel.locator('#ai-analysis-thinking-status')).toContainText('désactivé demandé');
 });
 
 test('a legacy decision profile keeps its reader and cannot accidentally use it for generative preparation', async ({ page }) => {
