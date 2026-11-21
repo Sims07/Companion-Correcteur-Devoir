@@ -55,13 +55,18 @@ describe('shared simple AI model controls', () => {
     expect(enabled.node.querySelector('#ai-analysis-thinking-status')?.textContent).toContain('activé');
   });
 
-  it('disables Ollama Thinking for OpenAI-compatible APIs without erasing the saved preference', () => {
+  it('allows Thinking on OpenAI-compatible APIs and explains that provider support may vary', () => {
     const { node, props } = render({ apiCompatible: true, analysisThinking: true });
     const checkbox = node.querySelector<HTMLInputElement>('#evaluation-analysis-thinking')!;
     expect(checkbox.checked).toBe(true);
-    expect(checkbox.disabled).toBe(true);
-    expect(node.querySelector('#evaluation-analysis-thinking-status')?.textContent).toContain('indisponible');
-    expect(props.onAnalysisThinking).not.toHaveBeenCalled();
+    expect(checkbox.disabled).toBe(false);
+    expect(node.querySelector('#evaluation-analysis-thinking-status')?.textContent).toContain('Thinking demandé');
+    act(() => checkbox.click());
+    expect(props.onAnalysisThinking).toHaveBeenCalledWith(false);
+
+    const disabled = render({ apiCompatible: true, analysisThinking: false });
+    expect(disabled.node.querySelector<HTMLInputElement>('#evaluation-analysis-thinking')?.disabled).toBe(false);
+    expect(disabled.node.querySelector('#evaluation-analysis-thinking-status')?.textContent).toContain('désactivé demandé');
   });
 
   it('disables Thinking while a model evaluation is busy', () => {
