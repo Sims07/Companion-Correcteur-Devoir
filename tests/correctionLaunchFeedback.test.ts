@@ -43,4 +43,17 @@ describe('correction launch feedback', () => {
     expect(gradeCopies).toContain('transcribeSubjectReference(');
     expect(gradeCopies).toContain('...(effectiveSubjectTranscription ? { subjectTranscription: effectiveSubjectTranscription } : {})');
   });
+
+  it('keeps the stop action in the global header and diagnostics after navigating away from a correction', () => {
+    const source = appSource();
+    expect(source).toContain("const hasRunningCorrections = isAnalyzing || isStartingSeriesCorrections");
+    expect(source).toContain("allBackgroundJobs.some((job) => job.status === 'processing')");
+    expect(source).toContain('hasRunningCorrections && <button');
+    expect(source).toContain('aria-label="Arrêter les corrections en cours"');
+    expect(source).toContain('<NetworkInspector initialFilter={networkInitialFilter} hasRunningCorrections={hasRunningCorrections}');
+    expect(source).toContain('onStopCorrections={() => { void stopCurrentOperations(); }}');
+    expect(source).toContain('stoppingOperationRef.current = true');
+    expect(source).toContain('activeCorrectionAbortController.current?.abort()');
+    expect(source).toContain('await backgroundService.stopAndWait()');
+  });
 });
