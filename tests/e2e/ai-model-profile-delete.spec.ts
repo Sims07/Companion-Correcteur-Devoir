@@ -10,7 +10,7 @@ const configuration = {
   transcriptionPromptMode: 'auto', transcriptionRepeatPenalty: 1.05,
   transcriptionPenaltyParameter: 'none', transcriptionFrequencyPenalty: 0,
   analysisModel: 'qwen3.5:4b', secondAnalysisModel: '', arbitratorModel: '',
-  diagnosticStrategy: 'single', analysisThinking: false,
+  diagnosticStrategy: 'single', analysisThinking: false, analysisReasoningEffort: 'medium',
   criterionByCriterion: true, correctionMethod: 'generative',
 };
 const profiles = [
