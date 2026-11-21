@@ -68,7 +68,7 @@ describe('OpenAI-compatible radar with universal client-observed performance', (
     expect(radar.measured).toBe(9);
     expect(radar.axes.speed.value).toBe(80);
     expect(radar.axes.speed.reason).toContain('chronométrées par l’application');
-    const method = scienceMethodProgress(entries, model, false)
+    const method = scienceMethodProgress(entries, model)
       .find(item => item.method === 'image-direct-v1')!;
     expect(method.missing).toEqual([]);
     expect(method.steps).toEqual([]);
