@@ -301,14 +301,14 @@ describe('OpenAI-compatible chat transport', () => {
       { choices: [{ delta: { content: '2}' }, finish_reason: 'stop' }] },
     ];
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(
-      events.map((event) => `data: ${JSON.stringify(event)}\\n\\n`).join('') + 'data: [DONE]\\n\\n',
+      events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join('') + 'data: [DONE]\n\n',
       { status: 200, headers: { 'Content-Type': 'text/event-stream' } },
     ));
     const request = createOpenAiCompatibleFetch({ endpoint: 'https://local.example', apiKey: '' }, fetchMock);
     const response = await request('http://localhost:11434/api/chat', {
       method: 'POST', body: JSON.stringify({ model: 'google/gemma-4-12b-qat', stream: true, think: false, messages: [{ role: 'user', content: 'Évaluer le schéma' }] }),
     });
-    const lines = (await response.text()).trim().split('\\n').map((line) => JSON.parse(line));
+    const lines = (await response.text()).trim().split('\n').map((line) => JSON.parse(line));
     expect(lines).toEqual([
       { message: { thinking: '[raisonnement interne]' } },
       { message: { content: '{"points":' } },
@@ -326,12 +326,12 @@ describe('OpenAI-compatible chat transport', () => {
       '',
       'data: [DONE]',
       '',
-    ].join('\\n'), { status: 200, headers: { 'Content-Type': 'text/event-stream' } }));
+    ].join('\n'), { status: 200, headers: { 'Content-Type': 'text/event-stream' } }));
     const request = createOpenAiCompatibleFetch({ endpoint: 'https://local.example', apiKey: '' }, fetchMock);
     const response = await request('http://localhost:11434/api/chat', {
       method: 'POST', body: JSON.stringify({ model: 'gemma', stream: true, messages: [{ role: 'user', content: 'read' }] }),
     });
-    const lines = (await response.text()).trim().split('\\n').map((line) => JSON.parse(line));
+    const lines = (await response.text()).trim().split('\n').map((line) => JSON.parse(line));
     expect(lines).toEqual([
       { message: { thinking: '[raisonnement interne]' } },
       { done: true, done_reason: 'length' },
