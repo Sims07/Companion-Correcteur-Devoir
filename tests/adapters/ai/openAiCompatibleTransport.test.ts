@@ -349,6 +349,51 @@ describe('OpenAI-compatible chat transport', () => {
     expect(await response.json()).toMatchObject({ message: { content: '', thinking: '[raisonnement interne]' }, done_reason: 'length' });
   });
 
+  it('requests medium reasoning when the user enables Thinking in Chat Completions', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({
+      choices: [{ message: { content: '{"grade":2}' }, finish_reason: 'stop' }],
+    }), { status: 200 }));
+    const request = createOpenAiCompatibleFetch({ endpoint: 'https://local.example', apiKey: '' }, fetchMock);
+    const response = await request('http://localhost:11434/api/chat', {
+      method: 'POST', body: JSON.stringify({ model: 'google/gemma-4-12b-qat', stream: false, think: true, messages: [{ role: 'user', content: 'Note le schéma' }] }),
+    });
+    expect(response.ok).toBe(true);
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toMatchObject({ reasoning_effort: 'medium' });
+    expect(await response.json()).toMatchObject({ message: { content: '{"grade":2}' } });
+  });
+
+  it('respects supported effort levels while leaving unspecified Thinking untouched', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({
+      choices: [{ message: { content: 'OK' } }],
+    }), { status: 200 }));
+    const request = createOpenAiCompatibleFetch({ endpoint: 'https://local.example', apiKey: '' }, fetchMock);
+    for (const think of ['high', 'low', 'off', undefined]) {
+      await request('http://localhost:11434/api/chat', {
+        method: 'POST', body: JSON.stringify({ model: 'gemma', stream: false, think, messages: [{ role: 'user', content: 'read' }] }),
+      });
+    }
+    const values = fetchMock.mock.calls.map(([, init]) => JSON.parse(String(init?.body)).reasoning_effort);
+    expect(values).toEqual(['high', 'low', 'none', undefined]);
+  });
+
+  it('retries enabled Thinking with an enable_thinking template option before removing unsupported parameters', async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response('unsupported reasoning_effort', { status: 400 }))
+      .mockResolvedValueOnce(new Response('unsupported chat_template_kwargs', { status: 422 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: 'OK' } }] }), { status: 200 }));
+    const request = createOpenAiCompatibleFetch({ endpoint: 'https://local.example', apiKey: '' }, fetchMock);
+    const response = await request('http://localhost:11434/api/chat', {
+      method: 'POST', body: JSON.stringify({ model: 'gemma', stream: false, think: true, messages: [{ role: 'user', content: 'read' }] }),
+    });
+    expect(response.ok).toBe(true);
+    const bodies = fetchMock.mock.calls.map(([, init]) => JSON.parse(String(init?.body)));
+    expect(bodies).toHaveLength(3);
+    expect(bodies[0].reasoning_effort).toBe('medium');
+    expect(bodies[1].reasoning_effort).toBeUndefined();
+    expect(bodies[1].chat_template_kwargs).toEqual({ enable_thinking: true });
+    expect(bodies[2].chat_template_kwargs).toBeUndefined();
+  });
+
   it('retries thinking-disabled requests with a compatible template option then without extensions if rejected', async () => {
     const fetchMock = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(new Response('unsupported reasoning_effort', { status: 400 }))
