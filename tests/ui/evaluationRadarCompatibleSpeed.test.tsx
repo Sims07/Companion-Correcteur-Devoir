@@ -35,7 +35,7 @@ function compatibleRadarArchive(): DiagramLabArchiveEntry[] {
       experiments: Array.from({ length: repetitions }, (_, i) => ({
         profileId: profile.id, profileName: profile.name, model,
         repetition: i + 1, method: 'direct-image-generative',
-        status: 'success', durationMs: 15000, providerDurationMs: null,
+        status: 'success', durationMs: 15000, clientDurationMs: 15000, providerDurationMs: null,
         provider: 'openai-compatible', zoom: false,
         observations: protocol === 'graph' ? { ...item.gold } : Object.entries(item.gold)
           .map(([key, choice]) => ({ key, choice })),
@@ -61,20 +61,21 @@ function compatibleRadarArchive(): DiagramLabArchiveEntry[] {
   });
 }
 
-describe('OpenAI-compatible radar with 8/9 completed measurements', () => {
+describe('OpenAI-compatible radar with universal client-observed performance', () => {
   it('keeps the score partial and blocks ineffective speed retries in the method laboratory', () => {
     const entries = compatibleRadarArchive();
     const radar = buildDiagramLabRadar(entries, 'model').find(item => item.id === model)!;
-    expect(radar.measured).toBe(8);
-    expect(radar.axes.speed.value).toBeNull();
+    expect(radar.measured).toBe(9);
+    expect(radar.axes.speed.value).toBe(80);
+    expect(radar.axes.speed.reason).toContain('chronométrées par l’application');
     const method = scienceMethodProgress(entries, model, false)
       .find(item => item.method === 'image-direct-v1')!;
-    expect(method.missing).toEqual(['speed']);
+    expect(method.missing).toEqual([]);
     expect(method.steps).toEqual([]);
-    expect(method.reason).toContain('API compatible OpenAI');
+    expect(method.reason).toContain('Neuf axes mesurables');
   });
 
-  it('explains the missing speed on the main radar instead of offering a futile completion', async () => {
+  it('displays a complete 9-axis score with LM Studio and keeps its timings', async () => {
     const node = document.createElement('div');
     document.body.append(node);
     const root = createRoot(node);
@@ -86,9 +87,9 @@ describe('OpenAI-compatible radar with 8/9 completed measurements', () => {
         campaigns: vi.fn(), runScience, runBiology: vi.fn(),
       })));
       const science = node.querySelector('article[aria-label="Schémas scientifiques"]')!;
-      expect(science.textContent).toContain('8/9 axes');
-      expect(science.textContent).toContain('Vitesse non mesurable');
-      expect(science.textContent).toContain('OpenAI-compatible');
+      expect(science.textContent).toContain('9/9 axes');
+      expect(science.textContent).toContain('Note globale');
+      expect(science.textContent).not.toContain('Vitesse non mesurable');
       expect([...science.querySelectorAll('button')].some(button =>
         button.textContent?.includes('Compléter les tests'))).toBe(false);
       expect(runScience).not.toHaveBeenCalled();
@@ -98,7 +99,41 @@ describe('OpenAI-compatible radar with 8/9 completed measurements', () => {
     }
   });
 
-  it('offers the diagnosis, not a misleading single-axis speed test', async () => {
+  it('offers a targeted speed retry for a legacy compatible campaign without tagged timings', async () => {
+    const oldEntries = compatibleRadarArchive().map(entry => structuredClone(entry));
+    for (const entry of oldEntries) {
+      if (!('cases' in entry.report)) continue;
+      for (const item of entry.report.cases) for (const run of item.experiments) {
+        Reflect.deleteProperty(run, 'clientDurationMs');
+      }
+    }
+    expect(buildDiagramLabRadar(oldEntries, 'model')[0]?.measured).toBe(8);
+    const node = document.createElement('div');
+    document.body.append(node);
+    const root = createRoot(node);
+    const runScience = vi.fn();
+    try {
+      await act(async () => root.render(createElement(EvaluationRadarHome, {
+        entries: oldEntries, history: [], profiles: [profile], model,
+        choose: vi.fn(), busy: false, manage: vi.fn(), details: vi.fn(),
+        campaigns: vi.fn(), runScience, runBiology: vi.fn(),
+      })));
+      const science = node.querySelector('article[aria-label="Schémas scientifiques"]')!;
+      expect(science.textContent).toContain('8/9 axes');
+      const retry = [...science.querySelectorAll('button')].find(button =>
+        button.textContent?.includes('Compléter les tests')) as HTMLButtonElement;
+      expect(retry).toBeDefined();
+      await act(async () => retry.click());
+      expect(runScience).toHaveBeenCalledOnce();
+      expect(runScience.mock.calls[0]?.[0].steps.map((step: { protocol: string }) => step.protocol))
+        .toEqual(['reference', 'arrows', 'semantic', 'graph']);
+    } finally {
+      await act(async () => root.unmount());
+      node.remove();
+    }
+  });
+
+  it('does not propose a new benchmark when 9/9 is already measured', async () => {
     const node = document.createElement('div');
     document.body.append(node);
     const root = createRoot(node);
@@ -109,8 +144,7 @@ describe('OpenAI-compatible radar with 8/9 completed measurements', () => {
         busy: false, onOpenReport: vi.fn(), onRunMissing,
       })));
       const remaining = node.querySelector('[aria-label="Tests restant à faire pour ce LLM"]')!;
-      expect(remaining.textContent).toContain('Seule la vitesse manque');
-      expect(remaining.textContent).toContain('Performance non mesurable');
+      expect(remaining.textContent).toContain('Toutes les caractéristiques sont mesurées');
       expect([...remaining.querySelectorAll('button')].some(button =>
         button.textContent?.includes('Compléter les axes manquants'))).toBe(false);
       expect(onRunMissing).not.toHaveBeenCalled();
