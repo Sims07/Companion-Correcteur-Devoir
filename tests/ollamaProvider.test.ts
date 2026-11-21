@@ -192,6 +192,52 @@ describe('Ollama adapter', () => {
     expect(onDiagnosticResult.mock.calls[0][0]).toMatchObject({ stage: 'reading', requestMetadata: { provider: 'openai-compatible', format: 'json-schema', imageCount: 1 } });
   });
 
+  it('uses Gemma final content when LM Studio streams reasoning before the answer', async () => {
+    const response = new Response([
+      'data: {"choices":[{"delta":{"reasoning_content":"Internal review"}}]}',
+      '',
+      'data: {"choices":[{"delta":{"content":"Transcription utilisable."},"finish_reason":"stop"}]}',
+      '',
+      'data: [DONE]',
+      '',
+    ].join('\\n'), { status: 200, headers: { 'Content-Type': 'text/event-stream' } });
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(response);
+    const diagnostics = vi.fn();
+    const provider = createOllamaProvider({
+      endpoint: 'https://local.example', apiCompatible: true, apiKey: '', visionModel: 'google/gemma-4-12b-qat',
+    }, fetchMock);
+
+    await expect(provider.generate({ ...request, visionOnly: true }, undefined, undefined, undefined, diagnostics))
+      .resolves.toContain('Transcription utilisable.');
+    expect(diagnostics).toHaveBeenCalledWith(expect.objectContaining({
+      thinkingPresent: true,
+      raw: expect.stringContaining('Transcription utilisable.'),
+    }));
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toMatchObject({ reasoning_effort: 'none' });
+  });
+
+  it('fails visibly on a reasoning-only OpenAI-compatible response instead of fabricating a correction', async () => {
+    const response = new Response([
+      'data: {"choices":[{"delta":{"reasoning_content":"Only internal reasoning"}}]}',
+      '',
+      'data: {"choices":[{"delta":{},"finish_reason":"stop"}]}',
+      '',
+      'data: [DONE]',
+      '',
+    ].join('\\n'), { status: 200, headers: { 'Content-Type': 'text/event-stream' } });
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(response);
+    const diagnostics = vi.fn();
+    const provider = createOllamaProvider({
+      endpoint: 'https://local.example', apiCompatible: true, apiKey: '', visionModel: 'google/gemma-4-12b-qat',
+    }, fetchMock);
+
+    await expect(provider.generate({ ...request, visionOnly: true }, undefined, undefined, undefined, diagnostics))
+      .rejects.toThrow(/raisonnement interne.*aucune réponse finale/i);
+    expect(diagnostics).toHaveBeenCalledWith(expect.objectContaining({
+      thinkingPresent: true, raw: '',
+    }));
+  });
+
   it('checks the installed model through metadata endpoints without generating text', async () => {
     const fetchMock = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(new Response(JSON.stringify({ models: [{ name: 'llava' }] }), { status: 200 }))
