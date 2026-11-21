@@ -156,7 +156,7 @@ describe('network inspector fetch integration', () => {
       body: JSON.stringify({ model: 'google/gemma-4-12b-qat', stream: true, reasoning_effort: 'none',
         messages: [{ role: 'user', content: [{ type: 'text', text: 'Évalue la mitose' }, { type: 'image_url', image_url: { url: 'data:image/png;base64,PRIVATE_IMAGE_BYTES' } }] }] }),
     });
-    const encode = (event: unknown) => new TextEncoder().encode('data: ' + JSON.stringify(event) + '\\n\\n');
+    const encode = (event: unknown) => new TextEncoder().encode('data: ' + JSON.stringify(event) + '\n\n');
     controller.enqueue(encode({ choices: [{ delta: { content: '{"grade":' } }] }));
     await new Promise((resolve) => setTimeout(resolve, 0));
     let record = loadNetworkHistory()[0];
@@ -169,7 +169,7 @@ describe('network inspector fetch integration', () => {
 
     controller.enqueue(encode({ choices: [{ delta: { reasoning_content: 'Internal thought' } }] }));
     controller.enqueue(encode({ choices: [{ delta: { content: '9.5}' }, finish_reason: 'stop' }] }));
-    controller.enqueue(new TextEncoder().encode('data: [DONE]\\n\\n'));
+    controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'));
     controller.close();
     const raw = await response.text();
     await new Promise((resolve) => setTimeout(resolve, 0));
