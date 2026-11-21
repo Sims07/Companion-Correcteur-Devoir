@@ -1733,7 +1733,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
                   const [verification] = await diagramAnalysisService.classifyPages({
                     images: [suggestion.preview], model: visionModel, endpoint, apiKey, apiCompatible,
                     onDiagnosticResult: captureDiagramDiagnostic,
-signal: abortController.signal,
+                    signal: abortController.signal,
                   });
                   if (verification?.kind === 'scientific-diagram' && verification.confidence >= 0.9 && verification.suggestedRotation === 0 && (verification.orientationConfidence ?? 0) >= 0.92) {
                     acceptedAutomaticRotations[suggestion.index] = suggestion.preview;
@@ -1835,7 +1835,7 @@ signal: abortController.signal,
             setCriterionStatuses(current => ({ ...current, [id]: result ? 'completed' : 'started' }));
             setCriterionProgressMessage(`Critère ${index + 1}/${rubric.criteria.length} · ${title} · ${result ? 'proposition reçue' : 'analyse en cours'}`);
             if (result) partialCriteria.push(...result.criteria);
-          }, 
+          },
         });
         analysisDurationMs = Math.max(0, Date.now() - analysisStartedAt);
         setAnalysisElapsedMs(analysisDurationMs);

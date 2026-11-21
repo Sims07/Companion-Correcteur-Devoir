@@ -24,8 +24,9 @@ export async function gradeDiagramImages(provider: GradingProvider,
   for (const [index, criteria] of groups.entries()) {
     signal?.throwIfAborted();
     const part = { ...rubric, criteria };
-    const title = criteria[0]!.title;
+    const title = criteria[0]?.title ?? rubric.title;
     if (split) await request.onCriterion?.(index, title);
+    signal?.throwIfAborted();
     const raw = await provider.generate({
       question: request.question.trim() || 'Évalue uniquement les caractéristiques observables du dessin selon le barème fourni.',
       rubric: JSON.stringify(part),

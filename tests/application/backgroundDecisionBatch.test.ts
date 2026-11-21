@@ -96,6 +96,20 @@ describe('background correction: native decision batching', () => {
     });
   });
 
+  it('keeps a validated diagram criterion when the next image request fails', async () => {
+    const { service, job, jobs, generate, settings } = createHarness('generative', 'gemma');
+    const originalGenerate = generate.getMockImplementation()!;
+    generate.mockImplementation(async (...args) => {
+      if (JSON.parse(args[0].rubric).criteria[0].id === 'c2') throw new Error('Limite atteinte pour c2');
+      return originalGenerate(...args);
+    });
+    const rubric = { ...job.rubric, criteria: criteria.map(c => ({ ...c, analysisMode: 'scientific-diagram' as const })) };
+    await service.enqueue({ ...job, gradingFlow: 'scientific-diagram-direct', rubric }, settings);
+    await service.processPending({ ...settings, criterionByCriterion: true }, job.assignmentId);
+    expect(jobs.get(job.id)).toMatchObject({ status: 'failed', completedCriteria: 1,
+      partialCriteria: [{ criterionId: 'c1' }], error: 'Limite atteinte pour c2' });
+  });
+
   it.each([
     { method: 'decision' as const, model: 'd3:4b', expectedCalls: 1, expectedRubricSizes: [2] },
     { method: 'decision' as const, model: 'qwen3.5:4b', expectedCalls: 1, expectedRubricSizes: [2] },
