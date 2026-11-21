@@ -363,7 +363,7 @@ describe('OpenAI-compatible chat transport', () => {
   });
 
   it('respects supported effort levels while leaving unspecified Thinking untouched', async () => {
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async () => new Response(JSON.stringify({
       choices: [{ message: { content: 'OK' } }],
     }), { status: 200 }));
     const request = createOpenAiCompatibleFetch({ endpoint: 'https://local.example', apiKey: '' }, fetchMock);
