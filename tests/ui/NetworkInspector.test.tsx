@@ -285,4 +285,28 @@ describe('NetworkInspector live request feedback', () => {
     expect(container.textContent).toContain('Temps navigateur : 37126.72 s');
   });
 
+
+  it('exposes a real correction stop in diagnostics, disables duplicate clicks and hides it when idle', async () => {
+    mockNetworkHistory.records = [{ ...pendingRecord, state: 'success', status: 200, durationMs: 100 }];
+    const onStopCorrections = vi.fn();
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => { root?.render(<NetworkInspector hasRunningCorrections onStopCorrections={onStopCorrections} />); });
+    const stop = () => container!.querySelector<HTMLButtonElement>('button[aria-label="Arrêter la correction en cours"]');
+    expect(stop()).not.toBeNull();
+    expect(stop()?.disabled).toBe(false);
+    await act(async () => { stop()?.click(); });
+    expect(onStopCorrections).toHaveBeenCalledTimes(1);
+
+    await act(async () => { root?.render(<NetworkInspector hasRunningCorrections isStoppingCorrections onStopCorrections={onStopCorrections} />); });
+    expect(stop()?.disabled).toBe(true);
+    expect(stop()?.textContent).toContain('Arrêt en cours');
+    await act(async () => { stop()?.click(); });
+    expect(onStopCorrections).toHaveBeenCalledTimes(1);
+
+    await act(async () => { root?.render(<NetworkInspector onStopCorrections={onStopCorrections} />); });
+    expect(stop()).toBeNull();
+  });
 });
