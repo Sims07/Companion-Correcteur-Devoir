@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { nativeSpeedUnavailable, planMissingRadarAxis, planRadarModelEvaluation, radarPlanDescription, resolveModelProfile, untimedRadarProtocols } from '../../../src/evaluation/domain/diagramLabRadarLaunch.ts';
+import { planMissingRadarAxis, planRadarModelEvaluation, radarPlanDescription, resolveModelProfile, untimedRadarProtocols } from '../../../src/evaluation/domain/diagramLabRadarLaunch.ts';
 import { trialSteps } from '../../../src/evaluation/domain/radarTimeline.ts';
 import { RADAR_AXES, type RadarCandidate, type RadarAxisId } from '../../../src/evaluation/domain/diagramLabRadar.ts';
 import type { DiagramLabArchiveEntry } from '../../../src/evaluation/domain/diagramLabHistory.ts';
@@ -140,25 +140,16 @@ describe('launch missing radar tests', () => {
       .toEqual([['arrows', 3]]);
   });
 
-  it('does not relaunch an unmeasurable native speed axis on a compatible-only model', () => {
-    const compatible = { id: 'compatible', name: 'LM Studio', configuration: {
-      visionModel: 'saved-profile', analysisModel: 'saved-profile', apiCompatible: true,
-    } };
-    const native = { id: 'native', name: 'Ollama', configuration: {
-      visionModel: 'saved-profile', analysisModel: 'saved-profile', apiCompatible: false,
-    } };
-    expect(nativeSpeedUnavailable([compatible], 'saved-profile')).toBe(true);
-    expect(nativeSpeedUnavailable([compatible, native], 'saved-profile')).toBe(false);
-    expect(nativeSpeedUnavailable([], 'saved-profile')).toBe(false);
-
+  it('allows compatible models to retry missing speed with the universal application timer', () => {
     const exceptSpeed = candidate(Object.fromEntries(RADAR_AXES.filter(axis => axis.id !== 'speed')
       .map(axis => [axis.id, 85])) as Record<RadarAxisId, number>);
-    expect(planRadarModelEvaluation(exceptSpeed, [], { nativeTimingAvailable: false })).toBeNull();
+    expect(planRadarModelEvaluation(exceptSpeed)?.steps.map(step => step.protocol)).toEqual(['reference']);
     const exceptSpeedAndRelations = { ...exceptSpeed, axes: {
       ...exceptSpeed.axes, relations: { value: null, reason: 'Non mesuré', evidence: [] },
     } };
-    expect(planRadarModelEvaluation(exceptSpeedAndRelations, [], { nativeTimingAvailable: false })
-      ?.steps.map(step => step.protocol)).toEqual(['graph']);
+    expect(planRadarModelEvaluation(exceptSpeedAndRelations)?.steps.map(step => step.protocol)).toEqual([
+      'reference', 'graph',
+    ]);
   });
 
   it('retries all recorded untimed batteries, never the same arbitrary reference loop', () => {
@@ -172,7 +163,8 @@ describe('launch missing radar tests', () => {
       id: protocol, protocol, report: { format: protocol === 'graph'
         ? 'companion-scientific-diagram-blind-graph-report' : 'companion-scientific-diagram-fixture-report',
         cases: [{ experiments: [{ model: 'saved-profile',
-          providerDurationMs: protocol === 'reference' ? 500 : null }] }] },
+          providerDurationMs: protocol === 'reference' ? 500 : null,
+          clientDurationMs: protocol === 'graph' ? null : 9000 }] }] },
     })) as unknown as DiagramLabArchiveEntry[];
     expect(untimedRadarProtocols(row, entries)).toEqual(['graph']);
     expect(planMissingRadarAxis(row, 'speed', 'model', entries)?.steps.map(step => step.protocol))
