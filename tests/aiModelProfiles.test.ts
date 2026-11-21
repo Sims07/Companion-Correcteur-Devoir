@@ -27,6 +27,20 @@ describe('AI model configuration defaults', () => {
     expect(parseAiModelProfiles(JSON.stringify([{ ...profile, configuration: { ...defaultAiModelConfiguration, analysisThinking: false } }]))[0]?.configuration.analysisThinking).toBe(false);
   });
 
+  it('migrates old boolean Thinking profiles and persists supported effort levels', () => {
+    expect(parseAiModelConfiguration(JSON.stringify({ analysisThinking: true })).analysisReasoningEffort).toBe('medium');
+    expect(parseAiModelConfiguration(JSON.stringify({ analysisThinking: false })).analysisReasoningEffort).toBe('medium');
+    for (const level of ['low', 'medium', 'high'] as const) {
+      const profile = {
+        id: 'effort-' + level, name: level, mode: 'single', updatedAt: '2026-11-21T19:00:00Z',
+        configuration: { ...defaultAiModelConfiguration, analysisThinking: true, analysisReasoningEffort: level },
+      };
+      expect(parseAiModelConfiguration(JSON.stringify(profile.configuration)).analysisReasoningEffort).toBe(level);
+      expect(parseAiModelProfiles(JSON.stringify([profile]))[0]?.configuration.analysisReasoningEffort).toBe(level);
+    }
+    expect(parseAiModelConfiguration(JSON.stringify({ analysisReasoningEffort: 'unsupported' })).analysisReasoningEffort).toBe('medium');
+  });
+
   it('does not expose per-copy annotation detection in AI model configuration', () => {
     expect(defaultAiModelConfiguration).not.toHaveProperty('detectTeacherAnnotations');
     expect(parseAiModelConfiguration(null)).not.toHaveProperty('detectTeacherAnnotations');
