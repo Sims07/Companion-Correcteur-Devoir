@@ -211,17 +211,51 @@ export async function checkOllamaReady(
   if (!model) throw new Error(settings.apiCompatible ? 'Renseignez un identifiant de modèle compatible OpenAI.' : 'Choisissez un modèle Ollama.');
 
   if (settings.apiCompatible) {
+    // Chat Completions was previously used as a readiness probe without ANY
+    // generation cap, consuming costly reasoning tokens before every test.
+    // OpenAI-compatible metadata is the preferred inference-free health check.
+    const metadataUrl = endpoint.endsWith('/v1/chat/completions')
+      ? endpoint.slice(0, -'/chat/completions'.length) + '/models'
+      : endpoint.endsWith('/v1') ? endpoint + '/models' : endpoint + '/v1/models';
+    let modelsResponse: Response;
+    try {
+      modelsResponse = await fetchImpl(metadataUrl, annotateNetworkRequest({
+        method: 'GET',
+        ...(settings.apiKey?.trim() ? { headers: { Authorization: 'Bearer ' + settings.apiKey.trim() } } : {}),
+        ...(signal ? { signal } : {}),
+      }, 'Vérifier la disponibilité du serveur', 'Métadonnées des modèles OpenAI compatibles'));
+    } catch {
+      if (signal?.aborted) throw new DOMException('Vérification interrompue.', 'AbortError');
+      throw new Error('Serveur compatible OpenAI injoignable sur GET /v1/models. Vérifiez le proxy HTTPS, LM Studio et la connexion réseau.');
+    }
+    if (modelsResponse.ok) {
+      let modelsPayload: unknown;
+      try { modelsPayload = await modelsResponse.json(); }
+      catch { throw new Error('GET /v1/models a répondu sans JSON lisible. Vérifiez le proxy et la configuration du serveur.'); }
+      if (!modelsPayload || typeof modelsPayload !== 'object' || !Array.isArray((modelsPayload as { data?: unknown }).data)) {
+        throw new Error('Réponse GET /v1/models invalide : liste des modèles absente.');
+      }
+      // A successful models listing proves API reachability, NOT that model
+      // inference is ready: an unloaded model can still require a cold start.
+      return;
+    }
+    if (![404, 405, 501].includes(modelsResponse.status)) {
+      throw new Error('GET /v1/models a échoué (HTTP ' + modelsResponse.status + '). Vérifiez le serveur et son authentification.');
+    }
+    // Only older compatible servers without /v1/models need a generation
+    // fallback. Bound it to one token and explicitly disable reasoning.
     const requestFetch = createOpenAiCompatibleFetch({ endpoint: settings.endpoint, apiKey: settings.apiKey ?? '', repetitionPenaltyParameter: settings.transcriptionPenaltyParameter, frequencyPenalty: settings.transcriptionFrequencyPenalty }, fetchImpl);
     let response: Response;
     try {
       response = await requestFetch(`${endpoint}/api/chat`, annotateNetworkRequest({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model, stream: false, messages: [{ role: 'user', content: MODEL_READINESS_PROBE_PROMPT }] }),
+        body: JSON.stringify({ model, stream: false, think: false, options: { num_predict: 1 }, messages: [{ role: 'user', content: MODEL_READINESS_PROBE_PROMPT }] }),
         ...(signal ? { signal } : {}),
-      }, 'Vérifier la disponibilité du modèle', `Modèle ${model}`));
+      }, 'Vérifier la disponibilité du modèle', `Modèle ${model} · sonde minimale`));
     } catch {
-      throw new Error('Serveur compatible OpenAI injoignable. Vérifiez son adresse et sa disponibilité.');
+      if (signal?.aborted) throw new DOMException('Vérification interrompue.', 'AbortError');
+      throw new Error('Sonde minimale du serveur compatible OpenAI injoignable. Vérifiez son adresse et sa disponibilité.');
     }
     if (!response.ok) throw new Error(`Le serveur compatible OpenAI a refusé la vérification (HTTP ${response.status}). Vérifiez l’URL, le token et le modèle.`);
     return;
