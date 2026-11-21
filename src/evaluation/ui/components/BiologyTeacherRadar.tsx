@@ -1,3 +1,4 @@
+import { BiologyProfileControls, type BiologyProfileSelection } from './BiologyProfileControls.tsx';
 import { useEffect, useMemo, useState } from 'react';
 import type { AiModelProfile } from '../../../shared/domain/aiModelProfiles.ts';
 import {
@@ -65,7 +66,7 @@ export function BiologyRadarPlot({ candidate }: { candidate?: BiologyRadarCandid
   </svg>;
 }
 
-export function BiologyTeacherRadar({ history, profiles, busy, onEvaluate, onShowTests, initialModel, onModelChange }: {
+export function BiologyTeacherRadar({ history, profiles, busy, onEvaluate, onShowTests, initialModel, onModelChange, ...selection }: BiologyProfileSelection & {
   history: readonly BiologyRadarObservation[];
   profiles: readonly AiModelProfile[];
   busy: boolean;
@@ -87,7 +88,7 @@ export function BiologyTeacherRadar({ history, profiles, busy, onEvaluate, onSho
     // Match the model actually sent by the current evaluation runner.
     const model = profile.configuration.analysisModel;
     const provider = profile.configuration.apiCompatible ? 'openai-compatible' : 'ollama';
-    return { profileId: profile.id, model, provider, method,
+    return { profile, model, provider, method,
       id: [provider, method, model].join('::') };
   }).filter((item) => item.model.trim().length > 0 && item.method !== 'visual-decision');
   const candidates = [...measured];
@@ -99,7 +100,8 @@ export function BiologyTeacherRadar({ history, profiles, busy, onEvaluate, onSho
     });
   }
   const selected = candidates.find((item) => item.id === selectedId) ?? candidates.find((item) => item.name === initialModel) ?? candidates[0];
-  const matchingProfile = configured.find((item) => item.id === selected?.id);
+  const eligibleProfiles = configured.filter(item => item.id === selected?.id).map(item => item.profile);
+  const matchingProfile = eligibleProfiles.find(item => item.id === selection.preferredProfileId) ?? eligibleProfiles[0];
   const available = measured.filter((item) => item.score !== null);
   const missing = BIOLOGY_RADAR_AXES.filter((axis) => selected?.axes[axis.id] === null);
   const scores = selected?.observations ?? [];
@@ -140,9 +142,10 @@ export function BiologyTeacherRadar({ history, profiles, busy, onEvaluate, onSho
           {selected.unresolvedDecisions} {selected.unresolvedDecisions === 1 ? 'décision non tranchée' : 'décisions non tranchées'} pendant les tests.
           Elles diminuent l’indice de fiabilité du LLM mais ne deviennent pas des zéros dans les copies.
         </p>}
+        <BiologyProfileControls {...selection} profiles={eligibleProfiles} profile={matchingProfile} busy={busy} />
         <div className="biology-radar-actions">
           <button type="button" className="primary-button" disabled={busy || !matchingProfile || protocol !== 'contract'}
-            onClick={() => { if (matchingProfile) onEvaluate(matchingProfile.profileId); }}>Évaluer le modèle</button>
+            onClick={() => { if (matchingProfile) onEvaluate(matchingProfile.id); }}>Évaluer le modèle</button>
           <span>{protocol === 'pilot' ? 'Pour le pilote initial, utilisez les tests Vision et analyse.'
             : protocol === 'standard' ? 'Pour un classement complet, choisissez « Contrat par question » : le barème standard ne couvre pas D/E/F/G.'
             : matchingProfile ? 'Lance automatiquement les cas A/B/C puis les pièges D/E/F/G pour ce modèle.'
