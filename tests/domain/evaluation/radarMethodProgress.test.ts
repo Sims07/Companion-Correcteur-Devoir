@@ -195,7 +195,7 @@ it('explains why historical calls without native timing cannot measure performan
   const progress = scienceMethodProgress(records, model).find(item => item.method === 'leaders-v1')!;
   expect(progress.successful).toBe(23);
   expect(progress.missing).toEqual(['speed']);
-  expect(progress.reason).toContain('Temps Ollama natif');
+  expect(progress.reason).toContain('Durées fiables');
   expect(progress.steps.map(step => step.protocol)).toEqual(['reference', 'arrows', 'semantic', 'graph']);
 });
 
@@ -225,6 +225,6 @@ it('avoids useless native-time reruns on an OpenAI-compatible graph provider', (
   }
   const progress = scienceMethodProgress(entries, model).find(item => item.method === 'leaders-v1')!;
   expect(progress.missing).toEqual(['speed']);
-  expect(progress.steps).toEqual([]);
-  expect(progress.reason).toContain('Aucune relance automatique utile');
+  expect(progress.steps.map(step => step.protocol)).toEqual(['graph']);
+  expect(progress.reason).toContain('Durées fiables');
 });

@@ -71,12 +71,56 @@ describe('scientific benchmark 9-axis radar', () => {
     expect(candidate.axes.speed.value).toBeNull();
     expect(candidate.axes.speed.reason).toMatch(/33\/51 passages mesurés/);
     expect(candidate.axes.speed.reason).toMatch(/Graphe des relations/);
-    expect(candidate.axes.speed.reason).toMatch(/Durée navigateur exclue/);
+    expect(candidate.axes.speed.reason).toMatch(/les durées historiques du navigateur ne sont pas réutilisées/);
     expect(candidate.measured).toBe(8);
     expect(candidate.complete).toBe(false);
     expect(rankDiagramLabRadar([candidate], RADAR_PRESETS.scientific)[0]?.weightedScore).toBeNull();
     // New reports containing providerDurationMs are scoreable on the same data.
     expect(buildDiagramLabRadar(entries, 'model')[0]?.axes.speed.value).toBe(50);
+  });
+
+  it('scores completed LM Studio campaigns using explicit client timing, not a fabricated Ollama duration', () => {
+    const entries = complete(3).map(entry => structuredClone(entry));
+    for (const entry of entries) {
+      if (!('cases' in entry.report)) continue;
+      for (const item of entry.report.cases) {
+        for (const run of item.experiments) {
+          Reflect.deleteProperty(run, 'providerDurationMs');
+          Object.assign(run, { clientDurationMs: 120_000, durationMs: 37_000_000 });
+        }
+      }
+    }
+    const candidate = buildDiagramLabRadar(entries, 'model')[0]!;
+    expect(candidate.measured).toBe(9);
+    expect(candidate.complete).toBe(true);
+    expect(candidate.axes.speed.value).toBe(33.3);
+    expect(candidate.axes.speed.reason).toContain('chronométrées par l’application');
+    expect(candidate.axes.speed.evidence.every(item =>
+      item.detail === 'Durée observée par l’application (ms)')).toBe(true);
+    expect(rankDiagramLabRadar([candidate], RADAR_PRESETS.scientific)[0]?.weightedScore).not.toBeNull();
+  });
+
+  it('prefers native durations and explains mixed sources without relying on old wall time', () => {
+    const entries = complete(3).map(entry => structuredClone(entry));
+    const graph = entries.find(entry => entry.protocol === 'graph')!;
+    if (!('cases' in graph.report)) throw Error('Graph report required');
+    for (const item of graph.report.cases) for (const run of item.experiments) {
+      Reflect.deleteProperty(run, 'providerDurationMs');
+      Object.assign(run, { clientDurationMs: 120_000 });
+    }
+    // A native 60-second call remains native despite a client elapsed time.
+    const other = entries[0]!;
+    if (!('cases' in other.report)) throw Error('Fixture report required');
+    for (const item of other.report.cases) for (const run of item.experiments) {
+      Object.assign(run, { clientDurationMs: 900_000 });
+    }
+    const candidate = buildDiagramLabRadar(entries, 'model')[0]!;
+    expect(candidate.measured).toBe(9);
+    expect(candidate.axes.speed.reason).toContain('Mesure mixte');
+    expect(candidate.axes.speed.evidence.some(item =>
+      item.detail === 'Durée native du moteur (ms)')).toBe(true);
+    expect(candidate.axes.speed.evidence.some(item =>
+      item.detail === 'Durée observée par l’application (ms)')).toBe(true);
   });
 
   it('builds an honest weighted score after three independent repetitions per case', () => {

@@ -133,6 +133,17 @@ describe('protocole de schémas scientifiques', () => {
     expect(diagramMethodIssue(tevReader, 'vision-then-analysis')).toContain('retirée');
   });
 
+    it('persists tagged client performance independently of native engine timing', () => {
+      const output = buildScientificDiagramProtocolReport([
+        { repetition: 1, record: record(), clientDurationMs: 24_600 },
+      ], SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC, {}, 1, '2026-11-21T17:00:00Z', 1);
+      expect(output.experiments[0]?.clientDurationMs).toBe(24_600);
+      const legacy = buildScientificDiagramProtocolReport([
+        { repetition: 1, record: record() },
+      ], SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC, {}, 1, '2026-11-21T17:00:00Z', 1);
+      expect(legacy.experiments[0]?.clientDurationMs).toBeNull();
+    });
+
     it('sépare les mesures des méthodes du même profil sans exporter de secret', () => {
     const twoStep = { ...record({ ...result(), directVisualDecision: false, diagnosticRuns: [] }),
       configurations: [{ ...record().configurations[0]!, directVisualDecision: false }] };

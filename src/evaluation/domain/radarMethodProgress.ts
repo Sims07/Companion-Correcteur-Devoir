@@ -31,7 +31,7 @@ function modelRuns(entry: DiagramLabArchiveEntry, model: string) {
 /** Audits saved evidence per scientific strategy. Never splices unrelated trials into a
  * fictitious complete radar; resuming a trial retains its ID and its earlier valid batteries.
  * The UI can display blocked measurements instead of quietly scheduling another 23 calls. */
-export function scienceMethodProgress(entries: readonly DiagramLabArchiveEntry[], model: string, nativeTimingAvailable = true): ScienceMethodProgress[] {
+export function scienceMethodProgress(entries: readonly DiagramLabArchiveEntry[], model: string): ScienceMethodProgress[] {
   return ACTIVE_SCIENCE_METHOD_IDS.map(method => {
     const groups = new Map<string, DiagramLabArchiveEntry[]>();
     for (const entry of entries) {
@@ -72,7 +72,7 @@ export function scienceMethodProgress(entries: readonly DiagramLabArchiveEntry[]
     if (missing.includes('coverage') && !best) {
       for (const protocol of protocols) needed.add(protocol);
     }
-    if (missing.includes('speed') && nativeTimingAvailable) {
+    if (missing.includes('speed')) {
       if (!best) for (const protocol of protocols) needed.add(protocol);
       else {
         // Use exact evidence selected by the radar, not every historical attempt.
@@ -82,14 +82,11 @@ export function scienceMethodProgress(entries: readonly DiagramLabArchiveEntry[]
           const entry = best.group.find(row => row.id === source.reportId);
           if (!entry || entry.protocol === 'personal') continue;
           const runs = modelRuns(entry, model);
-          // OpenAI-compatible APIs do not expose Ollama total_duration:
-          // repeating them would never satisfy this native-only axis.
-          const compatibleGraph = entry.report.format === 'companion-scientific-diagram-blind-graph-report' &&
-            runs.length > 0 && runs.every(run => 'provider' in run && run.provider === 'openai-compatible');
-          if (compatibleGraph) continue;
           if (runs.some(run => {
-            const value = 'providerDurationMs' in run ? run.providerDurationMs : null;
-            return typeof value !== 'number' || !Number.isFinite(value) || value < 0;
+            const native = 'providerDurationMs' in run ? run.providerDurationMs : null;
+            const client = 'clientDurationMs' in run ? run.clientDurationMs : null;
+            return ![native, client].some(value =>
+              typeof value === 'number' && Number.isFinite(value) && value >= 0);
           })) needed.add(entry.protocol);
         }
       }
@@ -116,8 +113,6 @@ export function scienceMethodProgress(entries: readonly DiagramLabArchiveEntry[]
         interrupted ? 'Une ancienne campagne est restée en cours et doit être reprise.' : '',
         missing.length ? 'Axes manquants : ' + missing.map(axis => axisNames[axis]).join(', ') + '.' : '',
         best && missing.includes('speed') ? candidate?.axes.speed.reason : '',
-        missing.includes('speed') && !nativeTimingAvailable
-          ? 'Vitesse indisponible avec l’API compatible OpenAI : aucune relance ne peut fournir le temps natif Ollama. Utilisez une configuration Ollama pour mesurer cet axe.' : '',
         missing.includes('relations') && graphDiagnosis && graphDiagnosis.kind !== 'not-run' ? graphDiagnosis.message : '',
         !steps.length && missing.length && !graphBlocked ? 'Aucune relance automatique utile : consulter les diagnostics.' : '',
       ].filter(Boolean).join(' ') || 'Aucune campagne enregistrée.';

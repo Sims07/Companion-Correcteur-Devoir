@@ -345,6 +345,8 @@ export interface BlindVisualObservationRun {
   provider?: 'ollama-local' | 'openai-compatible';
   remote?: boolean;
   durationMs: number;
+  /** Monotonic client-observed duration including all graph re-reads. */
+  clientDurationMs?: number | null;
   /** Native Ollama duration including second reads, when every call is measured. */
   providerDurationMs?: number | null;
   status: 'success' | 'failed' | 'aborted';

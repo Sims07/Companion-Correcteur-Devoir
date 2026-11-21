@@ -11,7 +11,7 @@ export const RADAR_AXES = [
   { id: 'robustness', label: 'Robustesse aux pièges', short: 'Robustesse', detail: 'Absence de faux rejets sur les relations valides et de faux positifs sur les témoins.' },
   { id: 'stability', label: 'Stabilité', short: 'Stabilité', detail: 'Décisions identiques et déterminées sur au moins trois passages du même dessin.' },
   { id: 'coverage', label: 'Couverture', short: 'Couverture', detail: 'Part des décisions déterminées parmi les attendus mesurables des batteries complètes.' },
-  { id: 'speed', label: 'Performance', short: 'Vitesse', detail: 'Temps natif Ollama moyen par dessin, y compris les appels supplémentaires de la méthode ; 60 s correspondent à 50/100. Les temps navigateur ne sont pas utilisés.' },
+  { id: 'speed', label: 'Performance', short: 'Vitesse', detail: 'Durée totale moyenne par dessin : temps natif du moteur si disponible, sinon temps chronométré par l’application (réseau, éventuelles reprises et traitement inclus). 60 s correspondent à 50/100. Les temps applicatifs peuvent inclure la veille et ne sont pas directement comparables aux temps natifs.' },
 ] as const;
 
 export type RadarAxisId = typeof RADAR_AXES[number]['id'];
@@ -72,6 +72,7 @@ interface Reading {
   status: string;
   durationMs: number;
   providerDurationMs?: number | null;
+  clientDurationMs?: number | null;
   observations: Record<string, string>;
 }
 interface Battery {
@@ -132,6 +133,7 @@ function flatten(entry: DiagramLabArchiveEntry): Reading[] {
       variant: report.promptVariant, caseId: testCase.caseId, repetition: run.repetition,
       status: run.status, durationMs: run.durationMs,
       providerDurationMs: 'providerDurationMs' in run && typeof run.providerDurationMs === 'number' ? run.providerDurationMs : null,
+      clientDurationMs: 'clientDurationMs' in run && typeof run.clientDurationMs === 'number' ? run.clientDurationMs : null,
       observations: run.observations && typeof run.observations === 'object' && !Array.isArray(run.observations)
         ? { ...run.observations } : {},
     })));
@@ -142,6 +144,7 @@ function flatten(entry: DiagramLabArchiveEntry): Reading[] {
       method: run.method, variant: testCase.promptMode, caseId: testCase.caseId,
       repetition: run.repetition, status: run.status, durationMs: run.durationMs,
       providerDurationMs: 'providerDurationMs' in run && typeof run.providerDurationMs === 'number' ? run.providerDurationMs : null,
+      clientDurationMs: 'clientDurationMs' in run && typeof run.clientDurationMs === 'number' ? run.clientDurationMs : null,
       observations: Object.fromEntries((Array.isArray(run.observations) ? run.observations : [])
         .map((item) => [item.key, item.choice])),
     })));
@@ -151,6 +154,7 @@ function flatten(entry: DiagramLabArchiveEntry): Reading[] {
     method: run.method, variant: 'standard', caseId: testCase.caseId,
     repetition: run.repetition, status: run.status, durationMs: run.durationMs,
       providerDurationMs: 'providerDurationMs' in run && typeof run.providerDurationMs === 'number' ? run.providerDurationMs : null,
+      clientDurationMs: 'clientDurationMs' in run && typeof run.clientDurationMs === 'number' ? run.clientDurationMs : null,
     observations: Object.fromEntries((Array.isArray(run.observations) ? run.observations : [])
         .map((item) => [item.key, item.choice])),
   })));
@@ -389,22 +393,40 @@ function makeCandidateAxes(batteries: Map<DiagramLabProtocol, Battery>, stabilit
     : empty('Aucune batterie complète avec attendus mesurables.');
   const timed = (ms: number | null | undefined): ms is number =>
     typeof ms === 'number' && Number.isFinite(ms) && ms >= 0;
-  const durations = valid.flatMap((battery) => battery.readings
-    .map((run) => run.providerDurationMs).filter(timed));
-  const totalReadings = valid.reduce((sum, battery) => sum + battery.readings.length, 0);
-  const missingProtocols = valid.filter((battery) =>
-    battery.readings.some((run) => !timed(run.providerDurationMs)))
-    .map((battery) => diagramLabProtocolLabels[battery.entry.protocol]);
-  const avgMs = durations.length ? durations.reduce((sum, ms) => sum + ms, 0) / durations.length : null;
-  // Keep an honest 8/9 until every selected passage has an Ollama-native time.
-  // Never silently substitute browser wall time, which includes sleeping laptops.
-  const speed: RadarAxisScore = avgMs !== null && durations.length === totalReadings
+  // Native server timing is preferred, but the monotonic, explicitly tagged
+  // client timer allows any compatible provider to receive a real score.
+  // Legacy durationMs is NOT used: it may include hours of laptop sleep.
+  const duration = (run: Reading): { ms: number; origin: 'native' | 'client' } | null =>
+    timed(run.providerDurationMs) ? { ms: run.providerDurationMs, origin: 'native' }
+      : timed(run.clientDurationMs) ? { ms: run.clientDurationMs, origin: 'client' }
+        : null;
+  const readings = valid.flatMap(battery => battery.readings);
+  const measuredTimes = readings.map(duration).filter((item): item is NonNullable<typeof item> => item !== null);
+  const missingProtocols = valid.filter(battery => battery.readings.some(run => duration(run) === null))
+    .map(battery => diagramLabProtocolLabels[battery.entry.protocol]);
+  const nativeCount = measuredTimes.filter(item => item.origin === 'native').length;
+  const clientCount = measuredTimes.length - nativeCount;
+  const avgMs = measuredTimes.length
+    ? measuredTimes.reduce((sum, item) => sum + item.ms, 0) / measuredTimes.length : null;
+  const originNote = clientCount === 0 ? 'Durées natives du moteur.'
+    : nativeCount === 0 ? 'Durées chronométrées par l’application : elles incluent le réseau et peuvent être affectées par la veille du navigateur.'
+      : 'Mesure mixte (durées natives et chronométrées par l’application) : comparaison entre moteurs indicative.';
+  const speed: RadarAxisScore = avgMs !== null && measuredTimes.length === readings.length
     ? { value: limited(100 / (1 + avgMs / 60_000)),
-        reason: '100 ÷ (1 + durée native moyenne par dessin / 60 s). Toutes les relectures Ollama sont incluses.',
-        evidence: valid.map((b) => evidence(b, 'Temps Ollama natif (ms)', b.readings.reduce((n, r) => n + r.providerDurationMs!, 0), b.readings.length)) }
-    : empty('Temps Ollama natifs : ' + durations.length + '/' + totalReadings +
+        reason: '100 ÷ (1 + ' + (clientCount === 0 ? 'durée native moyenne' : 'durée moyenne') + ' par dessin / 60 s). ' + originNote +
+          ' Toutes les relectures d’un dessin sont incluses.',
+        evidence: valid.map(battery => {
+          const times = battery.readings.map(duration);
+          const allNative = times.every(t => t?.origin === 'native');
+          const allClient = times.every(t => t?.origin === 'client');
+          return evidence(battery, allNative ? 'Durée native du moteur (ms)' :
+            allClient ? 'Durée observée par l’application (ms)' :
+              'Durée mixte native / application (ms)',
+          times.reduce<number>((sum, t) => sum + (t?.ms ?? 0), 0), times.length);
+        }) }
+    : empty('Durées fiables : ' + measuredTimes.length + '/' + readings.length +
         ' passages mesurés. Manquants : ' + (missingProtocols.join(' ; ') || 'aucune batterie complète') +
-        '. Les archives sans total_duration ne permettent pas de reconstituer la vitesse ; une relance ciblée après mise à jour est nécessaire. Durée navigateur exclue.');
+        '. Les anciennes archives sans temps natif ni durée applicative explicite nécessitent une relance ciblée ; les durées historiques du navigateur ne sont pas réutilisées.');
   return { graphics, arrows: arrowScore, precision, biology, relations, robustness, stability, coverage, speed };
 }
 

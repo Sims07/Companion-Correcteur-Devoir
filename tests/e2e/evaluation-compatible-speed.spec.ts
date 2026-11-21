@@ -5,7 +5,7 @@ import { DIAGRAM_SENSITIVITY_CASES } from '../../src/evaluation/domain/scientifi
 import { buildDiagramLabRadar, RADAR_PRESETS } from '../../src/evaluation/domain/diagramLabRadar.ts';
 import type { DiagramLabArchiveEntry } from '../../src/evaluation/domain/diagramLabHistory.ts';
 
-test('a completed LM Studio scientific evaluation keeps eight scores without endless speed retries after reload', async ({ page }) => {
+test('a completed LM Studio scientific evaluation includes portable performance after reload', async ({ page }) => {
   const model = 'google/gemma-4-12b-qat';
   const profile = {
     id: 'compatible-lm-studio', name: 'Gemma LM Studio', mode: 'single' as const,
@@ -28,7 +28,7 @@ test('a completed LM Studio scientific evaluation keeps eight scores without end
       experiments: Array.from({ length: repetitions }, (_, i) => ({
         profileId: profile.id, profileName: profile.name, model,
         repetition: i + 1, status: 'success', method: 'direct-image-generative',
-        provider: 'openai-compatible', zoom: false, durationMs: 12_000, providerDurationMs: null,
+        provider: 'openai-compatible', zoom: false, durationMs: 12_000, clientDurationMs: 12_000, providerDurationMs: null,
         observations: protocol === 'graph' ? { ...item.gold }
           : Object.entries(item.gold).map(([key, choice]) => ({ key, choice })),
       })),
@@ -51,7 +51,7 @@ test('a completed LM Studio scientific evaluation keeps eight scores without end
       } as unknown as DiagramLabArchiveEntry['report'],
     };
   });
-  expect(buildDiagramLabRadar(entries, 'model')[0]?.measured).toBe(8);
+  expect(buildDiagramLabRadar(entries, 'model')[0]?.measured).toBe(9);
   await page.goto('/');
   await page.evaluate(async ({ profile, entries }) => {
     localStorage.setItem('companion-correcteur:ollama-profiles:v1', JSON.stringify([profile]));
@@ -73,12 +73,12 @@ test('a completed LM Studio scientific evaluation keeps eight scores without end
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
   const radar = page.getByRole('region', { name: 'Tableau de bord des radars' });
   const science = radar.getByRole('article', { name: 'Schémas scientifiques' });
-  await expect(science).toContainText('8/9 axes');
-  await expect(science).toContainText('Vitesse non mesurable');
+  await expect(science).toContainText('9/9 axes');
+  await expect(science).toContainText('Note globale');
   await expect(science.getByRole('button', { name: 'Compléter les tests' })).toHaveCount(0);
 
   await science.getByRole('button', { name: 'Détail du radar' }).click();
   const detail = page.getByRole('region', { name: 'Radar des candidats scientifiques' });
-  await expect(detail.getByText(/Performance non mesurable avec ce profil/)).toBeVisible();
+  await expect(detail.getByText('Toutes les caractéristiques sont mesurées')).toBeVisible();
   await expect(detail.getByRole('button', { name: 'Compléter les axes manquants' })).toHaveCount(0);
 });

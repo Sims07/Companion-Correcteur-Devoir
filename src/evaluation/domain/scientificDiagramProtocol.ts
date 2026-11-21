@@ -10,7 +10,7 @@ export const SCIENTIFIC_DIAGRAM_PROTOCOL_ID = 'scientific-diagram-observable-v1'
 
 export type DiagramTeacherDecision = 'present' | 'absent' | 'partial';
 export type DiagramGold = Record<string, DiagramTeacherDecision>;
-export type DiagramProtocolRun = { repetition: number; record: ModelEvaluationRecord };
+export type DiagramProtocolRun = { repetition: number; record: ModelEvaluationRecord; /** Monotonic, client-observed full evaluation time. */ clientDurationMs?: number };
 export type DiagramProtocolCount = 1 | 3 | 5;
 export type DiagramMethod = 'graph-first-v1' | 'graph-first-v2' | 'vision-then-analysis' | 'direct-image-generative' | 'direct-image-generative-thinking' | 'direct-image-systemone';
 export type DiagramMethodSelection = DiagramMethod | 'compare' | 'compare-thinking';
@@ -265,7 +265,7 @@ export function buildScientificDiagramProtocolReport(
   observationOptions: DiagramObservationExportOptions = {},
 ) {
   const totalTargets = rubric.criteria.reduce((sum, criterion) => sum + getRubricSubcriteria(criterion).length, 0);
-  const experiments = runs.flatMap(({ repetition, record }) => record.results.map((result) => ({
+  const experiments = runs.flatMap(({ repetition, record, clientDurationMs }) => record.results.map((result) => ({
     repetition, profileId: result.profileId, profileName: result.profileName,
     model: record.configurations.find((entry) => entry.id === result.profileId)?.analysisModel ?? '',
     method: record.graphFirst ? (record.graphVersion === 'v2' ? 'graph-first-v2' as const : 'graph-first-v1' as const) : result.directVisualDecision ? 'direct-image-systemone' as const
@@ -296,7 +296,13 @@ export function buildScientificDiagramProtocolReport(
         ? 'Échec avant traitement du schéma : vérifiez la configuration ou les modèles dans l’observabilité locale.'
         : 'Échec durant le traitement : détails dans l’observabilité locale.'
       : null,
-    durationMs: result.elapsedMs, providerDurationMs: record.graphFirst ? null : sumReportedProviderDurationForRuns(result.diagnosticRuns ?? []), readingMs: result.readingMs, analysisMs: result.analysisMs,
+    durationMs: result.elapsedMs,
+    // A browser-side, monotonic timer covers compatible providers even if their
+    // Chat Completions replies have no native timing fields. Never relabel this
+    // as a provider-native measurement.
+    clientDurationMs: Number.isFinite(clientDurationMs) && clientDurationMs! >= 0 ? clientDurationMs! : null,
+    providerDurationMs: record.graphFirst ? null : sumReportedProviderDurationForRuns(result.diagnosticRuns ?? []),
+    readingMs: result.readingMs, analysisMs: result.analysisMs,
     tokens: result.tokens, score: result.score,
     ...(result.diagnosticRuns?.length ? { prompts: evaluationPromptReferences(result.diagnosticRuns) } : {}),
     diagnostics: diagramAnalysisDiagnostics(result),
