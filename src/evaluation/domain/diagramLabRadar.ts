@@ -413,7 +413,7 @@ function makeCandidateAxes(batteries: Map<DiagramLabProtocol, Battery>, stabilit
       : 'Mesure mixte (durées natives et chronométrées par l’application) : comparaison entre moteurs indicative.';
   const speed: RadarAxisScore = avgMs !== null && measuredTimes.length === readings.length
     ? { value: limited(100 / (1 + avgMs / 60_000)),
-        reason: '100 ÷ (1 + durée moyenne par dessin / 60 s). ' + originNote +
+        reason: '100 ÷ (1 + ' + (clientCount === 0 ? 'durée native moyenne' : 'durée moyenne') + ' par dessin / 60 s). ' + originNote +
           ' Toutes les relectures d’un dessin sont incluses.',
         evidence: valid.map(battery => {
           const times = battery.readings.map(duration);
