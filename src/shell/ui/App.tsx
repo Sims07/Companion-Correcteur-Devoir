@@ -2762,9 +2762,9 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
   async function executeScientificDiagramCases(
     rubric: Rubric, context: string, cases: readonly DiagramCaseInput[], repetitions: DiagramProtocolCount,
     methodSelection: DiagramMethodSelection,
-    onCompleted?: (runs: readonly { caseId: DiagramCaseInput['id']; repetition: number; record: ModelEvaluationRecord; promptMode?: DiagramSensitivityPromptMode }[]) => void,
+    onCompleted?: (runs: readonly { caseId: DiagramCaseInput['id']; repetition: number; record: ModelEvaluationRecord; clientDurationMs?: number; promptMode?: DiagramSensitivityPromptMode }[]) => void,
     retryInvalidOnce = false,
-  ): Promise<Array<{ caseId: DiagramCaseInput['id']; repetition: number; record: ModelEvaluationRecord }>> {
+  ): Promise<Array<{ caseId: DiagramCaseInput['id']; repetition: number; record: ModelEvaluationRecord; clientDurationMs?: number }>> {
     if (busy || pilotBusy) throw new Error('Une évaluation est déjà en cours.');
     const profiles = selectPilotProfiles(aiModelProfiles, selectedEvaluationProfileIds);
     if (!profiles.length) throw new Error('Sélectionnez une configuration dans l’évaluateur.');
@@ -2776,7 +2776,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     if (!cases.length || cases.some((testCase) => !testCase.images.length)) {
       throw new Error('Chaque schéma doit contenir au moins une image.');
     }
-    const runs: Array<{ caseId: DiagramCaseInput['id']; repetition: number; record: ModelEvaluationRecord; promptMode?: DiagramSensitivityPromptMode }> = [];
+    const runs: Array<{ caseId: DiagramCaseInput['id']; repetition: number; record: ModelEvaluationRecord; clientDurationMs?: number; promptMode?: DiagramSensitivityPromptMode }> = [];
     pilotStopRef.current = false;
     evaluationAbortController.current = new AbortController();
     evaluationCancelledRef.current = false;
@@ -2820,11 +2820,14 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
                     ...(method === 'direct-image-generative-thinking' ? { thinkSetting } : {}),
                   },
                 };
+                const clientStarted = performance.now();
                 const record = await startModelEvaluation(evaluationRequest);
                 if (record) {
                   // Persist the first answer immediately, even when invalid.
                   // A browser closing during its targeted retry must not discard it.
-                  runs.push({ caseId: testCase.id, repetition, record, ...(testCase.promptMode ? { promptMode: testCase.promptMode } : {}) });
+                  runs.push({ caseId: testCase.id, repetition, record,
+                    clientDurationMs: Math.max(0, Math.round(performance.now() - clientStarted)),
+                    ...(testCase.promptMode ? { promptMode: testCase.promptMode } : {}) });
                   onCompleted?.([...runs]);
                   if (retryInvalidOnce && shouldRetryInvalidDiagramRecord(record)
                     && !pilotStopRef.current && !evaluationCancelledRef.current) {
@@ -2836,6 +2839,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
                     const retried = await startModelEvaluation(evaluationRequest);
                     if (retried && !pilotStopRef.current && !evaluationCancelledRef.current) {
                       runs[runs.length - 1] = { caseId: testCase.id, repetition, record: retried,
+                        clientDurationMs: Math.max(0, Math.round(performance.now() - clientStarted)),
                         ...(testCase.promptMode ? { promptMode: testCase.promptMode } : {}) };
                       onCompleted?.([...runs]);
                     }
@@ -2883,9 +2887,9 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     const createdAt = new Date().toISOString();
     activeDiagramReportRef.current = 'personal';
     setDiagramProtocolReport(null);
-    const build = (runs: readonly { repetition: number; record: ModelEvaluationRecord }[]) =>
+    const build = (runs: readonly { repetition: number; record: ModelEvaluationRecord; clientDurationMs?: number }[]) =>
       buildScientificDiagramProtocolReport(
-        runs.map(({ repetition, record }) => ({ repetition, record })),
+        runs.map(({ repetition, record, clientDurationMs }) => ({ repetition, record, clientDurationMs })),
         request.rubric, request.gold, request.repetitions, createdAt, request.images.length,
       );
     const runs = await executeScientificDiagramCases(
@@ -2905,7 +2909,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     diagramArchiveWriter.register(createdAt, radarTrial.current);
     activeDiagramReportRef.current = 'fixture';
     setDiagramFixtureReport(null);
-    const build = (runs: readonly { caseId: DiagramCaseInput['id']; repetition: number; record: ModelEvaluationRecord }[]) =>
+    const build = (runs: readonly { caseId: DiagramCaseInput['id']; repetition: number; record: ModelEvaluationRecord; clientDurationMs?: number }[]) =>
       buildScientificDiagramFixtureReport(
         runs.filter((run): run is ScientificDiagramFixtureRun => run.caseId !== 'manual'),
         request.repetitions, createdAt,
@@ -2933,11 +2937,11 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     diagramArchiveWriter.register(createdAt, radarTrial.current);
     activeDiagramReportRef.current = 'sensitivity';
     setDiagramSensitivityReport(null);
-    const build = (runs: readonly { caseId: DiagramCaseInput['id']; repetition: number; record: ModelEvaluationRecord; promptMode?: DiagramSensitivityPromptMode }[]) =>
+    const build = (runs: readonly { caseId: DiagramCaseInput['id']; repetition: number; record: ModelEvaluationRecord; clientDurationMs?: number; promptMode?: DiagramSensitivityPromptMode }[]) =>
       buildScientificDiagramSensitivityReport(
         runs.filter((run) => DIAGRAM_SENSITIVITY_CASE_IDS.some((id) => id === run.caseId))
           .map((run): DiagramSensitivityRun => ({ caseId: run.caseId as DiagramSensitivityCaseId,
-            repetition: run.repetition, record: run.record, promptMode: run.promptMode })),
+            repetition: run.repetition, record: run.record, clientDurationMs: run.clientDurationMs, promptMode: run.promptMode })),
         request.repetitions, createdAt, request.promptModes,
       );
     const runs = await executeScientificDiagramCases(
@@ -3012,6 +3016,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
                 model, zoom: Boolean(request.zoomUncertainArrows), promptVariant: request.promptVariant ?? 'baseline', provider: profile.configuration.apiCompatible ? 'openai-compatible' : 'ollama-local',
                 remote: !isLoopbackPilotEndpoint(profile.configuration.endpoint),
                 status: 'success', durationMs: Math.round(performance.now() - started),
+                clientDurationMs: Math.max(0, Math.round(performance.now() - started)),
                 providerDurationMs: diagnostic?.providerDurationMs ?? null,
                 observations: compareBlindVisualGraph(graph), graph, diagnostic,
                 relationDetails: explainBlindVisualGraph(graph),
