@@ -872,6 +872,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
   const [busy, setBusy] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isStoppingOperation, setIsStoppingOperation] = useState(false);
+  const stoppingOperationRef = useRef(false);
   const [analysisStage, setAnalysisStage] = useState<'checking' | 'reading' | 'grading'>('checking');
   const [criterionProgressMessage, setCriterionProgressMessage] = useState('');
   const [pageProgress, setPageProgress] = useState<Record<number, 'started' | 'completed' | 'doubtful'>>({});
@@ -4290,7 +4291,9 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
   }
 
   async function stopCurrentOperations() {
-    if (isStoppingOperation) return;
+    // A synchronous guard also prevents a second stop before React re-renders.
+    if (stoppingOperationRef.current) return;
+    stoppingOperationRef.current = true;
     setIsStoppingOperation(true);
     activeCorrectionAbortController.current?.abort();
     try {
@@ -4305,6 +4308,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Impossible de terminer l’arrêt de la correction.');
     } finally {
+      stoppingOperationRef.current = false;
       setIsStoppingOperation(false);
     }
   }
@@ -4313,6 +4317,9 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     ? [...allBackgroundJobs].filter((job) => job.assignmentId === activeAssignmentId && job.status === 'pending').sort((a, b) => a.createdAt.localeCompare(b.createdAt))[0] ?? null
     : null;
   const activeQueueCopy = processingCopy ?? preparingCopy;
+  // The teacher can navigate to any page while these workflows keep running.
+  const hasRunningCorrections = isAnalyzing || isStartingSeriesCorrections
+    || allBackgroundJobs.some((job) => job.status === 'processing');
   const showingBiologyRunMonitor = interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration' &&
     evaluationJourney === 'biology' && !biologyRadarOpen && pilotBusy && evaluationBiologyScenario !== 'copies';
 
@@ -4507,7 +4514,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
         <div className="brand-mark" aria-hidden="true">CC</div>
         <div><p className="eyebrow">ASSISTANT PÉDAGOGIQUE</p><h1>Compagnon Correcteur de Devoirs</h1></div>
         <AppVersionBadge />
-        <div className="topbar-actions"><NotificationCenter onNavigate={openNotification} />{interfaceMode === 'teacher' && (activeQueueCopy || isAnalyzing) && <button type="button" className="teacher-processing-copy-link" onClick={() => { setShowAssignmentsHome(false); setShowAiSettings(false); if (activeQueueCopy) void loadNextQueuedCopy(activeQueueCopy.id); else setTeacherStep(proposal ? 'review' : 'copy'); }}><span aria-hidden="true">◌</span> {activeQueueCopy ? (processingCopy ? 'Copie en cours' : 'Préparation de la copie') : 'Copie en cours'} : {activeQueueCopy?.label || studentLabel || images[0]?.fileName || 'Copie sans nom'} <span aria-hidden="true">→</span></button>}<nav className="view-switch" aria-label="Navigation principale">
+        <div className="topbar-actions"><NotificationCenter onNavigate={openNotification} />{hasRunningCorrections && <button type="button" className="context-stop-button topbar-stop-button" aria-label="Arrêter les corrections en cours" title="Interrompre les corrections en cours" disabled={isStoppingOperation} onClick={() => { void stopCurrentOperations(); }}>{isStoppingOperation ? 'Arrêt en cours…' : 'Arrêter'}</button>}{interfaceMode === 'teacher' && (activeQueueCopy || isAnalyzing) && <button type="button" className="teacher-processing-copy-link" onClick={() => { setShowAssignmentsHome(false); setShowAiSettings(false); if (activeQueueCopy) void loadNextQueuedCopy(activeQueueCopy.id); else setTeacherStep(proposal ? 'review' : 'copy'); }}><span aria-hidden="true">◌</span> {activeQueueCopy ? (processingCopy ? 'Copie en cours' : 'Préparation de la copie') : 'Copie en cours'} : {activeQueueCopy?.label || studentLabel || images[0]?.fileName || 'Copie sans nom'} <span aria-hidden="true">→</span></button>}<nav className="view-switch" aria-label="Navigation principale">
           <button type="button" className={interfaceMode === 'teacher' ? 'view-switch-button active' : 'view-switch-button'}
             aria-current={interfaceMode === 'teacher' ? 'page' : undefined}
             onClick={() => setInterfaceMode('teacher')}>Correction</button>
@@ -4541,7 +4548,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
           </div>
         </details>
       </section>}
-      {interfaceMode === 'debug' && <NetworkInspector initialFilter={networkInitialFilter} />}
+      {interfaceMode === 'debug' && <NetworkInspector initialFilter={networkInitialFilter} hasRunningCorrections={hasRunningCorrections} isStoppingCorrections={isStoppingOperation} onStopCorrections={() => { void stopCurrentOperations(); }} />}
       {interfaceMode === 'teacher' && showAssignmentsHome && <AssignmentsHome
         assignments={assignmentProfiles}
         activeAssignmentId={activeAssignmentId}
