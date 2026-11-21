@@ -129,6 +129,14 @@ function streamAsOllama(response: Response): Response {
   return new Response(body, { status: response.status, headers: { 'Content-Type': 'application/x-ndjson' } });
 }
 
+/** Map the provider-independent Thinking choice to best-effort Chat Completions controls. */
+function compatibleReasoningEffort(think: boolean | string | undefined): 'none' | 'low' | 'medium' | 'high' | undefined {
+  if (think === false || think === 'false' || think === 'off' || think === 'none') return 'none';
+  if (think === true || think === 'true' || think === 'on') return 'medium';
+  if (think === 'low' || think === 'medium' || think === 'high') return think;
+  return undefined;
+}
+
 function safeRequestPreview(body: Record<string, unknown>): string {
   const copy = JSON.parse(JSON.stringify(body)) as Record<string, unknown>;
   const messages = copy.messages;
@@ -166,14 +174,15 @@ export function createOpenAiCompatibleFetch(settings: OpenAiCompatibleSettings, 
     if (!requestUrl.endsWith('/api/chat')) return fetchImpl(input, init);
     const source: { model?: string; stream?: boolean; messages?: Array<{ role: string; content: string; images?: string[]; imageDetail?: 'low' | 'high' }>; think?: boolean | string; options?: { temperature?: number; num_predict?: number; stop?: string[]; repeat_penalty?: number; frequency_penalty?: number }; generation_token_parameter?: 'max_tokens' | 'max_completion_tokens'; format?: unknown } =
       typeof init?.body === 'string' ? JSON.parse(init.body) : {};
+    const reasoningEffort = compatibleReasoningEffort(source.think);
     const body = {
       model: source.model ?? '',
       stream: source.stream ?? false,
       messages: openAiMessages(source.messages ?? []),
       ...(source.options?.temperature !== undefined ? { temperature: source.options.temperature } : {}),
-      // Ollama's "think" flag has no direct OpenAI counterpart. Prefer the
-      // compatible reasoning-effort option, with guarded provider fallbacks.
-      ...(source.think === false ? { reasoning_effort: 'none' } : {}),
+      // Not universal in Chat Completions: request the preferred effort and
+      // gracefully retry without provider-specific extensions if rejected.
+      ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
       ...(source.options?.num_predict !== undefined
         ? source.generation_token_parameter === 'max_completion_tokens'
           ? { max_completion_tokens: source.options.num_predict }
@@ -206,7 +215,7 @@ export function createOpenAiCompatibleFetch(settings: OpenAiCompatibleSettings, 
     let response = await send(requestBody);
     if (!response.ok && [400, 422].includes(response.status) && 'reasoning_effort' in requestBody && await providerRejectsParameter(response, 'reasoning_effort')) {
       const { reasoning_effort: _reasoningEffort, ...withoutReasoningEffort } = requestBody;
-      requestBody = { ...withoutReasoningEffort, chat_template_kwargs: { enable_thinking: false } };
+      requestBody = { ...withoutReasoningEffort, chat_template_kwargs: { enable_thinking: reasoningEffort !== 'none' } };
       response = await send(requestBody);
     }
     if (!response.ok && [400, 422].includes(response.status) && 'chat_template_kwargs' in requestBody && await providerRejectsParameter(response, 'chat_template_kwargs')) {
