@@ -923,6 +923,35 @@ describe('Ollama adapter', () => {
     expect(body.think).toBe(true);
   });
 
+  it('sends high reasoning effort to LM Studio for full generative grading', async () => {
+    const sse = [
+      'data: ' + JSON.stringify({ choices: [{ delta: { content: '{"criteria":[]}' }, finish_reason: 'stop' }] }),
+      '', 'data: [DONE]', '',
+    ].join('\n');
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(sse, {
+      status: 200, headers: { 'Content-Type': 'text/event-stream' },
+    }));
+    const provider = createOllamaProvider({
+      endpoint: 'https://mac-mini.local:8443', apiCompatible: true,
+      analysisModel: 'google/gemma-4-12b-qat', thinking: true, thinkingLevel: 'high',
+    }, fetchMock);
+    await expect(provider.generate({
+      question: 'Biologie', rubric: '{"criteria":[]}', transcription: 'Réponse de l’étudiant.',
+    })).resolves.toBe('{"criteria":[]}');
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toMatchObject({ reasoning_effort: 'high' });
+    expect(String(fetchMock.mock.calls[0][0])).toBe('https://mac-mini.local:8443/v1/chat/completions');
+  });
+
+  it('keeps Thinking disabled even when a stale effort level remains', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValueOnce(streamingResponse('{"criteria":[]}'));
+    const provider = createOllamaProvider({
+      endpoint: 'http://localhost:11434', visionModel: 'gemma3:4b',
+      analysisModel: 'qwen3.5:4b', thinking: false, thinkingLevel: 'high',
+    }, fetchMock);
+    await provider.generate({ question: 'Biologie', rubric: '{"criteria":[]}', transcription: 'Réponse.' });
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).think).toBe(false);
+  });
+
   it('reuses a cached transcription and skips vision inference on re-analysis', async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValueOnce(streamingResponse('{"criteria":[]}'));
     const onTranscription = vi.fn<(transcription: string) => void>();
