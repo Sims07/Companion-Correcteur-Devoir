@@ -534,7 +534,7 @@ describe('Ollama adapter', () => {
   });
 
   it('preserves a table-only page as rows and columns through GLM-OCR transcription', async () => {
-    const table = '| Phase | Durée | Résultat |\n|---|---:|---|\n| Prophase | 20 min | Chromosomes condensés |\n| Métaphase | 5 min | Alignement équatorial |';
+    const table = '| Phase | Durée | Résultat |\\n|---|---:|---|\\n| Prophase | 20 min | Chromosomes condensés |\\n| Métaphase | 5 min | Alignement équatorial |';
     const fetchMock = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(streamingResponse(table))
       .mockResolvedValueOnce(streamingResponse('{"criteria":[]}'));
@@ -575,7 +575,7 @@ describe('Ollama adapter', () => {
     expect(visionBody.format).toBeUndefined();
     expect(visionBody.options).toMatchObject({ temperature: 0, num_predict: 2048, repeat_penalty: 1.05, stop: ['\n\n\n\n'] });
     expect(transcriptions[0]).toContain('Transcription fidèle de la copie');
-    expect(transcriptions[0]).not.toMatch(/\n{3,}$/);
+    expect(transcriptions[0]).not.toMatch(/\\n{3,}$/);
 
     const analysisBody = JSON.parse(String(fetchMock.mock.calls[1][1]?.body));
     expect(analysisBody.model).toBe('qwen3.5:4b');
@@ -936,7 +936,7 @@ describe('Ollama adapter', () => {
       question: request.question,
       rubric: request.rubric,
       images: [],
-      transcription: '[ copie.png ]\nTranscription déjà extraite',
+      transcription: '[ copie.png ]\\nTranscription déjà extraite',
     }, undefined, undefined, onTranscription)).resolves.toBe('{"criteria":[]}');
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
