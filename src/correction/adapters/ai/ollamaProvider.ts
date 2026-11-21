@@ -1570,7 +1570,7 @@ export async function importRubricImageWithOllama(
         body: JSON.stringify({
           model: analysisModel,
           stream: false,
-          think: analysisThink,
+          think: settings.thinking ? (settings.thinkingLevel ?? true) : false,
           options: { temperature: 0, num_predict: outputTokens },
           ...(settings.apiCompatible ? { generation_token_parameter: 'max_completion_tokens' as const } : {}),
           format: schema,
