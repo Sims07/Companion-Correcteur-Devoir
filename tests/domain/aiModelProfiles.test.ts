@@ -8,6 +8,12 @@ const profile: AiModelProfile = {
 };
 
 describe('AI model configuration persistence', () => {
+  it.each([undefined, 0, -1, 1.25, '16384', 16384])('restores a positive whole grading budget (%s)', value => {
+    const configuration = { ...profile.configuration, gradingOutputTokens: value };
+    const expected = value === 16384 ? value : undefined;
+    expect(parseAiModelConfiguration(JSON.stringify(configuration)).gradingOutputTokens).toBe(expected);
+    expect(parseAiModelProfiles(JSON.stringify([{ ...profile, configuration }]))[0]!.configuration.gradingOutputTokens).toBe(expected);
+  });
   it('restores the last valid configuration from local storage data', () => {
     const configuration = { ...defaultAiModelConfiguration, visionModel: 'gemma3:4b', analysisModel: 'qwen3.5:4b', analysisThinking: true };
     expect(parseAiModelConfiguration(JSON.stringify(configuration))).toEqual(configuration);

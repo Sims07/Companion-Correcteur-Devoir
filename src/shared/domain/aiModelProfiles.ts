@@ -8,6 +8,10 @@ export function parseAnalysisReasoningEffort(value: unknown): AnalysisReasoningE
   return value === 'low' || value === 'high' ? value : 'medium';
 }
 
+export function parseGradingOutputTokens(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value > 0 ? value : undefined;
+}
+
 export interface AiModelConfiguration {
   endpoint: string;
   apiCompatible: boolean;
@@ -27,6 +31,7 @@ export interface AiModelConfiguration {
   arbitratorModel: string;
   diagnosticStrategy: AiModelStrategy;
   analysisThinking: boolean;
+  gradingOutputTokens?: number;
   /** Chat Completions effort when Thinking is enabled. */
   analysisReasoningEffort?: AnalysisReasoningEffort;
   criterionByCriterion: boolean;
@@ -72,6 +77,7 @@ export function parseAiModelConfiguration(raw: string | null): AiModelConfigurat
       secondAnalysisModel: typeof candidate.secondAnalysisModel === 'string' ? candidate.secondAnalysisModel : '',
       arbitratorModel: typeof candidate.arbitratorModel === 'string' ? candidate.arbitratorModel : '',
       diagnosticStrategy: isStrategy(candidate.diagnosticStrategy) ? candidate.diagnosticStrategy : 'single',
+      gradingOutputTokens: parseGradingOutputTokens(candidate.gradingOutputTokens),
       analysisThinking: candidate.analysisThinking === true,
       analysisReasoningEffort: parseAnalysisReasoningEffort(candidate.analysisReasoningEffort),
       criterionByCriterion: candidate.criterionByCriterion !== false,
@@ -101,7 +107,7 @@ export function parseAiModelProfiles(raw: string | null): AiModelProfile[] {
         delete legacyConfiguration.detectTeacherAnnotations;
         delete legacyConfiguration.regionsEnabled;
         delete legacyConfiguration.regionsModel;
-        const configuration = { ...defaultAiModelConfiguration, ...legacyConfiguration, analysisReasoningEffort: parseAnalysisReasoningEffort(legacyConfiguration.analysisReasoningEffort), correctionMethod: parseCorrectionMethod(legacyConfiguration.correctionMethod) };
+        const configuration = { ...defaultAiModelConfiguration, ...legacyConfiguration, gradingOutputTokens: parseGradingOutputTokens(legacyConfiguration.gradingOutputTokens), analysisReasoningEffort: parseAnalysisReasoningEffort(legacyConfiguration.analysisReasoningEffort), correctionMethod: parseCorrectionMethod(legacyConfiguration.correctionMethod) };
         if (configuration.transcriptionPenaltyParameter === 'frequency_penalty' && configuration.transcriptionFrequencyPenalty === 0.5) {
           configuration.transcriptionPenaltyParameter = 'none';
           configuration.transcriptionFrequencyPenalty = 0;

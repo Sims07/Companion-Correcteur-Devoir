@@ -15,6 +15,8 @@ interface Props {
   apiCompatible: boolean;
   analysisThinking: boolean;
   analysisReasoningEffort?: AnalysisReasoningEffort;
+  gradingOutputTokens?: number;
+  onGradingOutputTokens?: (value: number | undefined) => void;
   disabled?: boolean;
   onGenerativeModel: (value: string) => void;
   onDecisionModel: (value: string) => void;
@@ -80,6 +82,17 @@ export function AiModelRoleFields(props: Props) {
             ? 'Thinking activé pour les prochaines analyses génératives.'
             : 'Thinking désactivé pour les prochaines analyses génératives.'}
       </p>
+      {apiCompatible && !decision && <div className="evaluation-config-field">
+        <label className="field-label" htmlFor={prefix + '-grading-output'}>Plafond de sortie par correction (tokens)</label>
+        <input id={prefix + '-grading-output'} type="number" min="1" step="1" disabled={disabled}
+          placeholder="Automatique" value={props.gradingOutputTokens ?? ''}
+          aria-describedby={prefix + '-grading-output-help'} onChange={event => {
+            const value = event.target.valueAsNumber;
+            if (!event.target.value) props.onGradingOutputTokens?.(undefined);
+            else if (Number.isSafeInteger(value) && value > 0) props.onGradingOutputTokens?.(value);
+          }} />
+        <small id={prefix + '-grading-output-help'}>Budget par appel pour la réflexion et la réponse finale, dès le premier essai. Laissez vide pour le calcul automatique. Les images et le barème occupent aussi une partie du contexte chargé dans LM Studio.</small>
+      </div>}
       {apiCompatible && props.analysisThinking && <div className="evaluation-config-field">
         <label className="field-label" htmlFor={`${prefix}-reasoning-effort`}>Effort de raisonnement</label>
         <DesignSystemSelect id={`${prefix}-reasoning-effort`}
