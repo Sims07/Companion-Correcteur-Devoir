@@ -18,7 +18,7 @@ const configuration = {
 };
 
 describe('correction directe de schéma', () => {
-  it('lance une analyse distante sans demander d’autorisation au professeur', async () => {
+  it.each(['off', 'low', 'medium', 'high'] as const)('transmet le raisonnement %s à la correction du schéma', async mode => {
     const onDiagnosticResult = vi.fn();
     const generate = vi.fn(async (_request: unknown, _chunk?: unknown, _stage?: unknown, _transcription?: unknown, reportDiagnostic?: (result: unknown) => void) => {
       reportDiagnostic?.({ kind: 'model', model: 'vision-model', raw: '{}', elapsedMs: 1 });
@@ -32,13 +32,16 @@ describe('correction directe de schéma', () => {
     const createProvider = vi.fn(() => ({ generate }));
     const gateway = { checkReady, createProvider } as unknown as Pick<CorrectionWorkspaceService, 'checkReady' | 'createProvider'>;
 
-    const proposal = await correctScientificDiagramDirect(gateway, { images, rubric, question: 'Observer le trait', configuration, onDiagnosticResult });
+    const proposal = await correctScientificDiagramDirect(gateway, { images, rubric, question: 'Observer le trait', configuration: { ...configuration, analysisThinking: mode !== 'off', analysisReasoningEffort: mode === 'off' ? 'high' : mode }, onDiagnosticResult });
 
     expect(onDiagnosticResult).toHaveBeenCalledWith(expect.objectContaining({ kind: 'model', model: 'vision-model' }));
     expect(proposal.finalScore).toBe(1);
     expect(checkReady).toHaveBeenCalledWith(expect.objectContaining({ endpoint: configuration.endpoint, model: 'vision-model' }));
+    expect(createProvider).toHaveBeenCalledWith(expect.objectContaining({
+      thinking: mode !== 'off', ...(mode === 'off' ? {} : { thinkingLevel: mode }),
+    }));
     expect(generate).toHaveBeenCalledTimes(1);
-    expect(generate.mock.calls[0]?.[0]).toEqual(expect.objectContaining({ images, directGenerativeVision: true }));
+    expect(generate.mock.calls[0]?.[0]).toEqual(expect.objectContaining({ images, directGenerativeVision: true, retryDiagramGenerationLimit: true }));
   });
 
   it('ne lance pas de requête sans adresse de serveur', async () => {

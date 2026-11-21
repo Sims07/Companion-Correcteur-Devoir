@@ -300,6 +300,23 @@ describe('compact direct diagram output', () => {
       correctionMethod: 'generative' }, fetchMock).generate(request)).rejects.toThrow(/num_predict=2048, num_ctx=8192.*\[diagram-output:generation-limit\]/);
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
+  it.each(['stop', 'length'])('recovers a teacher diagram after a reasoning-only length stop, second finish %s', async finish => {
+    const completion = (delta: Record<string, string>, finish_reason: string) =>
+      new Response('data: ' + JSON.stringify({ choices: [{ delta, finish_reason }] }) + '\n\ndata: [DONE]\n\n',
+        { headers: { 'Content-Type': 'text/event-stream' } });
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(completion({ reasoning_content: 'Analyse du dessin' }, 'length'))
+      .mockResolvedValueOnce(completion({ content: JSON.stringify(answer()) }, finish));
+    const provider = createOllamaProvider({ endpoint: 'https://example.invalid', apiCompatible: true,
+      analysisModel: 'gemma', correctionMethod: 'generative', thinking: true, thinkingLevel: 'low' }, fetchMock);
+    const result = provider.generate({ ...request, retryDiagramGenerationLimit: true });
+    if (finish === 'length') await expect(result).rejects.toThrow('[diagram-output:generation-limit]');
+    else expect(JSON.parse(await result).finalScore).toBe(0.67);
+    const bodies = fetchMock.mock.calls.map(([, init]) => JSON.parse(String(init?.body)));
+    expect(bodies).toHaveLength(2);
+    expect(bodies[1]).toEqual({ ...bodies[0], max_tokens: bodies[0].max_tokens * 2 });
+    expect(bodies[1].reasoning_effort).toBe('low');
+  });
   it('does not retry a failed HTTP request', async () => {
     const fetchMock = vi.fn(async () => new Response('unavailable', { status: 503 }));
     await expect(createOllamaProvider({ endpoint: 'http://localhost:11434', analysisModel: 'qwen3.5:4b',
