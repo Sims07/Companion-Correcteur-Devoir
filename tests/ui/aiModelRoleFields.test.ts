@@ -10,7 +10,7 @@ afterEach(() => { for (const { root, node } of containers.splice(0)) { act(() =>
 function render(overrides = {}) {
   const node = document.createElement('div'); document.body.append(node);
   const root = createRoot(node); containers.push({ root, node });
-  const props = { prefix: 'evaluation' as const, models: [], generativeModel: 'qwen', decisionModel: 'tev1:4b', visionModel: 'ocr', method: 'generative' as const, apiCompatible: false, analysisThinking: false, onAnalysisThinking: vi.fn(), onGenerativeModel: vi.fn(), onDecisionModel: vi.fn(), onMethod: vi.fn(), ...overrides };
+  const props = { prefix: 'evaluation' as const, models: [], generativeModel: 'qwen', decisionModel: 'tev1:4b', visionModel: 'ocr', method: 'generative' as const, apiCompatible: false, analysisThinking: false, analysisReasoningEffort: 'medium' as const, onAnalysisThinking: vi.fn(), onAnalysisReasoningEffort: vi.fn(), onGenerativeModel: vi.fn(), onDecisionModel: vi.fn(), onMethod: vi.fn(), ...overrides };
   act(() => root.render(createElement(AiModelRoleFields, props)));
   return { node, props };
 }
@@ -67,6 +67,19 @@ describe('shared simple AI model controls', () => {
     const disabled = render({ apiCompatible: true, analysisThinking: false });
     expect(disabled.node.querySelector<HTMLInputElement>('#evaluation-analysis-thinking')?.disabled).toBe(false);
     expect(disabled.node.querySelector('#evaluation-analysis-thinking-status')?.textContent).toContain('désactivé demandé');
+  });
+
+  it('selects a compatible reasoning effort and hides it when Thinking is OFF', () => {
+    const { node, props } = render({ apiCompatible: true, analysisThinking: true, analysisReasoningEffort: 'high' });
+    const level = node.querySelector<HTMLSelectElement>('#evaluation-reasoning-effort')!;
+    expect(Array.from(level.options).map(option => option.value)).toEqual(['low', 'medium', 'high']);
+    expect(level.value).toBe('high');
+    expect(node.querySelector('#evaluation-analysis-thinking-status')?.textContent).toContain('high');
+    act(() => { level.value = 'low'; level.dispatchEvent(new Event('change', { bubbles: true })); });
+    expect(props.onAnalysisReasoningEffort).toHaveBeenCalledWith('low');
+    expect(render({ apiCompatible: true, analysisThinking: false }).node.querySelector('#evaluation-reasoning-effort')).toBeNull();
+    expect(render({ apiCompatible: false, analysisThinking: true }).node.querySelector('#evaluation-reasoning-effort')).toBeNull();
+    expect(render({ apiCompatible: true, analysisThinking: true, disabled: true }).node.querySelector<HTMLSelectElement>('#evaluation-reasoning-effort')?.disabled).toBe(true);
   });
 
   it('disables Thinking while a model evaluation is busy', () => {
