@@ -769,6 +769,10 @@ export function createOllamaProvider(
             throw new Error(`Analyse incomplète : ${providerName} a atteint la limite de génération (done_reason=length, num_predict=${tracking?.generationTokenLimit ?? 2048}). La réponse partielle n’est pas exploitable comme correction. Réduisez la longueur des données ou relancez avec un budget adapté.`);
           }
           if (!result.content.trim() && result.doneReason === 'length') {
+            if (request.retryDiagramGenerationLimit && tracking?.promptId === 'diagram.direct-grading') {
+              finishRequest();
+              return ''; // The direct-image loop handles both empty and partial length stops.
+            }
             const isDirectDiagram = tracking?.promptId === 'diagram.direct-grading' || tracking?.promptId === 'diagram.direct-repair';
             throw new Error(`Limite de génération atteinte sans réponse finale (done_reason=length, num_predict=${tracking?.generationTokenLimit ?? 2048}).${isDirectDiagram ? ' [diagram-output:generation-limit]' : ''} Réessayez avec un modèle plus rapide ou un barème plus court ; aucune note n’a été attribuée.`);
           }
@@ -811,16 +815,17 @@ export function createOllamaProvider(
           const schema = directDiagramSchema(rubricCriteriaForSchema);
           let repairReason: string | undefined;
           const directThinking = analysisThink;
-          const directGenerationBudget = directDiagramGenerationTokenLimit(rubricCriteriaForSchema, Boolean(directThinking));
+          let directGenerationBudget = directDiagramGenerationTokenLimit(rubricCriteriaForSchema, Boolean(directThinking));
           // Leave enough room for the image/rubric prompt AND the longer JSON
           // response; increasing num_predict alone could exhaust num_ctx.
           // This applies only to direct scientific grading, not OCR.
-          const directContextBudget = Math.min(12_288, Math.max(8_192, directGenerationBudget + 5_120));
+          let retryingLength = false;
           let pointRepair: {
             originalRaw: string;
             issues: NonNullable<ReturnType<typeof findInvalidDiagramPoints>>;
           } | null = null;
           for (let attempt = 0; attempt < 2; attempt += 1) {
+            const directContextBudget = Math.max(8_192, directGenerationBudget + 5_120);
             let doneReason: string | undefined;
             // Only invalid leaves can change; accepted point decisions remain immutable.
             const targeted = attempt === 1 ? pointRepair : null;
@@ -841,13 +846,16 @@ export function createOllamaProvider(
               { kind: 'model', stage: 'analysis', temperature: 0,
                 contextTokenLimit: directContextBudget,
                 generationTokenLimit: directGenerationBudget,
-                promptId: attempt === 0 ? 'diagram.direct-grading' : 'diagram.direct-repair',
+                promptId: attempt === 0 || retryingLength ? 'diagram.direct-grading' : 'diagram.direct-repair',
                 allowTruncated: true, onDoneReason: reason => { doneReason = reason; },
-                intent: attempt === 0 ? 'Évaluer les attendus du schéma' : 'Réparer uniquement les notes invalides du schéma' });
-            // A token-limit stop is not a defective mark: retrying the entire
-            // multimodal rubric would spend another full model generation.
-            // Keep the partial answer in diagnostics, but never infer a grade.
+                intent: retryingLength ? 'Reprendre la correction du schéma avec une limite de sortie accrue' : attempt === 0 ? 'Évaluer les attendus du schéma' : 'Réparer uniquement les notes invalides du schéma' });
+            // Restart from the original images and rubric. Never score truncated JSON.
             if (doneReason === 'length') {
+              if (attempt === 0 && request.retryDiagramGenerationLimit && !signal?.aborted) {
+                directGenerationBudget *= 2;
+                retryingLength = true;
+                continue;
+              }
               throw new Error(`Limite de génération atteinte pour le schéma (done_reason=length, num_predict=${directGenerationBudget}, num_ctx=${directContextBudget}) [diagram-output:generation-limit]. Aucune note n’a été attribuée : désactivez Think ou essayez un modèle qui produit des justifications plus concises.`);
             }
             try {
@@ -861,7 +869,7 @@ export function createOllamaProvider(
               const reason = cause instanceof Error ? cause.message : 'Sortie schéma invalide.';
               if (attempt === 1) {
                 const markers = pointRepair ? diagramInvalidPointMarkers(pointRepair.issues) : '';
-                throw new Error(`Évaluation du schéma inexploitable après réparation : ${reason}${markers ? ' ' + markers : ''}`);
+                throw new Error(`Évaluation du schéma inexploitable après la seconde tentative : ${reason}${markers ? ' ' + markers : ''}`);
               }
               repairReason = reason;
               if (reason.includes('[diagram-output:invalid-points]')) {

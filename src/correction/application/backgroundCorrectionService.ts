@@ -317,6 +317,7 @@ export function createBackgroundCorrectionService(
               rubric: JSON.stringify(current.rubric),
               images: current.images,
               directGenerativeVision: true,
+              retryDiagramGenerationLimit: true,
             }, () => markActivity(), undefined, undefined, undefined, undefined, undefined, undefined, requestAbortController.signal));
             const proposal = parseGradingProposal(raw, current.rubric);
             if (requestAbortController.signal.aborted) throw new DOMException('Traitement interrompu.', 'AbortError');

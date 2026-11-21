@@ -82,6 +82,7 @@ describe('background correction: native decision batching', () => {
     expect(generate).toHaveBeenCalledTimes(1);
     expect(generate.mock.calls[0]![0]).toMatchObject({
       directGenerativeVision: true,
+      retryDiagramGenerationLimit: true,
       images: job.images,
     });
     const [updated] = await service.listJobs(job.assignmentId);

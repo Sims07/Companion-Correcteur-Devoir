@@ -43,6 +43,7 @@ export async function correctScientificDiagramDirect(
     visionModel: configuration.visionModel,
     analysisModel: configuration.analysisModel,
     thinking: configuration.analysisThinking,
+    ...(configuration.apiCompatible && configuration.analysisThinking ? { thinkingLevel: configuration.analysisReasoningEffort } : {}),
     criterionByCriterion: false,
     correctionMethod: 'generative' as const,
     diagnosticStrategy: 'single' as const,
@@ -55,6 +56,7 @@ export async function correctScientificDiagramDirect(
     rubric: JSON.stringify(rubric),
     images,
     directGenerativeVision: true,
+    retryDiagramGenerationLimit: true,
     // A scientific diagram is deliberately not transcribed first.
   }, undefined, undefined, undefined, onDiagnosticResult, undefined, undefined, undefined, signal);
 
