@@ -1,4 +1,5 @@
 import { parseGradingProposal } from '../domain/grading.ts';
+import { gradeDiagramImages } from './directScientificDiagramCorrection.ts';
 import { directDiagramAssignmentIssue } from '../domain/directDiagramAssignment.ts';
 import { sumGradeScores } from '../../shared/domain/scorePrecision.ts';
 
@@ -308,18 +309,20 @@ export function createBackgroundCorrectionService(
               visionModel: current.visionModel,
               analysisModel: model,
               thinking: current.thinking,
-              criterionByCriterion: false,
+              criterionByCriterion: jobSettings.criterionByCriterion,
               correctionMethod: 'generative',
               diagnosticStrategy: 'single',
             });
-            const raw = await withModelInactivityTimeout(requestAbortController, (markActivity) => provider.generate({
-              question: current.question.trim() || 'Évalue uniquement les caractéristiques observables du dessin selon le barème fourni.',
-              rubric: JSON.stringify(current.rubric),
-              images: current.images,
-              directGenerativeVision: true,
-              retryDiagramGenerationLimit: true,
-            }, () => markActivity(), undefined, undefined, undefined, undefined, undefined, undefined, requestAbortController.signal));
-            const proposal = parseGradingProposal(raw, current.rubric);
+            const proposal = await withModelInactivityTimeout(requestAbortController, markActivity => gradeDiagramImages(provider, {
+              question: current.question, images: current.images, rubric: current.rubric, signal: requestAbortController.signal,
+              onCriterion: async (index, _title, result) => {
+                markActivity();
+                const partialCriteria = result ? mergeCriteria(current.partialCriteria, result.criteria) : current.partialCriteria;
+                current = { ...current, activeCriterionId: result ? null : current.rubric.criteria[index]!.id,
+                  partialCriteria, completedCriteria: partialCriteria.length, updatedAt: new Date().toISOString() };
+                await persist(current);
+              },
+            }, jobSettings.criterionByCriterion === true, markActivity));
             if (requestAbortController.signal.aborted) throw new DOMException('Traitement interrompu.', 'AbortError');
             const complete = !proposal.scoreIncomplete;
             await persist({

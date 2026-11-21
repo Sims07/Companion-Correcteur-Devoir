@@ -43,7 +43,7 @@ test('a failed personal diagram analysis keeps its image and rubric after refres
     if (path === '/api/chat') {
       chatCalls++;
       if (failing) return route.fulfill({ status: 503, headers, json: { error: 'IA indisponible' } });
-      const criteria = Object.fromEntries(SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC.criteria.map(criterion => [
+      const criteria = Object.fromEntries(SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC.criteria.filter(c => route.request().postDataJSON().format.properties.criteria.required.includes(c.id)).map(criterion => [
         criterion.id, {
           evidence: 'Schéma visible', confidence: 'high', questionForTeacher: '',
           subcriteria: Object.fromEntries((criterion.subcriteria ?? []).map(sub => [

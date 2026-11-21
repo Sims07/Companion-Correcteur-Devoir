@@ -1,7 +1,7 @@
 import type { AiModelConfiguration } from '../../shared/domain/aiModelProfiles.ts';
 import { parseGradingProposal, type GradingProposal } from '../domain/grading.ts';
 import { validateRubric, type Rubric } from '../domain/rubric.ts';
-import type { DiagnosticModelResult, ImageInput } from '../ports/aiProvider.ts';
+import type { DiagnosticModelResult, GradingProvider, ImageInput } from '../ports/aiProvider.ts';
 import type { CorrectionWorkspaceService } from './correctionWorkspaceService.ts';
 export { isLoopbackDiagramEndpoint, directDiagramAssignmentIssue } from '../domain/directDiagramAssignment.ts';
 
@@ -11,18 +11,47 @@ export interface DirectScientificDiagramRequest {
   question: string;
   configuration: AiModelConfiguration;
   signal?: AbortSignal;
+  onCriterion?: (index: number, title: string, proposal?: GradingProposal) => void | Promise<void>;
   onDiagnosticResult?: (result: DiagnosticModelResult) => void;
 }
 
-/** Teacher-facing, single-pass diagram grading. Reuses the same strictly
- * validated direct-image provider route as the evaluation laboratory.
- * No OCR, no copy archive, no automatic teacher approval or fallback to text.
- */
+export async function gradeDiagramImages(provider: GradingProvider,
+  request: Pick<DirectScientificDiagramRequest, 'images' | 'rubric' | 'question' | 'signal' | 'onDiagnosticResult' | 'onCriterion'>,
+  split: boolean, onActivity?: () => void): Promise<GradingProposal> {
+  const { rubric, signal } = request;
+  const groups = split ? rubric.criteria.map(criterion => [criterion]) : [rubric.criteria];
+  const proposals: GradingProposal[] = [];
+  for (const [index, criteria] of groups.entries()) {
+    signal?.throwIfAborted();
+    const part = { ...rubric, criteria };
+    const title = criteria[0]!.title;
+    if (split) await request.onCriterion?.(index, title);
+    const raw = await provider.generate({
+      question: request.question.trim() || 'Évalue uniquement les caractéristiques observables du dessin selon le barème fourni.',
+      rubric: JSON.stringify(part),
+      images: request.images,
+      directGenerativeVision: true,
+      retryDiagramGenerationLimit: true,
+      ...(split ? { diagramCriterionLabel: (index + 1) + '/' + groups.length + ' · ' + title } : {}),
+    }, onActivity, undefined, undefined, request.onDiagnosticResult, undefined, undefined, undefined, signal);
+    signal?.throwIfAborted();
+    const proposal = parseGradingProposal(raw, part);
+    if (!split) return proposal;
+    proposals.push(proposal);
+    await request.onCriterion?.(index, title, proposal);
+  }
+  return parseGradingProposal(JSON.stringify({
+    summary: 'Proposition visuelle à vérifier.',
+    criteria: proposals.flatMap(proposal => proposal.criteria),
+    questionsForTeacher: proposals.flatMap(proposal => proposal.questionsForTeacher),
+  }), rubric);
+}
+
 export async function correctScientificDiagramDirect(
   gateway: Pick<CorrectionWorkspaceService, 'checkReady' | 'createProvider'>,
   request: DirectScientificDiagramRequest,
 ): Promise<GradingProposal> {
-  const { images, rubric, question, configuration, signal, onDiagnosticResult } = request;
+  const { images, rubric, question, configuration, signal } = request;
   if (!images.length) throw new Error('Ajoutez une photo ou un PDF du schéma.');
   const validation = validateRubric(rubric);
   if (!validation.valid) throw new Error(validation.errors.join(' '));
@@ -45,22 +74,12 @@ export async function correctScientificDiagramDirect(
     gradingOutputTokens: configuration.gradingOutputTokens,
     thinking: configuration.analysisThinking,
     ...(configuration.apiCompatible && configuration.analysisThinking ? { thinkingLevel: configuration.analysisReasoningEffort } : {}),
-    criterionByCriterion: false,
+    criterionByCriterion: configuration.criterionByCriterion,
     correctionMethod: 'generative' as const,
     diagnosticStrategy: 'single' as const,
   };
   await gateway.checkReady({ ...settings, model: configuration.analysisModel });
   if (signal?.aborted) throw new DOMException('Traitement interrompu.', 'AbortError');
 
-  const raw = await gateway.createProvider(settings).generate({
-    question: question.trim() || 'Évalue uniquement les caractéristiques observables du dessin selon le barème fourni.',
-    rubric: JSON.stringify(rubric),
-    images,
-    directGenerativeVision: true,
-    retryDiagramGenerationLimit: true,
-    // A scientific diagram is deliberately not transcribed first.
-  }, undefined, undefined, undefined, onDiagnosticResult, undefined, undefined, undefined, signal);
-
-  if (signal?.aborted) throw new DOMException('Traitement interrompu.', 'AbortError');
-  return parseGradingProposal(raw, rubric);
+  return gradeDiagramImages(gateway.createProvider(settings), request, configuration.criterionByCriterion);
 }

@@ -672,7 +672,7 @@ export function createOllamaProvider(
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestBody),
             signal: requestAbortController.signal,
-          }, intent, `Modèle ${model} · ${context}`));
+          }, request.diagramCriterionLabel ? intent + ' · ' + request.diagramCriterionLabel : intent, `Modèle ${model} · ${context}`));
           clearFirstResponseTimeout();
         } catch (cause) {
           finishRequest();
