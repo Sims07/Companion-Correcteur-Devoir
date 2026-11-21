@@ -26,7 +26,7 @@ describe('model readiness cancellation', () => {
     const controller = new AbortController();
     const fetchImpl = vi.fn(async (_url: string, init?: RequestInit) => {
       expect(init?.signal).toBe(controller.signal);
-      return new Response('{}', { status: 200 });
+      return new Response(JSON.stringify({ data: [{ id: 'qwen' }] }), { status: 200 });
     });
     await checkOllamaReady({ endpoint: 'http://localhost:1234/v1', apiCompatible: true,
       apiKey: 'test', model: 'qwen' }, fetchImpl as unknown as typeof fetch, controller.signal);
