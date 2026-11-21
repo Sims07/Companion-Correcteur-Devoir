@@ -21,6 +21,7 @@ import {
   rankDiagramLabRadar,
 } from '../../domain/diagramLabRadar.ts';
 import {
+  nativeSpeedUnavailable,
   planRadarModelEvaluation,
   resolveModelProfile,
   type RadarMissingTestRequest,
@@ -121,7 +122,9 @@ export function EvaluationRadarHome({
     .filter((candidate): candidate is BiologyRadarCandidate => candidate !== undefined);
   const graphDiagnostic = sci?.axes.relations.value === null
     ? diagnoseGraphRadarMeasurement(eligibleEntries, selected) : null;
-  const plan = sci && resolveModelProfile(profiles, 'model', sci, planRadarModelEvaluation(sci, eligibleEntries));
+  const speedUnavailable = Boolean(sci?.axes.speed.value === null && nativeSpeedUnavailable(profiles, selected));
+  const plan = sci && resolveModelProfile(profiles, 'model', sci,
+    planRadarModelEvaluation(sci, eligibleEntries, { nativeTimingAvailable: !speedUnavailable }));
   const nonVisualDecision = profiles.some((profile) =>
     profile.configuration.analysisModel === selected &&
     (profile.configuration.correctionMethod === 'decision' || profile.configuration.correctionMethod === 'visual-decision') &&
@@ -136,7 +139,7 @@ export function EvaluationRadarHome({
       profile.configuration.apiCompatible ? 'openai-compatible' : 'ollama'))));
   const activeBioMethod = activeBioMethodAllowed(bioMethod) ? bioMethod
     : (['contract', 'standard'] as const).find(activeBioMethodAllowed);
-  const scientificProgress = useMemo(() => scienceMethodProgress(entries, selected), [entries, selected]);
+  const scientificProgress = useMemo(() => scienceMethodProgress(entries, selected, !speedUnavailable), [entries, selected, speedUnavailable]);
   function toggleMethod(domain: RadarDomain, id: string) {
     if (busy) return;
     const next = toggleRadarMethodExclusion(excluded, domain, id);
@@ -375,6 +378,9 @@ export function EvaluationRadarHome({
                   {count === total ? 'Note globale' : count ? 'Indice partiel' : 'Aucune mesure'} · {count}/
                   {total} axes
                 </p>
+                {scientific && speedUnavailable && count > 0 && (
+                  <p role="status">Vitesse non mesurable avec cette configuration OpenAI-compatible : le serveur ne transmet pas le temps natif Ollama. Les {count} axes évalués restent acquis ; relancer les mêmes tests ne complétera pas ce radar. Une configuration Ollama est nécessaire pour mesurer la vitesse.</p>
+                )}
                 {!scientific && bio?.gradeDifference != null && (
                   <p>
                     Écart moyen avec le professeur sur 10 :{' '}
@@ -443,7 +449,7 @@ export function EvaluationRadarHome({
                   </p>
                 )}
               <div className="radar-home-actions">
-                {(scientific ? (explicitMethod.diagrams || (count < total && (Boolean(plan) || nonVisualDecision))) : true) && (
+                {(scientific ? (explicitMethod.diagrams || (count < total && (Boolean(plan) || (nonVisualDecision && !speedUnavailable)))) : true) && (
                   <Button
                     disabled={
                       busy || !(scientific ? activeScienceMethod && canLaunchScience(chosenSciencePlan) : profile && activeBioMethod)

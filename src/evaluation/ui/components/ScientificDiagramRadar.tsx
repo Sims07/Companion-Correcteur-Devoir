@@ -3,7 +3,7 @@ import type { DiagramLabArchiveEntry } from '../../domain/diagramLabHistory.ts';
 import { buildDiagramLabRadar, diagnoseGraphRadarMeasurement, diagnoseUnmeasuredRadarAxis, compareRadarCommonAxes, rankDiagramLabRadar, observedRadarScore, RADAR_AXES, RADAR_PRESETS, validRadarWeights,
   type RadarAxisId, type RadarGrouping, type RadarModelConfiguration, type RadarRankedCandidate, type RadarWeights } from '../../domain/diagramLabRadar.ts';
 import { DesignSystemSelect } from '../../../shared/ui/components/DesignSystemSelect.tsx';
-import { resolveModelProfile, planMissingRadarAxis, planRadarModelEvaluation, radarPlanDescription, type RadarMissingTestRequest } from '../../domain/diagramLabRadarLaunch.ts';
+import { nativeSpeedUnavailable, resolveModelProfile, planMissingRadarAxis, planRadarModelEvaluation, radarPlanDescription, type RadarMissingTestRequest } from '../../domain/diagramLabRadarLaunch.ts';
 import { Button } from '../../../shared/ui/design-system/index.ts';
 import './ScientificDiagramRadar.css';
 import { RADAR_COMPARISON_COLORS } from './RadarComparisonPalette.ts';
@@ -161,10 +161,14 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
   /** A model may be saved in several profiles. Launch with an actual profile
    * that uses the selected LLM for EACH requested protocol, never a random
    * saved profile sharing its display label. */
+  const speedUnavailable = grouping === 'model' && Boolean(activeModel?.axes.speed.value === null &&
+    activeModel && nativeSpeedUnavailable(profiles, activeModel.id));
   function planFor(candidate: RadarRankedCandidate, target: RadarAxisId) {
+    if (target === 'speed' && grouping === 'model' && speedUnavailable) return null;
     return resolveModelProfile(profiles, grouping, candidate, planMissingRadarAxis(candidate, target, grouping, entries));
   }
-  const completePlan = activeModel ? resolveModelProfile(profiles, grouping, activeModel, planRadarModelEvaluation(activeModel, entries)) : null;
+  const completePlan = activeModel ? resolveModelProfile(profiles, grouping, activeModel,
+    planRadarModelEvaluation(activeModel, entries, { nativeTimingAvailable: !speedUnavailable })) : null;
   const missingPlan = examined ? planFor(examined, axis) : null;
   const profileAvailable = examined ? (grouping === 'model' && profiles.length
     ? Boolean(missingPlan && profileIds.includes(missingPlan.profileId))
@@ -250,11 +254,14 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
             <p>{completePlan && profileIds.includes(completePlan.profileId)
               ? completePlan.steps.length + ' batterie' + (completePlan.steps.length > 1 ? 's' : '') + ' de test à enchaîner automatiquement · ' +
                 radarPlanDescription(completePlan.steps) + '.'
+              : speedUnavailable && missingAxes.every(item => item.id === 'speed')
+                ? 'Toutes les capacités scientifiques sont évaluées. Seule la vitesse manque, car le connecteur OpenAI-compatible ne reçoit pas la durée native utilisée par ce radar. Relancer les mêmes tests ne la renseignera pas.'
               : graphDiagnostic?.kind === 'exhausted' ? 'Le graphe a déjà été relu : aucune relance identique proposée.'
                 : 'Une même configuration doit pouvoir tester ce LLM en Analyse et en Vision pour couvrir les neuf caractéristiques.'}
               {' '}Les résultats non exploitables resteront non mesurés.</p>
             {activeModel.measured > 0 && <p>Les mesures validées restent acquises. Cette action n'enchaîne que les familles de tests nécessaires aux axes absents, sans transformer les échecs en notes nulles.</p>}
             <p role="status">Axes sans note : {missingAxes.map((item) => item.label).join(' · ')}.</p>
+            {speedUnavailable && <p role="status">Performance non mesurable avec ce profil OpenAI-compatible. Pour obtenir 9/9, utilisez un profil Ollama natif et exécutez les batteries manquant de temps natifs. Le score actuel reste un indice partiel.</p>}
             {graphDiagnostic && ['retry', 'exhausted', 'unusable'].includes(graphDiagnostic.kind) &&
               <p role="status"><strong>Relations : tests terminés, mesure indéterminée.</strong> {graphDiagnostic.message}</p>}
           </div>
@@ -269,8 +276,10 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
                   {plan && profileIds.includes(plan.profileId)
                     ? <Button variant="secondary" disabled={busy} aria-label={'Lancer le test ' + item.label + ' avec ' + activeModel.name}
                         onClick={() => onRunMissing(plan)}>{plan.steps[0]?.protocol === 'graph' && plan.steps[0]?.zoom ? 'Seconde lecture' : 'Lancer'}</Button>
-                    : <small>{item.id === 'relations' && graphDiagnostic?.kind === 'exhausted'
-                        ? 'Lecture ciblée déjà tentée · pas de relance automatique' : 'Profil compatible requis'}</small>}
+                    : <small>{item.id === 'speed' && speedUnavailable
+                        ? 'Non mesurable avec cette API · aucune relance automatique'
+                        : item.id === 'relations' && graphDiagnostic?.kind === 'exhausted'
+                          ? 'Lecture ciblée déjà tentée · pas de relance automatique' : 'Profil compatible requis'}</small>}
                 </div>;
               })}
             </div>
@@ -371,6 +380,8 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
               {busy && <p role="status">Une évaluation est déjà en cours. Terminez-la ou arrêtez-la avant d’en lancer une autre.</p>}
             </> : <p>{grouping === 'model' && graphDiagnostic?.kind === 'exhausted'
               ? 'La seconde lecture a déjà été exécutée. Aucune relance automatique identique : consultez le résultat ou changez de modèle Vision.'
+              : grouping === 'model' && axis === 'speed' && speedUnavailable
+                ? 'La configuration OpenAI-compatible ne renvoie pas les temps natifs. La relancer ne mesurera pas cet axe ; utilisez Ollama pour une mesure de vitesse.'
               : grouping === 'model'
                 ? 'Aucune configuration enregistrée ne peut exécuter cette batterie avec ce LLM. Vérifiez les modèles Vision et Analyse du profil IA.'
               : 'Cette mesure ne peut pas être attribuée à cette méthode : la lecture indépendante du graphe et la notation sont deux algorithmes distincts. Passez en vue « Par profil IA » pour lancer les batteries adaptées.'}</p>}
