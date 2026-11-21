@@ -211,7 +211,8 @@ describe('Ollama adapter', () => {
       .resolves.toContain('Transcription utilisable.');
     expect(diagnostics).toHaveBeenCalledWith(expect.objectContaining({
       thinkingPresent: true,
-      raw: expect.stringContaining('Transcription utilisable.'),
+      // Vision transcription traces deliberately avoid persisting copy text.
+      raw: '',
     }));
     expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toMatchObject({ reasoning_effort: 'none' });
   });
