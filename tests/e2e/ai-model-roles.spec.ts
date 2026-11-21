@@ -69,6 +69,29 @@ test('models stay independent across method switches, saved profiles, reload and
   await page.screenshot({ path: testInfo.outputPath('ai-model-roles-mobile.png'), fullPage: true });
 });
 
+test('LM Studio high reasoning effort is saved and restored for biology evaluation profiles', async ({ page }) => {
+  await page.goto('/');
+  let editor = await openEvaluator(page);
+  await editor.getByLabel('Fournisseur IA').selectOption('openai');
+  await editor.getByRole('checkbox', { name: /Activer Thinking/ }).check();
+  const effort = editor.getByLabel('Effort de raisonnement');
+  await expect(effort).toHaveValue('medium');
+  await effort.selectOption('high');
+  await expect(editor.locator('#evaluation-analysis-thinking-status')).toContainText('high');
+  await editor.getByLabel('Nom de la configuration').fill('Gemma high');
+  await editor.getByRole('button', { name: 'Enregistrer la configuration' }).click();
+  const saved = await page.evaluate(key => JSON.parse(localStorage.getItem(key) ?? '[]'), profilesKey);
+  expect(saved.find((profile: { name: string }) => profile.name === 'Gemma high')?.configuration).toMatchObject({
+    apiCompatible: true, analysisThinking: true, analysisReasoningEffort: 'high',
+  });
+  await page.reload();
+  editor = await openEvaluator(page);
+  await editor.getByLabel('Charger un profil existant').selectOption(saved.find((profile: { name: string }) => profile.name === 'Gemma high').id);
+  await expect(editor.getByLabel('Effort de raisonnement')).toHaveValue('high');
+  await editor.getByRole('checkbox', { name: /Activer Thinking/ }).uncheck();
+  await expect(editor.getByLabel('Effort de raisonnement')).toHaveCount(0);
+});
+
 test('teacher can turn off Thinking for LM Studio and keep the choice after reload', async ({ page }) => {
   await page.addInitScript(key => {
     if (localStorage.getItem(key)) return;

@@ -1,5 +1,6 @@
 import './AiModelRoleFields.css';
 import type { CorrectionMethod } from '../../domain/correctionMethod.ts';
+import type { AnalysisReasoningEffort } from '../../domain/aiModelProfiles.ts';
 import { isVisualDecisionModel } from '../../domain/decisionModelCapabilities.ts';
 import { DesignSystemSelect } from './DesignSystemSelect.tsx';
 import { StatusNotice } from '../design-system/index.ts';
@@ -13,11 +14,13 @@ interface Props {
   method: CorrectionMethod;
   apiCompatible: boolean;
   analysisThinking: boolean;
+  analysisReasoningEffort?: AnalysisReasoningEffort;
   disabled?: boolean;
   onGenerativeModel: (value: string) => void;
   onDecisionModel: (value: string) => void;
   onMethod: (value: CorrectionMethod) => void;
   onAnalysisThinking: (enabled: boolean) => void;
+  onAnalysisReasoningEffort?: (effort: AnalysisReasoningEffort) => void;
 }
 
 /** The same vocabulary and model selection in teacher settings and the evaluator. */
@@ -71,12 +74,23 @@ export function AiModelRoleFields(props: Props) {
       <p className="hint" id={`${prefix}-analysis-thinking-status`} role="status">
         {apiCompatible
           ? props.analysisThinking
-            ? 'Thinking demandé pour les prochaines analyses génératives, si le serveur et le modèle prennent en charge ce réglage.'
+            ? 'Thinking demandé (effort ' + (props.analysisReasoningEffort ?? 'medium') + ') pour les prochaines analyses génératives, si le serveur et le modèle prennent en charge ce réglage.'
             : 'Thinking désactivé demandé pour les prochaines analyses génératives. Si LM Studio ignore ce paramètre, désactivez aussi Reasoning dans ses réglages du modèle.'
           : props.analysisThinking
             ? 'Thinking activé pour les prochaines analyses génératives.'
             : 'Thinking désactivé pour les prochaines analyses génératives.'}
       </p>
+      {apiCompatible && props.analysisThinking && <div className="evaluation-config-field">
+        <label className="field-label" htmlFor={`${prefix}-reasoning-effort`}>Effort de raisonnement</label>
+        <DesignSystemSelect id={`${prefix}-reasoning-effort`}
+          value={props.analysisReasoningEffort ?? 'medium'} disabled={disabled}
+          onChange={(event) => props.onAnalysisReasoningEffort?.(event.target.value as AnalysisReasoningEffort)}>
+          <option value="low">Faible (low)</option>
+          <option value="medium">Moyen (medium)</option>
+          <option value="high">Élevé (high)</option>
+        </DesignSystemSelect>
+        <p className="hint">Niveau demandé à l’API pour les analyses, y compris les tests de biologie. Le serveur ou le modèle peut ignorer ce paramètre.</p>
+      </div>}
     </div>
   </>;
 }
