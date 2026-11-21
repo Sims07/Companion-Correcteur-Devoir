@@ -12,8 +12,8 @@ const configuration = {
   correctionMethod: 'generative',
 };
 
-function diagramResult() {
-  const criteria = Object.fromEntries(SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC.criteria.map((criterion) => [
+function diagramResult(required: string[]) {
+  const criteria = Object.fromEntries(SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC.criteria.filter(c => required.includes(c.id)).map((criterion) => [
     criterion.id, {
       evidence: 'Observation à vérifier', confidence: 'medium', questionForTeacher: '',
       subcriteria: Object.fromEntries((criterion.subcriteria ?? []).map((sub) => [
@@ -72,7 +72,7 @@ function mockOllama(page: Page, requests: Record<string, any>[], failed: () => b
       if (failed()) return route.fulfill({ status: 503, headers, body: 'Serveur indisponible' });
       return route.fulfill({
         headers, contentType: 'application/x-ndjson',
-        body: JSON.stringify({ message: { content: diagramResult() } }) + '\n' +
+        body: JSON.stringify({ message: { content: diagramResult(payload.format.properties.criteria.required) } }) + '\n' +
           JSON.stringify({ done: true, done_reason: 'stop', eval_count: 120 }) + '\n',
       });
     }
@@ -86,7 +86,7 @@ test.beforeEach(async ({ page }, testInfo) => {
     localStorage.setItem('companion-correcteur:ollama-configuration:v1', JSON.stringify(config));
   }, testInfo.title.startsWith('remote diagram assignments')
     ? { ...configuration, endpoint: 'https://ai.example/v1/chat/completions', apiCompatible: true }
-    : configuration);
+    : { ...configuration, criterionByCriterion: !testInfo.title.startsWith('a large PNG') });
 });
 
 test('rubric consultation stays read-only and editing moves to Barème et consignes with a clear regrading warning', async ({ page }) => {
@@ -108,7 +108,7 @@ test('rubric consultation stays read-only and editing moves to Barème et consig
   await expect(page.locator('.copy-overview-grid .correction-series-card')).toHaveCount(1);
 });
 
-test('an individually corrected scientific diagram uses one direct image request without any Vision classification', async ({ page }) => {
+test('an individually corrected scientific diagram uses one direct image request per criterion without any Vision classification', async ({ page }) => {
   const requests: Record<string, any>[] = [];
   await mockOllama(page, requests);
   await page.goto('/');
@@ -123,12 +123,17 @@ test('an individually corrected scientific diagram uses one direct image request
   await correct.click();
 
   await expect(page.locator('.review-main-column .review-card')).toHaveCount(3, { timeout: 30000 });
-  expect(requests).toHaveLength(1);
+  expect(requests.map(r => r.format.properties.criteria.required)).toEqual([['drawing'], ['title'], ['legends']]);
+  for (const r of requests) {
+    const rubric = JSON.parse(r.messages[0].content.split('BARÈME ENSEIGNANT :\n')[1].split('\n\n')[0]);
+    expect(rubric.criteria.map((c: { id: string }) => c.id)).toEqual(r.format.properties.criteria.required);
+    expect(r.messages[0].images).toEqual(requests[0].messages[0].images);
+  }
   expect(requests[0].model).toBe('qwen3.5:4b');
   expect(requests[0].messages?.[0]?.images).toHaveLength(1);
   expect(String(requests[0].messages[0].content)).toContain('BARÈME ENSEIGNANT');
   expect(String(requests[0].messages[0].content)).not.toContain('Classer la page');
-  expect(requests[0].options?.num_ctx).toBe(9216);
+  expect(requests[0].options?.num_ctx).toBe(8192);
 });
 
 test('direct diagram grading keeps the original image on screen and does not claim zero pages were read', async ({ page }) => {
@@ -143,7 +148,7 @@ test('direct diagram grading keeps the original image on screen and does not cla
     await route.fulfill({
       headers: { 'access-control-allow-origin': '*' },
       contentType: 'application/x-ndjson',
-      body: JSON.stringify({ message: { content: diagramResult() } }) + '\n' +
+      body: JSON.stringify({ message: { content: diagramResult(route.request().postDataJSON().format.properties.criteria.required) } }) + '\n' +
         JSON.stringify({ done: true, done_reason: 'stop', eval_count: 120 }) + '\n',
     });
   });
@@ -243,9 +248,9 @@ test('a diagram devoir has the normal library, several copies, review rail and l
   await expect(requests).toHaveLength(0);
   await page.locator('.copy-overview-heading').getByRole('button', { name: /Démarrer les corrections/ }).click();
   await expect(page.locator('.copy-overview-grid .correction-series-card.is-to-review')).toHaveCount(2, { timeout: 30000 });
-  expect(requests).toHaveLength(2);
+  expect(requests).toHaveLength(6);
   const hints = requests.map(payload => String(payload.messages[0].content)).filter(prompt => prompt.includes('Pointes possibles'));
-  expect(hints).toHaveLength(1);
+  expect(hints).toHaveLength(3);
   expect(hints[0]).toMatch(/page 1, x=\d+ %, y=\d+ %, vers droite/);
   expect(requests.every((payload) => payload.model === 'qwen3.5:4b')).toBe(true);
   expect(requests.every((payload) => payload.messages?.[0]?.images?.length === 1)).toBe(true);

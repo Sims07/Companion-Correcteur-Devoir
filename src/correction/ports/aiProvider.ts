@@ -33,6 +33,7 @@ export interface GradingRequest {
   directGenerativeVision?: boolean;
   /** A teacher correction may repeat a capped generation once with more output space. */
   retryDiagramGenerationLimit?: boolean;
+  diagramCriterionLabel?: string;
   /** Read only the reference subject with the dedicated subject prompt, without transcribing or grading a copy. */
   subjectOnly?: boolean;
   /** Reference preparation may include an existing teacher answer key; transcribe it literally. */

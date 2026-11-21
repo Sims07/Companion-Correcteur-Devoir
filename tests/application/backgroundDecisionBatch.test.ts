@@ -65,7 +65,7 @@ function createHarness(method: 'decision' | 'generative', analysisModel: string)
 }
 
 describe('background correction: native decision batching', () => {
-  it('retries a legacy scientific-diagram copy through direct grading, not Vision classification', async () => {
+  it.each([true, false])('retries a legacy diagram with the configured split mode (%s)', async split => {
     const { service, job, jobs, generate, settings } = createHarness('generative', 'qwen3.5:4b');
     const diagramRubric = {
       title: 'Schéma scientifique',
@@ -77,9 +77,10 @@ describe('background correction: native decision batching', () => {
     expect(saved.gradingFlow).toBeUndefined();
     jobs.set(job.id, { ...saved, status: 'failed', error: 'La détection Vision de la page 1 a échoué (HTTP 400).' });
 
-    await service.retry(job.id, settings, 'scientific-diagram-direct');
+    await service.retry(job.id, { ...settings, criterionByCriterion: split }, 'scientific-diagram-direct');
 
-    expect(generate).toHaveBeenCalledTimes(1);
+    expect(generate.mock.calls.map(([r]) => JSON.parse(r.rubric).criteria.map((c: RubricCriterion) => c.id)))
+      .toEqual(split ? [['c1'], ['c2']] : [['c1', 'c2']]);
     expect(generate.mock.calls[0]![0]).toMatchObject({
       directGenerativeVision: true,
       retryDiagramGenerationLimit: true,
@@ -93,6 +94,20 @@ describe('background correction: native decision batching', () => {
       error: null,
       completedCriteria: 2,
     });
+  });
+
+  it('keeps a validated diagram criterion when the next image request fails', async () => {
+    const { service, job, jobs, generate, settings } = createHarness('generative', 'gemma');
+    const originalGenerate = generate.getMockImplementation()!;
+    generate.mockImplementation(async (...args) => {
+      if (JSON.parse(args[0].rubric).criteria[0].id === 'c2') throw new Error('Limite atteinte pour c2');
+      return originalGenerate(...args);
+    });
+    const rubric = { ...job.rubric, criteria: criteria.map(c => ({ ...c, analysisMode: 'scientific-diagram' as const })) };
+    await service.enqueue({ ...job, gradingFlow: 'scientific-diagram-direct', rubric }, settings);
+    await service.processPending({ ...settings, criterionByCriterion: true }, job.assignmentId);
+    expect(jobs.get(job.id)).toMatchObject({ status: 'failed', completedCriteria: 1,
+      partialCriteria: [{ criterionId: 'c1' }], error: 'Limite atteinte pour c2' });
   });
 
   it.each([
