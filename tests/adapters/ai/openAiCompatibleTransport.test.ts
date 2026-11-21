@@ -293,4 +293,79 @@ describe('OpenAI-compatible chat transport', () => {
     expect(JSON.parse(await response.text()).done_reason).toBe('stop');
   });
 
+
+  it('translates LM Studio Gemma 4 reasoning deltas without treating them as grading output', async () => {
+    const events = [
+      { choices: [{ delta: { reasoning_content: 'Internal composition analysis' } }] },
+      { choices: [{ delta: { content: '{"points":' } }] },
+      { choices: [{ delta: { content: '2}' }, finish_reason: 'stop' }] },
+    ];
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(
+      events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join('') + 'data: [DONE]\n\n',
+      { status: 200, headers: { 'Content-Type': 'text/event-stream' } },
+    ));
+    const request = createOpenAiCompatibleFetch({ endpoint: 'https://local.example', apiKey: '' }, fetchMock);
+    const response = await request('http://localhost:11434/api/chat', {
+      method: 'POST', body: JSON.stringify({ model: 'google/gemma-4-12b-qat', stream: true, think: false, messages: [{ role: 'user', content: 'Évaluer le schéma' }] }),
+    });
+    const lines = (await response.text()).trim().split('\n').map((line) => JSON.parse(line));
+    expect(lines).toEqual([
+      { message: { thinking: '[raisonnement interne]' } },
+      { message: { content: '{"points":' } },
+      { message: { content: '2}' }, done: true, done_reason: 'stop' },
+    ]);
+    expect(JSON.stringify(lines)).not.toContain('Internal composition analysis');
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toMatchObject({ reasoning_effort: 'none' });
+  });
+
+  it('reports reasoning-only token exhaustion without inventing final content', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response([
+      'data: {"choices":[{"delta":{"reasoning_content":"Evaluating the drawing"}}]}',
+      '',
+      'data: {"choices":[{"delta":{},"finish_reason":"length"}]}',
+      '',
+      'data: [DONE]',
+      '',
+    ].join('\n'), { status: 200, headers: { 'Content-Type': 'text/event-stream' } }));
+    const request = createOpenAiCompatibleFetch({ endpoint: 'https://local.example', apiKey: '' }, fetchMock);
+    const response = await request('http://localhost:11434/api/chat', {
+      method: 'POST', body: JSON.stringify({ model: 'gemma', stream: true, messages: [{ role: 'user', content: 'read' }] }),
+    });
+    const lines = (await response.text()).trim().split('\n').map((line) => JSON.parse(line));
+    expect(lines).toEqual([
+      { message: { thinking: '[raisonnement interne]' } },
+      { done: true, done_reason: 'length' },
+    ]);
+  });
+
+  it('preserves reasoning-only diagnostics for non-streaming completions without exposing internal text', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({
+      choices: [{ message: { content: '', reasoning_content: 'Private deliberation' }, finish_reason: 'length' }],
+    }), { status: 200 }));
+    const request = createOpenAiCompatibleFetch({ endpoint: 'https://local.example', apiKey: '' }, fetchMock);
+    const response = await request('http://localhost:11434/api/chat', {
+      method: 'POST', body: JSON.stringify({ model: 'gemma', stream: false, messages: [{ role: 'user', content: 'read' }] }),
+    });
+    expect(await response.json()).toMatchObject({ message: { content: '', thinking: '[raisonnement interne]' }, done_reason: 'length' });
+  });
+
+  it('retries thinking-disabled requests with a compatible template option then without extensions if rejected', async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response('unsupported reasoning_effort', { status: 400 }))
+      .mockResolvedValueOnce(new Response('unsupported chat_template_kwargs', { status: 400 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: 'OK' } }] }), { status: 200 }));
+    const request = createOpenAiCompatibleFetch({ endpoint: 'https://local.example', apiKey: '' }, fetchMock);
+    const response = await request('http://localhost:11434/api/chat', {
+      method: 'POST', body: JSON.stringify({ model: 'gemma', stream: false, think: false, messages: [{ role: 'user', content: 'read' }] }),
+    });
+    expect(response.ok).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    const bodies = fetchMock.mock.calls.map(([, init]) => JSON.parse(String(init?.body)));
+    expect(bodies[0].reasoning_effort).toBe('none');
+    expect(bodies[1].reasoning_effort).toBeUndefined();
+    expect(bodies[1].chat_template_kwargs).toEqual({ enable_thinking: false });
+    expect(bodies[2].chat_template_kwargs).toBeUndefined();
+    expect(bodies[2].messages).toEqual(bodies[0].messages);
+  });
+
 });
