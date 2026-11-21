@@ -349,6 +349,8 @@ export function createOllamaProvider(
         onRequest: (payload) => { try { activeRequestPayloads?.push(JSON.parse(payload)); } catch { activeRequestPayloads?.push({ preview: payload }); } },
       }, fetchImpl)
     : fetchImpl;
+  // A saved OFF always wins over a previously chosen effort level.
+  const analysisThink = settings.thinking ? (settings.thinkingLevel ?? true) : false;
   return {
     id: settings.apiCompatible ? 'openai-compatible' : 'ollama',
     async generate(request: GradingRequest, onChunk?: (chunk: string) => void, onStage?: (stage: 'reading' | 'grading') => void, onTranscription?: (transcription: string, kind?: 'copy' | 'subject' | 'annotations' | 'warning' | 'identity') => void, onDiagnosticResult?: (result: DiagnosticModelResult) => void, onCriterionUpdate?: (update: CriterionAnalysisUpdate) => void, onTeacherAnnotationReview?: (candidates: TeacherAnnotationReviewCandidate[]) => Promise<TeacherAnnotationReviewDecision[]>, onProgress?: (event: GradingProgressEvent) => void, signal?: AbortSignal): Promise<string> {
@@ -770,7 +772,7 @@ export function createOllamaProvider(
         if (rubricCriteriaForSchema.length) {
           const schema = directDiagramSchema(rubricCriteriaForSchema);
           let repairReason: string | undefined;
-          const directThinking = settings.thinkingLevel ?? settings.thinking ?? false;
+          const directThinking = analysisThink;
           const directGenerationBudget = directDiagramGenerationTokenLimit(rubricCriteriaForSchema, Boolean(directThinking));
           // Leave enough room for the image/rubric prompt AND the longer JSON
           // response; increasing num_predict alone could exhaust num_ctx.
@@ -1159,12 +1161,12 @@ export function createOllamaProvider(
             parseGradingProposal(raw, { title: 'Barème courant', criteria: rubricCriteriaForSchema });
           }
         };
-        const raw = await sendStream(model, prompt, images, streamChunk, gradingSchema, settings.thinking ?? false, { ...tracking, promptId: 'grading.full', allowTruncated: true });
+        const raw = await sendStream(model, prompt, images, streamChunk, gradingSchema, analysisThink, { ...tracking, promptId: 'grading.full', allowTruncated: true });
         try { validateObject(raw); return raw; }
         catch (cause) {
           const reason = cause instanceof Error ? cause.message : 'JSON invalide';
           const repairPrompt = buildGradingRepairPrompt(prompt, raw, reason);
-          const repaired = await sendStream(model, repairPrompt, images, streamChunk, gradingSchema, settings.thinking ?? false, { ...tracking, promptId: 'grading.full-repair', allowTruncated: true, intent: 'Réparer la réponse de correction' });
+          const repaired = await sendStream(model, repairPrompt, images, streamChunk, gradingSchema, analysisThink, { ...tracking, promptId: 'grading.full-repair', allowTruncated: true, intent: 'Réparer la réponse de correction' });
           try { validateObject(repaired); return repaired; }
           catch (secondCause) {
             throw new Error('Réponse tronquée ou JSON invalide après une tentative de réparation : ' + (secondCause instanceof Error ? secondCause.message : 'format inexploitable'));
@@ -1206,13 +1208,13 @@ export function createOllamaProvider(
           } } },
         };
         const arbitrationPrompt = buildArbitrationPrompt(disputedRubric, transcription ?? '', selectCriteria(firstProposal), selectCriteria(secondProposal));
-        let raw = await sendStream(arbitratorModel, arbitrationPrompt, undefined, onChunk, arbitrationSchema, settings.thinking ?? false, { kind: 'arbitrator', stage: 'arbitration', promptId: 'grading.arbitration', deferResult: true, allowTruncated: true, intent: 'Arbitrer les désaccords entre modèles', context: `Modèle ${arbitratorModel} · ${resolution.disputedCriterionIds.length} critère(s) litigieux · ${request.images?.map((image) => image.fileName).filter(Boolean).join(', ') || 'copie'}` });
+        let raw = await sendStream(arbitratorModel, arbitrationPrompt, undefined, onChunk, arbitrationSchema, analysisThink, { kind: 'arbitrator', stage: 'arbitration', promptId: 'grading.arbitration', deferResult: true, allowTruncated: true, intent: 'Arbitrer les désaccords entre modèles', context: `Modèle ${arbitratorModel} · ${resolution.disputedCriterionIds.length} critère(s) litigieux · ${request.images?.map((image) => image.fileName).filter(Boolean).join(', ') || 'copie'}` });
         let decisions;
         try { decisions = parseArbitrationDecisions(raw, resolution.disputedCriterionIds, firstProposal.criteria, secondProposal.criteria); }
         catch (cause) {
           const reason = cause instanceof Error ? cause.message : 'réponse invalide';
           const repairPrompt = buildArbitrationRepairPrompt(arbitrationPrompt, raw, reason);
-          raw = await sendStream(arbitratorModel, repairPrompt, undefined, onChunk, arbitrationSchema, settings.thinking ?? false, { kind: 'arbitrator', stage: 'arbitration', promptId: 'grading.arbitration-repair', deferResult: true, allowTruncated: true, intent: 'Réparer la réponse d’arbitrage', context: 'Réparation JSON' });
+          raw = await sendStream(arbitratorModel, repairPrompt, undefined, onChunk, arbitrationSchema, analysisThink, { kind: 'arbitrator', stage: 'arbitration', promptId: 'grading.arbitration-repair', deferResult: true, allowTruncated: true, intent: 'Réparer la réponse d’arbitrage', context: 'Réparation JSON' });
           decisions = parseArbitrationDecisions(raw, resolution.disputedCriterionIds, firstProposal.criteria, secondProposal.criteria);
         }
         const judgedCriteria = resolution.disputedCriterionIds.map((criterionId) => {
@@ -1298,7 +1300,7 @@ export function createOllamaProvider(
                 undefined,
                 onChunk,
                 currentCriterionSchema,
-                settings.thinking ?? false,
+                analysisThink,
                 { kind: 'model', stage: 'analysis', promptId: attempt === 1 ? 'grading.incremental' : 'grading.incremental-repair', generationTokenLimit: 1024, deferResult: diagnosticTracking, intent: `Analyser le critère ${criterion.title}`, context: `Modèle ${analysisModel} · critère ${index + 1}/${criteria.length} · ${request.images?.map((image) => image.fileName).filter(Boolean).join(', ') || 'copie'}` },
               );
               if (diagnosticTracking && lastDiagnosticMetrics) criterionDiagnosticMetrics.push(lastDiagnosticMetrics);
@@ -1568,7 +1570,7 @@ export async function importRubricImageWithOllama(
         body: JSON.stringify({
           model: analysisModel,
           stream: false,
-          think: settings.thinking ?? false,
+          think: analysisThink,
           options: { temperature: 0, num_predict: outputTokens },
           ...(settings.apiCompatible ? { generation_token_parameter: 'max_completion_tokens' as const } : {}),
           format: schema,
