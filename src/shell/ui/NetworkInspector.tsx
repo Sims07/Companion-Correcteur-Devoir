@@ -42,7 +42,14 @@ function Detail({ title, value }: { title: string; value: unknown }) {
   return <section className="network-detail-section"><h3>{title}</h3><pre>{formatDetail(value)}</pre></section>;
 }
 
-export function NetworkInspector({ initialFilter = 'all' }: { initialFilter?: 'all' | 'error' }) {
+type NetworkInspectorProps = {
+  initialFilter?: 'all' | 'error';
+  hasRunningCorrections?: boolean;
+  isStoppingCorrections?: boolean;
+  onStopCorrections?: () => void;
+};
+
+export function NetworkInspector({ initialFilter = 'all', hasRunningCorrections = false, isStoppingCorrections = false, onStopCorrections }: NetworkInspectorProps) {
   const [records, setRecords] = useState<NetworkRequestRecord[]>(loadNetworkHistory);
   const [selectedId, setSelectedId] = useState<string | null>(records[0]?.id ?? null);
   const [filter, setFilter] = useState<Filter>(initialFilter);
@@ -97,7 +104,7 @@ export function NetworkInspector({ initialFilter = 'all' }: { initialFilter?: 'a
   return <section className="network-inspector" aria-label="Inspecteur réseau">
     <header className="network-inspector-heading">
       <div><p className="eyebrow">OUTILS DE DÉVELOPPEMENT</p><h1>Inspecteur réseau</h1><p>Suivez les requêtes HTTP de l’application en direct et consultez leur historique local.</p></div>
-      <div className="network-inspector-actions"><span className="network-local-indicator">● Historique local</span><button type="button" className="secondary-button" onClick={() => { clearNetworkHistory(); setRecords([]); setSelectedId(null); setStorageStatus(getNetworkInspectorStatus()); }}>Effacer l’historique</button></div>
+      <div className="network-inspector-actions">{hasRunningCorrections && onStopCorrections && <button type="button" className="context-stop-button" disabled={isStoppingCorrections} onClick={onStopCorrections} aria-label="Arrêter la correction en cours">{isStoppingCorrections ? 'Arrêt en cours…' : 'Arrêter la correction'}</button>}<span className="network-local-indicator">● Historique local</span><button type="button" className="secondary-button" onClick={() => { clearNetworkHistory(); setRecords([]); setSelectedId(null); setStorageStatus(getNetworkInspectorStatus()); }}>Effacer l’historique</button></div>
     </header>
     <div className="network-inspector-summary"><span><b>{records.length}</b> requêtes</span><span className={pending > 0 ? 'network-pending-badge' : ''}><b>{pending}</b> requête(s) en cours</span><span><b>{errors}</b> erreurs</span><span><b>{(storageStatus.storageBytes / 1024).toFixed(1)} Ko</b> occupés dans le stockage local</span></div>
     {storageStatus.storageWarning && <p className="network-error" role="alert">{storageStatus.storageWarning}</p>}
