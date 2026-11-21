@@ -45,7 +45,7 @@ describe('OpenAI-compatible model readiness (LM Studio)', () => {
   it('reports a network failure without attempting inference', async () => {
     const fetchMock = vi.fn<typeof fetch>(async () => { throw new TypeError('Load failed'); });
     await expect(checkOllamaReady({ endpoint: 'https://macmini.example', model: 'gemma', apiCompatible: true }, fetchMock))
-      .rejects.toThrow(/GET \/v1\/models.*injoignable/);
+      .rejects.toThrow(/injoignable.*GET \/v1\/models/);
     expect(fetchMock).toHaveBeenCalledOnce();
   });
 });
