@@ -178,11 +178,11 @@ export function createOpenAiCompatibleFetch(settings: OpenAiCompatibleSettings, 
     const body = {
       model: source.model ?? '',
       stream: source.stream ?? false,
+      // Put the requested reasoning mode before the potentially huge image and
+      // rubric prompt, so it remains immediately visible in local diagnostics.
+      ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
       messages: openAiMessages(source.messages ?? []),
       ...(source.options?.temperature !== undefined ? { temperature: source.options.temperature } : {}),
-      // Not universal in Chat Completions: request the preferred effort and
-      // gracefully retry without provider-specific extensions if rejected.
-      ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
       ...(source.options?.num_predict !== undefined
         ? source.generation_token_parameter === 'max_completion_tokens'
           ? { max_completion_tokens: source.options.num_predict }
