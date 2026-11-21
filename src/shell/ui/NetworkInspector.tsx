@@ -141,7 +141,9 @@ export function NetworkInspector({ initialFilter = 'all' }: { initialFilter?: 'a
               : selectedMessage.length > 0
                 ? 'Le modèle n’a transmis que des caractères blancs ; aucune réponse finale exploitable pour le moment.'
                 : selected.state === 'pending'
-                  ? 'Aucun fragment de réponse finale reçu pour le moment. Le modèle peut encore préparer sa réponse.'
+                  ? ollamaSelected
+                    ? 'Aucun fragment de message.content reçu pour le moment. Le modèle peut encore réfléchir ou préparer sa réponse.'
+                    : 'Aucun fragment de réponse finale reçu pour le moment. Le modèle peut encore préparer sa réponse.'
                   : 'Aucun texte de réponse finale transmis par le modèle pour cette requête.'}</p>)}
            {tab === 'thinking' && (selectedThinking
              ? <Detail title="Thinking reçu du modèle" value={selectedThinking} />
