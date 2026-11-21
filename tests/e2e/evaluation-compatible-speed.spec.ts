@@ -79,6 +79,6 @@ test('a completed LM Studio scientific evaluation keeps eight scores without end
 
   await science.getByRole('button', { name: 'Détail du radar' }).click();
   const detail = page.getByRole('region', { name: 'Radar des candidats scientifiques' });
-  await expect(detail.getByRole('status', { name: /Performance non mesurable/ })).toBeVisible();
+  await expect(detail.getByText(/Performance non mesurable avec ce profil/)).toBeVisible();
   await expect(detail.getByRole('button', { name: 'Compléter les axes manquants' })).toHaveCount(0);
 });
