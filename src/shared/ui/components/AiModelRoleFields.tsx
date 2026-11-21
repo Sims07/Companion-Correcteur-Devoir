@@ -61,14 +61,18 @@ export function AiModelRoleFields(props: Props) {
     <div className="evaluation-config-field">
       <label className="analysis-thinking-option" htmlFor={`${prefix}-analysis-thinking`}>
         <input id={`${prefix}-analysis-thinking`} type="checkbox" checked={props.analysisThinking}
-          disabled={disabled || apiCompatible} onChange={(event) => props.onAnalysisThinking(event.target.checked)} />
+          disabled={disabled} onChange={(event) => props.onAnalysisThinking(event.target.checked)} />
         <span><strong>Activer Thinking (raisonnement)</strong>
-          <small>Pour les analyses génératives avec Ollama compatible. Peut améliorer le raisonnement, mais allonger les corrections et consommer davantage de tokens. N'affecte pas la lecture Vision ni la décision System One.</small>
+          <small>{apiCompatible
+            ? 'Demande au serveur compatible OpenAI d’activer ou désactiver le raisonnement du modèle. Le résultat dépend du serveur et du modèle. Peut ralentir la correction et consommer plus de tokens.'
+            : 'Pour les analyses génératives avec Ollama. Peut améliorer le raisonnement, mais allonger les corrections et consommer davantage de tokens. N’affecte pas la lecture Vision ni la décision System One.'}</small>
         </span>
       </label>
       <p className="hint" id={`${prefix}-analysis-thinking-status`} role="status">
         {apiCompatible
-          ? 'Thinking Ollama indisponible avec une API compatible OpenAI. Votre préférence est conservée pour Ollama.'
+          ? props.analysisThinking
+            ? 'Thinking demandé pour les prochaines analyses génératives, si le serveur et le modèle prennent en charge ce réglage.'
+            : 'Thinking désactivé demandé pour les prochaines analyses génératives. Si LM Studio ignore ce paramètre, désactivez aussi Reasoning dans ses réglages du modèle.'
           : props.analysisThinking
             ? 'Thinking activé pour les prochaines analyses génératives.'
             : 'Thinking désactivé pour les prochaines analyses génératives.'}
