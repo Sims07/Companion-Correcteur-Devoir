@@ -55,7 +55,7 @@ function streamAsOllama(response: Response): Response {
         }
         try {
           const event = JSON.parse(payload) as {
-            choices?: Array<{ delta?: { content?: string | Array<{ type?: string; text?: string }> }; finish_reason?: string | null }>;
+            choices?: Array<{ delta?: { content?: string | Array<{ type?: string; text?: string }>; reasoning_content?: string; reasoning?: string }; finish_reason?: string | null }>;
             usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
             error?: { message?: string };
           };
@@ -70,9 +70,15 @@ function streamAsOllama(response: Response): Response {
             : Array.isArray(deltaContent)
               ? deltaContent.filter((part) => part.type === 'text' && typeof part.text === 'string').map((part) => part.text).join('')
               : '';
+          // Some compatible models stream reasoning separately from final content.
+          // Never grade from reasoning; use a redacted marker for diagnostics only.
+          const thinking = choice?.delta?.reasoning_content || choice?.delta?.reasoning;
           if (choice?.finish_reason) emittedDone = true;
           const converted = {
-            ...(chunk ? { message: { content: chunk } } : {}),
+            ...(chunk || thinking ? { message: {
+              ...(chunk ? { content: chunk } : {}),
+              ...(thinking ? { thinking: '[raisonnement interne]' } : {}),
+            } } : {}),
             ...(choice?.finish_reason ? { done_reason: choice.finish_reason, done: true } : {}),
             ...(event.usage ? { usage: event.usage } : {}),
           };
@@ -158,13 +164,16 @@ export function createOpenAiCompatibleFetch(settings: OpenAiCompatibleSettings, 
   return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const requestUrl = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
     if (!requestUrl.endsWith('/api/chat')) return fetchImpl(input, init);
-    const source: { model?: string; stream?: boolean; messages?: Array<{ role: string; content: string; images?: string[]; imageDetail?: 'low' | 'high' }>; options?: { temperature?: number; num_predict?: number; stop?: string[]; repeat_penalty?: number; frequency_penalty?: number }; generation_token_parameter?: 'max_tokens' | 'max_completion_tokens'; format?: unknown } =
+    const source: { model?: string; stream?: boolean; messages?: Array<{ role: string; content: string; images?: string[]; imageDetail?: 'low' | 'high' }>; think?: boolean | string; options?: { temperature?: number; num_predict?: number; stop?: string[]; repeat_penalty?: number; frequency_penalty?: number }; generation_token_parameter?: 'max_tokens' | 'max_completion_tokens'; format?: unknown } =
       typeof init?.body === 'string' ? JSON.parse(init.body) : {};
     const body = {
       model: source.model ?? '',
       stream: source.stream ?? false,
       messages: openAiMessages(source.messages ?? []),
       ...(source.options?.temperature !== undefined ? { temperature: source.options.temperature } : {}),
+      // Ollama's "think" flag has no direct OpenAI counterpart. Prefer the
+      // compatible reasoning-effort option, with guarded provider fallbacks.
+      ...(source.think === false ? { reasoning_effort: 'none' } : {}),
       ...(source.options?.num_predict !== undefined
         ? source.generation_token_parameter === 'max_completion_tokens'
           ? { max_completion_tokens: source.options.num_predict }
@@ -195,6 +204,16 @@ export function createOpenAiCompatibleFetch(settings: OpenAiCompatibleSettings, 
     };
     let requestBody: Record<string, unknown> = body;
     let response = await send(requestBody);
+    if (!response.ok && [400, 422].includes(response.status) && 'reasoning_effort' in requestBody && await providerRejectsParameter(response, 'reasoning_effort')) {
+      const { reasoning_effort: _reasoningEffort, ...withoutReasoningEffort } = requestBody;
+      requestBody = { ...withoutReasoningEffort, chat_template_kwargs: { enable_thinking: false } };
+      response = await send(requestBody);
+    }
+    if (!response.ok && [400, 422].includes(response.status) && 'chat_template_kwargs' in requestBody && await providerRejectsParameter(response, 'chat_template_kwargs')) {
+      const { chat_template_kwargs: _chatTemplateKwargs, ...withoutChatTemplateKwargs } = requestBody;
+      requestBody = withoutChatTemplateKwargs;
+      response = await send(requestBody);
+    }
     // Newer OpenAI models use max_completion_tokens. Some older compatible
     // endpoints still expose only max_tokens, so retry that parameter on 4xx.
     if (!response.ok && [400, 422].includes(response.status) && 'max_completion_tokens' in requestBody && await providerRejectsParameter(response, 'max_completion_tokens')) {
@@ -233,12 +252,16 @@ export function createOpenAiCompatibleFetch(settings: OpenAiCompatibleSettings, 
     if (!response.ok) return response;
     if (source.stream) return streamAsOllama(response);
     const payload = await response.json() as {
-      choices?: Array<{ message?: { content?: string }; finish_reason?: string | null }>;
+      choices?: Array<{ message?: { content?: string; reasoning_content?: string; reasoning?: string }; finish_reason?: string | null }>;
       usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
       error?: { message?: string };
     };
     if (payload.error) return new Response(JSON.stringify({ error: payload.error.message }), { status: 200 });
-    return new Response(JSON.stringify({ message: { content: payload.choices?.[0]?.message?.content ?? '' }, done_reason: payload.choices?.[0]?.finish_reason ?? undefined, usage: payload.usage }), {
+    const completion = payload.choices?.[0]?.message;
+    return new Response(JSON.stringify({ message: {
+      content: completion?.content ?? '',
+      ...((completion?.reasoning_content || completion?.reasoning) ? { thinking: '[raisonnement interne]' } : {}),
+    }, done_reason: payload.choices?.[0]?.finish_reason ?? undefined, usage: payload.usage }), {
       status: 200, headers: { 'Content-Type': 'application/json' },
     });
   };
