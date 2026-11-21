@@ -51,7 +51,7 @@ export async function correctScientificDiagramDirect(
   gateway: Pick<CorrectionWorkspaceService, 'checkReady' | 'createProvider'>,
   request: DirectScientificDiagramRequest,
 ): Promise<GradingProposal> {
-  const { images, rubric, question, configuration, signal } = request;
+  const { images, rubric, configuration, signal } = request;
   if (!images.length) throw new Error('Ajoutez une photo ou un PDF du schéma.');
   const validation = validateRubric(rubric);
   if (!validation.valid) throw new Error(validation.errors.join(' '));
