@@ -167,7 +167,7 @@ export function radarPlanDescription(steps: readonly RadarTestStep[]) {
 export function planRadarModelEvaluation(
   candidate: RadarCandidate,
   entries: readonly DiagramLabArchiveEntry[] = [],
-  ): Omit<RadarMissingTestRequest, 'id'> | null {
+): Omit<RadarMissingTestRequest, 'id'> | null {
   const missing = RADAR_AXES.filter((axis) => candidate.axes[axis.id].value === null);
   if (!missing.length) return null;
 
