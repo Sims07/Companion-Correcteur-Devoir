@@ -77,10 +77,10 @@ describe('Gemma incremental grading via LM Studio-compatible Chat Completions', 
     const provider = createOllamaProvider({
       endpoint: 'https://local-proxy.example', apiCompatible: true, analysisModel: 'gemma',
       correctionMethod: 'generative', criterionByCriterion: true,
-      thinking: effort !== 'none', thinkingLevel: effort === 'none' ? 'high' : effort,
+      gradingOutputTokens: 16384, thinking: effort !== 'none', thinkingLevel: effort === 'none' ? 'high' : effort,
     }, fetchMock);
     await provider.generate(request);
-    expect(JSON.parse(String(fetchMock.mock.calls[0]![1]?.body)).reasoning_effort).toBe(effort);
+    expect(JSON.parse(String(fetchMock.mock.calls[0]![1]?.body))).toMatchObject({ reasoning_effort: effort, max_tokens: 16384 });
   });
 
   it('keeps a structural JSON repair separate from a length retry', async () => {

@@ -385,6 +385,7 @@ export function createOllamaProvider(
       }, fetchImpl)
     : fetchImpl;
   // A saved OFF always wins over a previously chosen effort level.
+  const gradingOutputTokens = settings.apiCompatible ? settings.gradingOutputTokens : undefined;
   const analysisThink = settings.thinking ? (settings.thinkingLevel ?? true) : false;
   return {
     id: settings.apiCompatible ? 'openai-compatible' : 'ollama',
@@ -567,6 +568,9 @@ export function createOllamaProvider(
         tracking?: Pick<DiagnosticModelResult, 'kind' | 'stage' | 'purpose'> & { deferResult?: boolean; temperature?: number; contextTokenLimit?: number; generationTokenLimit?: number; stop?: string[]; repeatPenalty?: number; allowTruncated?: boolean; intent?: string; context?: string; onDoneReason?: (reason: string) => void; onSuspiciousStop?: () => void; pageIndex?: number; promptId?: PromptId },
       ): Promise<string> {
         const startedAt = Date.now();
+        if (gradingOutputTokens && (tracking?.stage === 'analysis' || tracking?.stage === 'arbitration')) {
+          tracking = { ...tracking, generationTokenLimit: gradingOutputTokens };
+        }
         activeRequestPayloads = [];
         // Model metadata probes (/api/tags, /api/show) do not generate answers.
         // Each new correction can also create a fresh provider, resetting its
@@ -815,7 +819,7 @@ export function createOllamaProvider(
           const schema = directDiagramSchema(rubricCriteriaForSchema);
           let repairReason: string | undefined;
           const directThinking = analysisThink;
-          let directGenerationBudget = directDiagramGenerationTokenLimit(rubricCriteriaForSchema, Boolean(directThinking));
+          let directGenerationBudget = gradingOutputTokens ?? directDiagramGenerationTokenLimit(rubricCriteriaForSchema, Boolean(directThinking));
           // Leave enough room for the image/rubric prompt AND the longer JSON
           // response; increasing num_predict alone could exhaust num_ctx.
           // This applies only to direct scientific grading, not OCR.
@@ -851,7 +855,7 @@ export function createOllamaProvider(
                 intent: retryingLength ? 'Reprendre la correction du schéma avec une limite de sortie accrue' : attempt === 0 ? 'Évaluer les attendus du schéma' : 'Réparer uniquement les notes invalides du schéma' });
             // Restart from the original images and rubric. Never score truncated JSON.
             if (doneReason === 'length') {
-              if (attempt === 0 && request.retryDiagramGenerationLimit && !signal?.aborted) {
+              if (attempt === 0 && !gradingOutputTokens && request.retryDiagramGenerationLimit && !signal?.aborted) {
                 directGenerationBudget *= 2;
                 retryingLength = true;
                 continue;

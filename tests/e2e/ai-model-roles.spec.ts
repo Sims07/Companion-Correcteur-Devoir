@@ -77,12 +77,13 @@ test('LM Studio high reasoning effort is saved and restored for biology evaluati
   const effort = editor.getByLabel('Effort de raisonnement');
   await expect(effort).toHaveValue('medium');
   await effort.selectOption('high');
+  await editor.getByLabel('Plafond de sortie par correction (tokens)').fill('16384');
   await expect(editor.locator('#evaluation-analysis-thinking-status')).toContainText('high');
   await editor.getByLabel('Nom de la configuration').fill('Gemma high');
   await editor.getByRole('button', { name: 'Enregistrer la configuration' }).click();
   const saved = await page.evaluate(key => JSON.parse(localStorage.getItem(key) ?? '[]'), profilesKey);
   expect(saved.find((profile: { name: string }) => profile.name === 'Gemma high')?.configuration).toMatchObject({
-    apiCompatible: true, analysisThinking: true, analysisReasoningEffort: 'high',
+    apiCompatible: true, analysisThinking: true, analysisReasoningEffort: 'high', gradingOutputTokens: 16384,
   });
   await page.reload();
   editor = await openEvaluator(page);
@@ -90,6 +91,7 @@ test('LM Studio high reasoning effort is saved and restored for biology evaluati
   await expect(editor.getByLabel('Effort de raisonnement')).toHaveValue('high');
   await editor.getByRole('checkbox', { name: /Activer Thinking/ }).uncheck();
   await expect(editor.getByLabel('Effort de raisonnement')).toHaveCount(0);
+  await expect(editor.getByLabel('Plafond de sortie par correction (tokens)')).toHaveValue('16384');
 });
 
 test('teacher can turn off Thinking for LM Studio and keep the choice after reload', async ({ page }) => {

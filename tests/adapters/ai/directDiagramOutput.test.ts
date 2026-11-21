@@ -317,6 +317,16 @@ describe('compact direct diagram output', () => {
     expect(bodies[1]).toEqual({ ...bodies[0], max_tokens: bodies[0].max_tokens * 2 });
     expect(bodies[1].reasoning_effort).toBe('low');
   });
+  it('honours an explicit teacher budget from the first request without doubling it after length', async () => {
+    const fetchMock = vi.fn<typeof fetch>(async () => new Response('data: ' + JSON.stringify({
+      choices: [{ delta: { reasoning_content: 'Analyse' }, finish_reason: 'length' }],
+    }) + '\n\ndata: [DONE]\n\n', { headers: { 'Content-Type': 'text/event-stream' } }));
+    const provider = createOllamaProvider({ endpoint: 'https://example.invalid', apiCompatible: true,
+      analysisModel: 'gemma', correctionMethod: 'generative', thinking: true, gradingOutputTokens: 16384 }, fetchMock);
+    await expect(provider.generate({ ...request, retryDiagramGenerationLimit: true })).rejects.toThrow('generation-limit');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(String(fetchMock.mock.calls[0]![1]?.body)).max_tokens).toBe(16384);
+  });
   it('does not retry a failed HTTP request', async () => {
     const fetchMock = vi.fn(async () => new Response('unavailable', { status: 503 }));
     await expect(createOllamaProvider({ endpoint: 'http://localhost:11434', analysisModel: 'qwen3.5:4b',
