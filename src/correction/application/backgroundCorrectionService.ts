@@ -1,5 +1,5 @@
 import { parseGradingProposal } from '../domain/grading.ts';
-import { gradeDiagramImages } from './directScientificDiagramCorrection.ts';
+import { gradeDiagramImages } from '../ports/gradeDiagramImages.ts';
 import { directDiagramAssignmentIssue } from '../domain/directDiagramAssignment.ts';
 import { sumGradeScores } from '../../shared/domain/scorePrecision.ts';
 

@@ -7,7 +7,7 @@ import type { CorrectionWorkspaceService } from '../src/correction/application/c
 
 const rubric = structuredClone(SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC);
 const images = [{ mimeType: 'image/png', base64: 'dGVzdA==', fileName: 'schema.png' }];
-const configuration = { ...defaultAiModelConfiguration, analysisModel: 'qwen3.5:4b' };
+const configuration = { ...defaultAiModelConfiguration, criterionByCriterion: false, analysisModel: 'qwen3.5:4b' };
 const response = JSON.stringify({
   summary: 'À relire.', finalScore: 0, questionsForTeacher: [],
   criteria: rubric.criteria.map((criterion) => ({
