@@ -71,6 +71,7 @@ test('models stay independent across method switches, saved profiles, reload and
 
 test('teacher can turn off Thinking for LM Studio and keep the choice after reload', async ({ page }) => {
   await page.addInitScript(key => {
+    if (localStorage.getItem(key)) return;
     localStorage.setItem(key, JSON.stringify({
       endpoint: 'https://macmini.local:8443/v1/chat/completions',
       apiCompatible: true,
