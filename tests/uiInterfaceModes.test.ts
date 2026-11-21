@@ -186,9 +186,9 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('aria-label="Évaluer les modèles"');
     expect(navigation).toContain('Inspecteur réseau');
     expect(navigation).toContain('aria-label="Détails du suivi"');
-    expect(text).toContain("{interfaceMode === 'debug' && <NetworkInspector initialFilter={networkInitialFilter} />}");
+    expect(text).toContain("{interfaceMode === 'debug' && <NetworkInspector initialFilter={networkInitialFilter} hasRunningCorrections={hasRunningCorrections}");
     expect(text).toContain("import { NetworkInspector } from './NetworkInspector.tsx'");
-    expect(text).toContain('<NetworkInspector initialFilter={networkInitialFilter} />');
+    expect(text).toContain('<NetworkInspector initialFilter={networkInitialFilter} hasRunningCorrections={hasRunningCorrections}');
     expect(bootstrap.startsWith("import './instrumentation.ts';")).toBe(true);
     expect(source('../src/instrumentation.ts')).toContain('installNetworkInspector()');
   });
