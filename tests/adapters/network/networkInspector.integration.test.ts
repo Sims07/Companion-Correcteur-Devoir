@@ -134,6 +134,57 @@ describe('network inspector fetch integration', () => {
     restore();
   });
 
+  it('shows LM Studio final content and reasoning while SSE is still streaming without consuming the correction response', async () => {
+    const values = new Map<string, string>();
+    let controller!: ReadableStreamDefaultController<Uint8Array>;
+    const source = new ReadableStream<Uint8Array>({ start(streamController) { controller = streamController; } });
+    const fakeWindow = {
+      fetch: vi.fn(async () => new Response(source, { status: 200, headers: { 'content-type': 'text/event-stream' } })),
+      localStorage: {
+        getItem: (key: string) => values.get(key) ?? null,
+        setItem: (key: string, value: string) => { values.set(key, value); },
+        removeItem: (key: string) => { values.delete(key); },
+      },
+      dispatchEvent: vi.fn(), location: { origin: 'http://localhost' },
+    };
+    vi.stubGlobal('window', fakeWindow);
+    vi.stubGlobal('CustomEvent', class { constructor(public type: string) {} });
+    clearNetworkHistory();
+    const restore = installNetworkInspector();
+    const response = await window.fetch('https://macmini.local:8443/v1/chat/completions', {
+      method: 'POST',
+      body: JSON.stringify({ model: 'google/gemma-4-12b-qat', stream: true, reasoning_effort: 'none',
+        messages: [{ role: 'user', content: [{ type: 'text', text: 'Évalue la mitose' }, { type: 'image_url', image_url: { url: 'data:image/png;base64,PRIVATE_IMAGE_BYTES' } }] }] }),
+    });
+    const encode = (event: unknown) => new TextEncoder().encode('data: ' + JSON.stringify(event) + '\n\n');
+    controller.enqueue(encode({ choices: [{ delta: { content: '{"grade":' } }] }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    let record = loadNetworkHistory()[0];
+    expect(record.state).toBe('pending');
+    expect(record.messageBody).toBe('{"grade":');
+    expect(record.thinkingBody).toBe('');
+    expect(record.messageCharacters).toBe('{"grade":'.length);
+    expect(record.requestBody).toContain('"reasoning_effort": "none"');
+    expect(record.requestBody).not.toContain('PRIVATE_IMAGE_BYTES');
+
+    controller.enqueue(encode({ choices: [{ delta: { reasoning_content: 'Internal thought' } }] }));
+    controller.enqueue(encode({ choices: [{ delta: { content: '9.5}' }, finish_reason: 'stop' }] }));
+    controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'));
+    controller.close();
+    const raw = await response.text();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    record = loadNetworkHistory()[0];
+    expect(record.state).toBe('success');
+    expect(record.messageBody).toBe('{"grade":9.5}');
+    expect(record.thinkingBody).toBe('Internal thought');
+    expect(record.finishReason).toBe('stop');
+    expect(record.messageBody).not.toContain('Internal thought');
+    expect(raw).toContain('reasoning_content');
+    const persisted = JSON.parse(values.get('companion-correcteur:network-inspector:v1') ?? '[]');
+    expect(persisted[0].messageBody).toBe('{"grade":9.5}');
+    restore();
+  });
+
   it('keeps streaming response chunks in the in-memory history until completion', async () => {
     const values = new Map<string, string>();
     const setItem = vi.fn((key: string, value: string) => { values.set(key, value); });

@@ -114,6 +114,34 @@ test('Debug exposes live HTTP requests and their response details', async ({ pag
     pre.closest('.network-request-details')!.getBoundingClientRect().bottom - pre.getBoundingClientRect().bottom);
   expect(messageBottomGap).toBeLessThan(36);
 
+  // The live browser observer must decode local LM Studio SSE instead of
+  // showing empty Message/Thinking tabs while Response contains data frames.
+  const sse = [
+    { choices: [{ delta: { role: 'assistant', content: '' } }] },
+    { choices: [{ delta: { reasoning_content: 'Raisonnement local' } }] },
+    { choices: [{ delta: { content: '{"grade":9.5}' }, finish_reason: 'stop' }] },
+  ].map(event => 'data: ' + JSON.stringify(event) + '\n\n').join('') + 'data: [DONE]\n\n';
+  await page.route('**/v1/chat/completions', async (route) => {
+    await route.fulfill({ status: 200, contentType: 'text/event-stream', body: sse });
+  });
+  await page.evaluate(async () => {
+    await fetch('/v1/chat/completions', {
+      method: 'POST',
+      body: JSON.stringify({ model: 'google/gemma-4-12b-qat', stream: true, reasoning_effort: 'none',
+        messages: [{ role: 'user', content: 'Note la copie' }] }),
+    }).then(response => response.text());
+  });
+  const lmStudioRequest = page.getByRole('listitem').filter({ hasText: '/v1/chat/completions' });
+  await expect(lmStudioRequest).toBeVisible();
+  await lmStudioRequest.click();
+  await expect(intentDetails).toContainText('Raisonnement demandé');
+  await expect(intentDetails).toContainText('reasoning_effort: none');
+  await page.getByRole('button', { name: 'Message' }).click();
+  await expect(details.getByRole('heading', { name: 'Message reçu du modèle' })).toBeVisible();
+  await expect(details.locator('.network-detail-section pre')).toContainText('"grade": 9.5');
+  await page.getByRole('button', { name: 'Thinking' }).click();
+  await expect(details.locator('.network-detail-section pre')).toContainText('Raisonnement local');
+
   await request.click();
   await page.getByRole('button', { name: 'Response' }).click();
   await expect(page.getByText(/"observed": true/)).toBeVisible();

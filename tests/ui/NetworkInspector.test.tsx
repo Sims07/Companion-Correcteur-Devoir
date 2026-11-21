@@ -207,6 +207,58 @@ describe('NetworkInspector live request feedback', () => {
     expect(container.textContent).toContain('Aucun thinking transmis par le modèle');
   });
 
+  it('shows LM Studio Message and Thinking from SSE history with the effective reasoning mode', async () => {
+    mockNetworkHistory.records = [{
+      ...pendingRecord,
+      url: 'https://macmini.local:8443/v1/chat/completions',
+      status: 200,
+      requestBody: JSON.stringify({ model: 'google/gemma-4-12b-qat', stream: true, reasoning_effort: 'none' }),
+      responseBody: 'data: ' + JSON.stringify({ choices: [{ delta: { content: '{"points":9.5}' } }] }) + '\n\n' +
+        'data: ' + JSON.stringify({ choices: [{ delta: { reasoning_content: 'Private local reasoning' }, finish_reason: 'stop' }] }) + '\n\n',
+    }];
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+    await act(async () => { root?.render(<NetworkInspector />); });
+    expect(container.textContent).toContain('Raisonnement demandé :');
+    expect(container.textContent).toContain('désactivé');
+    expect(container.textContent).toContain('reasoning_effort: none');
+    expect(container.textContent).toContain('Message reçu : 14 caractères');
+    const buttons = [...container.querySelectorAll('.network-detail-tabs button')];
+    const openTab = async (name: string) => {
+      await act(async () => { buttons.find((button) => button.textContent === name)?.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+    };
+    await openTab('Message');
+    expect(container.querySelector('.network-detail-section pre')?.textContent).toContain('"points": 9.5');
+    expect(container.querySelector('.network-detail-section pre')?.textContent).not.toContain('Private local reasoning');
+    await openTab('Thinking');
+    expect(container.querySelector('.network-detail-section pre')?.textContent).toContain('Private local reasoning');
+    expect(container.textContent).toContain('malgré la désactivation');
+    await openTab('Payload');
+    expect(container.querySelector('.network-detail-section pre')?.textContent).toContain('"reasoning_effort": "none"');
+  });
+
+  it('warns that HTTP 200 with only reasoning and token exhaustion cannot yield a grade', async () => {
+    mockNetworkHistory.records = [{
+      ...pendingRecord, url: 'https://macmini.local:8443/v1/chat/completions',
+      state: 'success', status: 200, durationMs: 30_000,
+      requestBody: JSON.stringify({ reasoning_effort: 'none' }),
+      responseBody: 'data: ' + JSON.stringify({ choices: [{ delta: { reasoning_content: 'Only reasoning' } }] }) + '\n\n' +
+        'data: ' + JSON.stringify({ choices: [{ delta: {}, finish_reason: 'length' }] }) + '\n\n',
+    }];
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+    await act(async () => { root?.render(<NetworkInspector />); });
+    expect(container.textContent).toContain('sans texte de réponse finale exploitable');
+    await act(async () => { [...container!.querySelectorAll('.network-detail-tabs button')]
+      .find((button) => button.textContent === 'Message')?.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+    expect(container.textContent).toContain('Aucun texte de réponse finale transmis');
+    await act(async () => { [...container!.querySelectorAll('.network-detail-tabs button')]
+      .find((button) => button.textContent === 'Thinking')?.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+    expect(container.textContent).toContain('Only reasoning');
+  });
+
   it('shows Ollama native time first and preserves browser elapsed time for the diagnostic', async () => {
     mockNetworkHistory.records = [{
       ...pendingRecord, id: 'native-ollama', state: 'success', status: 200, durationMs: 37_126_720,

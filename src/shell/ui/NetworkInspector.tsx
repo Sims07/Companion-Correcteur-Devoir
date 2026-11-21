@@ -3,6 +3,7 @@ import { clearNetworkHistory, getNetworkInspectorStatus, loadNetworkHistory, net
 import '../../shared/ui/networkInspector.css';
 import { isOllamaInferenceRequest } from '../../shared/domain/ollamaTimings.ts';
 import { extractOllamaMessage, extractOllamaThinking } from '../../shared/domain/ollamaThinkingStream.ts';
+import { extractOpenAiCompletion, isOpenAiCompletionRequest } from '../../shared/domain/openAiCompletionStream.ts';
 
 type Filter = 'all' | 'pending' | 'error' | 'success';
 
@@ -21,14 +22,19 @@ function formatDetail(value: unknown): string {
   try { return JSON.stringify(JSON.parse(value), null, 2); } catch { return value; }
 }
 
-function requestedThinking(requestBody: string): boolean | null {
+function requestedThinking(requestBody: string): { enabled: boolean; detail: string } | null {
   try {
     const parsed: unknown = JSON.parse(requestBody);
-    if (parsed && typeof parsed === 'object' && 'think' in parsed) {
-      const mode = (parsed as { think?: unknown }).think;
-      return typeof mode === 'boolean' ? mode : null;
+    if (!parsed || typeof parsed !== 'object') return null;
+    const body = parsed as { think?: unknown; reasoning_effort?: unknown; chat_template_kwargs?: { enable_thinking?: unknown } };
+    if (typeof body.reasoning_effort === 'string') {
+      return { enabled: body.reasoning_effort !== 'none', detail: `reasoning_effort: ${body.reasoning_effort}` };
     }
-  } catch { /* Older or non-JSON requests have no explicit setting. */ }
+    if (typeof body.chat_template_kwargs?.enable_thinking === 'boolean') {
+      return { enabled: body.chat_template_kwargs.enable_thinking, detail: `enable_thinking: ${body.chat_template_kwargs.enable_thinking}` };
+    }
+    if (typeof body.think === 'boolean') return { enabled: body.think, detail: `think: ${body.think}` };
+  } catch { /* Older or incomplete requests have no readable setting. */ }
   return null;
 }
 
@@ -71,12 +77,16 @@ export function NetworkInspector({ initialFilter = 'all' }: { initialFilter?: 'a
     : isOllamaInferenceRequest(record.url) ? record.providerTimings?.totalMs ?? null : record.durationMs;
   const modelDurationLabel = (record: NetworkRequestRecord) => isOllamaInferenceRequest(record.url) && record.state !== 'pending'
     ? record.providerTimings ? 'Temps Ollama' : 'Temps Ollama indisponible' : record.state === 'pending' ? 'En cours' : 'Temps réseau';
-  const selectedThinking = selected && isOllamaInferenceRequest(selected.url)
+  const ollamaSelected = Boolean(selected && isOllamaInferenceRequest(selected.url));
+  const completionSelected = Boolean(selected && isOpenAiCompletionRequest(selected.url));
+  const legacyCompletion = useMemo(() => completionSelected && selected
+    ? extractOpenAiCompletion(selected.responseBody) : null, [completionSelected, selected?.responseBody]);
+  const selectedThinking = ollamaSelected && selected
     ? selected.thinkingBody || extractOllamaThinking(selected.responseBody)
-    : '';
-  const selectedMessage = selected && isOllamaInferenceRequest(selected.url)
+    : completionSelected && selected ? selected.thinkingBody ?? legacyCompletion?.thinking ?? '' : '';
+  const selectedMessage = ollamaSelected && selected
     ? selected.messageBody ?? extractOllamaMessage(selected.responseBody)
-    : '';
+    : completionSelected && selected ? selected.messageBody ?? legacyCompletion?.message ?? '' : '';
   const thinkingRequested = selected ? requestedThinking(selected.requestBody) : null;
   const longRubricThinking = selected?.intent === 'Vérifier et clarifier le barème'
     && selected.state === 'pending' && selected.status !== null
@@ -106,6 +116,10 @@ export function NetworkInspector({ initialFilter = 'all' }: { initialFilter?: 'a
         {selected ? <>
           <div className="network-selected-heading"><div><span className="network-method">{selected.method}</span><strong>{selected.url}</strong></div><span>{formatTime(selected.startedAt)} · {formatDuration(visibleDuration(selected))} · {modelDurationLabel(selected)}</span></div>
           <section className="network-intent-detail" aria-label="Intention de la requête"><h3>Intention</h3><p>{selected.intent || 'Intention non renseignée'}</p>{selected.context && <small>{selected.context}</small>}{waitingForServer(selected) && <p className="network-waiting-hint" role="status">En attente du serveur (modèle en cours de chargement ?)</p>}
+             {completionSelected && thinkingRequested && <p className="network-stream-hint">Raisonnement demandé : <strong>{thinkingRequested.enabled ? 'activé' : 'désactivé'}</strong> ({thinkingRequested.detail}). Ce paramètre peut être ignoré par le serveur ou le modèle.</p>}
+             {completionSelected && thinkingRequested?.enabled === false && selectedThinking && <p className="network-waiting-hint" role="status">Le fournisseur transmet du raisonnement malgré la désactivation demandée.</p>}
+             {completionSelected && selected.finishReason && <p className="network-stream-hint">Fin de génération : {selected.finishReason}{selected.finishReason === 'length' ? ' · limite de tokens atteinte, réponse possiblement tronquée' : ''}</p>}
+             {completionSelected && selected.state === 'success' && !selectedMessage.trim() && <p className="network-waiting-hint" role="status">La requête HTTP s’est terminée sans texte de réponse finale exploitable. Aucune note ne doit être déduite de ce résultat.</p>}
              {selected.state === 'pending' && selected.status !== null && <p className="network-stream-hint" role="status">{[selectedThinking && `Thinking reçu : ${selected.thinkingCharacters ?? selectedThinking.length} caractères`, selectedMessage && `Message reçu : ${selected.messageCharacters ?? selectedMessage.length} caractères`].filter(Boolean).join(' · ') || (selected.responseBody ? 'Flux de réponse reçu · traitement en cours' : 'Réponse HTTP reçue · en attente des premiers fragments')}</p>}
             {longRubricThinking && <p className="network-waiting-hint" role="status">Raisonnement prolongé : plus de cinq minutes sans réponse JSON. Le modèle consomme du temps et des tokens en Thinking ; la vérification du barème n’aboutira qu’après réception du JSON complet. Vous pouvez arrêter cette vérification depuis le barème sans perdre les validations existantes.</p>}
              {isOllamaInferenceRequest(selected.url) && selected.state !== 'pending' && <div className="network-native-timing" aria-label="Durées de la requête">
@@ -120,19 +134,23 @@ export function NetworkInspector({ initialFilter = 'all' }: { initialFilter?: 'a
           {tab === 'headers' && <><Detail title="General" value={{ url: selected.url, method: selected.method, status: selected.status ? `${selected.status} ${selected.statusText}` : 'En attente' }} /><Detail title="Request headers" value={selected.requestHeaders} /><Detail title="Response headers" value={selected.responseHeaders} /></>}
           {tab === 'request' && <Detail title="Request payload" value={selected.requestBody} />}
           {tab === 'response' && <Detail title="Response body" value={selected.responseBody} />}
-          {tab === 'message' && (selectedMessage
+          {tab === 'message' && (selectedMessage.trim()
             ? <Detail title="Message reçu du modèle" value={selectedMessage} />
-            : <p className="network-empty" role="status">{!isOllamaInferenceRequest(selected.url)
-              ? 'L’onglet Message concerne les réponses Ollama uniquement.'
-              : selected.state === 'pending'
-                ? 'Aucun fragment de message.content reçu pour le moment. Le modèle peut encore réfléchir ou préparer sa réponse.'
-                : 'Aucun message.content transmis par le modèle pour cette requête.'}</p>)}
+            : <p className="network-empty" role="status">{!ollamaSelected && !completionSelected
+              ? 'La réponse de ce service ne comporte pas de flux de génération reconnu.'
+              : selectedMessage.length > 0
+                ? 'Le modèle n’a transmis que des caractères blancs ; aucune réponse finale exploitable pour le moment.'
+                : selected.state === 'pending'
+                  ? ollamaSelected
+                    ? 'Aucun fragment de message.content reçu pour le moment. Le modèle peut encore réfléchir ou préparer sa réponse.'
+                    : 'Aucun fragment de réponse finale reçu pour le moment. Le modèle peut encore préparer sa réponse.'
+                  : 'Aucun texte de réponse finale transmis par le modèle pour cette requête.'}</p>)}
            {tab === 'thinking' && (selectedThinking
              ? <Detail title="Thinking reçu du modèle" value={selectedThinking} />
-             : <p className="network-empty" role="status">{!isOllamaInferenceRequest(selected.url)
-               ? 'Le thinking est affiché pour les requêtes Ollama uniquement.'
-               : thinkingRequested === false
-                 ? 'Thinking désactivé pour cette requête.'
+             : <p className="network-empty" role="status">{!ollamaSelected && !completionSelected
+               ? 'Le raisonnement n’est pas disponible pour ce type de requête.'
+               : thinkingRequested?.enabled === false
+                 ? 'Thinking désactivé demandé pour cette requête ; aucun raisonnement transmis.'
                  : selected.state === 'pending'
                    ? 'Aucun fragment de thinking reçu pour le moment. Le modèle peut encore charger ou ne pas exposer son raisonnement.'
                    : 'Aucun thinking transmis par le modèle pour cette requête. Le modèle peut ne pas exposer son raisonnement.'}</p>)}
