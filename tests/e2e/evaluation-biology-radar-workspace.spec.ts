@@ -45,3 +45,29 @@ test('a biology evaluation launched from the radar replaces the previous custom 
     await expect(families.getByRole('button', { name: 'Biologie' })).toHaveAttribute('aria-pressed', 'true');
   }
 });
+
+test('le radar modifie le raisonnement du profil LM Studio choisi pour un même modèle', async ({ page }) => {
+  const key = 'companion-correcteur:ollama-profiles:v1';
+  await page.goto('/');
+  await page.evaluate(({ configuration, key }) => {
+    localStorage.setItem(key, JSON.stringify(['habituel', 'essai'].map(id => ({
+      id, name: id, mode: 'single', updatedAt: new Date().toISOString(),
+      configuration: { ...configuration, analysisModel: 'gemma', visionModel: 'gemma',
+        apiCompatible: true, analysisThinking: true, analysisReasoningEffort: 'medium', correctionMethod: 'generative' },
+    }))));
+  }, { configuration: defaultAiModelConfiguration, key });
+  await page.reload();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Radars' }).click();
+  const bio = page.getByRole('article', { name: 'Biologie' });
+  await bio.getByLabel('Profil du prochain essai').selectOption('essai');
+  const reasoning = bio.getByLabel('Raisonnement du profil essai');
+  for (const mode of ['low', 'medium', 'high', 'off']) {
+    await reasoning.selectOption(mode);
+    await expect(reasoning).toHaveValue(mode);
+    const profiles = await page.evaluate(key => JSON.parse(localStorage.getItem(key)!), key);
+    expect(profiles[0].configuration.analysisReasoningEffort).toBe('medium');
+    expect(profiles[1].configuration.analysisThinking).toBe(mode !== 'off');
+    expect(profiles[1].configuration.analysisReasoningEffort).toBe(mode === 'off' ? 'high' : mode);
+  }
+});

@@ -70,6 +70,19 @@ describe('Gemma incremental grading via LM Studio-compatible Chat Completions', 
     expect(diagnostic.some((entry) => entry.raw.includes('criterionId'))).toBe(true);
   });
 
+  it.each(['low', 'medium', 'high', 'none'] as const)('sends the selected biology effort %s', async effort => {
+    const fetchMock = vi.fn<typeof fetch>(async () => sse([
+      { choices: [{ delta: { content: completeAnswer }, finish_reason: 'stop' }] },
+    ]));
+    const provider = createOllamaProvider({
+      endpoint: 'https://local-proxy.example', apiCompatible: true, analysisModel: 'gemma',
+      correctionMethod: 'generative', criterionByCriterion: true,
+      thinking: effort !== 'none', thinkingLevel: effort === 'none' ? 'high' : effort,
+    }, fetchMock);
+    await provider.generate(request);
+    expect(JSON.parse(String(fetchMock.mock.calls[0]![1]?.body)).reasoning_effort).toBe(effort);
+  });
+
   it('keeps a structural JSON repair separate from a length retry', async () => {
     const requests: Array<Record<string, any>> = [];
     const fetchMock = vi.fn<typeof fetch>(async (_url, init) => {

@@ -1,3 +1,4 @@
+import { BiologyProfileControls, type BiologyProfileSelection } from './BiologyProfileControls.tsx';
 import { buildRadarTimelineExport } from '../../domain/radarTimelineExport.ts';
 import { remainingBiologyMethods, type BiologyMethod } from '../../domain/radarRemainingMethods.ts';
 import {
@@ -49,7 +50,8 @@ export function EvaluationRadarHome({
   runScienceBatch,
   runBiologyBatch,
   initialLab = null,
-}: {
+  ...selection
+}: BiologyProfileSelection & {
   entries: DiagramLabArchiveEntry[];
   history: BiologyRadarObservation[];
   profiles: AiModelProfile[];
@@ -98,9 +100,11 @@ export function EvaluationRadarHome({
   const variants = biology.filter((c) => c.name === selected);
   // The saved configuration is authoritative for the next run. Historical
   // results from another correction method must not disable or score it.
-  const profile = profiles.find((p) =>
+  const eligibleProfiles = profiles.filter((p) =>
     p.configuration.analysisModel === selected &&
     p.configuration.correctionMethod !== 'visual-decision');
+  const profile = eligibleProfiles.find(item => item.id === selection.preferredProfileId) ?? eligibleProfiles[0];
+  const profileControls = <BiologyProfileControls {...selection} profiles={eligibleProfiles} profile={profile} busy={busy} />;
   const activeBio = profile && variants.find((candidate) =>
     candidate.method === profile.configuration.correctionMethod &&
     candidate.provider === (profile.configuration.apiCompatible ? 'openai-compatible' : 'ollama'));
@@ -214,6 +218,7 @@ export function EvaluationRadarHome({
         if (point.scienceMethod && enabled('diagrams', point.scienceMethod)) setMethod(point.scienceMethod);
         if (point.biologyMethod && enabled('biology', point.biologyMethod)) setBioMethod(point.biologyMethod);
       }}>
+      {!scientific && profileControls}
       <label>Méthode du prochain essai (pour « Évaluer avec cette méthode »)
         {scientific ? <select value={activeScienceMethod ?? ''} disabled={!activeScienceMethod}
           onChange={e => { setMethod(e.target.value as ScienceMethod); markChosen(lab); }}>
@@ -445,6 +450,7 @@ export function EvaluationRadarHome({
                     {graphDiagnostic.message}
                   </p>
                 )}
+              {!scientific && profileControls}
               <div className="radar-home-actions">
                 {(scientific ? (explicitMethod.diagrams || (count < total && (Boolean(plan) || nonVisualDecision))) : true) && (
                   <Button

@@ -1183,6 +1183,30 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     setConnectionMessage('');
   }
 
+  const [radarProfileId, setRadarProfileId] = useState('');
+  const biologyProfileSelection = {
+    preferredProfileId: radarProfileId || selectedAiModelProfileId,
+    onChooseProfile: setRadarProfileId,
+    onReasoningChange(profile: AiModelProfile, mode: AnalysisReasoningEffort | 'off') {
+      const enabled = mode !== 'off';
+      const effort = mode === 'off' ? profile.configuration.analysisReasoningEffort ?? 'medium' : mode;
+      const configuration = { ...profile.configuration, analysisThinking: enabled, analysisReasoningEffort: effort };
+      const next = aiModelProfiles.map(item => item.id === profile.id
+        ? { ...item, configuration, updatedAt: new Date().toISOString() } : item);
+      try {
+        window.localStorage.setItem(aiModelProfilesKey, JSON.stringify(next));
+      } catch {
+        setError('Impossible d’enregistrer le raisonnement du profil sur cet appareil.');
+        return;
+      }
+      setAiModelProfiles(next);
+      if (profile.id === selectedAiModelProfileId) {
+        setAnalysisThinking(enabled);
+        setAnalysisReasoningEffort(effort);
+      }
+    },
+  };
+
   function saveAiModelProfile() {
     const name = aiModelProfileName.trim();
     if (!name) { setAiModelProfileTone('warning'); setAiModelProfileMessage('Donnez un nom à cette configuration avant de l’enregistrer.'); return; }
@@ -5515,7 +5539,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
         <div className="evaluation-run-actions evaluation-config-launch"><div><strong>{selectedEvaluationProfileIds.length} configuration(s) sélectionnée(s)</strong><p>Le lancement passera à l’espace Exécution pour afficher la progression en direct.</p></div><button type="button" className="primary-button" disabled={busy || selectedEvaluationProfileIds.length < 1 || (evaluationStageMode === 'analysis' ? !transcription?.trim() : !images.length) || !validation.valid} onClick={() => { setEvaluationWorkspaceStep('execution'); void startModelEvaluation(); }}>{busy ? 'Évaluation locale en cours…' : evaluationStageMode === 'vision' ? (selectedEvaluationProfileIds.length > 1 ? 'Comparer les modèles Vision' : 'Évaluer le modèle Vision') : evaluationStageMode === 'analysis' ? (selectedEvaluationProfileIds.length > 1 ? 'Comparer les modèles d’analyse' : 'Évaluer le modèle d’analyse') : (selectedEvaluationProfileIds.length > 1 ? 'Comparer les configurations' : 'Évaluer cette configuration')}</button></div>
       </section>}
       {interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'dashboard' &&
-        <EvaluationRadarHome entries={dashboardEntries} history={biologyRadarHistory} profiles={aiModelProfiles}
+        <EvaluationRadarHome {...biologyProfileSelection} entries={dashboardEntries} history={biologyRadarHistory} profiles={aiModelProfiles}
           model={dashboardModel} choose={selectDashboardModel} busy={busy || pilotBusy || radarAutoBusy}
           manage={() => setManagingEvaluationProfiles(true)} details={(domain, model) => { selectDashboardModel(model); openCandidateRadar(domain); }}
           campaigns={(domain, model, ids) => showCampaigns({ domain, model, ids })}
@@ -5529,7 +5553,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
           onCustom={id => { setEvaluationJourney('custom'); const record = savedModelEvaluations.find(item => item.id === id); if (record) { openModelEvaluationHistoryRecord(record); return; } setSelectedEvaluationHistoryIds([]); setEvaluationHistoryStageFilter('all'); setEvaluationWorkspaceStep('history'); }} />}
       {interfaceMode === 'diagnostic' && ['dashboard','campaigns'].includes(evaluationWorkspaceStep) && diagramHistoryError && <p role="alert">{diagramHistoryError}</p>}
       {interfaceMode === 'diagnostic' && evaluationJourney === 'biology' && biologyRadarOpen && evaluationWorkspaceStep === 'configuration' &&
-        <div id="evaluation-biology-radar"><BiologyTeacherRadar
+        <div id="evaluation-biology-radar"><BiologyTeacherRadar {...biologyProfileSelection}
           initialModel={dashboardModel} onModelChange={selectDashboardModel} history={biologyRadarHistory} profiles={aiModelProfiles} busy={busy || pilotBusy}
           onEvaluate={evaluateBiologyModel}
           onShowTests={(scenario) => {
