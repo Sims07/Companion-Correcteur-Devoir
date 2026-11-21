@@ -15,6 +15,7 @@ import { requestSystemOneDecision } from './systemOneTransport.ts';
 import type { CriterionAnalysisUpdate, DiagnosticModelResult, GradingProgressEvent, GradingProvider, GradingRequest, ImageInput, OllamaModel, OllamaSettings } from '../../ports/aiProvider.ts';
 import { parseGradingProposal } from '../../domain/grading.ts';
 import { reconcileIncrementalScore } from '../../domain/incrementalGradingReconciliation.ts';
+import { incrementalGenerationTokenLimit, isIncrementalGenerationLimitError } from '../../domain/incrementalGenerationBudget.ts';
 import { normalizeGradeScore, sumGradeScores } from '../../../shared/domain/scorePrecision.ts';
 import { getRubricSubcriteria, type RubricCriterion } from '../../domain/rubric.ts';
 import { parseStudentIdentityResponse } from '../../domain/studentIdentity.ts';
@@ -561,6 +562,7 @@ export function createOllamaProvider(
         let response: Response;
         let partialContent = '';
         let diagnosticResultEmitted = false;
+        let completedRequestMetrics: Omit<DiagnosticModelResult, 'raw'> | null = null;
         const buildRequestMetrics = (): Omit<DiagnosticModelResult, 'raw'> | null => {
           if (!tracking || !diagnosticTracking) return null;
           return {
@@ -598,8 +600,9 @@ export function createOllamaProvider(
           const metrics = buildRequestMetrics();
           if (!metrics) return;
           const error = cause instanceof Error ? cause.message : String(cause);
-          lastDiagnosticMetrics = metrics;
-          onDiagnosticResult?.({ ...metrics, raw: metrics.promptId === 'vision.copy-transcription' ? '' : partialContent, error });
+          const failureMetrics = completedRequestMetrics ? { ...metrics, ...completedRequestMetrics } : metrics;
+          lastDiagnosticMetrics = failureMetrics;
+          onDiagnosticResult?.({ ...failureMetrics, raw: failureMetrics.promptId === 'vision.copy-transcription' ? '' : partialContent, error });
           diagnosticResultEmitted = true;
         };
         try {
@@ -721,6 +724,7 @@ export function createOllamaProvider(
               generationTokenLimit: tracking.generationTokenLimit ?? 2048,
             };
             lastDiagnosticMetrics = metrics;
+            completedRequestMetrics = metrics;
             if (!tracking.deferResult) {
               onDiagnosticResult?.({ ...metrics, raw: metrics.promptId === 'vision.copy-transcription' ? '' : result.content, ...(!result.content.trim() ? { error: result.doneReason === 'length' ? 'Limite de génération atteinte sans réponse finale.' : 'Ollama a retourné une réponse vide.' } : {}) });
               diagnosticResultEmitted = true;
@@ -1294,14 +1298,15 @@ export function createOllamaProvider(
             onCriterionUpdate?.({ ...baseUpdate, status: attempt === 1 ? 'started' : 'retrying', attempt });
             onProgress?.({ type: 'criterion', criterionIndex: index + 1, criterionTotal: criteria.length, status: attempt === 1 ? 'started' : 'retrying' });
             try {
+              const generationLimitRetry = attempt > 1 && isIncrementalGenerationLimitError(lastError);
               const raw = await sendStream(
                 analysisModel,
-                attempt === 1 ? criterionPrompt : buildIncrementalGradingRepairPrompt(criterionPrompt, previousRaw, lastError),
+                attempt === 1 || generationLimitRetry ? criterionPrompt : buildIncrementalGradingRepairPrompt(criterionPrompt, previousRaw, lastError),
                 undefined,
                 onChunk,
                 currentCriterionSchema,
                 analysisThink,
-                { kind: 'model', stage: 'analysis', promptId: attempt === 1 ? 'grading.incremental' : 'grading.incremental-repair', generationTokenLimit: 1024, deferResult: diagnosticTracking, intent: `Analyser le critère ${criterion.title}`, context: `Modèle ${analysisModel} · critère ${index + 1}/${criteria.length} · ${request.images?.map((image) => image.fileName).filter(Boolean).join(', ') || 'copie'}` },
+                { kind: 'model', stage: 'analysis', promptId: attempt === 1 || generationLimitRetry ? 'grading.incremental' : 'grading.incremental-repair', generationTokenLimit: incrementalGenerationTokenLimit(analysisThink, attempt > 1 ? lastError : ''), deferResult: diagnosticTracking, intent: `Analyser le critère ${criterion.title}`, context: `Modèle ${analysisModel} · critère ${index + 1}/${criteria.length} · ${request.images?.map((image) => image.fileName).filter(Boolean).join(', ') || 'copie'}` },
               );
               if (diagnosticTracking && lastDiagnosticMetrics) criterionDiagnosticMetrics.push(lastDiagnosticMetrics);
               previousRaw = raw;
@@ -1383,7 +1388,7 @@ export function createOllamaProvider(
             tokensPerSecond: generationMs && generatedTokens !== undefined ? generatedTokens / (generationMs / 1000) : undefined,
             doneReason: criterionDiagnosticMetrics.some((item) => item.doneReason === 'length') ? 'length' : firstMetric.doneReason,
             thinkingPresent: criterionDiagnosticMetrics.some((item) => item.thinkingPresent),
-            generationTokenLimit: 1024,
+            generationTokenLimit: Math.max(...criterionDiagnosticMetrics.map((item) => item.generationTokenLimit ?? 0)),
             requestCount: criterionDiagnosticMetrics.length,
             raw: fullProposalRaw,
           });
