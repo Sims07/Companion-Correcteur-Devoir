@@ -35,7 +35,9 @@ export function ActiveCopyProcessingWorkspace({ job, pages, studentLabel, onStop
   const currentTitle = phase === 'preparation' ? 'Préparation' : isDiagram ? 'Analyse directe du schéma' : phase === 'reading' ? 'Lecture de la copie' : 'Correction des réponses';
   const phases = isDiagram ? [
     { label: 'Préparation', detail: 'Préparation des images et du modèle' },
-    { label: 'Analyse directe du schéma', detail: 'Résultats fournis ensemble à la fin de la réponse' },
+    { label: 'Analyse directe du schéma', detail: job.criterionByCriterion === true
+      ? `${job.completedCriteria} / ${job.totalCriteria} critères examinés`
+      : 'Analyse globale du schéma en cours' },
   ] : [
     { label: 'Préparation', detail: 'Démarrage de la correction' },
     { label: 'Lecture de la copie', detail: `${job.completedPages} / ${job.images.length} pages lues` },
