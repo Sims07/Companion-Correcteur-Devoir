@@ -228,6 +228,24 @@
   color: var(--ds-color-text);
   font-weight: 750;
 }
+.teacher-flow-shell .atelier-processing-columns .background-copy-activity-focus {
+  margin: 0;
+  padding: 12px 15px;
+  border-left: 3px solid var(--ds-color-progress);
+  background: var(--ds-color-progress-surface);
+}
+.teacher-flow-shell .atelier-processing-columns .background-copy-activity-focus-dot {
+  background: var(--ds-color-progress);
+}
+.teacher-flow-shell .atelier-processing-columns .background-copy-activity-focus-label {
+  color: var(--ds-color-progress);
+}
+.teacher-flow-shell .atelier-processing-columns .background-copy-activity-focus-title {
+  color: var(--ds-color-text);
+}
+.teacher-flow-shell .atelier-processing-columns .background-copy-activity-focus-detail {
+  color: var(--ds-color-text-muted);
+}
 .teacher-flow-shell .atelier-processing-columns .background-copy-activity-track {
   height: 3px;
   margin: 0;
@@ -358,4 +376,5 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .teacher-flow-shell .atelier-processing-columns .background-copy-activity-track > span { transition: none; }
+  .teacher-flow-shell .atelier-processing-columns .background-copy-activity-focus-dot { animation: none; }
 }
