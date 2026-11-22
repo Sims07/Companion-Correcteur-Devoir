@@ -217,7 +217,7 @@ export function EvaluationRadarHome({
       onExport={() => {
         const date = new Date().toISOString();
         const report = buildRadarTimelineExport(lab, selectedModel, timeline[lab], selectedScienceEntries, selectedHistory, weights, date, excluded);
-        const filenameModel = selected.replace(/[^a-zA-Z0-9._-]+/g, '-');
+        const filenameModel = (selectedModel + '-' + selected).replace(/[^a-zA-Z0-9._-]+/g, '-');
         downloadJson(report, 'companion-methodes-' + lab + '-' + filenameModel + '-' + date.replace(/:/g, '-') + '.json');
       }}
       selectMethod={point => {
