@@ -25,6 +25,7 @@ import { resolveCloseDiagnosticCriteria } from '../../domain/diagnosticResolutio
 import { parseArbitrationDecisions } from '../../domain/arbitrationDecision.ts';
 import { parseModelJson } from '../../../shared/domain/modelJson.ts';
 import { createOpenAiCompatibleFetch } from '../../../shared/adapters/ai/openAiCompatibleTransport.ts';
+import { hasRepetitiveAnswerTail } from '../../../shared/domain/generationRepetition.ts';
 import { currentFetch } from '../../../shared/adapters/ai/currentFetch.ts';
 import { cropStudentIdentityHeader } from './studentIdentityImage.ts';
 import { annotateNetworkRequest } from '../../../shared/ports/networkRequestMetadata.ts';
@@ -714,9 +715,20 @@ export function createOllamaProvider(
               });
             }
             streamChunk?.(chunk);
-            return tracking?.stage === 'reading' && hasTranscriptionDrift(partialContent);
+            return tracking?.stage === 'reading'
+              ? hasTranscriptionDrift(partialContent)
+              : tracking?.stage === 'analysis' && hasRepetitiveAnswerTail(partialContent);
           });
           if (result.suspiciousStop) tracking?.onSuspiciousStop?.();
+          // The network inspector keeps a clone of the HTTP response. Cancel
+          // the request itself as well, otherwise that clone can keep the model
+          // generating after the grading reader has stopped consuming tokens.
+          if (result.suspiciousStop && tracking?.stage === 'analysis') {
+            requestAbortController.abort(new DOMException('Génération répétitive détectée.', 'AbortError'));
+          }
+          const repetitionError = result.suspiciousStop && tracking?.stage === 'analysis'
+            ? 'Génération répétitive détectée dans la réponse du modèle : flux arrêté avant épuisement des tokens [diagram-output:repetition]. Aucune note attribuée. Essayez sans Thinking ou avec un autre niveau de raisonnement.'
+            : null;
           if (tracking && typeof result.loadMs === 'number' && result.loadMs > 0) {
             onProgress?.({ type: 'model-load', role: tracking.kind === 'vision' ? 'reading' : 'analysis', durationMs: result.loadMs });
           }
@@ -764,11 +776,13 @@ export function createOllamaProvider(
             lastDiagnosticMetrics = metrics;
             completedRequestMetrics = metrics;
             if (!tracking.deferResult) {
-              onDiagnosticResult?.({ ...metrics, raw: metrics.promptId === 'vision.copy-transcription' ? '' : result.content, ...(!result.content.trim() ? { error: result.doneReason === 'length' ? 'Limite de génération atteinte sans réponse finale.' : 'Ollama a retourné une réponse vide.' } : {}) });
+              onDiagnosticResult?.({ ...metrics, raw: metrics.promptId === 'vision.copy-transcription' ? '' : result.content, ...(repetitionError ? { error: repetitionError } : !result.content.trim() ? { error: result.doneReason === 'length' ? 'Limite de génération atteinte sans réponse finale.' : 'Ollama a retourné une réponse vide.' } : {}) });
               diagnosticResultEmitted = true;
             }
           }
           if (result.doneReason) tracking?.onDoneReason?.(result.doneReason);
+          // Never parse, retry or award points from a looping partial JSON answer.
+          if (repetitionError) throw new Error(repetitionError);
           if (result.doneReason === 'length' && !tracking?.allowTruncated) {
             throw new Error(`Analyse incomplète : ${providerName} a atteint la limite de génération (done_reason=length, num_predict=${tracking?.generationTokenLimit ?? 2048}). La réponse partielle n’est pas exploitable comme correction. Réduisez la longueur des données ou relancez avec un budget adapté.`);
           }
