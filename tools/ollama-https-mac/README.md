@@ -8,7 +8,7 @@ Lanceur **autonome** (un seul fichier `.command`) pour connecter la PWA de corre
 2. Télécharger `Demarrer-Compagnon-Ollama-HTTPS.command` depuis ce dossier (le bouton « Download raw file » de GitHub) et le rendre exécutable une fois avec `chmod +x ~/Downloads/Demarrer-Compagnon-Ollama-HTTPS.command` (ou utiliser un ZIP préservant son bit exécutable). Selon les protections macOS, faire clic droit → **Ouvrir** lors du premier lancement.
 3. Double-cliquer dessus. Le certificat racine et le certificat HTTPS sont générés **localement**. Accepter l'import du certificat dans le trousseau de session si demandé.
 4. Sur **le même Mac**, ouvrir l'URL `https://localhost:11435/` dans Safari, puis utiliser **`https://localhost:11435`** comme URL Ollama dans les réglages de la PWA (sans `/api`).
-5. Garder le Terminal ouvert ; `Ctrl+C` arrête le proxy sans arrêter un Ollama déjà actif.
+5. Garder le Terminal ouvert ; `Ctrl+C` arrête le proxy sans arrêter un Ollama déjà actif. Sur macOS, le lanceur utilise automatiquement `caffeinate -i -s` : **le Mac ne se met pas en veille tant que le proxy est actif**, mais l'écran peut s'éteindre. La protection se termine avec le proxy (aucun service permanent).
 
 ## Utiliser un iPhone / iPad sur le même réseau privé
 
