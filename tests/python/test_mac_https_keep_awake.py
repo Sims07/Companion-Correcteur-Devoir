@@ -77,7 +77,10 @@ exec "$@"
             self.assertTrue(done.exists())
             self.assertIn("Mac maintenu eveille", stdout)
             args = self.caffeinate_log.read_text(encoding="utf-8").splitlines()
-            self.assertEqual(args, ["-i", "-s", "/bin/bash", str(self.original)])
+            self.assertEqual(args[:3], ["-i", "-s", "/bin/bash"])
+            self.assertEqual(len(args), 4)
+            # macOS canonise /var/... en /private/var/... via pwd -P.
+            self.assertEqual(Path(args[3]).resolve(), self.original.resolve())
             self.assertNotIn("-d", args, "l'écran doit pouvoir s'éteindre")
         finally:
             if proc.poll() is None:
