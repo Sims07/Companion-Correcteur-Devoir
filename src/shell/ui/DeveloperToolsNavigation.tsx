@@ -44,8 +44,8 @@ export function DeveloperToolsNavigation({ activeTool, traces, onNavigate }: Pro
   return <section className="developer-tools" aria-label="Suivi et diagnostic">
     <div className="developer-tools-diagnostics">
       <nav className="developer-tools-subnav" aria-label="Détails du suivi">
-        <button type="button" aria-pressed={activeTool === 'observability'} className={activeTool === 'observability' ? 'is-active' : ''} onClick={() => onNavigate('observability')}>Suivi des corrections</button>
         <button type="button" aria-pressed={activeTool === 'debug'} className={activeTool === 'debug' ? 'is-active' : ''} onClick={() => onNavigate('debug')}>Inspecteur réseau</button>
+        <button type="button" aria-pressed={activeTool === 'observability'} className={activeTool === 'observability' ? 'is-active' : ''} onClick={() => onNavigate('observability')}>Suivi des corrections</button>
       </nav>
       {(failedTraces > 0 || networkErrors > 0) && <div className="developer-tools-signals" aria-label="Erreurs enregistrées">
         {failedTraces > 0 && <span className="developer-tools-signal"><strong>{failedTraces}</strong> exécution(s) en échec</span>}
