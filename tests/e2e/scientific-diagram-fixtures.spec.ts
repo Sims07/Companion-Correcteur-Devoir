@@ -176,7 +176,7 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
     .toContainText('Axe concerné : Qualité graphique');
   // Select the exact A/B/C report: a previous radar archive can have the same axis label.
   await archived.getByRole('group', { name: 'Campagnes enregistrées' })
-    .getByRole('button', { name: /Qualité graphique · A\\/B\\/C/ }).first().click();
+    .getByRole('button', { name: /Qualité graphique · A\/B\/C/ }).first().click();
   await expect(archived.getByRole('heading', { name: 'Résultats par schéma et configuration' })).toBeVisible();
   await expect(archived.locator('.diagram-lab-history-detail')).toContainText('Qualité graphique');
   // One run must not be presented as proof that a model is "always correct".
