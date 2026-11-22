@@ -45,7 +45,7 @@ describe('LLM-first scientific radar', () => {
     expect(summary.textContent).toContain('Configuration Gemma · Think Off');
     expect(summary.textContent).toContain('0 / 9');
     expect(summary.textContent).toContain('Aucune mesure disponible');
-    expect(summary.textContent).not.toContain('Configuration Qwen ·');
+    expect(node.querySelector('[aria-label="Résultat du LLM sélectionné"]')?.textContent).not.toContain('Configuration Qwen ·');
     const item = [...node.querySelectorAll('.diagram-radar-remaining-item')]
       .find((element) => element.textContent?.includes('Qualité graphique'))!;
     expect(item).toBeTruthy();
