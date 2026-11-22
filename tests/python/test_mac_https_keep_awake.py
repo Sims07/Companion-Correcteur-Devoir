@@ -118,9 +118,10 @@ exec "$@"
         args = self.caffeinate_log.read_text(encoding="utf-8").splitlines()
         self.assertEqual(args[:2], ["-i", "-s"])
         self.assertEqual(Path(args[2]), self.bin / "python3")
-        self.assertEqual(args[3:], ["-u", str(self.folder / "serveur_https.py")])
+        expected_server = self.folder / "Library/Application Support/Compagnon-Ollama-HTTPS/serveur_https.py"
+        self.assertEqual(args[3:], ["-u", str(expected_server)])
         self.assertEqual(fake_python_log.read_text(encoding="utf-8").splitlines(),
-                         ["-u", str(self.folder / "serveur_https.py")])
+                         ["-u", str(expected_server)])
 
     def test_ollama_linux_fallback_runs_without_caffeinate(self):
         self.shim("uname", "#!/bin/sh\nprintf 'Linux\\n'\n")
