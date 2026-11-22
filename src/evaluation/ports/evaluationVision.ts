@@ -11,5 +11,5 @@ export interface EvaluationVisionGateway {
   extractBlindDiagramGraph?(endpoint: string, model: string, image: ImageInput, signal?: AbortSignal, onDiagnostic?: (diagnostic: BlindGraphDiagnostic) => void, provider?: { apiCompatible: boolean; apiKey: string; promptVariant?: BlindGraphPromptVariant; think?: boolean | string }, zoomUncertainArrows?: boolean): Promise<ObservedVisualGraph>;
   /** Rubric-blind label/line/structure extraction, opt-in in the scientific lab only. */
   extractBlindDiagramGraphV2?(endpoint: string, model: string, image: ImageInput, signal?: AbortSignal,
-    provider?: { apiCompatible: boolean; apiKey: string; think?: boolean | string }: Promise<ObservedRelationGraphV2>;
+    provider?: { apiCompatible: boolean; apiKey: string; think?: boolean | string }): Promise<ObservedRelationGraphV2>;
 }
