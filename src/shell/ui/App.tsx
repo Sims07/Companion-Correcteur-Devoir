@@ -534,11 +534,14 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
   const [campaignFilter, setCampaignFilter] = useState<CampaignFilter>({});
   const [reportId, setReportId] = useState<string>();
   const biologyCampaign = useRef<string | undefined>(undefined);
-  function selectDashboardModel(model: string) {
-    setDashboardModel(model);
-    const profile = aiModelProfiles.find(p => p.configuration.analysisModel === model) ?? aiModelProfiles.find(p => p.configuration.visionModel === model);
+  function selectDashboardModel(id: string) {
+    const profile = aiModelProfiles.find(p => p.id === id) ??
+      aiModelProfiles.find(p => p.configuration.analysisModel === id) ??
+      aiModelProfiles.find(p => p.configuration.visionModel === id);
+    const selection = profile?.id ?? id;
+    setDashboardModel(selection);
     setSelectedEvaluationProfileIds(profile ? [profile.id] : []);
-    try { localStorage.setItem('companion:scientific-lab-radar-model:v1', model); } catch { /* Session selection remains available. */ }
+    try { localStorage.setItem('companion:scientific-lab-radar-model:v1', selection); } catch { /* Session selection remains available. */ }
   }
   function showCampaigns(filter: CampaignFilter) {
     setCampaignFilter(filter);
