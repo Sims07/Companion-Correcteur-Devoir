@@ -29,6 +29,7 @@ test('exports data from localhost and restores it without overwriting unrelated 
   await openCustomTests(page);
   await page.getByRole('navigation', { name: 'Navigation principale' })
     .getByRole('button', { name: 'Suivi & diagnostic' }).click();
+    await page.getByRole('navigation', { name: 'Détails du suivi' }).getByRole('button', { name: 'Suivi des corrections' }).click();
 
   const panel = page.getByRole('region', { name: 'Occupation du stockage local' });
   await expect(panel.getByRole('heading', { name: 'Sauvegarde et transfert' })).toBeVisible();
@@ -112,6 +113,7 @@ test('a backup restores both biology radar scores when the destination PWA has i
   await openCustomTests(page);
   await page.getByRole('navigation', { name: 'Navigation principale' })
     .getByRole('button', { name: 'Suivi & diagnostic' }).click();
+    await page.getByRole('navigation', { name: 'Détails du suivi' }).getByRole('button', { name: 'Suivi des corrections' }).click();
   const panel = page.getByRole('region', { name: 'Occupation du stockage local' });
   const downloaded = page.waitForEvent('download');
   await panel.getByRole('button', { name: 'Télécharger ma sauvegarde' }).click();
@@ -127,6 +129,7 @@ test('a backup restores both biology radar scores when the destination PWA has i
   await openCustomTests(page);
   await page.getByRole('navigation', { name: 'Navigation principale' })
     .getByRole('button', { name: 'Suivi & diagnostic' }).click();
+    await page.getByRole('navigation', { name: 'Détails du suivi' }).getByRole('button', { name: 'Suivi des corrections' }).click();
   const restoredPanel = page.getByRole('region', { name: 'Occupation du stockage local' });
   await restoredPanel.locator('#backup-restore-file').setInputFiles({
     name: 'backup-with-biology.json', mimeType: 'application/json',
@@ -176,6 +179,7 @@ test('Chromium imports a large real JSON backup without constructing a whole-fil
   await openCustomTests(page);
   await page.getByRole('navigation', { name: 'Navigation principale' })
     .getByRole('button', { name: 'Suivi & diagnostic' }).click();
+    await page.getByRole('navigation', { name: 'Détails du suivi' }).getByRole('button', { name: 'Suivi des corrections' }).click();
   const panel = page.getByRole('region', { name: 'Occupation du stockage local' });
   await panel.locator('#backup-restore-file').setInputFiles({
     name: 'mac-safari-original-20mb.json', mimeType: 'application/json', buffer,
@@ -245,6 +249,7 @@ test('Chromium worker restores a 72 MB image-heavy backup and data survives relo
     await openCustomTests(page);
     await page.getByRole('navigation', { name: 'Navigation principale' })
       .getByRole('button', { name: 'Suivi & diagnostic' }).click();
+      await page.getByRole('navigation', { name: 'Détails du suivi' }).getByRole('button', { name: 'Suivi des corrections' }).click();
     const panel = page.getByRole('region', { name: 'Occupation du stockage local' });
     await panel.locator('#backup-restore-file').setInputFiles(filePath);
     await expect(panel.getByText(/Analyse terminée/)).toBeVisible({ timeout: 120_000 });
@@ -296,6 +301,7 @@ test('a browser reload after an interrupted bulk import shows a persistent warni
   await openCustomTests(page);
   await page.getByRole('navigation', { name: 'Navigation principale' })
     .getByRole('button', { name: 'Suivi & diagnostic' }).click();
+    await page.getByRole('navigation', { name: 'Détails du suivi' }).getByRole('button', { name: 'Suivi des corrections' }).click();
   const panel = page.getByRole('region', { name: 'Occupation du stockage local' });
   await expect(panel.getByRole('alert')).toContainText('interrompue pendant restauration vers 50 %');
   await expect(panel.getByRole('alert')).toContainText('12 enregistrement(s)');
@@ -307,6 +313,7 @@ test('Chrome shows a storage error even when IndexedDB reports an empty message 
   await openCustomTests(page);
   await page.getByRole('navigation', { name: 'Navigation principale' })
     .getByRole('button', { name: 'Suivi & diagnostic' }).click();
+    await page.getByRole('navigation', { name: 'Détails du suivi' }).getByRole('button', { name: 'Suivi des corrections' }).click();
 
   // Simulate the observed 660 MB scenario: the inspection has succeeded and
   // 78 transactions were committed when Chrome rejects the next image batch.
