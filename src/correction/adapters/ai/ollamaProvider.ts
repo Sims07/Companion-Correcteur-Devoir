@@ -720,6 +720,12 @@ export function createOllamaProvider(
               : tracking?.stage === 'analysis' && hasRepetitiveAnswerTail(partialContent);
           });
           if (result.suspiciousStop) tracking?.onSuspiciousStop?.();
+          // The network inspector keeps a clone of the HTTP response. Cancel
+          // the request itself as well, otherwise that clone can keep the model
+          // generating after the grading reader has stopped consuming tokens.
+          if (result.suspiciousStop && tracking?.stage === 'analysis') {
+            requestAbortController.abort(new DOMException('Génération répétitive détectée.', 'AbortError'));
+          }
           const repetitionError = result.suspiciousStop && tracking?.stage === 'analysis'
             ? 'Génération répétitive détectée dans la réponse du modèle : flux arrêté avant épuisement des tokens [diagram-output:repetition]. Aucune note attribuée. Essayez sans Thinking ou avec un autre niveau de raisonnement.'
             : null;
