@@ -3,7 +3,7 @@ import type { DiagramLabArchiveEntry } from '../../domain/diagramLabHistory.ts';
 import { buildDiagramLabRadar, diagnoseGraphRadarMeasurement, diagnoseUnmeasuredRadarAxis, compareRadarCommonAxes, rankDiagramLabRadar, observedRadarScore, RADAR_AXES, RADAR_PRESETS, validRadarWeights,
   type RadarAxisId, type RadarGrouping, type RadarModelConfiguration, type RadarRankedCandidate, type RadarWeights } from '../../domain/diagramLabRadar.ts';
 import { DesignSystemSelect } from '../../../shared/ui/components/DesignSystemSelect.tsx';
-import { resolveModelProfile, planMissingRadarAxis, radarPlanDescription, type RadarMissingTestRequest } from '../../domain/diagramLabRadarLaunch.ts';
+import { resolveModelProfile, planMissingRadarAxis, planRadarModelEvaluation, radarPlanDescription, type RadarMissingTestRequest } from '../../domain/diagramLabRadarLaunch.ts';
 import { Button } from '../../../shared/ui/design-system/index.ts';
 import './ScientificDiagramRadar.css';
 import { RADAR_COMPARISON_COLORS } from './RadarComparisonPalette.ts';
@@ -167,7 +167,9 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
       ? configuredRadarPlan(candidate, entries, profiles, { axis: target })
       : resolveModelProfile(profiles, grouping, candidate, planMissingRadarAxis(candidate, target, grouping, entries));
   }
-  const completePlan = activeModel ? configuredRadarPlan(activeModel, entries, profiles) : null;
+  const completePlan = activeModel ? (grouping === 'model'
+    ? configuredRadarPlan(activeModel, entries, profiles)
+    : resolveModelProfile(profiles, grouping, activeModel, planRadarModelEvaluation(activeModel, entries))) : null;
   const scopedEntries = examined && grouping === 'model' ? scopeRadarEntries(entries, examined.profileId) : entries;
   const scopedModel = examined && grouping === 'model' ? examined.models[0] ?? examined.id : examined?.id ?? '';
   const missingPlan = examined ? planFor(examined, axis) : null;
@@ -271,7 +273,8 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
                 const plan = planFor(activeModel, item.id);
                 return <div key={item.id} className="diagram-radar-remaining-item">
                   <button type="button" onClick={() => setAxis(item.id)}>{item.label}</button>
-                  <small>{diagnoseUnmeasuredRadarAxis(scopeRadarEntries(entries, activeModel.profileId), activeModel.models[0] ?? '', item.id)}</small>
+                  <small>{diagnoseUnmeasuredRadarAxis(grouping === 'model' ? scopeRadarEntries(entries, activeModel.profileId) : entries,
+                      grouping === 'model' ? activeModel.models[0] ?? '' : activeModel.id, item.id)}</small>
                   {plan && profileIds.includes(plan.profileId)
                     ? <Button variant="secondary" disabled={busy} aria-label={'Lancer le test ' + item.label + ' avec ' + activeModel.name}
                         onClick={() => onRunMissing(plan)}>{plan.steps[0]?.protocol === 'graph' && plan.steps[0]?.zoom ? 'Seconde lecture' : 'Lancer'}</Button>
