@@ -83,4 +83,22 @@ describe('AI model configuration defaults', () => {
     expect(parsed.transcriptionPenaltyParameter).toBe('frequency_penalty');
     expect(parsed.transcriptionFrequencyPenalty).toBe(0.35);
   });
+
+  it('defaults to the existing reasoning behavior but persists an explicit Instruct opt-out', () => {
+    expect(defaultAiModelConfiguration.omitReasoningParameter).toBe(false);
+    expect(parseAiModelConfiguration(null).omitReasoningParameter).toBe(false);
+    expect(parseAiModelConfiguration(JSON.stringify({ analysisThinking: false })).omitReasoningParameter).toBe(false);
+    expect(parseAiModelConfiguration(JSON.stringify({ omitReasoningParameter: true })).omitReasoningParameter).toBe(true);
+    expect(parseAiModelConfiguration(JSON.stringify({ omitReasoningParameter: 'true' })).omitReasoningParameter).toBe(false);
+    const saved = {
+      id: 'qwen-instruct', name: 'Qwen Instruct', mode: 'single', updatedAt: '2026-11-22T12:00:00Z',
+      configuration: { ...defaultAiModelConfiguration, apiCompatible: true, omitReasoningParameter: true },
+    };
+    expect(parseAiModelProfiles(JSON.stringify([saved]))[0]?.configuration.omitReasoningParameter).toBe(true);
+    const legacy = { ...saved, configuration: { ...defaultAiModelConfiguration } };
+    delete (legacy.configuration as { omitReasoningParameter?: boolean }).omitReasoningParameter;
+    expect(parseAiModelProfiles(JSON.stringify([legacy]))[0]?.configuration.omitReasoningParameter).toBe(false);
+  });
+
+
 });
