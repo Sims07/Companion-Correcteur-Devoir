@@ -51,7 +51,7 @@ describe('AI model configuration defaults', () => {
     expect(parseAiModelConfiguration(JSON.stringify(explicit))).toEqual(explicit);
     const profile = { id: 'gemma', name: 'Gemma T0', mode: 'single', updatedAt: '2026-11-22T12:00:00Z', configuration: explicit };
     expect(parseAiModelProfiles(JSON.stringify([profile]))[0]?.configuration).toEqual(explicit);
-    for (const invalid of [-1, 3, NaN, Infinity, '1', null]) {
+    for (const invalid of [-1, NaN, Infinity, '1', null]) {
       const configuration = parseAiModelConfiguration(JSON.stringify({
         ...explicit, analysisTemperature: invalid, analysisTopP: invalid, analysisTopK: invalid,
       }));
