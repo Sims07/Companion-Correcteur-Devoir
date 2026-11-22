@@ -413,4 +413,35 @@ describe('OpenAI-compatible chat transport', () => {
     expect(bodies[2].messages).toEqual(bodies[0].messages);
   });
 
+
+  it('sends no reasoning extension for an Instruct model, even when Thinking is OFF', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (_url, init) => {
+      const body = JSON.parse(String(init?.body));
+      if ('reasoning_effort' in body || 'chat_template_kwargs' in body) {
+        return new Response(JSON.stringify({ error: { message: 'Model does not expose reasoning configuration' } }), { status: 400 });
+      }
+      return new Response(JSON.stringify({ choices: [{ message: { content: 'Réponse' } }] }), { status: 200 });
+    });
+    const request = createOpenAiCompatibleFetch({
+      endpoint: 'https://local.example', apiKey: '', omitReasoningParameter: true,
+    }, fetchMock);
+    for (const think of [false, true, 'low', 'high']) {
+      const response = await request('http://localhost:11434/api/chat', {
+        method: 'POST', body: JSON.stringify({ model: 'qwen3-vl-32b-instruct-mlx', stream: false, think,
+          messages: [{ role: 'user', content: 'Évalue le dessin', images: ['abc123'] }] }),
+      });
+      expect(response.status).toBe(200);
+    }
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    for (const [, init] of fetchMock.mock.calls) {
+      const body = JSON.parse(String(init?.body));
+      expect(body).not.toHaveProperty('reasoning_effort');
+      expect(body).not.toHaveProperty('chat_template_kwargs');
+      expect(body.messages[0].content).toEqual(expect.arrayContaining([
+        expect.objectContaining({ type: 'image_url' }),
+      ]));
+    }
+  });
+
+
 });
