@@ -11,6 +11,7 @@ export interface RelationGraphV2Request {
   endpoint: string;
   apiCompatible?: boolean;
   apiKey?: string;
+  think?: boolean | string;
   model: string;
   image: ImageInput;
   signal?: AbortSignal;
@@ -46,7 +47,7 @@ export async function extractVisualRelationGraphV2(
             images:[compatible ? `data:${request.image.mimeType};base64,${request.image.base64}` : request.image.base64]},
         ],
         stream:false,format:compatible ? 'json' : DIAGRAM_RELATIONS_V2_SCHEMA,
-        think:false,keep_alive:0,
+        think:request.think ?? false,keep_alive:0,
         options:{temperature:0,num_predict:2400,num_ctx:4096},
       }),
     });
