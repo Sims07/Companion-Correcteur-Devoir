@@ -163,7 +163,7 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
     async classifyPages(request: ScientificPageClassificationRequest) {
       let requestPayload = '';
       const local = request.apiCompatible !== true;
-      const compatibleFetch = local ? fetchImpl : createOpenAiCompatibleFetch({ endpoint: request.endpoint, apiKey: request.apiKey, onRequest: (payload) => { requestPayload = payload; } }, fetchImpl);
+      const compatibleFetch = local ? fetchImpl : createOpenAiCompatibleFetch({ endpoint: request.endpoint, apiKey: request.apiKey, omitReasoningParameter: request.omitReasoningParameter, onRequest: (payload) => { requestPayload = payload; } }, fetchImpl);
       const classifications = [];
       for (const [index, image] of request.images.entries()) {
         if (request.signal?.aborted) throw new DOMException('Traitement interrompu.', 'AbortError');
@@ -231,7 +231,7 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
       let requestPayload = '';
       const local = request.apiCompatible !== true;
       const compatibleFetch = local ? fetchImpl : createOpenAiCompatibleFetch(
-        { endpoint: request.endpoint, apiKey: request.apiKey, onRequest: (payload) => { requestPayload = payload; } },
+        { endpoint: request.endpoint, apiKey: request.apiKey, omitReasoningParameter: request.omitReasoningParameter, onRequest: (payload) => { requestPayload = payload; } },
         fetchImpl,
       );
       if (request.images.length !== 1) throw new Error('L’analyse Vision des schémas attend une seule image par requête. Les pages doivent être traitées séquentiellement.');
