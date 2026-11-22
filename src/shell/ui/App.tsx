@@ -1787,6 +1787,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
                 endpoint,
                 apiKey,
                 apiCompatible,
+                omitReasoningParameter,
                 onDiagnosticResult: captureDiagramDiagnostic,
                 signal: abortController.signal,
               });
