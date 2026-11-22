@@ -34,6 +34,19 @@ export function radarConfigurationLabel(profile: RadarModelConfiguration): strin
   return profile.name + ' · ' + think;
 }
 
+/** Translate the saved thinking choice into the actual Ollama/LM Studio request.
+ * Chat Completions maps false -> reasoning_effort: none and a level -> that
+ * exact reasoning_effort; never leave the backend to choose its default. */
+export function radarProfileThinking(configuration: {
+  analysisThinking?: boolean;
+  apiCompatible?: boolean;
+  analysisReasoningEffort?: 'low' | 'medium' | 'high';
+}): boolean | string {
+  return configuration.analysisThinking
+    ? configuration.apiCompatible ? configuration.analysisReasoningEffort ?? 'medium' : true
+    : false;
+}
+
 /** Keep archived profiles visible even after their configuration is deleted.
  * Each configuration receives its own radar, including an untested one. */
 export function buildConfigurationRadars(
