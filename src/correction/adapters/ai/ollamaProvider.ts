@@ -683,7 +683,7 @@ export function createOllamaProvider(
             signal: requestAbortController.signal,
           }, request.diagramCriterionLabel ? intent + ' · ' + request.diagramCriterionLabel : intent, `Modèle ${model} · ${context}`);
           response = chat
-            ? await sendLmStudioDiagramTurn(endpoint, settings.apiKey ?? '', chat, { ...requestBody, omitReasoningParameter: settings.omitReasoningParameter }, init, fetchImpl, payload => activeRequestPayloads?.push(payload))
+            ? await sendLmStudioDiagramTurn(endpoint, settings.apiKey ?? '', chat, { ...requestBody, omitReasoningParameter: settings.omitReasoningParameter, contextLength: settings.contextLength }, init, fetchImpl, payload => activeRequestPayloads?.push(payload))
             : await providerFetch(`${endpoint}/api/chat`, init);
           clearFirstResponseTimeout();
         } catch (cause) {
