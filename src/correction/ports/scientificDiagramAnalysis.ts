@@ -16,6 +16,7 @@ export interface ScientificDiagramAnalysisRequest {
   endpoint: string;
   apiKey: string;
   apiCompatible?: boolean;
+  omitReasoningParameter?: boolean;
   /** Cancels in-flight visual model calls, including page classification. */
   signal?: AbortSignal;
   onDiagnosticResult?: (result: DiagnosticModelResult) => void;
@@ -27,6 +28,7 @@ export interface ScientificPageClassificationRequest {
   endpoint: string;
   apiKey: string;
   apiCompatible?: boolean;
+  omitReasoningParameter?: boolean;
   /** Cancels in-flight visual model calls, including page classification. */
   signal?: AbortSignal;
   onDiagnosticResult?: (result: DiagnosticModelResult) => void;

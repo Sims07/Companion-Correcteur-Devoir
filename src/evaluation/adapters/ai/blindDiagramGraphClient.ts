@@ -13,6 +13,7 @@ export interface BlindGraphLocalRequest {
   endpoint: string;
   /** Explicit OpenAI-compatible profile; never inferred from endpoint alone. */
   apiCompatible?: boolean;
+  omitReasoningParameter?: boolean;
   apiKey?: string;
   model: string;
   image: ImageInput;
@@ -117,7 +118,7 @@ export async function extractBlindVisualGraph(
   const compatible = request.apiCompatible === true;
   const url = compatible ? blindGraphCompatibleUrl(request.endpoint) : blindGraphLocalUrl(request.endpoint);
   const send = compatible
-    ? createOpenAiCompatibleFetch({ endpoint: request.endpoint, apiKey: request.apiKey ?? '' }, transport)
+    ? createOpenAiCompatibleFetch({ endpoint: request.endpoint, apiKey: request.apiKey ?? '', omitReasoningParameter: request.omitReasoningParameter }, transport)
     : transport;
   if (!request.model.trim() || request.model.length > 150) throw new Error('Modèle Vision manquant.');
   if (!request.image.base64 || !/^image\/(png|jpeg|webp)$/.test(request.image.mimeType)) {

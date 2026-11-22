@@ -115,6 +115,8 @@ export interface OllamaSettings {
   endpoint: string;
   /** Route chat calls through an OpenAI Chat Completions compatible endpoint. */
   apiCompatible?: boolean;
+  /** Instruct models can reject even reasoning_effort: none. */
+  omitReasoningParameter?: boolean;
   /** Optional bearer token, never included in diagnostic metadata. */
   apiKey?: string;
   /** Legacy single-model mode remains supported for existing integrations. */

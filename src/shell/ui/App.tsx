@@ -510,11 +510,12 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
   const [diagnosticStrategy, setDiagnosticStrategy] = useState<DiagnosticStrategy>(() => readAiModelConfiguration().diagnosticStrategy);
   const [analysisThinking, setAnalysisThinking] = useState(() => readAiModelConfiguration().analysisThinking);
   const [analysisReasoningEffort, setAnalysisReasoningEffort] = useState<AnalysisReasoningEffort>(() => readAiModelConfiguration().analysisReasoningEffort ?? 'medium');
+  const [omitReasoningParameter, setOmitReasoningParameter] = useState(() => readAiModelConfiguration().omitReasoningParameter === true);
   const [gradingOutputTokens, setGradingOutputTokens] = useState(() => readAiModelConfiguration().gradingOutputTokens);
   const [analysisTemperature, setAnalysisTemperature] = useState(() => readAiModelConfiguration().analysisTemperature);
   const [analysisTopP, setAnalysisTopP] = useState(() => readAiModelConfiguration().analysisTopP);
   const [analysisTopK, setAnalysisTopK] = useState(() => readAiModelConfiguration().analysisTopK);
-  const teacherThinking = { gradingOutputTokens, thinking: analysisThinking, analysisTemperature, analysisTopP, analysisTopK, ...(apiCompatible && analysisThinking ? { thinkingLevel: analysisReasoningEffort } : {}) };
+  const teacherThinking = { gradingOutputTokens, omitReasoningParameter, thinking: analysisThinking, analysisTemperature, analysisTopP, analysisTopK, ...(apiCompatible && analysisThinking ? { thinkingLevel: analysisReasoningEffort } : {}) };
   const [criterionByCriterion, setCriterionByCriterion] = useState(() => readAiModelConfiguration().criterionByCriterion);
   const [aiModelProfiles, setAiModelProfiles] = useState<AiModelProfile[]>(readAiModelProfiles);
   const [aiModelProfileName, setAiModelProfileName] = useState('');
@@ -1140,10 +1141,10 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
   ];
 
   useEffect(() => {
-    const configuration: AiModelConfiguration = { generativeModel, decisionModel, endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, analysisReasoningEffort, gradingOutputTokens, analysisTemperature, analysisTopP, analysisTopK, criterionByCriterion, correctionMethod };
+    const configuration: AiModelConfiguration = { generativeModel, decisionModel, endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, analysisReasoningEffort, omitReasoningParameter, gradingOutputTokens, analysisTemperature, analysisTopP, analysisTopK, criterionByCriterion, correctionMethod };
     try { window.localStorage.setItem(aiModelConfigurationKey, JSON.stringify(configuration)); }
     catch { /* The current settings remain usable for this session if storage is unavailable. */ }
-  }, [generativeModel, decisionModel, endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, analysisReasoningEffort, gradingOutputTokens, analysisTemperature, analysisTopP, analysisTopK, criterionByCriterion, correctionMethod]);
+  }, [generativeModel, decisionModel, endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, analysisReasoningEffort, omitReasoningParameter, gradingOutputTokens, analysisTemperature, analysisTopP, analysisTopK, criterionByCriterion, correctionMethod]);
 
   function applyAiModelProfile(profile: AiModelProfile) {
     setEndpoint(profile.configuration.endpoint);
@@ -1168,6 +1169,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     setAnalysisTopP(profile.configuration.analysisTopP);
     setAnalysisTopK(profile.configuration.analysisTopK);
     setAnalysisReasoningEffort(profile.configuration.analysisReasoningEffort ?? 'medium');
+    setOmitReasoningParameter(profile.configuration.omitReasoningParameter === true);
     setCriterionByCriterion(profile.configuration.criterionByCriterion);
     setSelectedAiModelProfileId(profile.id);
     setAiModelProfileMessage('Profil « ' + profile.name + ' » chargé.');
@@ -1196,6 +1198,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     setAnalysisTopP(undefined);
     setAnalysisTopK(undefined);
     setAnalysisReasoningEffort('medium');
+    setOmitReasoningParameter(false);
     setCriterionByCriterion(true);
     setAvailableModels([]);
     setConnectionMessage('');
@@ -1228,7 +1231,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
   function saveAiModelProfile() {
     const name = aiModelProfileName.trim();
     if (!name) { setAiModelProfileTone('warning'); setAiModelProfileMessage('Donnez un nom à cette configuration avant de l’enregistrer.'); return; }
-    const configuration: AiModelConfiguration = { generativeModel, decisionModel, endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, analysisReasoningEffort, gradingOutputTokens, analysisTemperature, analysisTopP, analysisTopK, criterionByCriterion, correctionMethod };
+    const configuration: AiModelConfiguration = { generativeModel, decisionModel, endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, analysisReasoningEffort, omitReasoningParameter, gradingOutputTokens, analysisTemperature, analysisTopP, analysisTopK, criterionByCriterion, correctionMethod };
     const profile: AiModelProfile = {
       id: selectedAiModelProfileId || 'ai-profile-' + Date.now(),
       name,
@@ -1413,7 +1416,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
       const preparedMessage = `${prepared.length} page(s) préparée(s) en images. Envoi au modèle de vision « ${visionModel} »…`;
       setRubricImportProgress({ stage: 'preparing', message: preparedMessage, page: 0, totalPages: prepared.length });
       setRubricImportEvents((events) => [...events, preparedMessage]);
-      const imported = await service.importRubricImage(prepared, { endpoint, apiCompatible, apiKey, visionModel, analysisModel: generativeModel, thinking: analysisThinking }, (progress) => {
+      const imported = await service.importRubricImage(prepared, { endpoint, apiCompatible, apiKey, omitReasoningParameter, visionModel, analysisModel: generativeModel, thinking: analysisThinking }, (progress) => {
         if (progress.diagnosticRun) rubricImportDiagnosticRuns.current.push(progress.diagnosticRun);
         setRubricImportProgress(progress);
         if (progress.rawResponse !== undefined && progress.rawResponseStage === 'vision') {
@@ -1588,7 +1591,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     setConnectionMessage('Test de connexion en cours… Vérification du serveur IA.');
     try {
       if (apiCompatible) {
-        await service.checkReady({ endpoint, apiCompatible, apiKey, visionModel, analysisModel });
+        await service.checkReady({ endpoint, apiCompatible, apiKey, omitReasoningParameter, visionModel, analysisModel });
         setAvailableModels([]);
         setConnectionTone('success');
         setConnectionMessage('Connexion réussie · modèle compatible OpenAI vérifié. Les identifiants des modèles sont renseignés manuellement.');
@@ -1713,7 +1716,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
           if (!subjectImages.length) throw new Error('Importez le sujet de référence avant la notation des schémas.');
           setCriterionProgressMessage('Lecture du sujet de référence avant la notation des schémas…');
           const subjectReader = service.createProvider({
-            endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking,
+            endpoint, apiCompatible, apiKey, omitReasoningParameter, visionModel, analysisModel, thinking: analysisThinking,
             transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty,
             transcriptionPenaltyParameter, transcriptionFrequencyPenalty,
           });
@@ -1726,7 +1729,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
           let classifications = isFreshCorrection ? null : pageClassifications;
           if (!classifications || classifications.length !== images.length) {
             setCriterionProgressMessage('Détection du type et de l’orientation des pages…');
-            classifications = await diagramAnalysisService.classifyPages({ images: textImages, model: visionModel, endpoint, apiKey, apiCompatible, onDiagnosticResult: captureDiagramDiagnostic, signal: abortController.signal });
+            classifications = await diagramAnalysisService.classifyPages({ images: textImages, model: visionModel, endpoint, apiKey, apiCompatible, omitReasoningParameter, onDiagnosticResult: captureDiagramDiagnostic, signal: abortController.signal });
             classificationWasJustCreated = true;
             const suggestions = await Promise.all(classifications.map(async (classification, index) => {
               const degrees = getConfidentDiagramRotation(classification, manualRotationAngles[index] !== undefined);
@@ -1745,7 +1748,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
               if (autoRotateScientificDiagrams) {
                 try {
                   const [verification] = await diagramAnalysisService.classifyPages({
-                    images: [suggestion.preview], model: visionModel, endpoint, apiKey, apiCompatible,
+                    images: [suggestion.preview], model: visionModel, endpoint, apiKey, apiCompatible, omitReasoningParameter,
                     onDiagnosticResult: captureDiagramDiagnostic,
                     signal: abortController.signal,
                   });
@@ -1793,6 +1796,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
                 endpoint,
                 apiKey,
                 apiCompatible,
+                omitReasoningParameter,
                 onDiagnosticResult: captureDiagramDiagnostic,
                 signal: abortController.signal,
               });
@@ -1839,7 +1843,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
           configuration: {
             ...defaultAiModelConfiguration,
             endpoint, apiCompatible, apiKey, visionModel, analysisModel,
-            analysisThinking, analysisReasoningEffort, gradingOutputTokens, analysisTemperature, analysisTopP, analysisTopK, criterionByCriterion, correctionMethod,
+            analysisThinking, analysisReasoningEffort, omitReasoningParameter, gradingOutputTokens, analysisTemperature, analysisTopP, analysisTopK, criterionByCriterion, correctionMethod,
           },
           signal: abortController.signal,
           onDiagnosticResult: captureDiagramDiagnostic,
@@ -2131,6 +2135,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
         name: profile.name,
         endpoint: profile.configuration.endpoint,
         apiCompatible: profile.configuration.apiCompatible,
+        omitReasoningParameter: profile.configuration.omitReasoningParameter,
         apiKey: profile.configuration.apiKey,
         visionModel: profile.configuration.visionModel,
         analysisModel: profile.configuration.analysisModel,
@@ -2207,6 +2212,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
         const provider = service.createProvider({
           endpoint: configuration.endpoint,
           apiCompatible: configuration.apiCompatible,
+          omitReasoningParameter: configuration.omitReasoningParameter,
           apiKey: configuration.apiKey,
           visionModel: configuration.visionModel,
           analysisModel: configuration.analysisModel,
@@ -2235,6 +2241,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
                 return extractDiagramGraphEvidenceV2(runImages, configuration.analysisModel, abortController.signal,
                   image => awaitOrAbort(() => observe(configuration.endpoint, configuration.analysisModel, image,
                     abortController.signal, {apiCompatible: !!configuration.apiCompatible, apiKey: configuration.apiKey ?? '',
+                      omitReasoningParameter: configuration.omitReasoningParameter,
                       think: options?.diagram?.respectProfileThinking ? configuration.thinkingLevel ?? configuration.thinking : false}),
                   abortController.signal));
               })()
@@ -2244,7 +2251,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
                 return extractDiagramGraphEvidence(runImages, configuration.analysisModel, abortController.signal,
                   image => awaitOrAbort(() => observe(configuration.endpoint, configuration.analysisModel, image,
                     abortController.signal, undefined, {apiCompatible: !!configuration.apiCompatible,
-                      apiKey: configuration.apiKey ?? '', promptVariant: 'isolated-arrows-outside',
+                      apiKey: configuration.apiKey ?? '', omitReasoningParameter: configuration.omitReasoningParameter, promptVariant: 'isolated-arrows-outside',
                       think: options?.diagram?.respectProfileThinking ? configuration.thinkingLevel ?? configuration.thinking : false}),
                   abortController.signal));
               })();
@@ -3082,6 +3089,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
                 profile.configuration.endpoint, model, entry.images[0]!, controller.signal,
                 (value) => { diagnostic = value; },
                 { apiCompatible: profile.configuration.apiCompatible, apiKey: profile.configuration.apiKey,
+                  omitReasoningParameter: profile.configuration.omitReasoningParameter,
                   promptVariant: request.promptVariant ?? 'baseline',
                   think: radarBatteryRef.current ? radarProfileThinking(profile.configuration) : false },
                 request.zoomUncertainArrows,
@@ -4677,7 +4685,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
         <label className="field-label" htmlFor="ollama-endpoint">{apiCompatible ? 'URL de l’API IA' : 'Adresse du serveur Ollama'}</label>
         <input id="ollama-endpoint" value={endpoint} onChange={(event) => { setEndpoint(event.target.value); setAvailableModels([]); setConnectionMessage(''); setTranscription(null); }} placeholder={apiCompatible ? 'https://serveur/v1/chat/completions' : 'http://localhost:11434'} />{apiCompatible && <small>LM Studio · Pour envoyer les photos une seule fois par copie en correction critère par critère, utilisez l’URL du serveur terminée par <code>/api/v1/chat</code>.</small>}
         {apiCompatible && <><label className="field-label" htmlFor="ai-api-key">Token API (Bearer)</label><input id="ai-api-key" type="password" autoComplete="new-password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder="Token d’accès" /><p className="hint">Le jeton est masqué dans les traces de diagnostic.</p></>}
-        <AiModelRoleFields prefix="ai" models={availableModels} generativeModel={generativeModel} decisionModel={decisionModel} method={correctionMethod} apiCompatible={apiCompatible} visionModel={visionModel} analysisThinking={analysisThinking} analysisReasoningEffort={analysisReasoningEffort} gradingOutputTokens={gradingOutputTokens} onGradingOutputTokens={setGradingOutputTokens} analysisTemperature={analysisTemperature} analysisTopP={analysisTopP} analysisTopK={analysisTopK} onAnalysisTemperature={setAnalysisTemperature} onAnalysisTopP={setAnalysisTopP} onAnalysisTopK={setAnalysisTopK} onAnalysisThinking={setAnalysisThinking} onAnalysisReasoningEffort={setAnalysisReasoningEffort} onGenerativeModel={changeGenerativeModel} onDecisionModel={setDecisionModel} onMethod={setCorrectionMethod} disabled={busy || pilotBusy} />
+        <AiModelRoleFields prefix="ai" models={availableModels} generativeModel={generativeModel} decisionModel={decisionModel} method={correctionMethod} apiCompatible={apiCompatible} visionModel={visionModel} analysisThinking={analysisThinking} analysisReasoningEffort={analysisReasoningEffort} omitReasoningParameter={omitReasoningParameter} onOmitReasoningParameter={setOmitReasoningParameter} gradingOutputTokens={gradingOutputTokens} onGradingOutputTokens={setGradingOutputTokens} analysisTemperature={analysisTemperature} analysisTopP={analysisTopP} analysisTopK={analysisTopK} onAnalysisTemperature={setAnalysisTemperature} onAnalysisTopP={setAnalysisTopP} onAnalysisTopK={setAnalysisTopK} onAnalysisThinking={setAnalysisThinking} onAnalysisReasoningEffort={setAnalysisReasoningEffort} onGenerativeModel={changeGenerativeModel} onDecisionModel={setDecisionModel} onMethod={setCorrectionMethod} disabled={busy || pilotBusy} />
         <details className="ai-model-advanced"><summary>Options avancées de lecture et de correction</summary>
         <label className="field-label" htmlFor="ollama-vision-model">Modèle de lecture des copies</label>
         {availableModels.length > 0 ? <DesignSystemSelect id="ollama-vision-model" value={visionModel} onChange={(event) => { setVisionModel(event.target.value); setTranscription(null); }}>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</DesignSystemSelect> : <input id="ollama-vision-model" value={visionModel} onChange={(event) => { setVisionModel(event.target.value); setTranscription(null); }} placeholder="Ex. gemma3:4b ou qwen2.5vl" />}
@@ -5400,7 +5408,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
           </section>}
           {rubricImportMessage && <StatusNotice tone={rubricImportTone}>{rubricImportMessage}</StatusNotice>}
         </div></details>
-        <ContractPreparationPanel key={activeAssignmentId} assignmentId={activeAssignmentId ?? 'current'} rubric={rubric} service={service} settings={{ endpoint, apiCompatible, apiKey, visionModel, analysisModel: generativeModel, thinking: analysisThinking, correctionMethod: 'generative' }} disabled={busy || rubricFileImporting || rubricImageImporting} existingDocument={subjectTranscription || rubricImportVisionResponse} onApply={(next) => { setRubric(next); setProposal(null); setReview([]); setScientificDiagramAnalysis(null); }} />
+        <ContractPreparationPanel key={activeAssignmentId} assignmentId={activeAssignmentId ?? 'current'} rubric={rubric} service={service} settings={{ endpoint, apiCompatible, apiKey, omitReasoningParameter, visionModel, analysisModel: generativeModel, thinking: analysisThinking, correctionMethod: 'generative' }} disabled={busy || rubricFileImporting || rubricImageImporting} existingDocument={subjectTranscription || rubricImportVisionResponse} onApply={(next) => { setRubric(next); setProposal(null); setReview([]); setScientificDiagramAnalysis(null); }} />
         <div className="rubric-editor-toolbar"><button type="button" className="primary-button" onClick={addCriterion}><CopyActionIcon name="add" />Ajouter un critère</button><span className={validation.valid ? 'validation valid' : 'validation invalid'}>{validation.valid ? '✓ Barème cohérent' : validation.errors.join(' ')}</span></div>
         <div className="criteria-list">
           {rubric.criteria.map((criterion, criterionIndex) => <details className="criterion-editor" key={criterion.id} open={expandedCriterionId === criterion.id}>
@@ -6152,7 +6160,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
             <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-profile-select">Charger un profil existant</label><DesignSystemSelect id="evaluation-profile-select" value={selectedAiModelProfileId} onChange={(event) => { const profile = aiModelProfiles.find((item) => item.id === event.target.value); if (profile) { setAiModelProfileName(profile.name); applyAiModelProfile(profile); } else { setSelectedAiModelProfileId(''); } }}><option value="">Nouvelle configuration / réglages courants</option>{aiModelProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name} · {profile.configuration.correctionMethod === 'visual-decision' ? 'vision + décisionnel direct' : profile.configuration.correctionMethod === 'decision' ? 'décisionnelle' : 'classique'}</option>)}</DesignSystemSelect></div>
             <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-profile-name">Nom de la configuration</label><input id="evaluation-profile-name" value={aiModelProfileName} onChange={(event) => setAiModelProfileName(event.target.value)} placeholder="Ex. Gemma rapide, Qwen raisonnement…" /></div>
             <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-provider">Fournisseur IA</label><DesignSystemSelect id="evaluation-provider" value={apiCompatible ? 'openai' : 'ollama'} onChange={(event) => { const compatible = event.target.value === 'openai'; setApiCompatible(compatible); setAvailableModels([]); setConnectionMessage(''); if (compatible && endpoint === 'http://localhost:11434') setEndpoint('https://serveur/v1/chat/completions'); if (!compatible && endpoint.includes('/v1/chat/completions')) setEndpoint('http://localhost:11434'); }}><option value="ollama">Ollama local</option><option value="openai">API compatible OpenAI</option></DesignSystemSelect></div><div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-ollama-endpoint">{apiCompatible ? 'URL de l’API IA' : 'Adresse du serveur Ollama'}</label><input id="evaluation-ollama-endpoint" value={endpoint} onChange={(event) => { setEndpoint(event.target.value); setAvailableModels([]); setConnectionMessage(''); }} placeholder={apiCompatible ? 'https://serveur/v1/chat/completions' : 'http://localhost:11434'} />{apiCompatible && <small>LM Studio · Pour envoyer les photos une seule fois par copie en correction critère par critère, utilisez l’URL du serveur terminée par <code>/api/v1/chat</code>.</small>}</div>{apiCompatible && <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-api-key">Token API (Bearer)</label><input id="evaluation-api-key" type="password" autoComplete="new-password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder="Token d’accès" /><small>Jeton masqué dans les traces de diagnostic.</small></div>}
-            <AiModelRoleFields prefix="evaluation" models={availableModels} generativeModel={generativeModel} decisionModel={decisionModel} method={correctionMethod} apiCompatible={apiCompatible} visionModel={visionModel} analysisThinking={analysisThinking} analysisReasoningEffort={analysisReasoningEffort} gradingOutputTokens={gradingOutputTokens} onGradingOutputTokens={setGradingOutputTokens} analysisTemperature={analysisTemperature} analysisTopP={analysisTopP} analysisTopK={analysisTopK} onAnalysisTemperature={setAnalysisTemperature} onAnalysisTopP={setAnalysisTopP} onAnalysisTopK={setAnalysisTopK} onAnalysisThinking={setAnalysisThinking} onAnalysisReasoningEffort={setAnalysisReasoningEffort} onGenerativeModel={changeGenerativeModel} onDecisionModel={setDecisionModel} onMethod={setCorrectionMethod} disabled={busy || pilotBusy} />
+            <AiModelRoleFields prefix="evaluation" models={availableModels} generativeModel={generativeModel} decisionModel={decisionModel} method={correctionMethod} apiCompatible={apiCompatible} visionModel={visionModel} analysisThinking={analysisThinking} analysisReasoningEffort={analysisReasoningEffort} omitReasoningParameter={omitReasoningParameter} onOmitReasoningParameter={setOmitReasoningParameter} gradingOutputTokens={gradingOutputTokens} onGradingOutputTokens={setGradingOutputTokens} analysisTemperature={analysisTemperature} analysisTopP={analysisTopP} analysisTopK={analysisTopK} onAnalysisTemperature={setAnalysisTemperature} onAnalysisTopP={setAnalysisTopP} onAnalysisTopK={setAnalysisTopK} onAnalysisThinking={setAnalysisThinking} onAnalysisReasoningEffort={setAnalysisReasoningEffort} onGenerativeModel={changeGenerativeModel} onDecisionModel={setDecisionModel} onMethod={setCorrectionMethod} disabled={busy || pilotBusy} />
           </div>
           <details className="ai-model-advanced"><summary>Options avancées du test</summary>
           <div className="evaluation-config-fields">

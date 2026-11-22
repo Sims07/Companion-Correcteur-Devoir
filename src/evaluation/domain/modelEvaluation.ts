@@ -7,6 +7,7 @@ export interface ModelEvaluationConfiguration {
   name: string;
   endpoint: string;
   apiCompatible?: boolean;
+  omitReasoningParameter?: boolean;
   apiKey?: string;
   visionModel: string;
   analysisModel: string;

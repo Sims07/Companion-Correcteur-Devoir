@@ -22,6 +22,7 @@ test('scientific fixtures can be enlarged, rotated, zoomed and closed without ch
 });
 
 test('three bundled mitosis diagrams are visible and one click evaluates A/B/C without supplying expected scores to the model', async ({ page }) => {
+  test.setTimeout(60_000); // Multiple local model mocks, exports and navigation in one teacher workflow.
   const configuration = {
     endpoint: 'http://localhost:11434', apiCompatible: false, apiKey: '',
     visionModel: '', analysisModel: 'd1:3b',
@@ -173,6 +174,9 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
   const archived = page.getByRole('region', { name: 'Campagnes de test scientifiques' });
   await expect(archived.getByRole('region', { name: 'Bilan du test sélectionné' }))
     .toContainText('Axe concerné : Qualité graphique');
+  // Select the exact A/B/C report: a previous radar archive can have the same axis label.
+  await archived.getByRole('group', { name: 'Campagnes enregistrées' })
+    .getByRole('button', { name: /Qualité graphique · A\/B\/C/ }).first().click();
   await expect(archived.getByRole('heading', { name: 'Résultats par schéma et configuration' })).toBeVisible();
   await expect(archived.locator('.diagram-lab-history-detail')).toContainText('Qualité graphique');
   // One run must not be presented as proof that a model is "always correct".
