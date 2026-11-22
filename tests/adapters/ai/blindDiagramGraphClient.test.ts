@@ -142,6 +142,24 @@ describe('client graphe visuel indépendant', () => {
     expect(transport).toHaveBeenCalledTimes(1);
   });
 
+  it('sends the exact Think Off/Low/High setting to the LM Studio-compatible graph reader', async () => {
+    const graph = { labels: ['ADN'], arrows: [], containment: [], arrowsComplete: true };
+    const efforts: string[] = [];
+    const network = vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as { reasoning_effort?: string };
+      efforts.push(body.reasoning_effort ?? 'missing');
+      return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(graph) }, finish_reason: 'stop' }] }), { status: 200 });
+    });
+    for (const think of [false, 'low', 'high'] as const) {
+      await extractBlindVisualGraph({
+        endpoint: 'http://localhost:1234', apiCompatible: true, model: 'gemma-26b',
+        image: { mimeType: 'image/png', base64: 'LOCAL_IMAGE' }, think,
+      }, network);
+    }
+    expect(efforts).toEqual(['none', 'low', 'high']);
+    expect(network).toHaveBeenCalledTimes(3);
+  });
+
   it('retries invalid arrow JSON exactly once for both Ollama and OpenAI-compatible profiles, without changing pixels', async () => {
     const graph = { labels: ['Cellule', 'Noyau'], arrows: [{ first: 'Cellule', second: 'Noyau', tip: 'unclear' }],
       containment: [{ inner: 'Noyau', outer: 'Cellule', relation: 'unclear' }], arrowsComplete: false };

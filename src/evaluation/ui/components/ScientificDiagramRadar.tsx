@@ -7,6 +7,7 @@ import { resolveModelProfile, planMissingRadarAxis, planRadarModelEvaluation, ra
 import { Button } from '../../../shared/ui/design-system/index.ts';
 import './ScientificDiagramRadar.css';
 import { RADAR_COMPARISON_COLORS } from './RadarComparisonPalette.ts';
+import { buildConfigurationRadars, configuredRadarPlan, scopeRadarEntries } from '../../domain/radarConfigurations.ts';
 
 const STORAGE_KEY = 'companion:scientific-lab-radar-weights:v1';
 const MODEL_STORAGE_KEY = 'companion:scientific-lab-radar-model:v1';
@@ -126,7 +127,7 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
   const [picked, setPicked] = useState<string[] | null>(null);
   const [axis, setAxis] = useState<RadarAxisId>(initialAxis);
   const [focus, setFocus] = useState('');
-  const candidates = useMemo(() => buildDiagramLabRadar(entries, grouping, profiles), [entries, grouping, profiles]);
+  const candidates = useMemo(() => grouping === 'model' ? buildConfigurationRadars(entries, profiles) : buildDiagramLabRadar(entries, grouping, profiles), [entries, grouping, profiles]);
   const filtered = useMemo(() => grouping !== 'method' ? candidates : candidates.filter((candidate) =>
     candidate.methods.some((method) => method.startsWith('blind-graph')) === (family === 'graph')), [candidates, grouping, family]);
   const partial = useMemo(() => grouping === 'method'
@@ -162,10 +163,15 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
    * that uses the selected LLM for EACH requested protocol, never a random
    * saved profile sharing its display label. */
   function planFor(candidate: RadarRankedCandidate, target: RadarAxisId) {
-    return resolveModelProfile(profiles, grouping, candidate, planMissingRadarAxis(candidate, target, grouping, entries));
+    return grouping === 'model'
+      ? configuredRadarPlan(candidate, entries, profiles, { axis: target })
+      : resolveModelProfile(profiles, grouping, candidate, planMissingRadarAxis(candidate, target, grouping, entries));
   }
-  const completePlan = activeModel ? resolveModelProfile(profiles, grouping, activeModel,
-    planRadarModelEvaluation(activeModel, entries)) : null;
+  const completePlan = activeModel ? (grouping === 'model'
+    ? configuredRadarPlan(activeModel, entries, profiles)
+    : resolveModelProfile(profiles, grouping, activeModel, planRadarModelEvaluation(activeModel, entries))) : null;
+  const scopedEntries = examined && grouping === 'model' ? scopeRadarEntries(entries, examined.profileId) : entries;
+  const scopedModel = examined && grouping === 'model' ? examined.models[0] ?? examined.id : examined?.id ?? '';
   const missingPlan = examined ? planFor(examined, axis) : null;
   const profileAvailable = examined ? (grouping === 'model' && profiles.length
     ? Boolean(missingPlan && profileIds.includes(missingPlan.profileId))
@@ -174,7 +180,7 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
     : partial?.rows.some((row) => row.id === c.id && row.score !== null));
   const missingAxes = examined ? RADAR_AXES.filter((item) => examined.axes[item.id].value === null) : [];
   const graphDiagnostic = grouping === 'model' && examined?.axes.relations.value === null
-    ? diagnoseGraphRadarMeasurement(entries, examined.id) : null;
+    ? diagnoseGraphRadarMeasurement(scopedEntries, scopedModel) : null;
   const primaryScore = activeModel
     ? (activeModel.complete ? activeModel.weightedScore : observedRadarScore(activeModel, weights)) : null;
   const comparisonScore = comparedModel
@@ -267,7 +273,8 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
                 const plan = planFor(activeModel, item.id);
                 return <div key={item.id} className="diagram-radar-remaining-item">
                   <button type="button" onClick={() => setAxis(item.id)}>{item.label}</button>
-                  <small>{diagnoseUnmeasuredRadarAxis(entries, activeModel.id, item.id)}</small>
+                  <small>{diagnoseUnmeasuredRadarAxis(grouping === 'model' ? scopeRadarEntries(entries, activeModel.profileId) : entries,
+                      grouping === 'model' ? activeModel.models[0] ?? '' : activeModel.id, item.id)}</small>
                   {plan && profileIds.includes(plan.profileId)
                     ? <Button variant="secondary" disabled={busy} aria-label={'Lancer le test ' + item.label + ' avec ' + activeModel.name}
                         onClick={() => onRunMissing(plan)}>{plan.steps[0]?.protocol === 'graph' && plan.steps[0]?.zoom ? 'Seconde lecture' : 'Lancer'}</Button>
@@ -359,7 +366,7 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
           </strong>
           <p>{evidence.reason}</p>
           {evidence.value === null && grouping === 'model' && examined &&
-            <p role="status">{diagnoseUnmeasuredRadarAxis(entries, examined.id, axis)}</p>}
+            <p role="status">{diagnoseUnmeasuredRadarAxis(scopedEntries, scopedModel, axis)}</p>}
           {evidence.value === null && examined && <div className="diagram-radar-next-test">
             {missingPlan ? <>
               <strong>Compléter cet axe</strong>

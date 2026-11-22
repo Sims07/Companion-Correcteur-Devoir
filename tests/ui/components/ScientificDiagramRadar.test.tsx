@@ -85,7 +85,7 @@ describe('ScientificDiagramRadar score-first summary', () => {
     expect(candidate.complete).toBe(false);
     expect(expected).not.toBeNull();
     const primary = await renderRadar(entries);
-    expect(primary.textContent).toContain('Indice partiel · qwen:4b');
+    expect(primary.textContent).toContain('Indice partiel · Qwen Vision');
     expect(primary.querySelector('strong')?.textContent).toBe(
       expected!.toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' / 100',
     );
@@ -99,7 +99,7 @@ describe('ScientificDiagramRadar score-first summary', () => {
     const candidate = rankDiagramLabRadar(buildDiagramLabRadar(entries, 'model'), RADAR_PRESETS.scientific)[0]!;
     expect(candidate.complete).toBe(true);
     const primary = await renderRadar(entries);
-    expect(primary.textContent).toContain('Note globale · qwen:4b');
+    expect(primary.textContent).toContain('Note globale · Qwen Vision');
     expect(primary.querySelector('strong')?.textContent).toBe(
       candidate.weightedScore!.toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' / 100',
     );

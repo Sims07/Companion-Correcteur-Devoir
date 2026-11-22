@@ -168,7 +168,7 @@ test('the dashboard launches scientific batteries on a configured Ollama LAN hos
   await page.reload();
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
   const dashboard = page.getByRole('region', { name: 'Tableau de bord des radars' });
-  await dashboard.getByLabel('Choisir un LLM').selectOption('gemma4:e4b');
+  await dashboard.getByLabel('Choisir un LLM').selectOption('gemma-no-vision');
   await dashboard.getByRole('article', { name: 'Schémas scientifiques' })
     .getByRole('button', { name: 'Évaluer en schémas scientifiques' }).click();
 
@@ -222,7 +222,7 @@ test('a missing radar axis leads directly to its automatic fixture battery on th
   await nav.getByRole('button', { name: 'Radars' }).click();
   await page.getByRole('article', { name: 'Schémas scientifiques' }).getByRole('button', { name: 'Détail du radar' }).click();
   const radar = page.getByRole('region', { name: 'Radar des candidats scientifiques' });
-  await radar.getByLabel('Choisir un LLM').selectOption('another:4b');
+  await radar.getByLabel('Choisir un LLM').selectOption('radar-other');
   await radar.getByRole('group', { name: 'Axe à examiner' }).getByRole('button', { name: /Qualité graphique/ }).click();
   await expect(radar.getByText('Non mesuré').first()).toBeVisible();
   await expect(radar.getByText(/Qualité graphique A\/B\/C · 1 passage/)).toBeVisible();
@@ -240,14 +240,14 @@ test('a missing radar axis leads directly to its automatic fixture battery on th
   await nav.getByRole('button', { name: 'Radars' }).click();
   await page.getByRole('article', { name: 'Schémas scientifiques' }).getByRole('button', { name: 'Détail du radar' }).click();
   await expect(page.getByRole('region', { name: 'Radar des candidats scientifiques' }).getByLabel('Choisir un LLM'))
-    .toHaveValue('another:4b');
+    .toHaveValue('radar-other');
   await page.reload();
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
   await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Tests', exact: true }).click();
   await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Radars' }).click();
   await page.getByRole('article', { name: 'Schémas scientifiques' }).getByRole('button', { name: 'Détail du radar' }).click();
   await expect(page.getByRole('region', { name: 'Radar des candidats scientifiques' }).getByLabel('Choisir un LLM'))
-    .toHaveValue('another:4b');
+    .toHaveValue('radar-other');
 });
 
 test('evaluating a new model launches the four required batteries from one action', async ({ page }) => {
@@ -266,7 +266,7 @@ test('evaluating a new model launches the four required batteries from one actio
   await nav.getByRole('button', { name: 'Radars' }).click();
   await page.getByRole('article', { name: 'Schémas scientifiques' }).getByRole('button', { name: 'Détail du radar' }).click();
   const radar = page.getByRole('region', { name: 'Radar des candidats scientifiques' });
-  await radar.getByLabel('Choisir un LLM').selectOption('fresh:4b');
+  await radar.getByLabel('Choisir un LLM').selectOption('new-radar-model');
   await expect(radar.getByText(/4 batteries de test à enchaîner automatiquement/)).toBeVisible();
   await radar.getByRole('button', { name: 'Évaluer le modèle' }).click();
   await expect(nav.getByRole('button', { name: 'Tests' })).toHaveAttribute('aria-current', 'page');
@@ -340,7 +340,7 @@ test('qwen-like 7/9 radar targets A/B/C x3 to fill graphics and stability in one
   await nav.getByRole('button', { name: 'Radars' }).click();
   await page.getByRole('article', { name: 'Schémas scientifiques' }).getByRole('button', { name: 'Détail du radar' }).click();
   const radar = page.getByRole('region', { name: 'Radar des candidats scientifiques' });
-  await radar.getByLabel('Choisir un LLM').selectOption(model);
+  await radar.getByLabel('Choisir un LLM').selectOption(profile.id);
   await expect(radar.getByText(/2 caractéristique\(s\) à mesurer sur neuf/)).toBeVisible();
   await expect(radar.getByText(/1 batterie de test à enchaîner automatiquement · Qualité graphique A\/B\/C · 3 passages/)).toBeVisible();
   await radar.getByRole('button', { name: 'Compléter les axes manquants' }).click();

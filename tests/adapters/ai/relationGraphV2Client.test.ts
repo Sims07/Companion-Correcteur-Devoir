@@ -30,6 +30,24 @@ it('envoie uniquement l’image originale à Ollama et extrait le point d’arri
   expect(JSON.stringify(payload)).not.toMatch(/0,68|9,34|8,66|flèches inversées|score de référence/);
 });
 
+it('honors saved Off/Low/High reasoning during graph-first V2 on LM Studio', async () => {
+  const efforts: string[] = [];
+  const network = vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body)) as { reasoning_effort?: string };
+    efforts.push(body.reasoning_effort ?? 'missing');
+    return new Response(JSON.stringify({
+      choices: [{ message: { content: JSON.stringify(valid) }, finish_reason: 'stop' }],
+    }), { status: 200 });
+  });
+  for (const think of [false, 'low', 'high'] as const) {
+    await expect(extractVisualRelationGraphV2({
+      endpoint: 'http://localhost:1234', apiCompatible: true, model: 'gemma-26b',
+      image, think,
+    }, network)).resolves.toMatchObject({ complete: true });
+  }
+  expect(efforts).toEqual(['none', 'low', 'high']);
+});
+
 it('retente une réponse JSON invalide une seule fois, sans modifier le dessin source',async () => {
   let i=0;
   const mock = vi.fn(async () => ok(++i===1 ? '{oops' : JSON.stringify(valid)));

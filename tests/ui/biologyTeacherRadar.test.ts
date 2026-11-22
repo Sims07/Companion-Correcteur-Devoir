@@ -97,7 +97,7 @@ describe('biology teacher radar UI', () => {
     const first = createRoot(mount);
     await act(async () => first.render(createElement(BiologyTeacherRadar, props)));
     const llm = mount.querySelector<HTMLSelectElement>('select[aria-label="Choisir un LLM biologique"]')!;
-    const chosen = [...llm.options].find((option) => option.textContent?.includes('gemma:9b'))!.value;
+    const chosen = [...llm.options].find((option) => option.textContent?.includes('Gemma · Think Off'))!.value;
     await act(async () => {
       llm.value = chosen;
       llm.dispatchEvent(new Event('change', { bubbles: true }));

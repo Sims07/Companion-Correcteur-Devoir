@@ -1,6 +1,7 @@
 import { BiologyProfileControls, type BiologyProfileSelection } from './BiologyProfileControls.tsx';
 import { useEffect, useMemo, useState } from 'react';
 import type { AiModelProfile } from '../../../shared/domain/aiModelProfiles.ts';
+import { radarConfigurationLabel } from '../../domain/radarConfigurations.ts';
 import {
   BIOLOGY_RADAR_AXES, buildBiologyRadar, type BiologyCorrectionProtocol,
   type BiologyRadarCandidate, type BiologyRadarObservation,
@@ -82,24 +83,24 @@ export function BiologyTeacherRadar({ history, profiles, busy, onEvaluate, onSho
     try { window.localStorage.setItem(SELECTION_KEY, JSON.stringify({ protocol, selectedId })); }
     catch { /* Selection remains available in the current session. */ }
   }, [protocol, selectedId]);
-  const measured = useMemo(() => buildBiologyRadar(history, protocol), [history, protocol]);
+  const measured = useMemo(() => buildBiologyRadar(history, protocol, 'configuration'), [history, protocol]);
   const configured = profiles.map((profile) => {
     const method = profile.configuration.correctionMethod;
     // Match the model actually sent by the current evaluation runner.
     const model = profile.configuration.analysisModel;
     const provider = profile.configuration.apiCompatible ? 'openai-compatible' : 'ollama';
     return { profile, model, provider, method,
-      id: [provider, method, model].join('::') };
+      id: [provider, method, model, profile.id].join('::') };
   }).filter((item) => item.model.trim().length > 0 && item.method !== 'visual-decision');
   const candidates = [...measured];
   for (const item of configured) if (!candidates.some((candidate) => candidate.id === item.id)) {
     candidates.push({
-      id: item.id, name: item.model, provider: item.provider, method: item.method,
+      id: item.id, name: item.model, profileId: item.profile.id, provider: item.provider, method: item.method,
       protocol, axes: { grade: null, rubric: null, positives: null, negatives: null, traps: null, critical: null },
       measured: 0, score: null, partialScore: null, gradeDifference: null, maxGradeDifference: null, observations: [], unresolvedDecisions: 0,
     });
   }
-  const selected = candidates.find((item) => item.id === selectedId) ?? candidates.find((item) => item.name === initialModel) ?? candidates[0];
+  const selected = candidates.find((item) => item.id === selectedId) ?? candidates.find((item) => item.profileId === initialModel || item.name === initialModel) ?? candidates[0];
   const eligibleProfiles = configured.filter(item => item.id === selected?.id).map(item => item.profile);
   const matchingProfile = eligibleProfiles.find(item => item.id === selection.preferredProfileId) ?? eligibleProfiles[0];
   const available = measured.filter((item) => item.score !== null);
@@ -109,9 +110,9 @@ export function BiologyTeacherRadar({ history, profiles, busy, onEvaluate, onSho
     <div className="biology-radar-overview">
       <div className="biology-radar-pickers">
         <label>Choisir un LLM
-          <select aria-label="Choisir un LLM biologique" value={selected?.id ?? ''} onChange={(event) => { setSelectedId(event.target.value); const item = candidates.find((c) => c.id === event.target.value); if (item) onModelChange?.(item.name); }}>
+          <select aria-label="Choisir un LLM biologique" value={selected?.id ?? ''} onChange={(event) => { setSelectedId(event.target.value); const item = candidates.find((c) => c.id === event.target.value); if (item) onModelChange?.(item.profileId ?? item.name); }}>
             {!candidates.length && <option value="">Aucun modèle configuré ou testé</option>}
-            {candidates.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.method === 'decision' ? 'Décisionnel' : 'Génératif'}{item.provider === 'openai-compatible' ? ' · API' : ''}</option>)}
+            {candidates.map((item) => <option key={item.id} value={item.id}>{profiles.find(profile => profile.id === item.profileId) ? radarConfigurationLabel(profiles.find(profile => profile.id === item.profileId)!) : item.name} · {item.method === 'decision' ? 'Décisionnel' : 'Génératif'}{item.provider === 'openai-compatible' ? ' · API' : ''}</option>)}
           </select>
         </label>
         <label>Protocole de correction

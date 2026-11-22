@@ -119,6 +119,7 @@ export interface BiologyRadarCandidate {
   provider: string;
   method: string;
   protocol: BiologyCorrectionProtocol;
+  profileId?: string;
   axes: Record<BiologyRadarAxis, number | null>;
   measured: number;
   score: number | null;
@@ -154,11 +155,11 @@ const axisFraction = (items: BiologyRadarObservation[], expected: 0 | 1) => {
 };
 
 /** Compare only like-for-like protocols and fully completed, teacher-keyed case sets. */
-export function buildBiologyRadar(history: readonly BiologyRadarObservation[], protocol: BiologyCorrectionProtocol): BiologyRadarCandidate[] {
+export function buildBiologyRadar(history: readonly BiologyRadarObservation[], protocol: BiologyCorrectionProtocol, grouping: 'model' | 'configuration' = 'model'): BiologyRadarCandidate[] {
   const groups = new Map<string, BiologyRadarObservation[]>();
   for (const item of history) {
     if (item.protocol !== protocol || !item.model.trim()) continue;
-    const key = [item.provider, item.method, item.model].join('::');
+    const key = [item.provider, item.method, item.model, ...(grouping === 'configuration' ? [item.profileId] : [])].join('::');
     groups.set(key, [...(groups.get(key) ?? []), item]);
   }
   const result = [...groups.entries()].map(([id, group]) => {
@@ -209,7 +210,7 @@ export function buildBiologyRadar(history: readonly BiologyRadarObservation[], p
     const weightSum = available.reduce((sum, axis) => sum + axis.weight, 0);
     const complete = available.length === BIOLOGY_RADAR_AXES.length;
     return {
-      id, name: newest[0]!.model, provider: newest[0]!.provider, method: newest[0]!.method,
+      id, name: newest[0]!.model, profileId: newest[0]!.profileId, provider: newest[0]!.provider, method: newest[0]!.method,
       protocol, axes, measured: available.length, score: complete ? round(weighted / weightSum) : null,
       partialScore: weightSum ? round(weighted / weightSum) : null,
       gradeDifference, maxGradeDifference,

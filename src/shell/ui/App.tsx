@@ -90,6 +90,7 @@ import type { RadarMissingTestRequest } from '../../evaluation/domain/diagramLab
 import { type DiagramLabReport, type DiagramLabArchiveEntry } from '../../evaluation/domain/diagramLabHistory.ts';
 import { createDiagramLabArchiveWriter } from '../../evaluation/application/diagramLabArchiveWriter.ts';
 import { radarEvaluationOutcome, RADAR_TEST_PROTOCOL_NAMES } from '../../evaluation/domain/diagramLabRadarLaunch.ts';
+import { radarProfileThinking, scopeRadarEntries } from '../../evaluation/domain/radarConfigurations.ts';
 import { shouldRetryInvalidDiagramRecord } from '../../evaluation/domain/diagramRunRecovery.ts';
 import type { DiagramLabArchiveRepository } from '../../evaluation/ports/diagramLabArchiveRepository.ts';
 import { initialAssignmentRubric, type AssignmentKind } from '../../correction/domain/assignmentKind.ts';
@@ -152,7 +153,7 @@ interface PilotRunOptions {
   profiles: AiModelProfile[];
   caseImages: ImageInput[];
   contractVariant?: QuestionContractVariant;
-  diagram?: { rubric: Rubric; question: string; method: DiagramMethod; caseId?: string; repetition?: number; imageCount?: number; thinkSetting?: DiagramThinkSetting };
+  diagram?: { rubric: Rubric; question: string; method: DiagramMethod; caseId?: string; repetition?: number; imageCount?: number; thinkSetting?: DiagramThinkSetting; respectProfileThinking?: boolean };
   retainModelAfterRun?: boolean;
 }
 
@@ -534,11 +535,14 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
   const [campaignFilter, setCampaignFilter] = useState<CampaignFilter>({});
   const [reportId, setReportId] = useState<string>();
   const biologyCampaign = useRef<string | undefined>(undefined);
-  function selectDashboardModel(model: string) {
-    setDashboardModel(model);
-    const profile = aiModelProfiles.find(p => p.configuration.analysisModel === model) ?? aiModelProfiles.find(p => p.configuration.visionModel === model);
+  function selectDashboardModel(id: string) {
+    const profile = aiModelProfiles.find(p => p.id === id) ??
+      aiModelProfiles.find(p => p.configuration.analysisModel === id) ??
+      aiModelProfiles.find(p => p.configuration.visionModel === id);
+    const selection = profile?.id ?? id;
+    setDashboardModel(selection);
     setSelectedEvaluationProfileIds(profile ? [profile.id] : []);
-    try { localStorage.setItem('companion:scientific-lab-radar-model:v1', model); } catch { /* Session selection remains available. */ }
+    try { localStorage.setItem('companion:scientific-lab-radar-model:v1', selection); } catch { /* Session selection remains available. */ }
   }
   function showCampaigns(filter: CampaignFilter) {
     setCampaignFilter(filter);
@@ -2121,14 +2125,16 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
         apiKey: profile.configuration.apiKey,
         visionModel: profile.configuration.visionModel,
         analysisModel: profile.configuration.analysisModel,
-        // Every scientific diagram route explicitly controls thinking: only
-        // the opt-in Think route enables it. Other labs and teacher settings
-        // still use the saved profile preference unchanged.
-        thinking: diagramMethod ? diagramMethod === 'direct-image-generative-thinking'
+        // Ordinary method benchmarks keep their explicit Think OFF/ON protocol.
+        // Radar comparisons instead honor the saved profile (Off/Low/Medium/High).
+        thinking: diagramMethod
+          ? diagramMethod === 'direct-image-generative-thinking' ||
+            (options?.diagram?.respectProfileThinking === true && profile.configuration.analysisThinking)
           : profile.configuration.analysisThinking,
         ...(diagramMethod === 'direct-image-generative-thinking' && typeof options?.diagram?.thinkSetting === 'string'
           ? { thinkingLevel: options.diagram.thinkSetting }
-          : !diagramMethod && profile.configuration.apiCompatible && profile.configuration.analysisThinking
+          : (!diagramMethod || options?.diagram?.respectProfileThinking === true) &&
+            profile.configuration.apiCompatible && profile.configuration.analysisThinking
             ? { thinkingLevel: profile.configuration.analysisReasoningEffort ?? 'medium' }
             : {}),
         gradingOutputTokens: profile.configuration.gradingOutputTokens,
@@ -2213,7 +2219,8 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
                 if (!observe) throw new Error('Lecteur de relations V2 indisponible.');
                 return extractDiagramGraphEvidenceV2(runImages, configuration.analysisModel, abortController.signal,
                   image => awaitOrAbort(() => observe(configuration.endpoint, configuration.analysisModel, image,
-                    abortController.signal, {apiCompatible: !!configuration.apiCompatible, apiKey: configuration.apiKey ?? ''}),
+                    abortController.signal, {apiCompatible: !!configuration.apiCompatible, apiKey: configuration.apiKey ?? '',
+                      think: options?.diagram?.respectProfileThinking ? configuration.thinkingLevel ?? configuration.thinking : false}),
                   abortController.signal));
               })()
               : await (async () => {
@@ -2222,7 +2229,8 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
                 return extractDiagramGraphEvidence(runImages, configuration.analysisModel, abortController.signal,
                   image => awaitOrAbort(() => observe(configuration.endpoint, configuration.analysisModel, image,
                     abortController.signal, undefined, {apiCompatible: !!configuration.apiCompatible,
-                      apiKey: configuration.apiKey ?? '', promptVariant: 'isolated-arrows-outside'}),
+                      apiKey: configuration.apiKey ?? '', promptVariant: 'isolated-arrows-outside',
+                      think: options?.diagram?.respectProfileThinking ? configuration.thinkingLevel ?? configuration.thinking : false}),
                   abortController.signal));
               })();
             graphEvidence.set(configuration.id, evidence);
@@ -2863,6 +2871,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
                     question: ((testCase.context ?? context) || 'Évalue uniquement les propriétés visibles du schéma scientifique selon le barème fourni.')
                       + ' Vérifie chaque attendu sur le dessin original. N’invente pas de structures absentes ; signale les éléments incertains.',
                     method,
+                    ...(radarBatteryRef.current ? { respectProfileThinking: true } : {}),
                     ...(method === 'direct-image-generative-thinking' ? { thinkSetting } : {}),
                   },
                 };
@@ -3054,7 +3063,9 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
               const graph = await evaluationVision.extractBlindDiagramGraph(
                 profile.configuration.endpoint, model, entry.images[0]!, controller.signal,
                 (value) => { diagnostic = value; },
-                { apiCompatible: profile.configuration.apiCompatible, apiKey: profile.configuration.apiKey, promptVariant: request.promptVariant ?? 'baseline' },
+                { apiCompatible: profile.configuration.apiCompatible, apiKey: profile.configuration.apiKey,
+                  promptVariant: request.promptVariant ?? 'baseline',
+                  think: radarBatteryRef.current ? radarProfileThinking(profile.configuration) : false },
                 request.zoomUncertainArrows,
               );
               runs.push({
@@ -4824,7 +4835,8 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
             // Each runner has awaited its archive write; never derive completion
             // from the number of API calls or a notification saying "terminé".
             const archived = await diagramArchive.list();
-            const outcome = radarEvaluationOutcome(request.trial ? archived.filter(entry => entry.trial?.id === request.trial!.id) : archived, request.modelId);
+            const scope = scopeRadarEntries(request.trial ? archived.filter(entry => entry.trial?.id === request.trial!.id) : archived, request.profileId);
+            const outcome = radarEvaluationOutcome(scope, request.modelId);
             if (!outcome.complete && scienceMethodQueue.current && !failed.length) scienceMethodQueue.current.failures++;
             if (outcome.complete) return batteryStatus + 'Radar complet pour ' + request.profileName +
               ' : 9/9 caractéristiques mesurées.';

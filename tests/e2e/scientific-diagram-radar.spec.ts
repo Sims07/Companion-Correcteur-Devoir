@@ -88,12 +88,12 @@ test('benchmark radar ranks complete scientific candidates and reveals the origi
   const radar = journal.getByRole('region', { name: 'Radar des candidats scientifiques' });
   await expect(radar.getByRole('img', { name: /Comparaison radar/ })).toBeVisible();
   await expect(radar.getByRole('region', { name: 'Classement des candidats' }).getByText('2 candidat(s) classable(s)')).toBeVisible();
-  await expect(radar.getByLabel('Choisir un LLM')).toHaveValue('vision-good:4b');
+  await expect(radar.getByLabel('Choisir un LLM')).toHaveValue('profile-good');
   await expect(radar.getByRole('region', { name: 'Bilan du LLM sélectionné' })).toContainText('Note globale');
   await expect(radar.locator('.diagram-radar-score-coverage')).toContainText('9 / 9');
-  await radar.getByLabel('Choisir un LLM').selectOption('vision-fast:4b');
-  await expect(radar.getByRole('region', { name: 'Bilan du LLM sélectionné' })).toContainText('vision-fast:4b');
-  await radar.getByLabel('Choisir un LLM').selectOption('vision-good:4b');
+  await radar.getByLabel('Choisir un LLM').selectOption('profile-mixed');
+  await expect(radar.getByRole('region', { name: 'Bilan du LLM sélectionné' })).toContainText('Vision rapide');
+  await radar.getByLabel('Choisir un LLM').selectOption('profile-good');
   await radar.getByLabel('Priorité du classement').selectOption('balanced');
   await radar.getByText('Pondérations et méthode de calcul').click();
   await expect(radar.getByRole('slider', { name: 'Poids : Correspondance des légendes' })).toHaveValue('1');

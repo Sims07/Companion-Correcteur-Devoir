@@ -32,32 +32,32 @@ describe('LLM-first scientific radar', () => {
     })));
     const selector = node.querySelector<HTMLSelectElement>('select[aria-label="Choisir un LLM"]')!;
     expect(selector).toBeTruthy();
-    expect([...selector.options].map((option) => option.textContent)).toEqual(['gemma:9b', 'qwen:4b']);
+    expect([...selector.options].map((option) => option.textContent)).toEqual(['Configuration Gemma · Think Off', 'Configuration Qwen · Think Off']);
     const score = node.querySelector('[aria-label="Résultat du LLM sélectionné"]')!;
-    expect(score.textContent).toContain('Indice partiel · qwen:4b');
+    expect(score.textContent).toContain('Indice partiel · Configuration Qwen · Think Off');
     expect(score.querySelector('strong')?.textContent).toContain(' / 100');
     expect(score.querySelector('strong')?.textContent).not.toContain('—');
     await act(async () => {
-      selector.value = 'gemma:9b';
+      selector.value = 'vision-two';
       selector.dispatchEvent(new Event('change', { bubbles: true }));
     });
     const summary = node.querySelector('[aria-label="Bilan du LLM sélectionné"]')!;
-    expect(summary.textContent).toContain('gemma:9b');
+    expect(summary.textContent).toContain('Configuration Gemma · Think Off');
     expect(summary.textContent).toContain('0 / 9');
     expect(summary.textContent).toContain('Aucune mesure disponible');
-    expect(summary.textContent).not.toContain('qwen:4b ·');
+    expect(node.querySelector('[aria-label="Résultat du LLM sélectionné"]')?.textContent).not.toContain('Configuration Qwen ·');
     const item = [...node.querySelectorAll('.diagram-radar-remaining-item')]
       .find((element) => element.textContent?.includes('Qualité graphique'))!;
     expect(item).toBeTruthy();
     expect((item.querySelector('button:last-child') as HTMLButtonElement).getAttribute('aria-label'))
-      .toBe('Lancer le test Qualité graphique avec gemma:9b');
+      .toBe('Lancer le test Qualité graphique avec Configuration Gemma · Think Off');
     const priority = [...node.querySelectorAll('select')].find((element) =>
       [...element.options].some((option) => option.value === 'throughput'))!;
     await act(async () => {
       priority.value = 'throughput';
       priority.dispatchEvent(new Event('change', { bubbles: true }));
     });
-    expect(selector.value).toBe('gemma:9b');
+    expect(selector.value).toBe('vision-two');
     await act(async () => (item.querySelector('button:last-child') as HTMLButtonElement).click());
     expect(onRunMissing).toHaveBeenCalledWith(expect.objectContaining({
       profileId: 'vision-two', axis: 'graphics',
@@ -82,7 +82,7 @@ describe('LLM-first scientific radar', () => {
     })));
     const select = node.querySelector<HTMLSelectElement>('select[aria-label="Choisir un LLM"]')!;
     await act(async () => {
-      select.value = 'vision-only:4b';
+      select.value = 'mixed';
       select.dispatchEvent(new Event('change', { bubbles: true }));
     });
     const graphic = [...node.querySelectorAll('.diagram-radar-remaining-item')]

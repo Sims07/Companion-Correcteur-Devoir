@@ -88,7 +88,7 @@ it('overlays real scientific and biological scores with consistent colors, and n
   expect(biology.querySelectorAll('[data-radar-model]')).toHaveLength(2);
   expect(biology.querySelector('.radar-home-legend')?.textContent).not.toContain('gamma:4b');
 
-  const remove = node.querySelector<HTMLButtonElement>('button[aria-label="Retirer beta:4b de la comparaison"]')!;
+  const remove = node.querySelector<HTMLButtonElement>('button[aria-label="Retirer beta:4b · Think Off de la comparaison"]')!;
   await act(async () => remove.click());
   expect(biology.querySelectorAll('[data-radar-model]')).toHaveLength(1);
   await click('Masquer la comparaison');
