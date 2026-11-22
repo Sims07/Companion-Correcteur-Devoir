@@ -103,7 +103,7 @@ describe('vision + analyse générative directe (laboratoire scientifique)', () 
       subcriteria: { arrows: { points: 0.68, evidence: 'Ligne vers la bonne structure' } },
     } } });
     const fetchMock = vi.fn(async (_url: RequestInfo | URL, _init?: RequestInit) => new Response(
-      JSON.stringify({ message: { content: answer } }) + '\\n' + JSON.stringify({ done: true, done_reason: 'stop' }) + '\\n',
+      JSON.stringify({ message: { content: answer } }) + '\n' + JSON.stringify({ done: true, done_reason: 'stop' }) + '\n',
       { status: 200, headers: { 'Content-Type': 'application/x-ndjson' } },
     ));
     const diagnostics: import('../../../src/correction/ports/aiProvider.ts').DiagnosticModelResult[] = [];
