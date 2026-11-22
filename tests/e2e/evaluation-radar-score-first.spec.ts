@@ -58,7 +58,7 @@ test('reopens two dated scores for the same model and selects the older method',
   await page.reload();
   await page.getByRole('button', {name:'Évaluer les modèles'}).click();
   const home = page.getByRole('region', {name:'Tableau de bord des radars'});
-  await home.getByLabel('Choisir un LLM').selectOption('qwen:timeline');
+  await home.getByLabel('Choisir un LLM').selectOption('q');
   const bio = home.getByRole('article', {name:'Biologie'});
   await bio.getByRole('button', {name:'Analyse des méthodes'}).click();
   const lab = page.getByRole('region', {name:'Laboratoire des méthodes'});
