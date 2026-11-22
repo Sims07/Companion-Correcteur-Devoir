@@ -42,6 +42,23 @@ describe('conversation de schéma LM Studio', () => {
     ]);
   });
 
+  it('forwards optional temperature, top_p and top_k across native LM Studio criterion turns', async () => {
+    const received: Record<string, unknown>[] = [];
+    const network: typeof fetch = async (_url, init) => {
+      const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      received.push(body);
+      return result(answer(received.length - 1), 'resp_' + received.length);
+    };
+    const provider = createOllamaProvider({
+      ...settings, analysisTemperature: 1, analysisTopP: 0.95, analysisTopK: 64,
+    }, network);
+    await gradeDiagramImages(provider, copy('YQ=='), true);
+    expect(received).toHaveLength(2);
+    for (const body of received) expect(body).toMatchObject({
+      temperature: 1, top_p: 0.95, top_k: 64,
+    });
+  });
+
   it('arrête la correction si le serveur ne conserve pas la copie', async () => {
     const network = vi.fn(async () => result(answer(0)));
     await expect(gradeDiagramImages(createOllamaProvider(settings, network), copy('YQ=='), true)).rejects.toThrow('identifiant');
