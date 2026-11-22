@@ -107,6 +107,52 @@ describe('vision + analyse générative directe (laboratoire scientifique)', () 
     ]));
   });
 
+  it('stops a looping LM Studio Thinking Low response instead of grading partial JSON', async () => {
+    const rubric = JSON.stringify({ title: 'Schéma', criteria: [{
+      id: 'drawing', title: 'Dessin', maxPoints: 1,
+      subcriteria: [{ id: 'contours', title: 'Contours', maxPoints: 1 }],
+    }] });
+    const fragments = [
+      '{"criteria":{"drawing":{"evidence":"Le dessin occupe une grande partie de la page. ',
+      ...Array.from({ length: 60 }, () => "part de l'image. "),
+    ];
+    const encoder = new TextEncoder();
+    let cancelled = false;
+    const sse = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        const fragment = fragments.shift();
+        if (fragment === undefined) {
+          controller.enqueue(encoder.encode('data: {"choices":[{"delta":{},"finish_reason":"length"}]}\\n\\n'));
+          controller.close();
+          return;
+        }
+        controller.enqueue(encoder.encode('data: ' + JSON.stringify({
+          choices: [{ delta: { content: fragment } }],
+        }) + '\\n\\n'));
+      },
+      cancel() { cancelled = true; },
+    });
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(sse, {
+      status: 200, headers: { 'Content-Type': 'text/event-stream' },
+    }));
+    const diagnostics: import('../../../src/correction/ports/aiProvider.ts').DiagnosticModelResult[] = [];
+    await expect(createOllamaProvider({
+      endpoint: 'https://macmini.local:8443/v1/chat/completions',
+      apiCompatible: true, apiKey: '', analysisModel: 'google/gemma-4-26b-a4b-qat',
+      visionModel: '', correctionMethod: 'generative', thinking: true, thinkingLevel: 'low',
+    }, fetchMock).generate({ ...request, rubric }, undefined, undefined, undefined,
+      (entry) => diagnostics.push(entry))).rejects.toThrow(/diagram-output:repetition/);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toMatchObject({
+      reasoning_effort: 'low',
+    });
+    expect(cancelled).toBe(true);
+    expect(diagnostics).toHaveLength(1);
+    expect(diagnostics[0]?.error).toMatch(/Génération répétitive/);
+    expect(diagnostics[0]?.raw).toContain("part de l'image.");
+  });
+
   it('refuse de lancer une méthode générative directe avec un profil décisionnel', async () => {
     const fetchMock = vi.fn<typeof fetch>();
     await expect(createOllamaProvider({
