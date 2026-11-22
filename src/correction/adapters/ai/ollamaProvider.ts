@@ -581,6 +581,12 @@ export function createOllamaProvider(
         if (gradingOutputTokens && (tracking?.stage === 'analysis' || tracking?.stage === 'arbitration')) {
           tracking = { ...tracking, generationTokenLimit: gradingOutputTokens };
         }
+        // Sampling overrides are for generative grading, not OCR/reading.
+        // Undefined means never send the field and keep the model's native defaults.
+        const analysisSampling = tracking?.stage === 'analysis' || tracking?.stage === 'arbitration';
+        const temperature = analysisSampling ? settings.analysisTemperature : tracking?.temperature;
+        const topP = analysisSampling ? settings.analysisTopP : undefined;
+        const topK = analysisSampling && (!settings.apiCompatible || chat) ? settings.analysisTopK : undefined;
         activeRequestPayloads = [];
         // Model metadata probes (/api/tags, /api/show) do not generate answers.
         // Each new correction can also create a fresh provider, resetting its
@@ -632,7 +638,9 @@ export function createOllamaProvider(
               options: {
                 contextTokens: tracking.contextTokenLimit ?? (tracking.kind === 'vision' ? 4096 : 8192),
                 generationTokenLimit: tracking.generationTokenLimit ?? 2048,
-                ...(tracking.temperature !== undefined ? { temperature: tracking.temperature } : {}),
+                ...(temperature !== undefined ? { temperature } : {}),
+                ...(topP !== undefined ? { topP } : {}),
+                ...(topK !== undefined ? { topK } : {}),
                 ...(tracking.stop ? { stop: tracking.stop } : {}),
                 ...(tracking.repeatPenalty !== undefined ? { repeatPenalty: tracking.repeatPenalty } : {}),
                 ...(settings.apiCompatible && settings.transcriptionPenaltyParameter === 'frequency_penalty' && settings.transcriptionFrequencyPenalty !== undefined
@@ -663,7 +671,9 @@ export function createOllamaProvider(
                 // Keep the analysis budget generous while limiting vision memory on Intel Macs.
                 num_ctx: tracking?.contextTokenLimit ?? (tracking?.kind === 'vision' ? 4096 : 8192),
                 num_predict: tracking?.generationTokenLimit ?? 2048,
-                ...(tracking?.temperature !== undefined ? { temperature: tracking.temperature } : {}),
+                ...(temperature !== undefined ? { temperature } : {}),
+                ...(topP !== undefined ? { top_p: topP } : {}),
+                ...(topK !== undefined ? { top_k: topK } : {}),
                 ...(tracking?.stop ? { stop: tracking.stop } : {}),
                 ...(tracking?.repeatPenalty !== undefined ? { repeat_penalty: tracking.repeatPenalty } : {}),
               },
@@ -766,7 +776,9 @@ export function createOllamaProvider(
                 options: {
                   contextTokens: tracking.contextTokenLimit ?? (tracking.kind === 'vision' ? 4096 : 8192),
                   generationTokenLimit: tracking.generationTokenLimit ?? 2048,
-                  ...(tracking?.temperature !== undefined ? { temperature: tracking.temperature } : {}),
+                  ...(temperature !== undefined ? { temperature } : {}),
+                  ...(topP !== undefined ? { topP } : {}),
+                  ...(topK !== undefined ? { topK } : {}),
                   ...(tracking?.stop ? { stop: tracking.stop } : {}),
                   ...(tracking?.repeatPenalty !== undefined ? { repeatPenalty: tracking.repeatPenalty } : {}),
                   ...(settings.apiCompatible && settings.transcriptionPenaltyParameter === 'frequency_penalty' && settings.transcriptionFrequencyPenalty !== undefined
@@ -875,7 +887,7 @@ export function createOllamaProvider(
                   : directDiagramPointsRepairSchema(targeted.issues)
                 : schema,
               directThinking,
-              { kind: 'model', stage: 'analysis', temperature: 0,
+              { kind: 'model', stage: 'analysis',
                 contextTokenLimit: directContextBudget,
                 generationTokenLimit: directGenerationBudget,
                 promptId: attempt === 0 || retryingLength ? 'diagram.direct-grading' : 'diagram.direct-repair',

@@ -76,6 +76,30 @@ test('un profil Instruct sans Reasoning garde son réglage dans les radars', asy
     .toContainText('Reasoning non envoyé');
 });
 
+test('un même Gemma Think Off avec T0 et T1 reste sélectionnable par configuration', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(configuration => {
+    localStorage.setItem('companion-correcteur:ollama-profiles:v1', JSON.stringify(
+      ([0, 1] as const).map(temperature => ({
+        id: 'gemma-t' + temperature,
+        name: 'Gemma 26B',
+        mode: 'single',
+        updatedAt: '2026-11-22T12:00:00Z',
+        configuration: { ...configuration, analysisModel: 'gemma:26b',
+          visionModel: 'gemma:26b', analysisTemperature: temperature },
+      })),
+    ));
+  }, defaultAiModelConfiguration);
+  await page.reload();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  const selector = page.getByRole('region', { name: 'Tableau de bord des radars' }).getByLabel('Choisir un LLM');
+  await expect(selector.locator('option')).toHaveCount(2);
+  await expect(selector.locator('option[value="gemma-t0"]')).toContainText('T0');
+  await expect(selector.locator('option[value="gemma-t1"]')).toContainText('T1');
+  await selector.selectOption('gemma-t1');
+  await expect(selector).toHaveValue('gemma-t1');
+});
+
 
 test('le contexte LM Studio Chat est facultatif et sauvegardé dans les réglages enseignant', async ({ page }) => {
   await page.goto('/');

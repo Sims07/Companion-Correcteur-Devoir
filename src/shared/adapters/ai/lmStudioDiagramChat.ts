@@ -10,7 +10,7 @@ interface DiagramTurn {
   think: boolean | string;
   omitReasoningParameter?: boolean;
   contextLength?: number;
-  options: { num_predict: number; temperature?: number };
+  options: { num_predict: number; temperature?: number; top_p?: number; top_k?: number };
   format?: unknown;
 }
 
@@ -26,7 +26,9 @@ export async function sendLmStudioDiagramTurn(endpoint: string, apiKey: string, 
     model: turn.model, store: true, stream: true, ...(turn.omitReasoningParameter ? {} : { reasoning }),
     ...(typeof turn.contextLength === 'number' && Number.isSafeInteger(turn.contextLength) && turn.contextLength > 0
       ? { context_length: turn.contextLength } : {}),
-    temperature: turn.options.temperature,
+    ...(turn.options.temperature !== undefined ? { temperature: turn.options.temperature } : {}),
+    ...(turn.options.top_p !== undefined ? { top_p: turn.options.top_p } : {}),
+    ...(turn.options.top_k !== undefined ? { top_k: turn.options.top_k } : {}),
     max_output_tokens: turn.options.num_predict,
     ...(conversation.responseId ? { previous_response_id: conversation.responseId } : {}),
     input: [...photos.map(data_url => ({ type: 'image', data_url })), textInput],

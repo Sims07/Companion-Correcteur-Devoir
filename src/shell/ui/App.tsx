@@ -513,7 +513,10 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
   const [omitReasoningParameter, setOmitReasoningParameter] = useState(() => readAiModelConfiguration().omitReasoningParameter === true);
   const [contextLength, setContextLength] = useState<number | undefined>(() => readAiModelConfiguration().contextLength);
   const [gradingOutputTokens, setGradingOutputTokens] = useState(() => readAiModelConfiguration().gradingOutputTokens);
-  const teacherThinking = { gradingOutputTokens, omitReasoningParameter, contextLength, thinking: analysisThinking, ...(apiCompatible && analysisThinking ? { thinkingLevel: analysisReasoningEffort } : {}) };
+  const [analysisTemperature, setAnalysisTemperature] = useState(() => readAiModelConfiguration().analysisTemperature);
+  const [analysisTopP, setAnalysisTopP] = useState(() => readAiModelConfiguration().analysisTopP);
+  const [analysisTopK, setAnalysisTopK] = useState(() => readAiModelConfiguration().analysisTopK);
+  const teacherThinking = { gradingOutputTokens, omitReasoningParameter, contextLength, thinking: analysisThinking, analysisTemperature, analysisTopP, analysisTopK, ...(apiCompatible && analysisThinking ? { thinkingLevel: analysisReasoningEffort } : {}) };
   const [criterionByCriterion, setCriterionByCriterion] = useState(() => readAiModelConfiguration().criterionByCriterion);
   const [aiModelProfiles, setAiModelProfiles] = useState<AiModelProfile[]>(readAiModelProfiles);
   const [aiModelProfileName, setAiModelProfileName] = useState('');
@@ -1139,10 +1142,10 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
   ];
 
   useEffect(() => {
-    const configuration: AiModelConfiguration = { generativeModel, decisionModel, endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, analysisReasoningEffort, omitReasoningParameter, contextLength, gradingOutputTokens, criterionByCriterion, correctionMethod };
+    const configuration: AiModelConfiguration = { generativeModel, decisionModel, endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, analysisReasoningEffort, omitReasoningParameter, contextLength, gradingOutputTokens, analysisTemperature, analysisTopP, analysisTopK, criterionByCriterion, correctionMethod };
     try { window.localStorage.setItem(aiModelConfigurationKey, JSON.stringify(configuration)); }
     catch { /* The current settings remain usable for this session if storage is unavailable. */ }
-  }, [generativeModel, decisionModel, endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, analysisReasoningEffort, omitReasoningParameter, contextLength, gradingOutputTokens, criterionByCriterion, correctionMethod]);
+  }, [generativeModel, decisionModel, endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, analysisReasoningEffort, omitReasoningParameter, contextLength, gradingOutputTokens, analysisTemperature, analysisTopP, analysisTopK, criterionByCriterion, correctionMethod]);
 
   function applyAiModelProfile(profile: AiModelProfile) {
     setEndpoint(profile.configuration.endpoint);
@@ -1163,6 +1166,9 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     setDiagnosticStrategy(profile.configuration.diagnosticStrategy);
     setAnalysisThinking(profile.configuration.analysisThinking);
     setGradingOutputTokens(profile.configuration.gradingOutputTokens);
+    setAnalysisTemperature(profile.configuration.analysisTemperature);
+    setAnalysisTopP(profile.configuration.analysisTopP);
+    setAnalysisTopK(profile.configuration.analysisTopK);
     setAnalysisReasoningEffort(profile.configuration.analysisReasoningEffort ?? 'medium');
     setOmitReasoningParameter(profile.configuration.omitReasoningParameter === true);
     setContextLength(profile.configuration.contextLength);
@@ -1190,6 +1196,9 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     setCorrectionMethod(defaultAiModelConfiguration.correctionMethod);
     setAnalysisThinking(false);
     setGradingOutputTokens(undefined);
+    setAnalysisTemperature(undefined);
+    setAnalysisTopP(undefined);
+    setAnalysisTopK(undefined);
     setAnalysisReasoningEffort('medium');
     setOmitReasoningParameter(false);
     setContextLength(undefined);
@@ -1225,7 +1234,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
   function saveAiModelProfile() {
     const name = aiModelProfileName.trim();
     if (!name) { setAiModelProfileTone('warning'); setAiModelProfileMessage('Donnez un nom à cette configuration avant de l’enregistrer.'); return; }
-    const configuration: AiModelConfiguration = { generativeModel, decisionModel, endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, analysisReasoningEffort, omitReasoningParameter, contextLength, gradingOutputTokens, criterionByCriterion, correctionMethod };
+    const configuration: AiModelConfiguration = { generativeModel, decisionModel, endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, analysisReasoningEffort, omitReasoningParameter, contextLength, gradingOutputTokens, analysisTemperature, analysisTopP, analysisTopK, criterionByCriterion, correctionMethod };
     const profile: AiModelProfile = {
       id: selectedAiModelProfileId || 'ai-profile-' + Date.now(),
       name,
@@ -1837,7 +1846,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
           configuration: {
             ...defaultAiModelConfiguration,
             endpoint, apiCompatible, apiKey, visionModel, analysisModel,
-            analysisThinking, analysisReasoningEffort, omitReasoningParameter, contextLength, gradingOutputTokens, criterionByCriterion, correctionMethod,
+            analysisThinking, analysisReasoningEffort, omitReasoningParameter, contextLength, gradingOutputTokens, analysisTemperature, analysisTopP, analysisTopK, criterionByCriterion, correctionMethod,
           },
           signal: abortController.signal,
           onDiagnosticResult: captureDiagramDiagnostic,
@@ -2147,6 +2156,9 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
             ? { thinkingLevel: profile.configuration.analysisReasoningEffort ?? 'medium' }
             : {}),
         gradingOutputTokens: profile.configuration.gradingOutputTokens,
+        analysisTemperature: profile.configuration.analysisTemperature,
+        analysisTopP: profile.configuration.analysisTopP,
+        analysisTopK: profile.configuration.analysisTopK,
         criterionByCriterion: profile.configuration.criterionByCriterion,
         correctionMethod: effectiveMethod(profile),
         directVisualDecision: directProfiles(profile),
@@ -2210,6 +2222,9 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
           visionModel: configuration.visionModel,
           analysisModel: configuration.analysisModel,
           gradingOutputTokens: configuration.gradingOutputTokens,
+          analysisTemperature: configuration.analysisTemperature,
+          analysisTopP: configuration.analysisTopP,
+          analysisTopK: configuration.analysisTopK,
           thinking: configuration.thinking,
           ...(configuration.thinkingLevel ? { thinkingLevel: configuration.thinkingLevel } : {}),
           criterionByCriterion: configuration.criterionByCriterion,
@@ -2375,6 +2390,9 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
         ...(outputs.find((output) => output.configuration.id === profile.id)?.configuration.thinkingLevel
           ? { thinkingLevel: outputs.find((output) => output.configuration.id === profile.id)!.configuration.thinkingLevel } : {}),
         gradingOutputTokens: profile.configuration.gradingOutputTokens,
+        analysisTemperature: profile.configuration.analysisTemperature,
+        analysisTopP: profile.configuration.analysisTopP,
+        analysisTopK: profile.configuration.analysisTopK,
         criterionByCriterion: profile.configuration.criterionByCriterion,
         apiCompatible: profile.configuration.apiCompatible,
         correctionMethod: effectiveMethod(profile),
@@ -4672,7 +4690,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
         <label className="field-label" htmlFor="ollama-endpoint">{apiCompatible ? 'URL de l’API IA' : 'Adresse du serveur Ollama'}</label>
         <input id="ollama-endpoint" value={endpoint} onChange={(event) => { setEndpoint(event.target.value); setAvailableModels([]); setConnectionMessage(''); setTranscription(null); }} placeholder={apiCompatible ? 'https://serveur/v1/chat/completions' : 'http://localhost:11434'} />{apiCompatible && <small>LM Studio · Pour envoyer les photos une seule fois par copie en correction critère par critère, utilisez l’URL du serveur terminée par <code>/api/v1/chat</code>.</small>}
         {apiCompatible && <><label className="field-label" htmlFor="ai-api-key">Token API (Bearer)</label><input id="ai-api-key" type="password" autoComplete="new-password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder="Token d’accès" /><p className="hint">Le jeton est masqué dans les traces de diagnostic.</p></>}
-        <AiModelRoleFields prefix="ai" models={availableModels} generativeModel={generativeModel} decisionModel={decisionModel} method={correctionMethod} apiCompatible={apiCompatible} visionModel={visionModel} analysisThinking={analysisThinking} analysisReasoningEffort={analysisReasoningEffort} omitReasoningParameter={omitReasoningParameter} onOmitReasoningParameter={setOmitReasoningParameter} nativeChat={apiCompatible && /\/api\/v1\/chat\/?$/.test(endpoint.trim())} contextLength={contextLength} onContextLength={setContextLength} gradingOutputTokens={gradingOutputTokens} onGradingOutputTokens={setGradingOutputTokens} onAnalysisThinking={setAnalysisThinking} onAnalysisReasoningEffort={setAnalysisReasoningEffort} onGenerativeModel={changeGenerativeModel} onDecisionModel={setDecisionModel} onMethod={setCorrectionMethod} disabled={busy || pilotBusy} />
+        <AiModelRoleFields prefix="ai" models={availableModels} generativeModel={generativeModel} decisionModel={decisionModel} method={correctionMethod} apiCompatible={apiCompatible} visionModel={visionModel} analysisThinking={analysisThinking} analysisReasoningEffort={analysisReasoningEffort} omitReasoningParameter={omitReasoningParameter} onOmitReasoningParameter={setOmitReasoningParameter} nativeChat={apiCompatible && /\/api\/v1\/chat\/?$/.test(endpoint.trim())} contextLength={contextLength} onContextLength={setContextLength} gradingOutputTokens={gradingOutputTokens} onGradingOutputTokens={setGradingOutputTokens} analysisTemperature={analysisTemperature} analysisTopP={analysisTopP} analysisTopK={analysisTopK} onAnalysisTemperature={setAnalysisTemperature} onAnalysisTopP={setAnalysisTopP} onAnalysisTopK={setAnalysisTopK} onAnalysisThinking={setAnalysisThinking} onAnalysisReasoningEffort={setAnalysisReasoningEffort} onGenerativeModel={changeGenerativeModel} onDecisionModel={setDecisionModel} onMethod={setCorrectionMethod} disabled={busy || pilotBusy} />
         <details className="ai-model-advanced"><summary>Options avancées de lecture et de correction</summary>
         <label className="field-label" htmlFor="ollama-vision-model">Modèle de lecture des copies</label>
         {availableModels.length > 0 ? <DesignSystemSelect id="ollama-vision-model" value={visionModel} onChange={(event) => { setVisionModel(event.target.value); setTranscription(null); }}>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</DesignSystemSelect> : <input id="ollama-vision-model" value={visionModel} onChange={(event) => { setVisionModel(event.target.value); setTranscription(null); }} placeholder="Ex. gemma3:4b ou qwen2.5vl" />}
@@ -6147,7 +6165,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
             <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-profile-select">Charger un profil existant</label><DesignSystemSelect id="evaluation-profile-select" value={selectedAiModelProfileId} onChange={(event) => { const profile = aiModelProfiles.find((item) => item.id === event.target.value); if (profile) { setAiModelProfileName(profile.name); applyAiModelProfile(profile); } else { setSelectedAiModelProfileId(''); } }}><option value="">Nouvelle configuration / réglages courants</option>{aiModelProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name} · {profile.configuration.correctionMethod === 'visual-decision' ? 'vision + décisionnel direct' : profile.configuration.correctionMethod === 'decision' ? 'décisionnelle' : 'classique'}</option>)}</DesignSystemSelect></div>
             <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-profile-name">Nom de la configuration</label><input id="evaluation-profile-name" value={aiModelProfileName} onChange={(event) => setAiModelProfileName(event.target.value)} placeholder="Ex. Gemma rapide, Qwen raisonnement…" /></div>
             <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-provider">Fournisseur IA</label><DesignSystemSelect id="evaluation-provider" value={apiCompatible ? 'openai' : 'ollama'} onChange={(event) => { const compatible = event.target.value === 'openai'; setApiCompatible(compatible); setAvailableModels([]); setConnectionMessage(''); if (compatible && endpoint === 'http://localhost:11434') setEndpoint('https://serveur/v1/chat/completions'); if (!compatible && endpoint.includes('/v1/chat/completions')) setEndpoint('http://localhost:11434'); }}><option value="ollama">Ollama local</option><option value="openai">API compatible OpenAI</option></DesignSystemSelect></div><div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-ollama-endpoint">{apiCompatible ? 'URL de l’API IA' : 'Adresse du serveur Ollama'}</label><input id="evaluation-ollama-endpoint" value={endpoint} onChange={(event) => { setEndpoint(event.target.value); setAvailableModels([]); setConnectionMessage(''); }} placeholder={apiCompatible ? 'https://serveur/v1/chat/completions' : 'http://localhost:11434'} />{apiCompatible && <small>LM Studio · Pour envoyer les photos une seule fois par copie en correction critère par critère, utilisez l’URL du serveur terminée par <code>/api/v1/chat</code>.</small>}</div>{apiCompatible && <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-api-key">Token API (Bearer)</label><input id="evaluation-api-key" type="password" autoComplete="new-password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder="Token d’accès" /><small>Jeton masqué dans les traces de diagnostic.</small></div>}
-            <AiModelRoleFields prefix="evaluation" models={availableModels} generativeModel={generativeModel} decisionModel={decisionModel} method={correctionMethod} apiCompatible={apiCompatible} visionModel={visionModel} analysisThinking={analysisThinking} analysisReasoningEffort={analysisReasoningEffort} omitReasoningParameter={omitReasoningParameter} onOmitReasoningParameter={setOmitReasoningParameter} nativeChat={apiCompatible && /\/api\/v1\/chat\/?$/.test(endpoint.trim())} contextLength={contextLength} onContextLength={setContextLength} gradingOutputTokens={gradingOutputTokens} onGradingOutputTokens={setGradingOutputTokens} onAnalysisThinking={setAnalysisThinking} onAnalysisReasoningEffort={setAnalysisReasoningEffort} onGenerativeModel={changeGenerativeModel} onDecisionModel={setDecisionModel} onMethod={setCorrectionMethod} disabled={busy || pilotBusy} />
+            <AiModelRoleFields prefix="evaluation" models={availableModels} generativeModel={generativeModel} decisionModel={decisionModel} method={correctionMethod} apiCompatible={apiCompatible} visionModel={visionModel} analysisThinking={analysisThinking} analysisReasoningEffort={analysisReasoningEffort} omitReasoningParameter={omitReasoningParameter} onOmitReasoningParameter={setOmitReasoningParameter} nativeChat={apiCompatible && /\/api\/v1\/chat\/?$/.test(endpoint.trim())} contextLength={contextLength} onContextLength={setContextLength} gradingOutputTokens={gradingOutputTokens} onGradingOutputTokens={setGradingOutputTokens} analysisTemperature={analysisTemperature} analysisTopP={analysisTopP} analysisTopK={analysisTopK} onAnalysisTemperature={setAnalysisTemperature} onAnalysisTopP={setAnalysisTopP} onAnalysisTopK={setAnalysisTopK} onAnalysisThinking={setAnalysisThinking} onAnalysisReasoningEffort={setAnalysisReasoningEffort} onGenerativeModel={changeGenerativeModel} onDecisionModel={setDecisionModel} onMethod={setCorrectionMethod} disabled={busy || pilotBusy} />
           </div>
           <details className="ai-model-advanced"><summary>Options avancées du test</summary>
           <div className="evaluation-config-fields">
