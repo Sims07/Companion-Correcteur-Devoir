@@ -122,13 +122,13 @@ describe('vision + analyse générative directe (laboratoire scientifique)', () 
       pull(controller) {
         const fragment = fragments.shift();
         if (fragment === undefined) {
-          controller.enqueue(encoder.encode('data: {"choices":[{"delta":{},"finish_reason":"length"}]}\\n\\n'));
+          controller.enqueue(encoder.encode('data: {"choices":[{"delta":{},"finish_reason":"length"}]}\n\n'));
           controller.close();
           return;
         }
         controller.enqueue(encoder.encode('data: ' + JSON.stringify({
           choices: [{ delta: { content: fragment } }],
-        }) + '\\n\\n'));
+        }) + '\n\n'));
       },
       cancel() { cancelled = true; },
     });
