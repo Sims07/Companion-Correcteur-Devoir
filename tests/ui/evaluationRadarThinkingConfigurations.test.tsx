@@ -56,7 +56,7 @@ describe('radar UI for the same LLM with distinct reasoning levels', () => {
     const compare = [...mount.querySelectorAll('button')].find(button =>
       button.textContent?.includes('Comparer les LLM')) as HTMLButtonElement;
     await act(async () => compare.click());
-    expect(mount.querySelectorAll('article[aria-label="Schémas scientifiques"] [data-radar-model]')).toHaveLength(0);
+    expect(mount.querySelectorAll('article[aria-label="Schémas scientifiques"] [data-radar-model]')).toHaveLength(2);
     const compareOptions = mount.querySelector('select[aria-label="Ajouter un LLM à la comparaison"]') as HTMLSelectElement;
     expect([...compareOptions.options].map(option => option.value)).toContain('gemma-off');
     await act(async () => root.unmount());
