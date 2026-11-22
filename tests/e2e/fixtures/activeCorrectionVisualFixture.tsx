@@ -6,7 +6,7 @@ import { ActiveCopyProcessingWorkspace } from '../../../src/correction/ui/compon
  * Playwright-only fixture; Vite serves this TSX module to the test browser.
  * The real React component renders synthetic data, never an actual student copy.
  */
-export function mountActiveCorrectionVisualFixture(): void {
+export function mountActiveCorrectionVisualFixture(mode: 'standard' | 'diagram' = 'standard'): void {
   const sampleSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="750" height="980" viewBox="0 0 750 980">
     <rect width="750" height="980" fill="#fff"/>
     <text x="65" y="85" font-size="23" fill="#23435b" font-family="serif">Mitose : copie d'exemple</text>
@@ -45,6 +45,16 @@ export function mountActiveCorrectionVisualFixture(): void {
     ],
   };
 
+  const visualJob = mode === 'diagram' ? {
+    ...job, gradingFlow: 'scientific-diagram-direct' as const, criterionByCriterion: true,
+    completedCriteria: 3, activeCriterionId: 'reasoning',
+    partialCriteria: [
+      ...job.partialCriteria,
+      { criterionId: 'title', points: 2, confidence: 'high' as const, evidence: 'Titre visible', rationale: '' },
+      { criterionId: 'labels', points: 5, confidence: 'high' as const, evidence: 'Légendes visibles', rationale: '' },
+    ],
+  } : job;
+
   const fixture = document.createElement('div');
   fixture.className = 'teacher-flow-shell atelier-processing-test-fixture';
   fixture.innerHTML = `
@@ -61,5 +71,5 @@ export function mountActiveCorrectionVisualFixture(): void {
   document.body.appendChild(fixture);
   const container = fixture.querySelector<HTMLElement>('#atelier-processing-fixture-root');
   if (!container) throw new Error('Unable to mount the live processing fixture.');
-  createRoot(container).render(<ActiveCopyProcessingWorkspace job={toBackgroundJobOverview(job)} pages={job.images} studentLabel="Copie 1 - biologie cellulaire" />);
+  createRoot(container).render(<ActiveCopyProcessingWorkspace job={toBackgroundJobOverview(visualJob)} pages={visualJob.images} studentLabel="Copie 1 - biologie cellulaire" />);
 }
