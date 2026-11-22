@@ -25,6 +25,7 @@ import { resolveCloseDiagnosticCriteria } from '../../domain/diagnosticResolutio
 import { parseArbitrationDecisions } from '../../domain/arbitrationDecision.ts';
 import { parseModelJson } from '../../../shared/domain/modelJson.ts';
 import { isLmStudioChat } from '../../../shared/domain/openAiCompletionStream.ts';
+import { explainLmStudioContextLoadError } from '../../../shared/domain/lmStudioContextLoadError.ts';
 import { compatibleEndpoint, sendLmStudioDiagramTurn } from '../../../shared/adapters/ai/lmStudioDiagramChat.ts';
 import { createOpenAiCompatibleFetch } from '../../../shared/adapters/ai/openAiCompatibleTransport.ts';
 import { hasRepetitiveAnswerTail } from '../../../shared/domain/generationRepetition.ts';
@@ -693,7 +694,7 @@ export function createOllamaProvider(
             signal: requestAbortController.signal,
           }, request.diagramCriterionLabel ? intent + ' · ' + request.diagramCriterionLabel : intent, `Modèle ${model} · ${context}`);
           response = chat
-            ? await sendLmStudioDiagramTurn(endpoint, settings.apiKey ?? '', chat, { ...requestBody, omitReasoningParameter: settings.omitReasoningParameter }, init, fetchImpl, payload => activeRequestPayloads?.push(payload))
+            ? await sendLmStudioDiagramTurn(endpoint, settings.apiKey ?? '', chat, { ...requestBody, omitReasoningParameter: settings.omitReasoningParameter, contextLength: settings.contextLength }, init, fetchImpl, payload => activeRequestPayloads?.push(payload))
             : await providerFetch(`${endpoint}/api/chat`, init);
           clearFirstResponseTimeout();
         } catch (cause) {
@@ -718,7 +719,9 @@ export function createOllamaProvider(
               throw readinessCause;
             }
           }
-          const error = new Error(`${providerName} a répondu avec le statut HTTP ${response.status} pour le modèle « ${model} ».`);
+          const serverError = response.status === 400 && settings.apiCompatible && isLmStudioChat(endpoint)
+            ? explainLmStudioContextLoadError(await response.clone().text().catch(() => '')) : null;
+          const error = new Error(serverError ?? `${providerName} a répondu avec le statut HTTP ${response.status} pour le modèle « ${model} ».`);
           publishFailedCall(error);
           throw error;
         }

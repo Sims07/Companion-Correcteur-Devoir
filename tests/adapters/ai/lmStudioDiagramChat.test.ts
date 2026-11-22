@@ -23,4 +23,23 @@ describe('LM Studio native conversation reasoning configuration', () => {
     const second = JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body));
     expect(second.reasoning).toBe('off');
   });
+
+  it('delegates missing context to LM Studio but transmits 16384 explicitly when configured', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response('load failed', { status: 400 }));
+    const input = { model: 'qwen3-vl-32b-instruct-mlx', think: false, omitReasoningParameter: true,
+      messages: [{ content: 'Analyse le schéma' }], options: { num_predict: 512 } };
+    await sendLmStudioDiagramTurn('https://local.example/api/v1/chat', '', {}, input,
+      { method: 'POST' }, fetchMock, () => {});
+    await sendLmStudioDiagramTurn('https://local.example/api/v1/chat', '', {}, { ...input, contextLength: 16384 },
+      { method: 'POST' }, fetchMock, () => {});
+    const automatic = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    const explicit = JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body));
+    expect(automatic).not.toHaveProperty('context_length');
+    expect(automatic).not.toHaveProperty('reasoning');
+    expect(explicit.context_length).toBe(16384);
+    expect(explicit).not.toHaveProperty('reasoning');
+    expect(explicit.max_output_tokens).toBe(512);
+  });
+
+
 });

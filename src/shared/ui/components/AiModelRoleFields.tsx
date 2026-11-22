@@ -16,6 +16,9 @@ interface Props {
   analysisThinking: boolean;
   analysisReasoningEffort?: AnalysisReasoningEffort;
   omitReasoningParameter?: boolean;
+  nativeChat?: boolean;
+  contextLength?: number;
+  onContextLength?: (length: number | undefined) => void;
   onOmitReasoningParameter?: (omit: boolean) => void;
   gradingOutputTokens?: number;
   analysisTemperature?: number;
@@ -97,6 +100,16 @@ export function AiModelRoleFields(props: Props) {
             ? 'Thinking activé pour les prochaines analyses génératives.'
             : 'Thinking désactivé pour les prochaines analyses génératives.'}
       </p>
+      {apiCompatible && props.nativeChat && <div className="evaluation-config-field">
+        <label className="field-label" htmlFor={`${prefix}-context-length`}>Contexte LM Studio Chat (tokens, facultatif)</label>
+        <input id={`${prefix}-context-length`} type="number" min="1" step="1" disabled={disabled}
+          value={props.contextLength ?? ''} placeholder="Automatique (serveur)"
+          aria-describedby={`${prefix}-context-length-help`} onChange={(event) => {
+            if (!event.currentTarget.value) props.onContextLength?.(undefined);
+            else if (Number.isSafeInteger(event.currentTarget.valueAsNumber) && event.currentTarget.valueAsNumber > 0) props.onContextLength?.(event.currentTarget.valueAsNumber);
+          }} />
+        <small id={`${prefix}-context-length-help`}>Vide : aucun context_length envoyé, LM Studio choisit. Un modèle MLX peut nécessiter au minimum 16 384 tokens ; définir ce seuil ne garantit pas que la mémoire disponible suffise. S’applique uniquement aux appels /api/v1/chat. Attention : un bug signalé de MLX/Bionic peut ignorer la valeur demandée et appliquer AutoFit malgré tout. En cas d’échec, essayez GGUF/llama.cpp ou une variante moins gourmande.</small>
+      </div>}
       {apiCompatible && !decision && <div className="evaluation-config-field">
         <label className="field-label" htmlFor={prefix + '-grading-output'}>Plafond de sortie par correction (tokens)</label>
         <input id={prefix + '-grading-output'} type="number" min="1" step="1" disabled={disabled}

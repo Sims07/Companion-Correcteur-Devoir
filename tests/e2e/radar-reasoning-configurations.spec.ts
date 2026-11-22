@@ -99,3 +99,28 @@ test('un même Gemma Think Off avec T0 et T1 reste sélectionnable par configura
   await selector.selectOption('gemma-t1');
   await expect(selector).toHaveValue('gemma-t1');
 });
+
+
+test('le contexte LM Studio Chat est facultatif et sauvegardé dans les réglages enseignant', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(configuration => {
+    localStorage.setItem('companion-correcteur:ollama-configuration:v1', JSON.stringify({
+      ...configuration, apiCompatible: true, endpoint: 'http://localhost:1234/api/v1/chat',
+      visionModel: 'qwen3-vl-32b-instruct-mlx', analysisModel: 'qwen3-vl-32b-instruct-mlx',
+      contextLength: 16384,
+    }));
+  }, defaultAiModelConfiguration);
+  await page.reload();
+  await page.locator('.assignment-overview-card').first().getByRole('button', { name: /Reprendre le devoir/ }).click();
+  await page.getByRole('button', { name: /Réglages IA|Configurer l’IA/ }).click();
+  const input = page.locator('#ai-context-length');
+  await expect(input).toHaveValue('16384');
+  await input.fill('');
+  await expect.poll(async () => page.evaluate(() =>
+    JSON.parse(localStorage.getItem('companion-correcteur:ollama-configuration:v1') ?? '{}').contextLength))
+    .toBeUndefined();
+  await input.fill('16384');
+  await expect.poll(async () => page.evaluate(() =>
+    JSON.parse(localStorage.getItem('companion-correcteur:ollama-configuration:v1') ?? '{}').contextLength))
+    .toBe(16384);
+});

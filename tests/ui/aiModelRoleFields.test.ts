@@ -113,4 +113,25 @@ describe('shared simple AI model controls', () => {
   });
 
 
+
+  it('offers no imposed context threshold and supports a native Chat override', () => {
+    const onContextLength = vi.fn();
+    const { node } = render({ apiCompatible: true, nativeChat: true, onContextLength });
+    const input = node.querySelector<HTMLInputElement>('#evaluation-context-length')!;
+    expect(input.value).toBe('');
+    expect(input.placeholder).toContain('Automatique');
+    expect(node.textContent).toContain('aucun context_length envoyé');
+    act(() => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(input, '16384');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    expect(onContextLength).toHaveBeenCalledWith(16384);
+    const preset = render({ apiCompatible: true, nativeChat: true, contextLength: 16384 });
+    expect(preset.node.querySelector<HTMLInputElement>('#evaluation-context-length')?.value).toBe('16384');
+    expect(render({ apiCompatible: true, nativeChat: false }).node.querySelector('#evaluation-context-length')).toBeNull();
+    expect(render({ apiCompatible: false, nativeChat: false }).node.querySelector('#evaluation-context-length')).toBeNull();
+    expect(render({ apiCompatible: true, nativeChat: true, disabled: true })
+      .node.querySelector<HTMLInputElement>('#evaluation-context-length')?.disabled).toBe(true);
+  });
+
 });

@@ -128,4 +128,21 @@ describe('AI model configuration defaults', () => {
   });
 
 
+
+  it('omits model context by default and persists only explicit positive lengths', () => {
+    expect(defaultAiModelConfiguration.contextLength).toBeUndefined();
+    expect(parseAiModelConfiguration(null).contextLength).toBeUndefined();
+    expect(parseAiModelConfiguration(JSON.stringify({ endpoint: 'http://localhost:1234/api/v1/chat' })).contextLength).toBeUndefined();
+    for (const invalid of ['', 0, -5, '16384', 1.5, null]) {
+      expect(parseAiModelConfiguration(JSON.stringify({ contextLength: invalid })).contextLength).toBeUndefined();
+    }
+    expect(parseAiModelConfiguration(JSON.stringify({ contextLength: 16384 })).contextLength).toBe(16384);
+    const legacy = { id: 'legacy', name: 'Ancien profil', mode: 'single',
+      updatedAt: '2026-11-22T10:00:00Z', configuration: { ...defaultAiModelConfiguration } };
+    const migrated = parseAiModelProfiles(JSON.stringify([legacy]))[0]!;
+    expect(migrated.configuration).not.toHaveProperty('contextLength');
+    const explicit = { ...legacy, configuration: { ...defaultAiModelConfiguration, contextLength: 16384 } };
+    expect(parseAiModelProfiles(JSON.stringify([explicit]))[0]?.configuration.contextLength).toBe(16384);
+  });
+
 });

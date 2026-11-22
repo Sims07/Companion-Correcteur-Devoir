@@ -117,6 +117,8 @@ export interface OllamaSettings {
   apiCompatible?: boolean;
   /** Instruct models can reject even reasoning_effort: none. */
   omitReasoningParameter?: boolean;
+  /** Native LM Studio Chat context. Absent lets the server decide. */
+  contextLength?: number;
   /** Optional bearer token, never included in diagnostic metadata. */
   apiKey?: string;
   /** Legacy single-model mode remains supported for existing integrations. */
