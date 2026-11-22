@@ -26,7 +26,7 @@ it('envoie uniquement l’image originale à Ollama et extrait le point d’arri
   expect(payload.format).toEqual(DIAGRAM_RELATIONS_V2_SCHEMA);
   expect(payload.messages[1].images).toEqual([image.base64]);
   expect(payload.think).toBe(false);
-  expect(payload.options).toMatchObject({temperature:0,num_predict:2400,num_ctx:4096});
+  expect(payload.options).toEqual({num_predict:2400,num_ctx:4096});
   expect(JSON.stringify(payload)).not.toMatch(/0,68|9,34|8,66|flèches inversées|score de référence/);
 });
 

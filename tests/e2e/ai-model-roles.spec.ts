@@ -77,18 +77,23 @@ test('LM Studio high reasoning effort is saved and restored for biology evaluati
   const effort = editor.getByLabel('Effort de raisonnement');
   await expect(effort).toHaveValue('medium');
   await effort.selectOption('high');
+  await expect(editor.getByLabel('Température (facultative)')).toHaveValue('');
+  await editor.getByLabel('Température (facultative)').fill('0');
   await editor.getByLabel('Plafond de sortie par correction (tokens)').fill('16384');
   await expect(editor.locator('#evaluation-analysis-thinking-status')).toContainText('high');
   await editor.getByLabel('Nom de la configuration').fill('Gemma high');
   await editor.getByRole('button', { name: 'Enregistrer la configuration' }).click();
   const saved = await page.evaluate(key => JSON.parse(localStorage.getItem(key) ?? '[]'), profilesKey);
   expect(saved.find((profile: { name: string }) => profile.name === 'Gemma high')?.configuration).toMatchObject({
-    apiCompatible: true, analysisThinking: true, analysisReasoningEffort: 'high', gradingOutputTokens: 16384,
+    apiCompatible: true, analysisThinking: true, analysisReasoningEffort: 'high', temperature: 0, gradingOutputTokens: 16384,
   });
   await page.reload();
   editor = await openEvaluator(page);
   await editor.getByLabel('Charger un profil existant').selectOption(saved.find((profile: { name: string }) => profile.name === 'Gemma high').id);
   await expect(editor.getByLabel('Effort de raisonnement')).toHaveValue('high');
+  await expect(editor.getByLabel('Température (facultative)')).toHaveValue('0');
+  await editor.getByLabel('Température (facultative)').fill('');
+  await expect.poll(() => page.evaluate(key => Object.hasOwn(JSON.parse(localStorage.getItem(key) ?? '{}'), 'temperature'), settingsKey)).toBe(false);
   await editor.getByRole('checkbox', { name: /Activer Thinking/ }).uncheck();
   await expect(editor.getByLabel('Effort de raisonnement')).toHaveCount(0);
   await expect(editor.getByLabel('Plafond de sortie par correction (tokens)')).toHaveValue('16384');

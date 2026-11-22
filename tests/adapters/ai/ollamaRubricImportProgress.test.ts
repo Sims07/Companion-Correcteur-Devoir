@@ -58,7 +58,7 @@ describe('rubric import progress', () => {
       { endpoint: 'http://localhost:11434', visionModel: 'qwen3-vl:4b', analysisModel: 'qwen3.5:4b', transcriptionTokenLimit: 4096, transcriptionRepeatPenalty: 1.1 },
       fetchMock,
     );
-    expect(requestBodies[0].options).toMatchObject({ temperature: 0, num_predict: 2048, stop: ['\n\n\n\n'], repeat_penalty: 1.1 });
+    expect(requestBodies[0].options).toMatchObject({ num_predict: 2048, stop: ['\n\n\n\n'], repeat_penalty: 1.1 });
     expect(requestBodies[1].messages?.[0].content).toContain('LECTURE DOUTEUSE');
     expect(requestBodies[1].messages?.[0].content).toContain('Exercice 1 — Membrane cellulaire.');
     expect(requestBodies[1].messages?.[0].content).not.toMatch(/\\n{3,}/);

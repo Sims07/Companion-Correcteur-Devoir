@@ -57,13 +57,14 @@ export interface LaunchRubricAudit {
   rubric: Rubric;
   endpoint: string;
   model: string;
+  temperature?: number;
   thinking?: boolean;
 }
 
 /** Includes network, response validation and locally persisted results.
  * Cancellation never replaces the last verified audit. */
 export async function launchRubricAuditTask(
-  { assignmentId, rubric, endpoint, model, thinking = false }: LaunchRubricAudit,
+  { assignmentId, rubric, endpoint, model, temperature, thinking = false }: LaunchRubricAudit,
 ): Promise<void> {
   if (getRubricAuditTask(assignmentId).state === 'running') return;
   const controller = new AbortController();
@@ -73,7 +74,7 @@ export async function launchRubricAuditTask(
   publish(assignmentId, { state: 'running', signature, model, thinking, startedAt, phase: 'waiting' });
   try {
     const report = await auditRubricWithOllama(rubric, {
-      endpoint, model, thinking, signal: controller.signal,
+      endpoint, model, temperature, thinking, signal: controller.signal,
       onProgress: (progress) => {
         if (controllers.get(assignmentId) === controller && !controller.signal.aborted) {
           publish(assignmentId, { state: 'running', signature, model, thinking, startedAt, ...progress });

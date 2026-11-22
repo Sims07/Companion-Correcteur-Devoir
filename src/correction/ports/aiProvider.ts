@@ -136,6 +136,7 @@ export interface OllamaSettings {
   thinking?: boolean;
   /** Optional model-native level detected for a scientific diagram lab run. */
   thinkingLevel?: string;
+  temperature?: number;
   gradingOutputTokens?: number;
   /** Evaluate one rubric criterion per sequential analysis request instead of sending the whole rubric at once. */
   criterionByCriterion?: boolean;

@@ -62,7 +62,7 @@ test('rubric audit stays visible across diagnostics, blocks duplicates and compl
     await expect(page.getByRole('button', { name: /Continuer vers les copies/ })).toBeDisabled();
     await expect.poll(() => requests).toBe(1);
     expect(modes).toEqual([true]);
-    expect(tokenBudgets).toEqual([{ temperature: 0, num_predict: 16384, num_ctx: 24576 }]);
+    expect(tokenBudgets).toEqual([{ num_predict: 16384, num_ctx: 24576 }]);
 
     await page.getByRole('button', { name: 'Suivi & diagnostic' }).click();
     await page.getByRole('button', { name: 'Correction', exact: true }).click();

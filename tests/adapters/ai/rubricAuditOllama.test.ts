@@ -39,8 +39,8 @@ describe('audit barème local Ollama', () => {
     }
     expect(values).toEqual([true, false]);
     expect(budgets).toEqual([
-      { temperature: 0, num_predict: 16384, num_ctx: 24576 },
-      { temperature: 0, num_predict: 3584 },
+      { num_predict: 16384, num_ctx: 24576 },
+      { num_predict: 3584 },
     ]);
     expect(rubricAuditTokenBudget(true).num_predict).toBeGreaterThan(rubricAuditTokenBudget(false).num_predict * 4);
   });

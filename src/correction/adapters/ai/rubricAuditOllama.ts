@@ -109,6 +109,7 @@ export interface RubricAuditSettings {
   endpoint: string;
   model: string;
   /** Honor the teacher's Thinking preference for this local generative analysis. */
+  temperature?: number;
   thinking?: boolean;
   signal?: AbortSignal;
   onStage?: (stage: RubricAuditPhase) => void;
@@ -148,7 +149,7 @@ export async function auditRubricWithOllama(
     method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: settings.signal,
     body: JSON.stringify({
       model: settings.model, stream: true, think: settings.thinking === true, format: 'json',
-      options: { temperature: 0, ...rubricAuditTokenBudget(settings.thinking === true) },
+      options: { temperature: settings.temperature, ...rubricAuditTokenBudget(settings.thinking === true) },
       messages: [{ role: 'user', content: prompt }],
     }),
   }, 'Vérifier et clarifier le barème', 'Modèle local : ' + settings.model));

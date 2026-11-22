@@ -180,7 +180,7 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
               stream: false,
               ...(local ? { think: false } : { generation_token_parameter: 'max_tokens' as const }),
               format: schema,
-              options: { temperature: 0, num_predict: 1024, ...(local ? { num_ctx: 8192 } : {}) },
+              options: { temperature: request.temperature, num_predict: 1024, ...(local ? { num_ctx: 8192 } : {}) },
               messages: [{ role: 'user', content, imageDetail: 'high' as const, images: [local ? compactImage.base64 : 'data:' + compactImage.mimeType + ';base64,' + compactImage.base64] }],
             };
             if (local) requestPayload = JSON.stringify({ ...body, messages: body.messages.map((message) => ({ ...message, images: ['[IMAGE REDACTED]'] })) });
@@ -250,7 +250,7 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
           model: request.model,
           stream: false,
           ...(local ? { think: false } : { generation_token_parameter: 'max_tokens' as const }),
-          options: { temperature: 0, num_predict: 2048, ...(local ? { num_ctx: 8192 } : {}) },
+          options: { temperature: request.temperature, num_predict: 2048, ...(local ? { num_ctx: 8192 } : {}) },
           messages: [{
             role: 'user',
             content: prompt,

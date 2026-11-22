@@ -9,6 +9,7 @@ import { createOpenAiCompatibleFetch } from '../../../shared/adapters/ai/openAiC
 
 export interface RelationGraphV2Request {
   endpoint: string;
+  temperature?: number;
   apiCompatible?: boolean;
   apiKey?: string;
   think?: boolean | string;
@@ -48,7 +49,7 @@ export async function extractVisualRelationGraphV2(
         ],
         stream:false,format:compatible ? 'json' : DIAGRAM_RELATIONS_V2_SCHEMA,
         think:request.think ?? false,keep_alive:0,
-        options:{temperature:0,num_predict:2400,num_ctx:4096},
+        options:{temperature:request.temperature,num_predict:2400,num_ctx:4096},
       }),
     });
     if (!reply.ok) throw new Error('Lecture du graphe V2 indisponible ; vérifiez le modèle et le serveur sélectionnés.');

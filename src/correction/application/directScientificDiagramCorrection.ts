@@ -33,6 +33,7 @@ export async function correctScientificDiagramDirect(
     apiKey: configuration.apiKey,
     visionModel: configuration.visionModel,
     analysisModel: configuration.analysisModel,
+    temperature: configuration.temperature,
     gradingOutputTokens: configuration.gradingOutputTokens,
     thinking: configuration.analysisThinking,
     ...(configuration.apiCompatible && configuration.analysisThinking ? { thinkingLevel: configuration.analysisReasoningEffort } : {}),

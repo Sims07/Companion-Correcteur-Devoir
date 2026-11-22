@@ -12,6 +12,7 @@ import { createOpenAiCompatibleFetch } from '../../../shared/adapters/ai/openAiC
 export interface BlindGraphLocalRequest {
   endpoint: string;
   /** Explicit OpenAI-compatible profile; never inferred from endpoint alone. */
+  temperature?: number;
   apiCompatible?: boolean;
   apiKey?: string;
   model: string;
@@ -172,7 +173,7 @@ export async function extractBlindVisualGraph(
           { role: 'user', content: instruction + hints, images: [compatible ? `data:${request.image.mimeType};base64,${request.image.base64}` : request.image.base64] },
         ],
         stream: false, format: (request.zoomUncertainArrows || request.promptVariant === 'recheck-arrows') ? BLIND_VISUAL_OBSERVATION_ZOOM_SCHEMA : BLIND_VISUAL_OBSERVATION_SCHEMA, think: request.think ?? false, keep_alive: 0,
-        options: { temperature: 0, num_predict: 768, num_ctx: 2048 },
+        options: { temperature: request.temperature, num_predict: 768, num_ctx: 2048 },
       }),
     });
     if (!response.ok) throw new Error(compatible ? 'Le modèle Vision OpenAI-compatible n’a pas répondu.' : 'Le modèle Vision local n’a pas répondu.');
@@ -233,7 +234,7 @@ export async function extractBlindVisualGraph(
               { role: 'user', content: 'Identifiants à retrouver dans le recadrage : ' + JSON.stringify({ first: arrow.first, second: arrow.second }) + '. Quelle extrémité porte la pointe visible ?', images: [compatible ? `data:${crop.mimeType};base64,${crop.base64}` : crop.base64] },
             ],
             stream: false, format: compatible ? 'json' : BLIND_VISUAL_ZOOM_TIP_SCHEMA, think: request.think ?? false, keep_alive: 0,
-            options: { temperature: 0, num_predict: 64, num_ctx: 2048 },
+            options: { temperature: request.temperature, num_predict: 64, num_ctx: 2048 },
           }),
         });
         if (!followup.ok) { nativeTimingMissing = true; zoom.failures++; continue; }
@@ -309,7 +310,7 @@ export async function extractBlindVisualGraph(
                     images: [encode(image)] },
                 ],
                 stream: false, format: compatible ? 'json' : BLIND_VISUAL_ZOOM_TIP_SCHEMA,
-                think: request.think ?? false, keep_alive: 0, options: { temperature: 0, num_predict: 64, num_ctx: 2048 },
+                think: request.think ?? false, keep_alive: 0, options: { temperature: request.temperature, num_predict: 64, num_ctx: 2048 },
               }),
             });
             if (!followup.ok) { nativeTimingMissing = true; throw new Error('Relecture de flèche indisponible.'); }
@@ -369,7 +370,7 @@ export async function extractBlindVisualGraph(
                 properties: { containment: BLIND_VISUAL_OBSERVATION_SCHEMA.properties.containment },
                 required: ['containment'], additionalProperties: false,
               },
-              think: request.think ?? false, keep_alive: 0, options: { temperature: 0, num_predict: 512, num_ctx: 2048 },
+              think: request.think ?? false, keep_alive: 0, options: { temperature: request.temperature, num_predict: 512, num_ctx: 2048 },
             }),
           });
           if (!followup.ok) { nativeTimingMissing = true; throw new Error('Relecture des contours indisponible.'); }

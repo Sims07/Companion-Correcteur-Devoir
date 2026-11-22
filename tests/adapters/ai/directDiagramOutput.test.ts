@@ -327,6 +327,18 @@ describe('compact direct diagram output', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(JSON.parse(String(fetchMock.mock.calls[0]![1]?.body)).max_tokens).toBe(16384);
   });
+  it.each([undefined, 0, 0.75])('sends only an explicit diagram temperature (%s) to each backend', async temperature => {
+    for (const endpoint of ['http://localhost:11434', 'http://localhost:1234/v1/chat/completions', 'http://localhost:1234/api/v1/chat']) {
+      const fetchMock = vi.fn<typeof fetch>(async () => new Response('unavailable', { status: 503 }));
+      const apiCompatible = !endpoint.endsWith('11434');
+      await expect(createOllamaProvider({ endpoint, temperature, apiCompatible, analysisModel: 'gemma',
+        correctionMethod: 'generative' }, fetchMock).generate(request)).rejects.toThrow();
+      const body = JSON.parse(String(fetchMock.mock.calls[0]![1]?.body));
+      const options = apiCompatible ? body : body.options;
+      if (temperature === undefined) expect(options).not.toHaveProperty('temperature');
+      else expect(options.temperature).toBe(temperature);
+    }
+  });
   it('does not retry a failed HTTP request', async () => {
     const fetchMock = vi.fn(async () => new Response('unavailable', { status: 503 }));
     await expect(createOllamaProvider({ endpoint: 'http://localhost:11434', analysisModel: 'qwen3.5:4b',

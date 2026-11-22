@@ -8,6 +8,10 @@ export function parseAnalysisReasoningEffort(value: unknown): AnalysisReasoningE
   return value === 'low' || value === 'high' ? value : 'medium';
 }
 
+export function parseTemperature(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 2 ? value : undefined;
+}
+
 export function parseGradingOutputTokens(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isSafeInteger(value) && value > 0 ? value : undefined;
 }
@@ -31,6 +35,7 @@ export interface AiModelConfiguration {
   arbitratorModel: string;
   diagnosticStrategy: AiModelStrategy;
   analysisThinking: boolean;
+  temperature?: number;
   gradingOutputTokens?: number;
   /** Chat Completions effort when Thinking is enabled. */
   analysisReasoningEffort?: AnalysisReasoningEffort;
@@ -77,6 +82,7 @@ export function parseAiModelConfiguration(raw: string | null): AiModelConfigurat
       secondAnalysisModel: typeof candidate.secondAnalysisModel === 'string' ? candidate.secondAnalysisModel : '',
       arbitratorModel: typeof candidate.arbitratorModel === 'string' ? candidate.arbitratorModel : '',
       diagnosticStrategy: isStrategy(candidate.diagnosticStrategy) ? candidate.diagnosticStrategy : 'single',
+      temperature: parseTemperature(candidate.temperature),
       gradingOutputTokens: parseGradingOutputTokens(candidate.gradingOutputTokens),
       analysisThinking: candidate.analysisThinking === true,
       analysisReasoningEffort: parseAnalysisReasoningEffort(candidate.analysisReasoningEffort),
@@ -107,7 +113,7 @@ export function parseAiModelProfiles(raw: string | null): AiModelProfile[] {
         delete legacyConfiguration.detectTeacherAnnotations;
         delete legacyConfiguration.regionsEnabled;
         delete legacyConfiguration.regionsModel;
-        const configuration = { ...defaultAiModelConfiguration, ...legacyConfiguration, gradingOutputTokens: parseGradingOutputTokens(legacyConfiguration.gradingOutputTokens), analysisReasoningEffort: parseAnalysisReasoningEffort(legacyConfiguration.analysisReasoningEffort), correctionMethod: parseCorrectionMethod(legacyConfiguration.correctionMethod) };
+        const configuration = { ...defaultAiModelConfiguration, ...legacyConfiguration, temperature: parseTemperature(legacyConfiguration.temperature), gradingOutputTokens: parseGradingOutputTokens(legacyConfiguration.gradingOutputTokens), analysisReasoningEffort: parseAnalysisReasoningEffort(legacyConfiguration.analysisReasoningEffort), correctionMethod: parseCorrectionMethod(legacyConfiguration.correctionMethod) };
         if (configuration.transcriptionPenaltyParameter === 'frequency_penalty' && configuration.transcriptionFrequencyPenalty === 0.5) {
           configuration.transcriptionPenaltyParameter = 'none';
           configuration.transcriptionFrequencyPenalty = 0;

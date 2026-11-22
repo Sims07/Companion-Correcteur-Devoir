@@ -509,9 +509,10 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
   const [arbitratorModel, setArbitratorModel] = useState(() => readAiModelConfiguration().arbitratorModel);
   const [diagnosticStrategy, setDiagnosticStrategy] = useState<DiagnosticStrategy>(() => readAiModelConfiguration().diagnosticStrategy);
   const [analysisThinking, setAnalysisThinking] = useState(() => readAiModelConfiguration().analysisThinking);
+  const [temperature, setTemperature] = useState<number | undefined>(() => readAiModelConfiguration().temperature);
   const [analysisReasoningEffort, setAnalysisReasoningEffort] = useState<AnalysisReasoningEffort>(() => readAiModelConfiguration().analysisReasoningEffort ?? 'medium');
   const [gradingOutputTokens, setGradingOutputTokens] = useState(() => readAiModelConfiguration().gradingOutputTokens);
-  const teacherThinking = { gradingOutputTokens, thinking: analysisThinking, ...(apiCompatible && analysisThinking ? { thinkingLevel: analysisReasoningEffort } : {}) };
+  const teacherThinking = { temperature, gradingOutputTokens, thinking: analysisThinking, ...(apiCompatible && analysisThinking ? { thinkingLevel: analysisReasoningEffort } : {}) };
   const [criterionByCriterion, setCriterionByCriterion] = useState(() => readAiModelConfiguration().criterionByCriterion);
   const [aiModelProfiles, setAiModelProfiles] = useState<AiModelProfile[]>(readAiModelProfiles);
   const [aiModelProfileName, setAiModelProfileName] = useState('');
@@ -1137,10 +1138,10 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
   ];
 
   useEffect(() => {
-    const configuration: AiModelConfiguration = { generativeModel, decisionModel, endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, analysisReasoningEffort, gradingOutputTokens, criterionByCriterion, correctionMethod };
+    const configuration: AiModelConfiguration = { generativeModel, decisionModel, endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, analysisReasoningEffort, temperature, gradingOutputTokens, criterionByCriterion, correctionMethod };
     try { window.localStorage.setItem(aiModelConfigurationKey, JSON.stringify(configuration)); }
     catch { /* The current settings remain usable for this session if storage is unavailable. */ }
-  }, [generativeModel, decisionModel, endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, analysisReasoningEffort, gradingOutputTokens, criterionByCriterion, correctionMethod]);
+  }, [generativeModel, decisionModel, endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, analysisReasoningEffort, temperature, gradingOutputTokens, criterionByCriterion, correctionMethod]);
 
   function applyAiModelProfile(profile: AiModelProfile) {
     setEndpoint(profile.configuration.endpoint);
@@ -1160,6 +1161,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     setArbitratorModel(profile.configuration.arbitratorModel);
     setDiagnosticStrategy(profile.configuration.diagnosticStrategy);
     setAnalysisThinking(profile.configuration.analysisThinking);
+    setTemperature(profile.configuration.temperature);
     setGradingOutputTokens(profile.configuration.gradingOutputTokens);
     setAnalysisReasoningEffort(profile.configuration.analysisReasoningEffort ?? 'medium');
     setCriterionByCriterion(profile.configuration.criterionByCriterion);
@@ -1219,7 +1221,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
   function saveAiModelProfile() {
     const name = aiModelProfileName.trim();
     if (!name) { setAiModelProfileTone('warning'); setAiModelProfileMessage('Donnez un nom à cette configuration avant de l’enregistrer.'); return; }
-    const configuration: AiModelConfiguration = { generativeModel, decisionModel, endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, analysisReasoningEffort, gradingOutputTokens, criterionByCriterion, correctionMethod };
+    const configuration: AiModelConfiguration = { generativeModel, decisionModel, endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, analysisReasoningEffort, temperature, gradingOutputTokens, criterionByCriterion, correctionMethod };
     const profile: AiModelProfile = {
       id: selectedAiModelProfileId || 'ai-profile-' + Date.now(),
       name,
@@ -1404,7 +1406,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
       const preparedMessage = `${prepared.length} page(s) préparée(s) en images. Envoi au modèle de vision « ${visionModel} »…`;
       setRubricImportProgress({ stage: 'preparing', message: preparedMessage, page: 0, totalPages: prepared.length });
       setRubricImportEvents((events) => [...events, preparedMessage]);
-      const imported = await service.importRubricImage(prepared, { endpoint, apiCompatible, apiKey, visionModel, analysisModel: generativeModel, thinking: analysisThinking }, (progress) => {
+      const imported = await service.importRubricImage(prepared, { endpoint, apiCompatible, apiKey, visionModel, analysisModel: generativeModel, temperature, thinking: analysisThinking }, (progress) => {
         if (progress.diagnosticRun) rubricImportDiagnosticRuns.current.push(progress.diagnosticRun);
         setRubricImportProgress(progress);
         if (progress.rawResponse !== undefined && progress.rawResponseStage === 'vision') {
@@ -1704,7 +1706,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
           if (!subjectImages.length) throw new Error('Importez le sujet de référence avant la notation des schémas.');
           setCriterionProgressMessage('Lecture du sujet de référence avant la notation des schémas…');
           const subjectReader = service.createProvider({
-            endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking,
+            endpoint, apiCompatible, apiKey, visionModel, analysisModel, temperature, thinking: analysisThinking,
             transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty,
             transcriptionPenaltyParameter, transcriptionFrequencyPenalty,
           });
@@ -1717,7 +1719,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
           let classifications = isFreshCorrection ? null : pageClassifications;
           if (!classifications || classifications.length !== images.length) {
             setCriterionProgressMessage('Détection du type et de l’orientation des pages…');
-            classifications = await diagramAnalysisService.classifyPages({ images: textImages, model: visionModel, endpoint, apiKey, apiCompatible, onDiagnosticResult: captureDiagramDiagnostic, signal: abortController.signal });
+            classifications = await diagramAnalysisService.classifyPages({ images: textImages, model: visionModel, temperature, endpoint, apiKey, apiCompatible, onDiagnosticResult: captureDiagramDiagnostic, signal: abortController.signal });
             classificationWasJustCreated = true;
             const suggestions = await Promise.all(classifications.map(async (classification, index) => {
               const degrees = getConfidentDiagramRotation(classification, manualRotationAngles[index] !== undefined);
@@ -1736,7 +1738,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
               if (autoRotateScientificDiagrams) {
                 try {
                   const [verification] = await diagramAnalysisService.classifyPages({
-                    images: [suggestion.preview], model: visionModel, endpoint, apiKey, apiCompatible,
+                    images: [suggestion.preview], model: visionModel, temperature, endpoint, apiKey, apiCompatible,
                     onDiagnosticResult: captureDiagramDiagnostic,
                     signal: abortController.signal,
                   });
@@ -1782,7 +1784,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
                 rubric: diagramRubric,
                 model: visionModel,
                 endpoint,
-                apiKey,
+                temperature, apiKey,
                 apiCompatible,
                 onDiagnosticResult: captureDiagramDiagnostic,
                 signal: abortController.signal,
@@ -1830,7 +1832,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
           configuration: {
             ...defaultAiModelConfiguration,
             endpoint, apiCompatible, apiKey, visionModel, analysisModel,
-            analysisThinking, analysisReasoningEffort, gradingOutputTokens, criterionByCriterion, correctionMethod,
+            analysisThinking, analysisReasoningEffort, temperature, gradingOutputTokens, criterionByCriterion, correctionMethod,
           },
           signal: abortController.signal,
           onDiagnosticResult: captureDiagramDiagnostic,
@@ -2137,6 +2139,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
             profile.configuration.apiCompatible && profile.configuration.analysisThinking
             ? { thinkingLevel: profile.configuration.analysisReasoningEffort ?? 'medium' }
             : {}),
+        temperature: profile.configuration.temperature,
         gradingOutputTokens: profile.configuration.gradingOutputTokens,
         criterionByCriterion: profile.configuration.criterionByCriterion,
         correctionMethod: effectiveMethod(profile),
@@ -2198,6 +2201,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
           apiKey: configuration.apiKey,
           visionModel: configuration.visionModel,
           analysisModel: configuration.analysisModel,
+          temperature: configuration.temperature,
           gradingOutputTokens: configuration.gradingOutputTokens,
           thinking: configuration.thinking,
           ...(configuration.thinkingLevel ? { thinkingLevel: configuration.thinkingLevel } : {}),
@@ -2219,7 +2223,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
                 if (!observe) throw new Error('Lecteur de relations V2 indisponible.');
                 return extractDiagramGraphEvidenceV2(runImages, configuration.analysisModel, abortController.signal,
                   image => awaitOrAbort(() => observe(configuration.endpoint, configuration.analysisModel, image,
-                    abortController.signal, {apiCompatible: !!configuration.apiCompatible, apiKey: configuration.apiKey ?? '',
+                    abortController.signal, {temperature: configuration.temperature, apiCompatible: !!configuration.apiCompatible, apiKey: configuration.apiKey ?? '',
                       think: options?.diagram?.respectProfileThinking ? configuration.thinkingLevel ?? configuration.thinking : false}),
                   abortController.signal));
               })()
@@ -2228,7 +2232,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
                 if (!observe) throw new Error('Extraction de graphe indisponible.');
                 return extractDiagramGraphEvidence(runImages, configuration.analysisModel, abortController.signal,
                   image => awaitOrAbort(() => observe(configuration.endpoint, configuration.analysisModel, image,
-                    abortController.signal, undefined, {apiCompatible: !!configuration.apiCompatible,
+                    abortController.signal, undefined, {temperature: configuration.temperature, apiCompatible: !!configuration.apiCompatible,
                       apiKey: configuration.apiKey ?? '', promptVariant: 'isolated-arrows-outside',
                       think: options?.diagram?.respectProfileThinking ? configuration.thinkingLevel ?? configuration.thinking : false}),
                   abortController.signal));
@@ -2362,6 +2366,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
           ?? profile.configuration.analysisThinking,
         ...(outputs.find((output) => output.configuration.id === profile.id)?.configuration.thinkingLevel
           ? { thinkingLevel: outputs.find((output) => output.configuration.id === profile.id)!.configuration.thinkingLevel } : {}),
+        temperature: profile.configuration.temperature,
         gradingOutputTokens: profile.configuration.gradingOutputTokens,
         criterionByCriterion: profile.configuration.criterionByCriterion,
         apiCompatible: profile.configuration.apiCompatible,
@@ -3063,7 +3068,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
               const graph = await evaluationVision.extractBlindDiagramGraph(
                 profile.configuration.endpoint, model, entry.images[0]!, controller.signal,
                 (value) => { diagnostic = value; },
-                { apiCompatible: profile.configuration.apiCompatible, apiKey: profile.configuration.apiKey,
+                { temperature: profile.configuration.temperature, apiCompatible: profile.configuration.apiCompatible, apiKey: profile.configuration.apiKey,
                   promptVariant: request.promptVariant ?? 'baseline',
                   think: radarBatteryRef.current ? radarProfileThinking(profile.configuration) : false },
                 request.zoomUncertainArrows,
@@ -3602,7 +3607,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
           for (const job of jobs) {
             const rotation = await autoRotateScientificPages(
               job.images,
-              (pages) => diagramAnalysisService.classifyPages({ images: pages, model: visionModel, endpoint, apiKey, apiCompatible }),
+              (pages) => diagramAnalysisService.classifyPages({ images: pages, model: visionModel, temperature, endpoint, apiKey, apiCompatible }),
               (image, degrees) => service.rotateImage(image, degrees),
             );
             automaticRotationCount += rotation.rotatedPages.length;
@@ -4659,7 +4664,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
         <label className="field-label" htmlFor="ollama-endpoint">{apiCompatible ? 'URL de l’API IA' : 'Adresse du serveur Ollama'}</label>
         <input id="ollama-endpoint" value={endpoint} onChange={(event) => { setEndpoint(event.target.value); setAvailableModels([]); setConnectionMessage(''); setTranscription(null); }} placeholder={apiCompatible ? 'https://serveur/v1/chat/completions' : 'http://localhost:11434'} />{apiCompatible && <small>LM Studio · Pour envoyer les photos une seule fois par copie en correction critère par critère, utilisez l’URL du serveur terminée par <code>/api/v1/chat</code>.</small>}
         {apiCompatible && <><label className="field-label" htmlFor="ai-api-key">Token API (Bearer)</label><input id="ai-api-key" type="password" autoComplete="new-password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder="Token d’accès" /><p className="hint">Le jeton est masqué dans les traces de diagnostic.</p></>}
-        <AiModelRoleFields prefix="ai" models={availableModels} generativeModel={generativeModel} decisionModel={decisionModel} method={correctionMethod} apiCompatible={apiCompatible} visionModel={visionModel} analysisThinking={analysisThinking} analysisReasoningEffort={analysisReasoningEffort} gradingOutputTokens={gradingOutputTokens} onGradingOutputTokens={setGradingOutputTokens} onAnalysisThinking={setAnalysisThinking} onAnalysisReasoningEffort={setAnalysisReasoningEffort} onGenerativeModel={changeGenerativeModel} onDecisionModel={setDecisionModel} onMethod={setCorrectionMethod} disabled={busy || pilotBusy} />
+        <AiModelRoleFields prefix="ai" models={availableModels} generativeModel={generativeModel} decisionModel={decisionModel} method={correctionMethod} apiCompatible={apiCompatible} visionModel={visionModel} analysisThinking={analysisThinking} analysisReasoningEffort={analysisReasoningEffort} temperature={temperature} onTemperature={setTemperature} gradingOutputTokens={gradingOutputTokens} onGradingOutputTokens={setGradingOutputTokens} onAnalysisThinking={setAnalysisThinking} onAnalysisReasoningEffort={setAnalysisReasoningEffort} onGenerativeModel={changeGenerativeModel} onDecisionModel={setDecisionModel} onMethod={setCorrectionMethod} disabled={busy || pilotBusy} />
         <details className="ai-model-advanced"><summary>Options avancées de lecture et de correction</summary>
         <label className="field-label" htmlFor="ollama-vision-model">Modèle de lecture des copies</label>
         {availableModels.length > 0 ? <DesignSystemSelect id="ollama-vision-model" value={visionModel} onChange={(event) => { setVisionModel(event.target.value); setTranscription(null); }}>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</DesignSystemSelect> : <input id="ollama-vision-model" value={visionModel} onChange={(event) => { setVisionModel(event.target.value); setTranscription(null); }} placeholder="Ex. gemma3:4b ou qwen2.5vl" />}
@@ -5382,7 +5387,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
           </section>}
           {rubricImportMessage && <StatusNotice tone={rubricImportTone}>{rubricImportMessage}</StatusNotice>}
         </div></details>
-        <ContractPreparationPanel key={activeAssignmentId} assignmentId={activeAssignmentId ?? 'current'} rubric={rubric} service={service} settings={{ endpoint, apiCompatible, apiKey, visionModel, analysisModel: generativeModel, thinking: analysisThinking, correctionMethod: 'generative' }} disabled={busy || rubricFileImporting || rubricImageImporting} existingDocument={subjectTranscription || rubricImportVisionResponse} onApply={(next) => { setRubric(next); setProposal(null); setReview([]); setScientificDiagramAnalysis(null); }} />
+        <ContractPreparationPanel key={activeAssignmentId} assignmentId={activeAssignmentId ?? 'current'} rubric={rubric} service={service} settings={{ endpoint, apiCompatible, apiKey, visionModel, analysisModel: generativeModel, temperature, thinking: analysisThinking, correctionMethod: 'generative' }} disabled={busy || rubricFileImporting || rubricImageImporting} existingDocument={subjectTranscription || rubricImportVisionResponse} onApply={(next) => { setRubric(next); setProposal(null); setReview([]); setScientificDiagramAnalysis(null); }} />
         <div className="rubric-editor-toolbar"><button type="button" className="primary-button" onClick={addCriterion}><CopyActionIcon name="add" />Ajouter un critère</button><span className={validation.valid ? 'validation valid' : 'validation invalid'}>{validation.valid ? '✓ Barème cohérent' : validation.errors.join(' ')}</span></div>
         <div className="criteria-list">
           {rubric.criteria.map((criterion, criterionIndex) => <details className="criterion-editor" key={criterion.id} open={expandedCriterionId === criterion.id}>
@@ -5435,7 +5440,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
       </aside>}
       </div>
 
-      {interfaceMode === 'teacher' && validation.valid && <RubricAuditPanel key={activeAssignmentId} rubric={rubric} assignmentId={activeAssignmentId} endpoint={endpoint} model={generativeModel} thinking={!apiCompatible && analysisThinking} onApply={(clarified) => { setRubric(clarified); setProposal(null); setReview([]); setScientificDiagramAnalysis(null); }} />}
+      {interfaceMode === 'teacher' && validation.valid && <RubricAuditPanel key={activeAssignmentId} rubric={rubric} assignmentId={activeAssignmentId} endpoint={endpoint} model={generativeModel} temperature={temperature} thinking={!apiCompatible && analysisThinking} onApply={(clarified) => { setRubric(clarified); setProposal(null); setReview([]); setScientificDiagramAnalysis(null); }} />}
 
       {interfaceMode === 'teacher' && <section className="panel atelier-rubric-secondary-tools" aria-labelledby="rubric-transfer-heading">
         <h3 id="rubric-transfer-heading" tabIndex={-1}>Réutiliser, importer ou exporter des critères</h3>
@@ -6134,7 +6139,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
             <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-profile-select">Charger un profil existant</label><DesignSystemSelect id="evaluation-profile-select" value={selectedAiModelProfileId} onChange={(event) => { const profile = aiModelProfiles.find((item) => item.id === event.target.value); if (profile) { setAiModelProfileName(profile.name); applyAiModelProfile(profile); } else { setSelectedAiModelProfileId(''); } }}><option value="">Nouvelle configuration / réglages courants</option>{aiModelProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name} · {profile.configuration.correctionMethod === 'visual-decision' ? 'vision + décisionnel direct' : profile.configuration.correctionMethod === 'decision' ? 'décisionnelle' : 'classique'}</option>)}</DesignSystemSelect></div>
             <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-profile-name">Nom de la configuration</label><input id="evaluation-profile-name" value={aiModelProfileName} onChange={(event) => setAiModelProfileName(event.target.value)} placeholder="Ex. Gemma rapide, Qwen raisonnement…" /></div>
             <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-provider">Fournisseur IA</label><DesignSystemSelect id="evaluation-provider" value={apiCompatible ? 'openai' : 'ollama'} onChange={(event) => { const compatible = event.target.value === 'openai'; setApiCompatible(compatible); setAvailableModels([]); setConnectionMessage(''); if (compatible && endpoint === 'http://localhost:11434') setEndpoint('https://serveur/v1/chat/completions'); if (!compatible && endpoint.includes('/v1/chat/completions')) setEndpoint('http://localhost:11434'); }}><option value="ollama">Ollama local</option><option value="openai">API compatible OpenAI</option></DesignSystemSelect></div><div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-ollama-endpoint">{apiCompatible ? 'URL de l’API IA' : 'Adresse du serveur Ollama'}</label><input id="evaluation-ollama-endpoint" value={endpoint} onChange={(event) => { setEndpoint(event.target.value); setAvailableModels([]); setConnectionMessage(''); }} placeholder={apiCompatible ? 'https://serveur/v1/chat/completions' : 'http://localhost:11434'} />{apiCompatible && <small>LM Studio · Pour envoyer les photos une seule fois par copie en correction critère par critère, utilisez l’URL du serveur terminée par <code>/api/v1/chat</code>.</small>}</div>{apiCompatible && <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-api-key">Token API (Bearer)</label><input id="evaluation-api-key" type="password" autoComplete="new-password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder="Token d’accès" /><small>Jeton masqué dans les traces de diagnostic.</small></div>}
-            <AiModelRoleFields prefix="evaluation" models={availableModels} generativeModel={generativeModel} decisionModel={decisionModel} method={correctionMethod} apiCompatible={apiCompatible} visionModel={visionModel} analysisThinking={analysisThinking} analysisReasoningEffort={analysisReasoningEffort} gradingOutputTokens={gradingOutputTokens} onGradingOutputTokens={setGradingOutputTokens} onAnalysisThinking={setAnalysisThinking} onAnalysisReasoningEffort={setAnalysisReasoningEffort} onGenerativeModel={changeGenerativeModel} onDecisionModel={setDecisionModel} onMethod={setCorrectionMethod} disabled={busy || pilotBusy} />
+            <AiModelRoleFields prefix="evaluation" models={availableModels} generativeModel={generativeModel} decisionModel={decisionModel} method={correctionMethod} apiCompatible={apiCompatible} visionModel={visionModel} analysisThinking={analysisThinking} analysisReasoningEffort={analysisReasoningEffort} temperature={temperature} onTemperature={setTemperature} gradingOutputTokens={gradingOutputTokens} onGradingOutputTokens={setGradingOutputTokens} onAnalysisThinking={setAnalysisThinking} onAnalysisReasoningEffort={setAnalysisReasoningEffort} onGenerativeModel={changeGenerativeModel} onDecisionModel={setDecisionModel} onMethod={setCorrectionMethod} disabled={busy || pilotBusy} />
           </div>
           <details className="ai-model-advanced"><summary>Options avancées du test</summary>
           <div className="evaluation-config-fields">

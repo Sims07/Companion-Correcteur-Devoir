@@ -8,6 +8,11 @@ const profile: AiModelProfile = {
 };
 
 describe('AI model configuration persistence', () => {
+  it.each([[undefined, undefined], [0, 0], [0.65, 0.65], [2, 2], [-1, undefined], ['1', undefined]])('restores optional temperature %s', (value, expected) => {
+    const configuration = { ...profile.configuration, temperature: value };
+    expect(parseAiModelConfiguration(JSON.stringify(configuration)).temperature).toBe(expected);
+    expect(parseAiModelProfiles(JSON.stringify([{ ...profile, configuration }]))[0]!.configuration.temperature).toBe(expected);
+  });
   it.each([undefined, 0, -1, 1.25, '16384', 16384])('restores a positive whole grading budget (%s)', value => {
     const configuration = { ...profile.configuration, gradingOutputTokens: value };
     const expected = value === 16384 ? value : undefined;

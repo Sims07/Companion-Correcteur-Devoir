@@ -19,6 +19,7 @@ interface Props {
   assignmentId: string;
   endpoint: string;
   model: string;
+  temperature?: number;
   thinking?: boolean;
   onApply: (rubric: Rubric) => void;
 }
@@ -70,7 +71,7 @@ function RubricChanges({ version }: { version: ClarifiedRubricVersion }) {
   </ol>;
 }
 
-export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, thinking = false, onApply }: Props) {
+export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, temperature, thinking = false, onApply }: Props) {
   const signature = rubricEvaluationSignature(rubric);
   const [session, setSession] = useState<RubricAuditSession | null>(() => load(assignmentId, rubric));
   const subscribe = useCallback((listener: () => void) => subscribeRubricAuditTask(assignmentId, listener), [assignmentId]);
@@ -168,7 +169,7 @@ export function RubricAuditPanel({ rubric, assignmentId, endpoint, model, thinki
     if (busy) return;
     setMessage('');
     setActiveIssueIndex(0);
-    void launchRubricAuditTask({ assignmentId, rubric, endpoint, model, thinking });
+    void launchRubricAuditTask({ assignmentId, rubric, endpoint, model, temperature, thinking });
   }
 
   function recoverAudit() {

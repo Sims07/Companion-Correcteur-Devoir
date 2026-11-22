@@ -572,7 +572,7 @@ export function createOllamaProvider(
         streamChunk?: (chunk: string) => void,
         json: boolean | Record<string, unknown> = false,
         think: boolean | string = false,
-        tracking?: Pick<DiagnosticModelResult, 'kind' | 'stage' | 'purpose'> & { deferResult?: boolean; temperature?: number; contextTokenLimit?: number; generationTokenLimit?: number; stop?: string[]; repeatPenalty?: number; allowTruncated?: boolean; intent?: string; context?: string; onDoneReason?: (reason: string) => void; onSuspiciousStop?: () => void; pageIndex?: number; promptId?: PromptId },
+        tracking?: Pick<DiagnosticModelResult, 'kind' | 'stage' | 'purpose'> & { deferResult?: boolean; contextTokenLimit?: number; generationTokenLimit?: number; stop?: string[]; repeatPenalty?: number; allowTruncated?: boolean; intent?: string; context?: string; onDoneReason?: (reason: string) => void; onSuspiciousStop?: () => void; pageIndex?: number; promptId?: PromptId },
       ): Promise<string> {
         if (chat?.responseId) images = undefined;
         const startedAt = Date.now();
@@ -630,7 +630,7 @@ export function createOllamaProvider(
               options: {
                 contextTokens: tracking.contextTokenLimit ?? (tracking.kind === 'vision' ? 4096 : 8192),
                 generationTokenLimit: tracking.generationTokenLimit ?? 2048,
-                ...(tracking.temperature !== undefined ? { temperature: tracking.temperature } : {}),
+                ...(settings.temperature !== undefined ? { temperature: settings.temperature } : {}),
                 ...(tracking.stop ? { stop: tracking.stop } : {}),
                 ...(tracking.repeatPenalty !== undefined ? { repeatPenalty: tracking.repeatPenalty } : {}),
                 ...(settings.apiCompatible && settings.transcriptionPenaltyParameter === 'frequency_penalty' && settings.transcriptionFrequencyPenalty !== undefined
@@ -661,7 +661,7 @@ export function createOllamaProvider(
                 // Keep the analysis budget generous while limiting vision memory on Intel Macs.
                 num_ctx: tracking?.contextTokenLimit ?? (tracking?.kind === 'vision' ? 4096 : 8192),
                 num_predict: tracking?.generationTokenLimit ?? 2048,
-                ...(tracking?.temperature !== undefined ? { temperature: tracking.temperature } : {}),
+                ...(settings.temperature !== undefined ? { temperature: settings.temperature } : {}),
                 ...(tracking?.stop ? { stop: tracking.stop } : {}),
                 ...(tracking?.repeatPenalty !== undefined ? { repeat_penalty: tracking.repeatPenalty } : {}),
               },
@@ -762,7 +762,7 @@ export function createOllamaProvider(
                 options: {
                   contextTokens: tracking.contextTokenLimit ?? (tracking.kind === 'vision' ? 4096 : 8192),
                   generationTokenLimit: tracking.generationTokenLimit ?? 2048,
-                  ...(tracking?.temperature !== undefined ? { temperature: tracking.temperature } : {}),
+                  ...(settings.temperature !== undefined ? { temperature: settings.temperature } : {}),
                   ...(tracking?.stop ? { stop: tracking.stop } : {}),
                   ...(tracking?.repeatPenalty !== undefined ? { repeatPenalty: tracking.repeatPenalty } : {}),
                   ...(settings.apiCompatible && settings.transcriptionPenaltyParameter === 'frequency_penalty' && settings.transcriptionFrequencyPenalty !== undefined
@@ -871,7 +871,7 @@ export function createOllamaProvider(
                   : directDiagramPointsRepairSchema(targeted.issues)
                 : schema,
               directThinking,
-              { kind: 'model', stage: 'analysis', temperature: 0,
+              { kind: 'model', stage: 'analysis',
                 contextTokenLimit: directContextBudget,
                 generationTokenLimit: directGenerationBudget,
                 promptId: attempt === 0 || retryingLength ? 'diagram.direct-grading' : 'diagram.direct-repair',
@@ -925,7 +925,7 @@ export function createOllamaProvider(
           const pageLabel = image.fileName || `sujet page ${index + 1}`;
           let subjectTruncated = false;
           const pageText = await sendStream(visionModel, buildSubjectReferencePrompt(pageLabel, request.referenceIncludesCorrection), [providerImage(image)], onChunk, false, false, {
-            kind: 'vision', stage: 'reading', promptId: 'vision.subject-reference', intent: 'Lire et transcrire une page du sujet', context: `${pageLabel} · page ${index + 1}/${subjectImages.length}`, temperature: 0,
+            kind: 'vision', stage: 'reading', promptId: 'vision.subject-reference', intent: 'Lire et transcrire une page du sujet', context: `${pageLabel} · page ${index + 1}/${subjectImages.length}`,
             generationTokenLimit: Math.min(2048, Math.max(128, Math.floor(settings.transcriptionTokenLimit ?? 2048))),
             stop: ['\n\n\n\n'], repeatPenalty: settings.transcriptionRepeatPenalty ?? 1.05,
             allowTruncated: true,
@@ -969,7 +969,7 @@ export function createOllamaProvider(
                 promptId: 'vision.student-identity',
                 intent: 'Identifier l’étudiant',
                 context: 'Première page · bande supérieure · en-tête gauche et droit',
-                temperature: 0,
+
                 generationTokenLimit: 256,
                 allowTruncated: true,
               },
@@ -994,7 +994,7 @@ export function createOllamaProvider(
                 promptId: 'vision.student-identity-fallback',
                 intent: 'Réessayer l’identification de l’étudiant',
                 context: 'Première page · en-tête recadré',
-                temperature: 0,
+
                 generationTokenLimit: 256,
                 allowTruncated: true,
               },
@@ -1029,7 +1029,7 @@ export function createOllamaProvider(
             false,
             false,
             {
-              kind: 'vision', stage: 'reading', promptId: 'vision.copy-transcription', intent: 'Lire et transcrire une page de copie', context: `${pageLabel} · page ${request.pageNumbers?.[index] ?? index + 1}/${request.totalPageCount ?? request.images?.length ?? 0}`, pageIndex: request.pageNumbers?.[index] ?? index + 1, temperature: 0,
+              kind: 'vision', stage: 'reading', promptId: 'vision.copy-transcription', intent: 'Lire et transcrire une page de copie', context: `${pageLabel} · page ${request.pageNumbers?.[index] ?? index + 1}/${request.totalPageCount ?? request.images?.length ?? 0}`, pageIndex: request.pageNumbers?.[index] ?? index + 1,
               generationTokenLimit: transcriptionLimit,
               stop: ['\n\n\n\n'],
               repeatPenalty: settings.transcriptionRepeatPenalty ?? 1.05,
@@ -1062,7 +1062,7 @@ export function createOllamaProvider(
           let annotationResponse: string;
           try {
             annotationResponse = await sendStream(visionModel, buildTeacherAnnotationPrompt(originalPageText), [providerImage(image)], undefined, annotationSchema, false, {
-              kind: 'vision', stage: 'reading', promptId: 'vision.teacher-annotations', temperature: 0, generationTokenLimit: 2048,
+              kind: 'vision', stage: 'reading', promptId: 'vision.teacher-annotations', generationTokenLimit: 2048,
             });
           } catch (cause) {
             const detail = cause instanceof Error ? cause.message : 'erreur inconnue du modèle de lecture';
@@ -1075,7 +1075,7 @@ export function createOllamaProvider(
           if (!detection.studentTranscription) {
             const repairPrompt = buildTeacherAnnotationRepairPrompt(originalPageText, annotationResponse);
             try {
-              const repaired = await sendStream(visionModel, repairPrompt, [providerImage(image)], undefined, annotationSchema, false, { kind: 'vision', stage: 'reading', promptId: 'vision.teacher-annotations-repair', temperature: 0, generationTokenLimit: 1024, allowTruncated: true, intent: 'Réparer la détection des annotations', context: 'Page ' + pageNumber });
+              const repaired = await sendStream(visionModel, repairPrompt, [providerImage(image)], undefined, annotationSchema, false, { kind: 'vision', stage: 'reading', promptId: 'vision.teacher-annotations-repair', generationTokenLimit: 1024, allowTruncated: true, intent: 'Réparer la détection des annotations', context: 'Page ' + pageNumber });
               detection = parseTeacherAnnotationDetection(repaired);
             } catch (repairCause) {
               const warning = `Détection des annotations non exploitable sur la page ${pageNumber} : ${repairCause instanceof Error ? repairCause.message : 'réponse invalide'}. La transcription initiale est conservée uniquement pour vérification ; la correction est interrompue.`;
@@ -1543,7 +1543,8 @@ export async function importRubricImageWithOllama(
           stream: true,
           think: false,
           options: {
-            temperature: 0,
+
+            temperature: settings.temperature,
             num_predict: Math.min(2048, Math.max(128, Math.floor(settings.transcriptionTokenLimit ?? 2048))),
             stop: ['\n\n\n\n'],
             repeat_penalty: settings.transcriptionRepeatPenalty ?? 1.05,
@@ -1646,7 +1647,7 @@ export async function importRubricImageWithOllama(
           model: analysisModel,
           stream: false,
           think: settings.thinking ? (settings.thinkingLevel ?? true) : false,
-          options: { temperature: 0, num_predict: outputTokens },
+          options: { temperature: settings.temperature, num_predict: outputTokens },
           ...(settings.apiCompatible ? { generation_token_parameter: 'max_completion_tokens' as const } : {}),
           format: schema,
           messages: [{

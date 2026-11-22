@@ -352,7 +352,7 @@ describe('Ollama adapter', () => {
     const sse = ['data: {"choices":[{"delta":{"content":"Transcription lue"},"finish_reason":"stop"}]}', '', 'data: [DONE]', ''].join('\n');
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(sse, { status: 200, headers: { 'Content-Type': 'text/event-stream' } }));
     const onDiagnosticResult = vi.fn();
-    const provider = createOllamaProvider({ endpoint: 'https://api.example', apiCompatible: true, apiKey: 'secret-token', model: 'vision-model' }, fetchMock);
+    const provider = createOllamaProvider({ endpoint: 'https://api.example', apiCompatible: true, apiKey: 'secret-token', temperature: 0, model: 'vision-model' }, fetchMock);
     await provider.generate({ ...request, visionOnly: true }, undefined, undefined, undefined, onDiagnosticResult);
     const trace = onDiagnosticResult.mock.calls[0][0];
     expect(trace.requestMetadata).toMatchObject({ provider: 'openai-compatible', endpoint: 'https://api.example', options: { temperature: 0 } });
@@ -573,7 +573,7 @@ describe('Ollama adapter', () => {
     expect(visionBody.messages[0].content).toContain('Transcris fidèlement');
     expect(visionBody.messages[0].images).toEqual(['aGVsbG8=']);
     expect(visionBody.format).toBeUndefined();
-    expect(visionBody.options).toMatchObject({ temperature: 0, num_predict: 2048, repeat_penalty: 1.05, stop: ['\n\n\n\n'] });
+    expect(visionBody.options).toMatchObject({ num_predict: 2048, repeat_penalty: 1.05, stop: ['\n\n\n\n'] });
     expect(transcriptions[0]).toContain('Transcription fidèle de la copie');
     expect(transcriptions[0]).not.toMatch(/\\n{3,}$/);
 

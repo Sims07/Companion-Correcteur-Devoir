@@ -15,6 +15,8 @@ interface Props {
   apiCompatible: boolean;
   analysisThinking: boolean;
   analysisReasoningEffort?: AnalysisReasoningEffort;
+  temperature?: number;
+  onTemperature?: (value: number | undefined) => void;
   gradingOutputTokens?: number;
   onGradingOutputTokens?: (value: number | undefined) => void;
   disabled?: boolean;
@@ -82,6 +84,16 @@ export function AiModelRoleFields(props: Props) {
             ? 'Thinking activé pour les prochaines analyses génératives.'
             : 'Thinking désactivé pour les prochaines analyses génératives.'}
       </p>
+      {!decision && <div className="evaluation-config-field">
+        <label className="field-label" htmlFor={prefix + '-temperature'}>Température (facultative)</label>
+        <input id={prefix + '-temperature'} type="number" min="0" max="2" step="any" disabled={disabled}
+          placeholder="Par défaut du modèle" value={props.temperature ?? ''}
+          aria-describedby={prefix + '-temperature-help'} onChange={event => {
+            if (!event.target.value) props.onTemperature?.(undefined);
+            else if (event.target.validity.valid) props.onTemperature?.(event.target.valueAsNumber);
+          }} />
+        <small id={prefix + '-temperature-help'}>Laissez vide pour utiliser le réglage du serveur. Zéro est une valeur explicite.</small>
+      </div>}
       {apiCompatible && !decision && <div className="evaluation-config-field">
         <label className="field-label" htmlFor={prefix + '-grading-output'}>Plafond de sortie par correction (tokens)</label>
         <input id={prefix + '-grading-output'} type="number" min="1" step="1" disabled={disabled}

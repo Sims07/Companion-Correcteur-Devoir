@@ -13,6 +13,7 @@ export interface ModelEvaluationConfiguration {
   thinking: boolean;
   /** Native Ollama named thinking level discovered for this diagram run, if required. */
   thinkingLevel?: string;
+  temperature?: number;
   gradingOutputTokens?: number;
   criterionByCriterion?: boolean;
   correctionMethod?: CorrectionMethod;

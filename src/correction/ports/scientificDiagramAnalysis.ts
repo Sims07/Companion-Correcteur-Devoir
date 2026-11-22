@@ -15,6 +15,7 @@ export interface ScientificDiagramAnalysisRequest {
   model: string;
   endpoint: string;
   apiKey: string;
+  temperature?: number;
   apiCompatible?: boolean;
   /** Cancels in-flight visual model calls, including page classification. */
   signal?: AbortSignal;
@@ -26,6 +27,7 @@ export interface ScientificPageClassificationRequest {
   model: string;
   endpoint: string;
   apiKey: string;
+  temperature?: number;
   apiCompatible?: boolean;
   /** Cancels in-flight visual model calls, including page classification. */
   signal?: AbortSignal;

@@ -31,7 +31,7 @@ export function radarConfigurationLabel(profile: RadarModelConfiguration): strin
   const think = config.analysisThinking
     ? 'Think ' + (config.apiCompatible ? config.analysisReasoningEffort ?? 'medium' : 'On')
     : 'Think Off';
-  return profile.name + ' · ' + think;
+  return profile.name + ' · ' + think + (config.temperature === undefined ? '' : ' · T ' + config.temperature);
 }
 
 /** Translate the saved thinking choice into the actual Ollama/LM Studio request.
