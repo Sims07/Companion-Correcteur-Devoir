@@ -3,7 +3,7 @@ import { clearNetworkHistory, getNetworkInspectorStatus, loadNetworkHistory, net
 import '../../shared/ui/networkInspector.css';
 import { isOllamaInferenceRequest } from '../../shared/domain/ollamaTimings.ts';
 import { extractOllamaMessage, extractOllamaThinking } from '../../shared/domain/ollamaThinkingStream.ts';
-import { extractOpenAiCompletion, isOpenAiCompletionRequest } from '../../shared/domain/openAiCompletionStream.ts';
+import { extractOpenAiCompletion, isLmStudioChat, isOpenAiCompletionRequest } from '../../shared/domain/openAiCompletionStream.ts';
 import { modelTokenRate } from '../../shared/domain/modelTokenRate.ts';
 
 type Filter = 'all' | 'pending' | 'error' | 'success';
@@ -27,7 +27,8 @@ function requestedThinking(requestBody: string): { enabled: boolean; detail: str
   try {
     const parsed: unknown = JSON.parse(requestBody);
     if (!parsed || typeof parsed !== 'object') return null;
-    const body = parsed as { think?: unknown; reasoning_effort?: unknown; chat_template_kwargs?: { enable_thinking?: unknown } };
+    const body = parsed as { think?: unknown; reasoning?: unknown; reasoning_effort?: unknown; chat_template_kwargs?: { enable_thinking?: unknown } };
+    if (typeof body.reasoning === 'string') return { enabled: body.reasoning !== 'off', detail: `reasoning: ${body.reasoning}` };
     if (typeof body.reasoning_effort === 'string') {
       return { enabled: body.reasoning_effort !== 'none', detail: `reasoning_effort: ${body.reasoning_effort}` };
     }
@@ -91,7 +92,7 @@ export function NetworkInspector({ initialFilter = 'all', hasRunningCorrections 
   };
   const selectedTokenRate = selected ? modelTokenRate(selected) : null;
   const ollamaSelected = Boolean(selected && isOllamaInferenceRequest(selected.url));
-  const completionSelected = Boolean(selected && isOpenAiCompletionRequest(selected.url));
+  const completionSelected = Boolean(selected && (isOpenAiCompletionRequest(selected.url) || isLmStudioChat(selected.url)));
   const legacyCompletion = useMemo(() => completionSelected && selected
     ? extractOpenAiCompletion(selected.responseBody) : null, [completionSelected, selected?.responseBody]);
   const selectedThinking = ollamaSelected && selected

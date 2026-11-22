@@ -16,6 +16,7 @@ export async function gradeDiagramImages(provider: GradingProvider,
   split: boolean, onActivity?: () => void): Promise<GradingProposal> {
   const { rubric, signal } = request;
   const groups = split ? rubric.criteria.map(criterion => [criterion]) : [rubric.criteria];
+  const diagramConversation = {};
   const proposals: GradingProposal[] = [];
   for (const [index, criteria] of groups.entries()) {
     signal?.throwIfAborted();
@@ -29,7 +30,7 @@ export async function gradeDiagramImages(provider: GradingProvider,
       images: request.images,
       directGenerativeVision: true,
       retryDiagramGenerationLimit: true,
-      ...(split ? { diagramCriterionLabel: (index + 1) + '/' + groups.length + ' · ' + title } : {}),
+      ...(split ? { diagramConversation, diagramCriterionLabel: (index + 1) + '/' + groups.length + ' · ' + title } : {}),
     }, onActivity, undefined, undefined, request.onDiagnosticResult, undefined, undefined, undefined, signal);
     signal?.throwIfAborted();
     const proposal = parseGradingProposal(raw, part);

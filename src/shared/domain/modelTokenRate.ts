@@ -1,5 +1,5 @@
 import { isOllamaInferenceRequest, type OllamaNativeTimings } from './ollamaTimings.ts';
-import { isOpenAiCompletionRequest, type OpenAiTokenUsage } from './openAiCompletionStream.ts';
+import { isLmStudioChat, isOpenAiCompletionRequest, type OpenAiTokenUsage } from './openAiCompletionStream.ts';
 
 /** Ollama's native generation speed versus OpenAI-compatible end-to-end throughput. */
 export function modelTokenRate(record: {
@@ -18,7 +18,7 @@ export function modelTokenRate(record: {
       ...(record.providerTimings?.promptEvalCount !== undefined ? { promptTokens: record.providerTimings.promptEvalCount } : {}),
       source: 'native' };
   }
-  if (isOpenAiCompletionRequest(record.url)) {
+  if (isOpenAiCompletionRequest(record.url) || isLmStudioChat(record.url)) {
     const count = record.tokenUsage?.completionTokens;
     const durationMs = record.durationMs;
     if (count === undefined || !Number.isSafeInteger(count) || count <= 0 || durationMs === null || durationMs <= 0) return null;

@@ -75,6 +75,9 @@ export class OpenAiCompletionStream {
     try { payload = JSON.parse(raw); } catch { return; }
     if (!payload || typeof payload !== 'object') return;
     const event = payload as {
+      type?: string;
+      content?: string;
+      result?: { stats?: { input_tokens?: number; total_output_tokens?: number } };
       choices?: Array<{
         delta?: { content?: unknown; reasoning_content?: unknown; reasoning?: unknown };
         message?: { content?: unknown; reasoning_content?: unknown; reasoning?: unknown };
@@ -83,7 +86,13 @@ export class OpenAiCompletionStream {
       usage?: { prompt_tokens?: unknown; completion_tokens?: unknown };
     };
     // LM Studio may send the final usage in an SSE frame without choices.
-    const usage = event.usage;
+    if (event.type === 'message.delta' || event.type === 'reasoning.delta') {
+      const key = event.type === 'message.delta' ? 'content' : 'thinking';
+      this.collector.append(JSON.stringify({ message: { [key]: event.content } }) + '\n');
+      return;
+    }
+    const stats = event.result?.stats;
+    const usage = event.usage ?? (stats && { prompt_tokens: stats.input_tokens, completion_tokens: stats.total_output_tokens });
     if (usage && typeof usage.completion_tokens === 'number' && Number.isSafeInteger(usage.completion_tokens) && usage.completion_tokens >= 0) {
       const promptTokens = typeof usage.prompt_tokens === 'number' && Number.isSafeInteger(usage.prompt_tokens) && usage.prompt_tokens >= 0 ? usage.prompt_tokens : undefined;
       this.finalUsage = { completionTokens: usage.completion_tokens, ...(promptTokens !== undefined ? { promptTokens } : {}) };
@@ -106,8 +115,12 @@ export function isOpenAiCompletionRequest(url: string): boolean {
   return /\/chat\/completions(?:[?#]|$)/i.test(url);
 }
 
+export function isLmStudioChat(endpoint: string): boolean {
+  return /\/api\/v1\/chat\/?$/.test(endpoint.trim());
+}
+
 export function extractOpenAiCompletion(raw: string): { message: string; thinking: string; finishReason?: string } {
-  const parser = new OpenAiCompletionStream(/^\s*(?:data:|:)/.test(raw));
+  const parser = new OpenAiCompletionStream(/^\s*(?:event:|data:|:)/.test(raw));
   parser.append(raw);
   parser.finish();
   return { message: parser.message, thinking: parser.thinking, ...(parser.finishReason ? { finishReason: parser.finishReason } : {}) };
