@@ -578,4 +578,21 @@ describe('Ollama-native timing of the independent graph pipeline', () => {
       providerDurationMs: null, providerTimingCalls: 0,
     }));
   });
+
+  it('omits reasoning completely for an Instruct blind graph evaluation', async () => {
+    const graph = { labels: ['ADN'], arrows: [], containment: [], arrowsComplete: true };
+    const network = vi.fn<typeof fetch>().mockImplementation(async (_url, init) => {
+      const body = JSON.parse(String(init?.body));
+      if ('reasoning_effort' in body) return new Response('reasoning not supported', { status: 400 });
+      return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(graph), finish_reason: 'stop' }] }), { status: 200 });
+    });
+    await expect(extractBlindVisualGraph({
+      endpoint: 'http://localhost:1234', apiCompatible: true, omitReasoningParameter: true,
+      model: 'qwen3-vl-32b-instruct-mlx',
+      image: { mimeType: 'image/png', base64: 'LOCAL_IMAGE' }, think: false,
+    }, network)).resolves.toMatchObject(graph);
+    expect(network).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(String(network.mock.calls[0]?.[1]?.body))).not.toHaveProperty('reasoning_effort');
+  });
+
 });
