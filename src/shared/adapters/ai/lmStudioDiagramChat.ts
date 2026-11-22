@@ -1,9 +1,5 @@
 import { copyNetworkRequestMetadata } from '../../ports/networkRequestMetadata.ts';
 
-export function isLmStudioChat(endpoint: string): boolean {
-  return /\/api\/v1\/chat\/?$/.test(endpoint.trim());
-}
-
 export function compatibleEndpoint(endpoint: string): string {
   return endpoint.trim().replace(/\/api\/v1\/chat\/?$/, '/v1/chat/completions');
 }

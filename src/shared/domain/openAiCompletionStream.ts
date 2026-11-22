@@ -115,8 +115,12 @@ export function isOpenAiCompletionRequest(url: string): boolean {
   return /\/chat\/completions(?:[?#]|$)/i.test(url);
 }
 
+export function isLmStudioChat(endpoint: string): boolean {
+  return /\/api\/v1\/chat\/?$/.test(endpoint.trim());
+}
+
 export function extractOpenAiCompletion(raw: string): { message: string; thinking: string; finishReason?: string } {
-  const parser = new OpenAiCompletionStream(/^\s*(?:data:|:)/.test(raw));
+  const parser = new OpenAiCompletionStream(/^\s*(?:event:|data:|:)/.test(raw));
   parser.append(raw);
   parser.finish();
   return { message: parser.message, thinking: parser.thinking, ...(parser.finishReason ? { finishReason: parser.finishReason } : {}) };

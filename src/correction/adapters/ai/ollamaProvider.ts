@@ -24,7 +24,8 @@ import { SCIENTIFIC_DIAGRAM_MAIN_TITLE_RULE } from '../../domain/scientificDiagr
 import { resolveCloseDiagnosticCriteria } from '../../domain/diagnosticResolution.ts';
 import { parseArbitrationDecisions } from '../../domain/arbitrationDecision.ts';
 import { parseModelJson } from '../../../shared/domain/modelJson.ts';
-import { compatibleEndpoint, isLmStudioChat, sendLmStudioDiagramTurn } from '../../../shared/adapters/ai/lmStudioDiagramChat.ts';
+import { isLmStudioChat } from '../../../shared/domain/openAiCompletionStream.ts';
+import { compatibleEndpoint, sendLmStudioDiagramTurn } from '../../../shared/adapters/ai/lmStudioDiagramChat.ts';
 import { createOpenAiCompatibleFetch } from '../../../shared/adapters/ai/openAiCompatibleTransport.ts';
 import { hasRepetitiveAnswerTail } from '../../../shared/domain/generationRepetition.ts';
 import { currentFetch } from '../../../shared/adapters/ai/currentFetch.ts';

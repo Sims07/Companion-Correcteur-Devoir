@@ -142,6 +142,15 @@ test('Debug exposes live HTTP requests and their response details', async ({ pag
   await page.getByRole('button', { name: 'Thinking' }).click();
   await expect(details.locator('.network-detail-section pre')).toContainText('Raisonnement local');
 
+  await page.route('**/api/v1/chat', route => route.fulfill({ contentType: 'text/event-stream',
+    body: 'event: message.delta\ndata: {"type":"message.delta","content":"Titre souligné"}\n\n' }));
+  await page.evaluate(() => fetch('/api/v1/chat', { method: 'POST',
+    body: JSON.stringify({ reasoning: 'off', previous_response_id: 'resp_first', input: 'Titre ?' }) }).then(r => r.text()));
+  await page.getByRole('listitem').filter({ hasText: '/api/v1/chat' }).click();
+  await expect(intentDetails).toContainText('reasoning: off');
+  await page.getByRole('button', { name: 'Message' }).click();
+  await expect(details.locator('.network-detail-section pre')).toContainText('Titre souligné');
+
   await request.click();
   await page.getByRole('button', { name: 'Response' }).click();
   await expect(page.getByText(/"observed": true/)).toBeVisible();

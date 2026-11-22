@@ -1,8 +1,7 @@
-import { isLmStudioChat } from '../ai/lmStudioDiagramChat.ts';
 import { getNetworkRequestMetadata } from '../../ports/networkRequestMetadata.ts';
 import { isOllamaInferenceRequest, readOllamaNativeTimings, type OllamaNativeTimings } from '../../domain/ollamaTimings.ts';
 import { OllamaThinkingStream } from '../../domain/ollamaThinkingStream.ts';
-import { isOpenAiCompletionRequest, OpenAiCompletionStream, type OpenAiTokenUsage } from '../../domain/openAiCompletionStream.ts';
+import { isLmStudioChat, isOpenAiCompletionRequest, OpenAiCompletionStream, type OpenAiTokenUsage } from '../../domain/openAiCompletionStream.ts';
 
 export type NetworkRequestState = 'pending' | 'success' | 'error';
 
