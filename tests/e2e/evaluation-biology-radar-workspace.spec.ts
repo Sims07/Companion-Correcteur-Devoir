@@ -24,7 +24,7 @@ test('a biology evaluation launched from the radar replaces the previous custom 
 
   await navigation.getByRole('button', { name: 'Radars' }).click();
   const home = page.getByRole('region', { name: 'Tableau de bord des radars' });
-  await home.getByLabel('Choisir un LLM').selectOption('bio-radar-model');
+  await home.getByLabel('Choisir un LLM').selectOption('bio-radar-profile');
   const start = home.getByRole('article', { name: 'Biologie' }).getByRole('button', { name: 'Évaluer en biologie' });
   await expect(start).toBeEnabled();
   await start.click();
@@ -60,7 +60,7 @@ test('le radar modifie le raisonnement du profil LM Studio choisi pour un même 
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
   await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Radars' }).click();
   const bio = page.getByRole('article', { name: 'Biologie' });
-  await bio.getByLabel('Profil du prochain essai').selectOption('essai');
+  await page.getByRole('region', { name: 'Tableau de bord des radars' }).getByLabel('Choisir un LLM').selectOption('essai');
   const reasoning = bio.getByLabel('Raisonnement du profil essai');
   for (const mode of ['low', 'medium', 'high', 'off']) {
     await reasoning.selectOption(mode);
