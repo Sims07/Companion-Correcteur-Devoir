@@ -94,9 +94,10 @@ describe('shared simple AI model controls', () => {
   });
 
   it('lets compatible Instruct profiles omit reasoning without disabling the model itself', () => {
-    const { node, props } = render({
+    const onOmitReasoningParameter = vi.fn();
+    const { node } = render({
       apiCompatible: true, omitReasoningParameter: true, analysisThinking: true,
-      onOmitReasoningParameter: vi.fn(),
+      onOmitReasoningParameter,
     });
     const omission = node.querySelector<HTMLInputElement>('#evaluation-omit-reasoning')!;
     expect(omission.checked).toBe(true);
@@ -104,7 +105,7 @@ describe('shared simple AI model controls', () => {
     expect(node.querySelector('#evaluation-reasoning-effort')).toBeNull();
     expect(node.querySelector('#evaluation-analysis-thinking-status')?.textContent).toContain('Aucun paramètre Reasoning');
     act(() => omission.click());
-    expect(props.onOmitReasoningParameter).toHaveBeenCalledWith(false);
+    expect(onOmitReasoningParameter).toHaveBeenCalledWith(false);
     const defaultMode = render({ apiCompatible: true, omitReasoningParameter: false, analysisThinking: true });
     expect(defaultMode.node.querySelector<HTMLInputElement>('#evaluation-analysis-thinking')?.disabled).toBe(false);
     expect(defaultMode.node.querySelector('#evaluation-reasoning-effort')).not.toBeNull();
