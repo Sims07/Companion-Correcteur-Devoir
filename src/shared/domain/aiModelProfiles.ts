@@ -8,6 +8,11 @@ export function parseAnalysisReasoningEffort(value: unknown): AnalysisReasoningE
   return value === 'low' || value === 'high' ? value : 'medium';
 }
 
+/** Optional model load context; absence delegates to LM Studio. Never assume a universal minimum. */
+export function parseModelContextLength(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value > 0 ? value : undefined;
+}
+
 export function parseGradingOutputTokens(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isSafeInteger(value) && value > 0 ? value : undefined;
 }
@@ -36,6 +41,8 @@ export interface AiModelConfiguration {
   analysisReasoningEffort?: AnalysisReasoningEffort;
   /** Explicitly omit reasoning controls for incompatible Instruct models. */
   omitReasoningParameter?: boolean;
+  /** Native LM Studio /api/v1/chat context_length; undefined = server default. */
+  contextLength?: number;
   criterionByCriterion: boolean;
   /** Copy assessment policy, independent of the diagnostic comparison strategy. */
   correctionMethod: CorrectionMethod;
@@ -83,6 +90,7 @@ export function parseAiModelConfiguration(raw: string | null): AiModelConfigurat
       analysisThinking: candidate.analysisThinking === true,
       analysisReasoningEffort: parseAnalysisReasoningEffort(candidate.analysisReasoningEffort),
       omitReasoningParameter: candidate.omitReasoningParameter === true,
+      ...(parseModelContextLength(candidate.contextLength) !== undefined ? { contextLength: parseModelContextLength(candidate.contextLength) } : {}),
       criterionByCriterion: candidate.criterionByCriterion !== false,
       correctionMethod: parseCorrectionMethod(candidate.correctionMethod),
     };
@@ -95,7 +103,7 @@ function isConfiguration(value: unknown): value is AiModelConfiguration {
   if (candidate.generativeModel !== undefined && typeof candidate.generativeModel !== 'string') return false;
   if (candidate.decisionModel !== undefined && typeof candidate.decisionModel !== 'string') return false;
   return typeof candidate.endpoint === 'string' && (candidate.apiCompatible === undefined || typeof candidate.apiCompatible === 'boolean') && (candidate.apiKey === undefined || typeof candidate.apiKey === 'string') && typeof candidate.visionModel === 'string' && (candidate.transcriptionTokenLimit === undefined || typeof candidate.transcriptionTokenLimit === 'number') && (candidate.transcriptionPromptMode === undefined || candidate.transcriptionPromptMode === 'auto' || candidate.transcriptionPromptMode === 'ocr' || candidate.transcriptionPromptMode === 'general') && (candidate.transcriptionRepeatPenalty === undefined || typeof candidate.transcriptionRepeatPenalty === 'number') && (candidate.transcriptionPenaltyParameter === undefined || candidate.transcriptionPenaltyParameter === 'none' || candidate.transcriptionPenaltyParameter === 'frequency_penalty' || candidate.transcriptionPenaltyParameter === 'repeat_penalty') && (candidate.transcriptionFrequencyPenalty === undefined || typeof candidate.transcriptionFrequencyPenalty === 'number') && typeof candidate.analysisModel === 'string' &&
-    typeof candidate.secondAnalysisModel === 'string' && typeof candidate.arbitratorModel === 'string' && isStrategy(candidate.diagnosticStrategy) && typeof candidate.analysisThinking === 'boolean' && (candidate.analysisReasoningEffort === undefined || candidate.analysisReasoningEffort === 'low' || candidate.analysisReasoningEffort === 'medium' || candidate.analysisReasoningEffort === 'high') && (candidate.omitReasoningParameter === undefined || typeof candidate.omitReasoningParameter === 'boolean') && (candidate.criterionByCriterion === undefined || typeof candidate.criterionByCriterion === 'boolean') && (candidate.correctionMethod === undefined || candidate.correctionMethod === 'generative' || candidate.correctionMethod === 'decision' || candidate.correctionMethod === 'visual-decision');
+    typeof candidate.secondAnalysisModel === 'string' && typeof candidate.arbitratorModel === 'string' && isStrategy(candidate.diagnosticStrategy) && typeof candidate.analysisThinking === 'boolean' && (candidate.analysisReasoningEffort === undefined || candidate.analysisReasoningEffort === 'low' || candidate.analysisReasoningEffort === 'medium' || candidate.analysisReasoningEffort === 'high') && (candidate.omitReasoningParameter === undefined || typeof candidate.omitReasoningParameter === 'boolean') && (candidate.contextLength === undefined || parseModelContextLength(candidate.contextLength) !== undefined) && (candidate.criterionByCriterion === undefined || typeof candidate.criterionByCriterion === 'boolean') && (candidate.correctionMethod === undefined || candidate.correctionMethod === 'generative' || candidate.correctionMethod === 'decision' || candidate.correctionMethod === 'visual-decision');
 }
 
 export function parseAiModelProfiles(raw: string | null): AiModelProfile[] {
@@ -114,6 +122,8 @@ export function parseAiModelProfiles(raw: string | null): AiModelProfile[] {
         // Do not add a new field when migrating legacy saved profiles: deleting
         // another profile must not rewrite otherwise untouched configuration JSON.
         if (legacyConfiguration.omitReasoningParameter === undefined) delete configuration.omitReasoningParameter;
+        // Legacy profiles without a context choice must retain the server default.
+        if (legacyConfiguration.contextLength === undefined) delete configuration.contextLength;
         if (configuration.transcriptionPenaltyParameter === 'frequency_penalty' && configuration.transcriptionFrequencyPenalty === 0.5) {
           configuration.transcriptionPenaltyParameter = 'none';
           configuration.transcriptionFrequencyPenalty = 0;
