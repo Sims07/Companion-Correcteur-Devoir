@@ -46,6 +46,32 @@ describe('NetworkInspector live request feedback', () => {
     vi.useRealTimers();
   });
 
+  it('displays native Ollama and end-to-end LM Studio rates beside durations', async () => {
+    mockNetworkHistory.records = [
+      { ...pendingRecord, id: 'lm', url: 'https://macmini.local:8443/v1/chat/completions',
+        state: 'success', status: 200, durationMs: 20_000, tokenUsage: { promptTokens: 900, completionTokens: 400 } },
+      { ...pendingRecord, id: 'ollama', state: 'success', status: 200, durationMs: 25_000,
+        providerTimings: { totalMs: 22_000, generationMs: 10_000, evalCount: 600, promptEvalCount: 700 } },
+      { ...pendingRecord, id: 'unknown', url: 'https://macmini.local:8443/v1/chat/completions',
+        state: 'success', status: 200, durationMs: 12_000 },
+    ];
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+    await act(async () => { root?.render(<NetworkInspector />); });
+    const rows = [...container.querySelectorAll('.network-request-row')];
+    expect(rows[0]?.textContent).toContain('20.0 tok/s');
+    expect(rows[0]?.textContent).toContain('20.00 s');
+    expect(rows[1]?.textContent).toContain('60.0 tok/s');
+    expect(rows[1]?.textContent).toContain('22.00 s');
+    expect(rows[2]?.textContent).not.toContain('tok/s');
+    expect(container.textContent).toContain('Débit bout-en-bout estimé');
+    expect(container.textContent).toContain('Tokens générés : 400');
+    await act(async () => { rows[1]?.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+    expect(container.textContent).toContain('Vitesse native de génération (Ollama)');
+    expect(container.textContent).toContain('Tokens générés : 600');
+  });
+
   it('does not start a stopwatch refresh interval when there are no pending requests', async () => {
     vi.useFakeTimers();
     mockNetworkHistory.records = [];
