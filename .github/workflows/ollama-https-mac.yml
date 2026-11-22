@@ -1,9 +1,11 @@
-name: Ollama HTTPS launcher (Mac)
+name: Local HTTPS launchers (Mac)
 on:
   pull_request:
     paths:
       - 'tools/ollama-https-mac/**'
+      - 'tools/lmstudio-https-mac/**'
       - 'tests/python/test_ollama_https.py'
+      - 'tests/python/test_mac_https_keep_awake.py'
       - '.github/workflows/ollama-https-mac.yml'
   push:
     branches: [main]
@@ -13,7 +15,7 @@ on:
       - '.github/workflows/ollama-https-mac.yml'
 jobs:
   https-proxy:
-    name: HTTPS proxy / ${{ matrix.os }}
+    name: HTTPS launcher / ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -24,5 +26,5 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Test TLS, CORS, Ollama streaming and one-click launcher
-        run: python3 -W error::ResourceWarning -m unittest discover -s tests/python -p 'test_ollama_https.py' -v
+      - name: Test HTTPS proxies and Mac keep-awake launchers
+        run: python3 -W error::ResourceWarning -m unittest discover -s tests/python -p 'test_*https*.py' -v
