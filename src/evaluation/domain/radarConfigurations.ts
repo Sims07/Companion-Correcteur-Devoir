@@ -28,7 +28,7 @@ export function scopeRadarEntries(
 
 export function radarConfigurationLabel(profile: RadarModelConfiguration): string {
   const config = profile.configuration;
-  const think = config.analysisThinking
+  const think = config.apiCompatible && config.omitReasoningParameter ? 'Reasoning non envoyé' : config.analysisThinking
     ? 'Think ' + (config.apiCompatible ? config.analysisReasoningEffort ?? 'medium' : 'On')
     : 'Think Off';
   return profile.name + ' · ' + think;
