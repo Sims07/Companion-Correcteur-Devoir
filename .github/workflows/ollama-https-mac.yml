@@ -11,7 +11,9 @@ on:
     branches: [main]
     paths:
       - 'tools/ollama-https-mac/**'
+      - 'tools/lmstudio-https-mac/**'
       - 'tests/python/test_ollama_https.py'
+      - 'tests/python/test_mac_https_keep_awake.py'
       - '.github/workflows/ollama-https-mac.yml'
 jobs:
   https-proxy:
