@@ -9,6 +9,7 @@ interface DiagramTurn {
   messages: { content: string; images?: string[] }[];
   think: boolean | string;
   omitReasoningParameter?: boolean;
+  contextLength?: number;
   options: { num_predict: number; temperature?: number };
   format?: unknown;
 }
@@ -22,7 +23,10 @@ export async function sendLmStudioDiagramTurn(endpoint: string, apiKey: string, 
   const textInput = { type: 'text', content: prompt };
   const reasoning = turn.think === true ? 'on' : !turn.think || turn.think === 'none' ? 'off' : turn.think;
   const body = {
-    model: turn.model, store: true, stream: true, ...(turn.omitReasoningParameter ? {} : { reasoning }), temperature: turn.options.temperature,
+    model: turn.model, store: true, stream: true, ...(turn.omitReasoningParameter ? {} : { reasoning }),
+    ...(typeof turn.contextLength === 'number' && Number.isSafeInteger(turn.contextLength) && turn.contextLength > 0
+      ? { context_length: turn.contextLength } : {}),
+    temperature: turn.options.temperature,
     max_output_tokens: turn.options.num_predict,
     ...(conversation.responseId ? { previous_response_id: conversation.responseId } : {}),
     input: [...photos.map(data_url => ({ type: 'image', data_url })), textInput],
