@@ -36,6 +36,43 @@
   font-variant-numeric: tabular-nums;
   font-size: 17px;
 }
+.background-copy-activity-focus {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  border-left: 3px solid var(--flow-accent);
+  background: var(--flow-accent-soft);
+}
+.background-copy-activity-focus-dot {
+  flex: 0 0 7px;
+  width: 7px;
+  height: 7px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: var(--flow-accent);
+  animation: background-activity-pulse 1.8s ease-in-out infinite;
+}
+.background-copy-activity-focus > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.background-copy-activity-focus-label {
+  color: var(--flow-accent);
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: .06em;
+}
+.background-copy-activity-focus-title {
+  color: var(--flow-text);
+  font-size: 13px;
+  line-height: 1.4;
+}
+.background-copy-activity-focus-detail {
+  color: var(--flow-muted);
+  font-size: 11px;
+}
 .background-copy-activity-track {
   height: 7px;
   margin: 16px 0;
@@ -143,7 +180,8 @@
   }
 }
 @media(prefers-reduced-motion: reduce) {
-  .background-copy-activity-criteria .is-active .background-copy-activity-marker {
+  .background-copy-activity-criteria .is-active .background-copy-activity-marker,
+  .background-copy-activity-focus-dot {
     animation: none;
   }
   .background-copy-activity-track > span {

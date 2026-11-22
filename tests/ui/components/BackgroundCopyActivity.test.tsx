@@ -47,7 +47,8 @@ describe('feedback visuel pendant la correction en arrière-plan', () => {
       partialCriteria: [result('c1')], transcription: 'Texte de la copie',
     }} />);
     expect(html).toContain('aria-valuenow="1"');
-    expect(html).toContain('Analysé');
+    expect(html).toContain('Terminé');
+    expect(html).toContain('CRITÈRE 2 SUR 2');
     expect(html).toContain('Consulter le texte reconnu');
     expect(html).toContain('Texte de la copie');
     expect(html).toContain('Métaphase');
@@ -58,7 +59,8 @@ describe('feedback visuel pendant la correction en arrière-plan', () => {
     const html = renderToStaticMarkup(<BackgroundCopyActivity job={{
       ...job, status: 'processing', phase: 'grading', activeCriterionId: null,
     }} />);
-    expect(html).toContain('Analyse en cours. Le prochain résultat apparaîtra ici.');
+    expect(html).toContain('Démarrage de l’analyse des critères');
+    expect(html).toContain('0 critère examiné · 2 restants');
     expect(html).not.toContain('aria-current="step"');
   });
 

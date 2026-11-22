@@ -289,7 +289,8 @@ export function createBackgroundCorrectionService(
           if (current.gradingFlow === 'scientific-diagram-direct') {
             // A scientific diagram assignment uses the same one-pass vision
             // engine as the laboratory, never OCR or double analysis.
-            current = { ...current, phase: 'grading', activeCriterionId: null, updatedAt: new Date().toISOString() };
+            current = { ...current, phase: 'grading', criterionByCriterion: jobSettings.criterionByCriterion === true,
+              activeCriterionId: null, updatedAt: new Date().toISOString() };
             await persist(current);
             // Use the exact direct-image provider contract. There is no OCR
             // pass and no separate scientific diagram analysis request.
@@ -322,7 +323,7 @@ export function createBackgroundCorrectionService(
                   partialCriteria, completedCriteria: partialCriteria.length, updatedAt: new Date().toISOString() };
                 await persist(current);
               },
-            }, jobSettings.criterionByCriterion === true, markActivity));
+            }, current.criterionByCriterion === true, markActivity));
             if (requestAbortController.signal.aborted) throw new DOMException('Traitement interrompu.', 'AbortError');
             const complete = !proposal.scoreIncomplete;
             await persist({

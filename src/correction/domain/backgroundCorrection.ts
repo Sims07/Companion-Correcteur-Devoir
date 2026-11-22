@@ -48,6 +48,8 @@ export interface BackgroundCorrectionJob {
   correctionMode: 'integrated' | 'separate';
   /** Assignment-specific direct image correction; absent for older and textual jobs. */
   gradingFlow?: 'scientific-diagram-direct';
+  /** Effective granularity of the running direct image correction, persisted for progress feedback. */
+  criterionByCriterion?: boolean;
   images: ImageInput[];
   originalImages: ImageInput[];
   /** UI-only projection: image bytes must be fetched before preview or grading. */

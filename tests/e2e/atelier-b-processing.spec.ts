@@ -31,7 +31,7 @@ test('correction en cours : le vrai composant React respecte la maquette B', asy
   // The selected original must still decode rather than render a broken image icon.
   await expect(surface.locator('.atelier-processing-page img')).toHaveJSProperty('complete', true);
   expect(await surface.locator('.atelier-processing-page img').evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
-  await expect(surface.getByRole('status')).toContainText('Correction des réponses');
+  await expect(surface.locator('.atelier-processing-current')).toContainText('Correction des réponses');
   await expect(surface.locator('.background-copy-activity-criteria li.is-active')).toContainText('Titre');
   await expect(surface.getByRole('progressbar', { name: 'Critères du barème traités' })).toHaveAttribute('aria-valuenow', '1');
 
@@ -76,4 +76,32 @@ test('correction en cours : le vrai composant React respecte la maquette B', asy
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(1);
   await page.screenshot({ path: testInfo.outputPath('atelier-b-processing-mobile.png'), fullPage: true, animations: 'disabled' });
+});
+
+test('schéma scientifique : le critère courant est mis en avant pendant une correction séquentielle', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  await page.addStyleTag({ content: '#root { display: none !important; }' });
+  await page.evaluate(async () => {
+    const entryUrl = Array.from(document.querySelectorAll<HTMLScriptElement>('script[src]'))
+      .map((script) => script.src)
+      .find((url) => url.includes('/src/main.tsx')) ?? '';
+    const basePath = entryUrl ? new URL(entryUrl).pathname.split('/src/main.tsx')[0] : '';
+    const modulePath = basePath + '/tests/e2e/fixtures/activeCorrectionVisualFixture.tsx';
+    const fixtureModule = await import(/* @vite-ignore */ modulePath);
+    fixtureModule.mountActiveCorrectionVisualFixture('diagram');
+  });
+
+  const surface = page.locator('.atelier-processing-test-fixture');
+  await expect(surface.getByRole('heading', { name: 'Correction du schéma en cours' })).toBeVisible();
+  const activity = surface.locator('.background-copy-activity');
+  await expect(activity.getByRole('status')).toContainText('CRITÈRE 4 SUR 4');
+  await expect(activity.getByRole('status')).toContainText('Compréhension');
+  await expect(activity.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '3');
+  await expect(activity.locator('.background-copy-activity-criteria li.is-complete')).toHaveCount(3);
+  await expect(activity.locator('.background-copy-activity-criteria li.is-active')).toHaveCount(1);
+  await expect(activity.locator('.background-copy-activity-criteria li.is-active')).toContainText('En cours');
+  await expect(activity).not.toContainText('Les notes arriveront ensemble à la fin.');
+  await expect(activity.locator('.background-copy-activity-focus')).toHaveCSS('border-left-style', 'solid');
+  await expect(activity.locator('.background-copy-activity-focus')).toBeVisible();
 });
