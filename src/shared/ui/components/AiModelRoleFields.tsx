@@ -102,7 +102,7 @@ export function AiModelRoleFields(props: Props) {
             if (!event.currentTarget.value) props.onContextLength?.(undefined);
             else if (Number.isSafeInteger(event.currentTarget.valueAsNumber) && event.currentTarget.valueAsNumber > 0) props.onContextLength?.(event.currentTarget.valueAsNumber);
           }} />
-        <small id={`${prefix}-context-length-help`}>Vide : aucun context_length envoyé, LM Studio choisit. Un modèle MLX peut nécessiter au minimum 16 384 tokens ; définir ce seuil ne garantit pas que la mémoire disponible suffise. S’applique uniquement aux appels /api/v1/chat.</small>
+        <small id={`${prefix}-context-length-help`}>Vide : aucun context_length envoyé, LM Studio choisit. Un modèle MLX peut nécessiter au minimum 16 384 tokens ; définir ce seuil ne garantit pas que la mémoire disponible suffise. S’applique uniquement aux appels /api/v1/chat. Attention : un bug signalé de MLX/Bionic peut ignorer la valeur demandée et appliquer AutoFit malgré tout. En cas d’échec, essayez GGUF/llama.cpp ou une variante moins gourmande.</small>
       </div>}
       {apiCompatible && !decision && <div className="evaluation-config-field">
         <label className="field-label" htmlFor={prefix + '-grading-output'}>Plafond de sortie par correction (tokens)</label>
