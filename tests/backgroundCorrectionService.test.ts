@@ -1416,6 +1416,37 @@ describe('diagram assignments share the resumable correction queue', () => {
     expect((await service.listJobSummaries('assignment-1'))).toHaveLength(2);
   });
 
+  it('persists starts and results of each sequential diagram criterion', async () => {
+    const { f, rubric } = diagramFixture();
+    f.setGenerateImplementation(async (request) => {
+      f.requests.push(request);
+      const sent = JSON.parse(request.rubric) as { criteria: Array<{ id: string }> };
+      return diagramResponse({ ...rubric, criteria: rubric.criteria.filter((criterion) =>
+        sent.criteria.some((item) => item.id === criterion.id)) });
+    });
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    const observed: BackgroundCorrectionJob[] = [];
+    service.subscribeOverviews?.((jobs) => {
+      const snapshot = jobs.find((item) => item.id === 'copy-1');
+      if (snapshot) observed.push(snapshot);
+    });
+    await service.processPending({
+      endpoint: 'http://localhost:11434', visionModel: '',
+      analysisModel: 'qwen3.5:4b', correctionMethod: 'generative', criterionByCriterion: true,
+    }, 'assignment-1');
+    expect(f.requests).toHaveLength(rubric.criteria.length);
+    expect(f.requests.every((request) => (JSON.parse(request.rubric) as { criteria: unknown[] }).criteria.length === 1)).toBe(true);
+    const grading = observed.filter((item) => item.status === 'processing' && item.phase === 'grading');
+    expect(grading.filter((item) => item.activeCriterionId).map((item) => item.activeCriterionId))
+      .toEqual(rubric.criteria.map((criterion) => criterion.id));
+    expect(grading.filter((item) => !item.activeCriterionId && item.completedCriteria > 0).map((item) => item.completedCriteria))
+      .toEqual([1, 2, 3]);
+    expect(f.jobs.get('copy-1')).toMatchObject({
+      status: 'ready', criterionByCriterion: true, activeCriterionId: null,
+      completedCriteria: rubric.criteria.length,
+    });
+  });
+
   it('corrige avec le serveur distant configuré et autorise la reprise après changement de serveur', async () => {
     const { f, rubric } = diagramFixture();
     f.setGenerateImplementation(async (request) => {
