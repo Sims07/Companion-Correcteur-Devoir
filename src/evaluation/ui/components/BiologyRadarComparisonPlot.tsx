@@ -31,7 +31,7 @@ export function BiologyRadarComparisonPlot({ candidates, colors }: {
       </g>;
     })}
     {candidates.map((candidate, candidateIndex) => {
-      const color = colors?.[candidate.name] ?? RADAR_COMPARISON_COLORS[candidateIndex % RADAR_COMPARISON_COLORS.length]!;
+      const color = colors?.[candidate.profileId ?? candidate.name] ?? RADAR_COMPARISON_COLORS[candidateIndex % RADAR_COMPARISON_COLORS.length]!;
       const values = BIOLOGY_RADAR_AXES.map((axis) => candidate.axes[axis.id]);
       const coordinates = values.map((value, index) => value === null ? null : vertex(index, value / 100));
       const complete = values.every((value) => value !== null);
