@@ -110,7 +110,10 @@ export function parseAiModelProfiles(raw: string | null): AiModelProfile[] {
         delete legacyConfiguration.detectTeacherAnnotations;
         delete legacyConfiguration.regionsEnabled;
         delete legacyConfiguration.regionsModel;
-        const configuration = { ...defaultAiModelConfiguration, ...legacyConfiguration, gradingOutputTokens: parseGradingOutputTokens(legacyConfiguration.gradingOutputTokens), analysisReasoningEffort: parseAnalysisReasoningEffort(legacyConfiguration.analysisReasoningEffort), omitReasoningParameter: legacyConfiguration.omitReasoningParameter === true, correctionMethod: parseCorrectionMethod(legacyConfiguration.correctionMethod) };
+        const configuration: AiModelConfiguration = { ...defaultAiModelConfiguration, ...legacyConfiguration, gradingOutputTokens: parseGradingOutputTokens(legacyConfiguration.gradingOutputTokens), analysisReasoningEffort: parseAnalysisReasoningEffort(legacyConfiguration.analysisReasoningEffort), correctionMethod: parseCorrectionMethod(legacyConfiguration.correctionMethod) };
+        // Do not add a new field when migrating legacy saved profiles: deleting
+        // another profile must not rewrite otherwise untouched configuration JSON.
+        if (legacyConfiguration.omitReasoningParameter === undefined) delete configuration.omitReasoningParameter;
         if (configuration.transcriptionPenaltyParameter === 'frequency_penalty' && configuration.transcriptionFrequencyPenalty === 0.5) {
           configuration.transcriptionPenaltyParameter = 'none';
           configuration.transcriptionFrequencyPenalty = 0;
