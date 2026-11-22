@@ -124,7 +124,10 @@ export function parseAiModelProfiles(raw: string | null): AiModelProfile[] {
         delete legacyConfiguration.detectTeacherAnnotations;
         delete legacyConfiguration.regionsEnabled;
         delete legacyConfiguration.regionsModel;
-        const { analysisTemperature: _temperature, analysisTopP: _topP, analysisTopK: _topK, ...rest } = legacyConfiguration;
+        const rest = { ...legacyConfiguration };
+        delete rest.analysisTemperature;
+        delete rest.analysisTopP;
+        delete rest.analysisTopK;
         const configuration = { ...defaultAiModelConfiguration, ...rest, ...analysisSamplingSettings(legacyConfiguration), gradingOutputTokens: parseGradingOutputTokens(legacyConfiguration.gradingOutputTokens), analysisReasoningEffort: parseAnalysisReasoningEffort(legacyConfiguration.analysisReasoningEffort), correctionMethod: parseCorrectionMethod(legacyConfiguration.correctionMethod) };
         if (configuration.transcriptionPenaltyParameter === 'frequency_penalty' && configuration.transcriptionFrequencyPenalty === 0.5) {
           configuration.transcriptionPenaltyParameter = 'none';
