@@ -111,6 +111,7 @@ test.describe('visual regression contracts', () => {
       await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
       await openCustomTests(page);
       await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('button', { name: 'Suivi & diagnostic' }).click();
+      await page.getByRole('navigation', { name: 'Détails du suivi' }).getByRole('button', { name: 'Suivi des corrections' }).click();
 
       await expect(page.getByRole('heading', { name: 'Observabilité' })).toBeVisible();
       await expect(page.locator('.observability-workspace')).toBeVisible();
@@ -128,6 +129,7 @@ test.describe('visual regression contracts', () => {
     await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
     await openCustomTests(page);
     await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('button', { name: 'Suivi & diagnostic' }).click();
+    await page.getByRole('navigation', { name: 'Détails du suivi' }).getByRole('button', { name: 'Suivi des corrections' }).click();
     await expect(page.locator('.observability-kpi').first()).toBeVisible();
 
     const reducedMotion = await page.evaluate(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches);

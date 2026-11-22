@@ -22,8 +22,14 @@ test('application offers evaluation and diagnostics as top-level destinations', 
   await expect(primaryNavigation.getByRole('button', { name: 'Suivi & diagnostic' })).toHaveAttribute('aria-current', 'page');
   const details = page.getByRole('navigation', { name: 'Détails du suivi' });
   await expect(details.getByRole('button')).toHaveCount(2);
-  await expect(details.getByRole('button', { name: 'Suivi des corrections' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(details.getByRole('button').first()).toHaveText('Inspecteur réseau');
+  await expect(details.getByRole('button').last()).toHaveText('Suivi des corrections');
+  await expect(details.getByRole('button', { name: 'Inspecteur réseau' })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('.developer-tools-support')).not.toHaveAttribute('open', '');
+  await expect(page.getByRole('heading', { name: 'Inspecteur réseau' })).toBeVisible();
+
+  await details.getByRole('button', { name: 'Suivi des corrections' }).click();
+  await expect(details.getByRole('button', { name: 'Suivi des corrections' })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByRole('heading', { name: 'Observabilité' })).toBeVisible();
 
   await details.getByRole('button', { name: 'Inspecteur réseau' }).click();

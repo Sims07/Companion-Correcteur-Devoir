@@ -22,6 +22,7 @@ test('Correction, Évaluer and Suivi & diagnostic use the same full-width page f
   expect(evalContent?.x).toBeGreaterThanOrEqual(20);
 
   await page.getByRole('button', { name: 'Suivi & diagnostic' }).click();
+  await page.getByRole('navigation', { name: 'Détails du suivi' }).getByRole('button', { name: 'Suivi des corrections' }).click();
   const monitorShell = page.locator('main.ai-tools-view');
   await expect(monitorShell).toHaveCSS('max-width', 'none');
   const monitorBox = await monitorShell.boundingBox();
@@ -51,6 +52,7 @@ test('Évaluer and Suivi keep an accessible gutter without horizontal scrolling 
   expect(content?.width).toBeLessThan(390);
 
   await page.getByRole('button', { name: 'Suivi & diagnostic' }).click();
+  await page.getByRole('navigation', { name: 'Détails du suivi' }).getByRole('button', { name: 'Suivi des corrections' }).click();
   const header = await page.locator('main.ai-tools-view > .topbar').boundingBox();
   const monitor = await page.locator('.observability-workspace').boundingBox();
   expect(header?.width).toBeGreaterThanOrEqual(389);

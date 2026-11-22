@@ -34,17 +34,22 @@ test('evaluation and diagnosis remain addressable after reload and browser navig
   await expect(page.getByRole('button', { name: 'Évaluer les modèles' })).toHaveAttribute('aria-current', 'page');
 
   await navigation.getByRole('button', { name: 'Suivi & diagnostic' }).click();
-  await expect(page).toHaveURL(/#\/suivi$/);
-  await page.getByRole('navigation', { name: 'Détails du suivi' }).getByRole('button', { name: 'Inspecteur réseau' }).click();
   await expect(page).toHaveURL(/#\/reseau$/);
-  await page.reload();
   await expect(page.getByRole('heading', { name: 'Inspecteur réseau' })).toBeVisible();
+  await page.getByRole('navigation', { name: 'Détails du suivi' }).getByRole('button', { name: 'Suivi des corrections' }).click();
+  await expect(page).toHaveURL(/#\/suivi$/);
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Observabilité' })).toBeVisible();
 
   await page.goBack();
-  await expect(page.getByRole('heading', { name: 'Observabilité' })).toBeVisible();
-  await expect(page).toHaveURL(/#\/suivi$/);
-  await page.goForward();
   await expect(page.getByRole('heading', { name: 'Inspecteur réseau' })).toBeVisible();
+  await expect(page).toHaveURL(/#\/reseau$/);
+  await page.goForward();
+  await expect(page.getByRole('heading', { name: 'Observabilité' })).toBeVisible();
+  await page.goto('/#/reseau');
+  await expect(page.getByRole('heading', { name: 'Inspecteur réseau' })).toBeVisible();
+  await page.goto('/#/suivi');
+  await expect(page.getByRole('heading', { name: 'Observabilité' })).toBeVisible();
 });
 
 test('deep link to deleted or unknown copy falls back to the right assignment without losing its identity', async ({ page }) => {

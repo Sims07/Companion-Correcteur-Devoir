@@ -51,10 +51,18 @@ describe('DeveloperToolsNavigation', () => {
     expect(container.querySelector('.developer-tools-support')?.hasAttribute('open')).toBe(false);
     const detailNav = container.querySelector('nav[aria-label="Détails du suivi"]');
     const detailButtons = [...(detailNav?.querySelectorAll('button') ?? [])];
-    expect(detailButtons.map((button) => button.textContent)).toEqual(['Suivi des corrections', 'Inspecteur réseau']);
-    expect(detailButtons[0]?.getAttribute('aria-pressed')).toBe('true');
-    await act(async () => { detailButtons[1]?.click(); });
+    expect(detailButtons.map((button) => button.textContent)).toEqual(['Inspecteur réseau', 'Suivi des corrections']);
+    expect(detailButtons[0]?.getAttribute('aria-pressed')).toBe('false');
+    expect(detailButtons[1]?.getAttribute('aria-pressed')).toBe('true');
+    await act(async () => { detailButtons[0]?.click(); });
     expect(onNavigate).toHaveBeenCalledWith('debug');
+    await act(async () => {
+      root?.render(<DeveloperToolsNavigation activeTool="debug" traces={[]} onNavigate={onNavigate} />);
+    });
+    expect(detailButtons[0]?.getAttribute('aria-pressed')).toBe('true');
+    expect(detailButtons[1]?.getAttribute('aria-pressed')).toBe('false');
+    await act(async () => { detailButtons[1]?.click(); });
+    expect(onNavigate).toHaveBeenLastCalledWith('observability');
     network.records = [{ state: 'error' }, { state: 'error' }];
     await act(async () => { window.dispatchEvent(new Event('developer-tools-network-event')); });
     expect(container.textContent).toContain('2 requête(s) en erreur');

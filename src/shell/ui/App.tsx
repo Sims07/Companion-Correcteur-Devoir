@@ -4543,7 +4543,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
             onClick={() => { setShowAiSettings(false); setShowAssignmentsHome(false); setInterfaceMode('diagnostic'); setEvaluationWorkspaceStep('dashboard'); setDashboardModel(restoredModelId()); }}>Évaluer</button>
           <button type="button" className={interfaceMode === 'observability' || interfaceMode === 'debug' ? 'view-switch-button active' : 'view-switch-button'}
             aria-current={interfaceMode === 'observability' || interfaceMode === 'debug' ? 'page' : undefined}
-            onClick={() => { setShowAiSettings(false); setShowAssignmentsHome(false); setInterfaceMode('observability'); }}>Suivi & diagnostic</button>
+            onClick={() => { setShowAiSettings(false); setShowAssignmentsHome(false); setNetworkInitialFilter('all'); setInterfaceMode('debug'); }}>Suivi & diagnostic</button>
         </nav></div>
       </header>
 

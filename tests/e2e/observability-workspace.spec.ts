@@ -74,6 +74,7 @@ test('opens the observability workspace and explores a trace without exposing co
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
 
   await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('button', { name: 'Suivi & diagnostic' }).click();
+  await page.getByRole('navigation', { name: 'Détails du suivi' }).getByRole('button', { name: 'Suivi des corrections' }).click();
   await expect(page.getByRole('button', { name: 'Suivi & diagnostic' })).toHaveAttribute('aria-current', 'page');
 
   await expect(page.getByRole('heading', { name: 'Observabilité' })).toBeVisible();
@@ -139,6 +140,7 @@ test('a failed diagram campaign is visible with its two raw responses and valida
   await page.waitForFunction(() => localStorage.getItem('companion-correcteur:timing-history:v1') === null);
   await page.getByRole('navigation', { name: 'Navigation principale' })
     .getByRole('button', { name: 'Suivi & diagnostic' }).click();
+  await page.getByRole('navigation', { name: 'Détails du suivi' }).getByRole('button', { name: 'Suivi des corrections' }).click();
 
   await expect(page.getByRole('heading', { name: 'Observabilité' })).toBeVisible();
   await expect(page.getByText('Campagne · Qwen 3.5:4B')).toBeVisible();

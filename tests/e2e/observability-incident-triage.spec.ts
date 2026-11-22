@@ -45,6 +45,7 @@ test('failed AI execution leads to its trace and separately to filtered network 
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
   await openCustomTests(page);
   await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('button', { name: 'Suivi & diagnostic' }).click();
+  await page.getByRole('navigation', { name: 'Détails du suivi' }).getByRole('button', { name: 'Suivi des corrections' }).click();
   const incidents = page.getByRole('region', { name: 'Incidents à examiner' });
   await expect(incidents.getByText('Barème de dépannage')).toBeVisible();
   await expect(incidents.getByText(/analysis-test/)).toBeVisible();
@@ -60,8 +61,8 @@ test('failed AI execution leads to its trace and separately to filtered network 
   await expect(filters.getByRole('button', { name: 'Erreurs' })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('.network-request-row')).toHaveCount(1);
   await expect(page.locator('.network-request-row')).toContainText('422');
+  await page.getByRole('navigation', { name: 'Détails du suivi' }).getByRole('button', { name: 'Suivi des corrections' }).click();
   await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('button', { name: 'Suivi & diagnostic' }).click();
-  await page.getByRole('navigation', { name: 'Détails du suivi' }).getByRole('button', { name: 'Inspecteur réseau' }).click();
   await expect(filters.getByRole('button', { name: 'Toutes' })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('.network-request-row')).toHaveCount(2);
 });
