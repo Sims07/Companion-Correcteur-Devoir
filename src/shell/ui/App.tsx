@@ -2226,6 +2226,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
                 return extractDiagramGraphEvidenceV2(runImages, configuration.analysisModel, abortController.signal,
                   image => awaitOrAbort(() => observe(configuration.endpoint, configuration.analysisModel, image,
                     abortController.signal, {apiCompatible: !!configuration.apiCompatible, apiKey: configuration.apiKey ?? '',
+                      omitReasoningParameter: configuration.omitReasoningParameter,
                       think: options?.diagram?.respectProfileThinking ? configuration.thinkingLevel ?? configuration.thinking : false}),
                   abortController.signal));
               })()
@@ -2235,7 +2236,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
                 return extractDiagramGraphEvidence(runImages, configuration.analysisModel, abortController.signal,
                   image => awaitOrAbort(() => observe(configuration.endpoint, configuration.analysisModel, image,
                     abortController.signal, undefined, {apiCompatible: !!configuration.apiCompatible,
-                      apiKey: configuration.apiKey ?? '', promptVariant: 'isolated-arrows-outside',
+                      apiKey: configuration.apiKey ?? '', omitReasoningParameter: configuration.omitReasoningParameter, promptVariant: 'isolated-arrows-outside',
                       think: options?.diagram?.respectProfileThinking ? configuration.thinkingLevel ?? configuration.thinking : false}),
                   abortController.signal));
               })();
@@ -3070,6 +3071,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
                 profile.configuration.endpoint, model, entry.images[0]!, controller.signal,
                 (value) => { diagnostic = value; },
                 { apiCompatible: profile.configuration.apiCompatible, apiKey: profile.configuration.apiKey,
+                  omitReasoningParameter: profile.configuration.omitReasoningParameter,
                   promptVariant: request.promptVariant ?? 'baseline',
                   think: radarBatteryRef.current ? radarProfileThinking(profile.configuration) : false },
                 request.zoomUncertainArrows,
