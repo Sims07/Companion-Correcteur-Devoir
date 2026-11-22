@@ -41,6 +41,32 @@ describe('AI model configuration defaults', () => {
     expect(parseAiModelConfiguration(JSON.stringify({ analysisReasoningEffort: 'unsupported' })).analysisReasoningEffort).toBe('medium');
   });
 
+  it('leaves all model sampling parameters absent unless explicitly configured', () => {
+    const defaults = parseAiModelConfiguration(null);
+    expect(defaults).not.toHaveProperty('analysisTemperature');
+    expect(defaults).not.toHaveProperty('analysisTopP');
+    expect(defaults).not.toHaveProperty('analysisTopK');
+    const explicit = { ...defaultAiModelConfiguration,
+      analysisTemperature: 0, analysisTopP: 0.95, analysisTopK: 64 };
+    expect(parseAiModelConfiguration(JSON.stringify(explicit))).toEqual(explicit);
+    const profile = { id: 'gemma', name: 'Gemma T0', mode: 'single', updatedAt: '2026-11-22T12:00:00Z', configuration: explicit };
+    expect(parseAiModelProfiles(JSON.stringify([profile]))[0]?.configuration).toEqual(explicit);
+    for (const invalid of [-1, 3, NaN, Infinity, '1', null]) {
+      const configuration = parseAiModelConfiguration(JSON.stringify({
+        ...explicit, analysisTemperature: invalid, analysisTopP: invalid, analysisTopK: invalid,
+      }));
+      expect(configuration).not.toHaveProperty('analysisTemperature');
+      expect(configuration).not.toHaveProperty('analysisTopP');
+      expect(configuration).not.toHaveProperty('analysisTopK');
+    }
+    const cleaned = parseAiModelProfiles(JSON.stringify([{ ...profile, configuration: {
+      ...explicit, analysisTemperature: 9, analysisTopP: 0, analysisTopK: 1.5,
+    } }]))[0]!.configuration;
+    expect(cleaned).not.toHaveProperty('analysisTemperature');
+    expect(cleaned).not.toHaveProperty('analysisTopP');
+    expect(cleaned).not.toHaveProperty('analysisTopK');
+  });
+
   it('does not expose per-copy annotation detection in AI model configuration', () => {
     expect(defaultAiModelConfiguration).not.toHaveProperty('detectTeacherAnnotations');
     expect(parseAiModelConfiguration(null)).not.toHaveProperty('detectTeacherAnnotations');
