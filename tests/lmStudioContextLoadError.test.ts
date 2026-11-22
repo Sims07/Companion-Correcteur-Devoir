@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { explainLmStudioContextLoadError } from '../../src/shared/domain/lmStudioContextLoadError.ts';
+import { explainLmStudioContextLoadError } from '../src/shared/domain/lmStudioContextLoadError.ts';
 
 describe('LM Studio MLX context loading errors', () => {
   it('explains AutoFit below a model minimum without proposing a too-small context', () => {
