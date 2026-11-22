@@ -16,14 +16,11 @@ import type { AiModelProfile } from '../../../shared/domain/aiModelProfiles.ts';
 import { isVisualDecisionModel } from '../../../correction/api/index.ts';
 import type { DiagramLabArchiveEntry } from '../../domain/diagramLabHistory.ts';
 import {
-  buildDiagramLabRadar,
   diagnoseGraphRadarMeasurement,
   observedRadarScore,
   rankDiagramLabRadar,
 } from '../../domain/diagramLabRadar.ts';
 import {
-  planRadarModelEvaluation,
-  resolveModelProfile,
   type RadarMissingTestRequest,
 } from '../../domain/diagramLabRadarLaunch.ts';
 import { BIOLOGY_RADAR_AXES, buildBiologyRadar, type BiologyRadarCandidate, type BiologyRadarObservation } from '../../domain/biologyTeacherRadar.ts';
@@ -31,6 +28,7 @@ import { BiologyRadarPlot } from './BiologyTeacherRadar.tsx';
 import { BiologyRadarComparisonPlot } from './BiologyRadarComparisonPlot.tsx';
 import { RADAR_COMPARISON_COLORS } from './RadarComparisonPalette.ts';
 import { RadarPlot, restoredWeights } from './ScientificDiagramRadar.tsx';
+import { buildConfigurationRadars, configuredRadarPlan, scopeRadarEntries, radarConfigurationLabel } from '../../domain/radarConfigurations.ts';
 import './EvaluationRadarHome.css';
 
 export type RadarDomain = 'diagrams' | 'biology';
@@ -73,14 +71,23 @@ export function EvaluationRadarHome({
   const eligibleEntries = useMemo(() => activeScienceEntries(entries, excluded, weights), [entries, excluded, weights]);
   const eligibleHistory = useMemo(() => activeBiologyObservations(history, excluded), [history, excluded]);
   const science = useMemo(
-    () => rankDiagramLabRadar(buildDiagramLabRadar(eligibleEntries, 'model', profiles), weights),
+    () => rankDiagramLabRadar(buildConfigurationRadars(eligibleEntries, profiles), weights),
     [eligibleEntries, profiles, weights],
   );
   const biology = useMemo(() => enabled('biology', 'contract') || enabled('biology', 'standard')
-    ? buildBiologyRadar(eligibleHistory, enabled('biology', 'contract') ? 'contract' : 'standard')
+    ? buildBiologyRadar(eligibleHistory, enabled('biology', 'contract') ? 'contract' : 'standard', 'configuration')
     : [], [eligibleHistory, excluded]);
-  const models = [...new Set([...science.map((c) => c.id), ...history.map((o) => o.model)])].sort();
-  const selected = models.includes(model) ? model : (science[0]?.id ?? models[0] ?? '');
+  const modelLabel = (id: string) => {
+    const profile = profiles.find(item => item.id === id);
+    return profile ? radarConfigurationLabel(profile)
+      : science.find(candidate => candidate.id === id)?.name ?? history.find(row => row.profileId === id)?.profile ?? id;
+  };
+  const models = [...new Set([...science.map(candidate => candidate.id), ...history.map(row => row.profileId)])]
+    .filter(Boolean).sort((a, b) => modelLabel(a).localeCompare(modelLabel(b), 'fr'));
+  // Migrate older local selections that stored a model name rather than a configuration ID.
+  const selected = models.includes(model) ? model :
+    (profiles.find(profile => profile.configuration.analysisModel === model && models.includes(profile.id))?.id
+      ?? science[0]?.id ?? models[0] ?? '');
   const [comparison, setComparison] = useState(false);
   const [comparedModels, setComparedModels] = useState<string[]>([]);
   const availableComparisons = models.filter((name) => name !== selected);
@@ -91,43 +98,44 @@ export function EvaluationRadarHome({
     [name, RADAR_COMPARISON_COLORS[index % RADAR_COMPARISON_COLORS.length]!]));
   const measuredFor = (name: string) =>
     (science.find((candidate) => candidate.id === name)?.measured ?? 0) / 9 +
-    Math.max(0, ...biology.filter((candidate) => candidate.name === name)
+    Math.max(0, ...biology.filter((candidate) => candidate.profileId === name)
       .map((candidate) => candidate.measured / BIOLOGY_RADAR_AXES.length));
   const [lab, setLab] = useState<RadarDomain | null>(initialLab);
   const [explicitMethod, setExplicitMethod] = useState({diagrams:false, biology:false});
   const [expanded, setExpanded] = useState<RadarDomain>('diagrams');
   const [variantId, setVariantId] = useState('');
-  const variants = biology.filter((c) => c.name === selected);
-  // The saved configuration is authoritative for the next run. Historical
-  // results from another correction method must not disable or score it.
-  const eligibleProfiles = profiles.filter((p) =>
-    p.configuration.analysisModel === selected &&
-    p.configuration.correctionMethod !== 'visual-decision');
-  const profile = eligibleProfiles.find(item => item.id === selection.preferredProfileId) ?? eligibleProfiles[0];
+  const variants = biology.filter(candidate => candidate.profileId === selected);
+  const eligibleProfiles = profiles.filter(candidate =>
+    candidate.id === selected && candidate.configuration.correctionMethod !== 'visual-decision');
+  const profile = eligibleProfiles[0];
+  const sci = science.find(candidate => candidate.id === selected);
+  const selectedModel = profile?.configuration.analysisModel ?? sci?.models[0]
+    ?? history.find(row => row.profileId === selected)?.model ?? '';
+  const selectedScienceEntries = useMemo(() => scopeRadarEntries(entries, selected), [entries, selected]);
+  const selectedHistory = useMemo(() => history.filter(row => row.profileId === selected), [history, selected]);
   const profileControls = <BiologyProfileControls {...selection} profiles={eligibleProfiles} profile={profile} busy={busy} />;
   const activeBio = profile && variants.find((candidate) =>
     candidate.method === profile.configuration.correctionMethod &&
     candidate.provider === (profile.configuration.apiCompatible ? 'openai-compatible' : 'ollama'));
   const bio = variants.find((candidate) => candidate.id === variantId) ??
     activeBio ?? (profile ? undefined : variants[0]);
-  const sci = science.find((c) => c.id === selected);
   const sciences = [sci, ...compared.map((name) => science.find((c) => c.id === name))]
     .filter((candidate): candidate is NonNullable<typeof sci> => candidate !== undefined);
   // All biological results here use the same "contract by question" benchmark.
   // When a model has several provider/method variants, prefer the one with the
   // most measured axes, and use matching setup as a tie-breaker.
   const comparedBiology = (name: string): BiologyRadarCandidate | undefined =>
-    biology.filter((candidate) => candidate.name === name).sort((a, b) =>
+    biology.filter((candidate) => candidate.profileId === name).sort((a, b) =>
       b.measured - a.measured ||
       Number(b.method === bio?.method && b.provider === bio?.provider) -
         Number(a.method === bio?.method && a.provider === bio?.provider))[0];
   const biologies = [bio, ...compared.map(comparedBiology)]
     .filter((candidate): candidate is BiologyRadarCandidate => candidate !== undefined);
-  const graphDiagnostic = sci?.axes.relations.value === null
-    ? diagnoseGraphRadarMeasurement(eligibleEntries, selected) : null;
-  const plan = sci && resolveModelProfile(profiles, 'model', sci, planRadarModelEvaluation(sci, eligibleEntries));
+  const graphDiagnostic = sci?.axes.relations.value === null && selectedModel
+    ? diagnoseGraphRadarMeasurement(scopeRadarEntries(eligibleEntries, selected), selectedModel) : null;
+  const plan = sci ? configuredRadarPlan(sci, eligibleEntries, profiles) : null;
   const nonVisualDecision = profiles.some((profile) =>
-    profile.configuration.analysisModel === selected &&
+    profile.id === selected &&
     (profile.configuration.correctionMethod === 'decision' || profile.configuration.correctionMethod === 'visual-decision') &&
     (profile.configuration.apiCompatible || !isVisualDecisionModel(profile.configuration.analysisModel)));
   const [method, setMethod] = useState<ScienceMethod>('pixel-v1');
@@ -140,7 +148,7 @@ export function EvaluationRadarHome({
       profile.configuration.apiCompatible ? 'openai-compatible' : 'ollama'))));
   const activeBioMethod = activeBioMethodAllowed(bioMethod) ? bioMethod
     : (['contract', 'standard'] as const).find(activeBioMethodAllowed);
-  const scientificProgress = useMemo(() => scienceMethodProgress(entries, selected), [entries, selected]);
+  const scientificProgress = useMemo(() => scienceMethodProgress(selectedScienceEntries, selectedModel), [selectedScienceEntries, selectedModel]);
   function toggleMethod(domain: RadarDomain, id: string) {
     if (busy) return;
     const next = toggleRadarMethodExclusion(excluded, domain, id);
@@ -151,22 +159,21 @@ export function EvaluationRadarHome({
   // indeterminate graph receives at most one different, targeted reading.
   const scienceBatchPlans = scientificProgress.flatMap(progress => {
     if (!sci || !enabled('diagrams', progress.method) || progress.complete || !progress.steps.length) return [];
-    const request = resolveModelProfile(profiles, 'model', sci, {
-      profileId: sci.profileId, profileName: sci.name, modelId: selected,
-      axis: progress.missing[0] ?? 'graphics', steps: progress.steps,
-    }, progress.method);
+    const request = configuredRadarPlan(sci, eligibleEntries, profiles, {
+      axis: progress.missing[0] ?? 'graphics', steps: progress.steps, strategy: progress.method,
+    });
     return request && request.steps.length && profiles.some(profile => profile.id === request.profileId)
       ? [{ method: progress.method, request, trial: progress.trial }] : [];
   });
   const missingBiology = profile
-    ? remainingBiologyMethods(history, selected, profile.id).filter(activeBioMethodAllowed)
+    ? remainingBiologyMethods(history, selectedModel, profile.id).filter(activeBioMethodAllowed)
     : [];
 
-  const fullPlan = sci && activeScienceMethod && resolveModelProfile(profiles, 'model', sci, {
-    profileId: sci.profileId, profileName: sci.name, axis: 'graphics', steps: trialSteps(activeScienceMethod),
-  }, activeScienceMethod);
+  const fullPlan = sci && activeScienceMethod && configuredRadarPlan(sci, eligibleEntries, profiles, {
+    axis: 'graphics', steps: trialSteps(activeScienceMethod), strategy: activeScienceMethod,
+  });
   const timeline = useMemo(() => ({
-    diagrams: campaignGroups(entries.filter(isRadarBenchmark), e => e.trial?.id ?? e.id).flatMap<TimelinePoint>(group => {
+    diagrams: campaignGroups(selectedScienceEntries.filter(isRadarBenchmark), e => e.trial?.id ?? e.id).flatMap<TimelinePoint>(group => {
       const last = [...group].sort((a,b) => b.createdAt.localeCompare(a.createdAt))[0]!;
       const calculated = sciencePoints(group, weights);
       // Stored snapshots can predate later resumed batteries within the same
@@ -176,7 +183,7 @@ export function EvaluationRadarHome({
         return stored ? { ...stored, ...point } : { ...point, reconstructed: true };
       });
     }),
-    biology: campaignGroups(history, row => row.campaignId ?? row.id).flatMap(group => {
+    biology: campaignGroups(selectedHistory, row => row.campaignId ?? row.id).flatMap(group => {
       const saved = group.flatMap(row => row.timeline ? [row.timeline] : []);
       return biologyPoints(group).map(point => {
         const stored = saved.find(p => p.id === point.id && p.date === point.date);
@@ -185,7 +192,7 @@ export function EvaluationRadarHome({
         return stored ? {...stored, ...point, reconstructed: true} : {...point, reconstructed: true};
       });
     }),
-  }), [entries, history, weights]);
+  }), [selectedScienceEntries, selectedHistory, weights]);
   const score = (value: number | null | undefined) =>
     value == null ? '—' : value.toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' / 100';
   const chosenSciencePlan = explicitMethod.diagrams || !enabled('diagrams', 'pixel-v1') ? fullPlan : plan;
@@ -205,11 +212,11 @@ export function EvaluationRadarHome({
     const scientific = lab === 'diagrams';
     return <RadarTimeline key={lab + selected} domain={lab} exclusions={excluded}
       onToggleMethod={id => toggleMethod(lab, id)} methodSelectionDisabled={busy}
-      domainLabel={domainLabels[lab]} model={selected}
-      onBack={() => setLab(null)} points={timeline[lab].filter(p => p.model === selected)}
+      domainLabel={domainLabels[lab]} model={selectedModel}
+      onBack={() => setLab(null)} points={timeline[lab].filter(p => p.model === selectedModel)}
       onExport={() => {
         const date = new Date().toISOString();
-        const report = buildRadarTimelineExport(lab, selected, timeline[lab], entries, history, weights, date, excluded);
+        const report = buildRadarTimelineExport(lab, selectedModel, timeline[lab], selectedScienceEntries, selectedHistory, weights, date, excluded);
         const filenameModel = selected.replace(/[^a-zA-Z0-9._-]+/g, '-');
         downloadJson(report, 'companion-methodes-' + lab + '-' + filenameModel + '-' + date.replace(/:/g, '-') + '.json');
       }}
@@ -303,8 +310,8 @@ export function EvaluationRadarHome({
             choose(next);
           }}>
             {!models.length && <option value="">Aucun modèle configuré ou testé</option>}
-            {models.map((name) => (
-              <option key={name}>{name}</option>
+            {models.map(id => (
+              <option key={id} value={id}>{modelLabel(id)}</option>
             ))}
           </select>
         </label>
@@ -335,8 +342,8 @@ export function EvaluationRadarHome({
           <div className="radar-home-compare-chips">
             {compared.map((name) => (
               <span className="radar-home-compare-chip" key={name}>
-                {name}
-                <button type="button" aria-label={'Retirer ' + name + ' de la comparaison'}
+                {modelLabel(name)}
+                <button type="button" aria-label={'Retirer ' + modelLabel(name) + ' de la comparaison'}
                   onClick={() => setComparedModels(compared.filter((candidate) => candidate !== name))}>
                   ×
                 </button>
@@ -354,7 +361,7 @@ export function EvaluationRadarHome({
                 }}>
                 <option value="">Choisir un modèle…</option>
                 {availableComparisons.filter((name) => !compared.includes(name))
-                  .map((name) => <option key={name} value={name}>{name}</option>)}
+                  .map(id => <option key={id} value={id}>{modelLabel(id)}</option>)}
               </select>
             </label>
           )}
@@ -424,13 +431,13 @@ export function EvaluationRadarHome({
                       value: candidate.complete ? candidate.weightedScore : observedRadarScore(candidate, weights),
                       context: '',
                     })) : biologies.map((candidate) => ({
-                      id: candidate.id, name: candidate.name, measured: candidate.measured,
+                      id: candidate.id, name: modelLabel(candidate.profileId ?? candidate.name), measured: candidate.measured,
                       value: candidate.score ?? candidate.partialScore,
                       context: candidate.provider + ' · ' + candidate.method,
                     }))).map((candidate, index) => (
                       <div key={candidate.id} className="radar-home-legend-item">
                         <span className="radar-home-legend-color" aria-hidden="true"
-                          style={{ background: seriesColors[candidate.name] ?? RADAR_COMPARISON_COLORS[index % RADAR_COMPARISON_COLORS.length] }} />
+                          style={{ background: seriesColors[scientific ? candidate.id : biologies[index]?.profileId ?? ''] ?? RADAR_COMPARISON_COLORS[index % RADAR_COMPARISON_COLORS.length] }} />
                         <div>
                           <strong>{candidate.name}</strong>
                           {candidate.context && <small>{candidate.context}</small>}
@@ -489,7 +496,7 @@ export function EvaluationRadarHome({
                   <small role="note">Ce modèle décisionnel ne prend pas en charge directement les images scientifiques. Choisissez un modèle multimodal génératif ou un décisionnel visuel compatible.</small>
                 )}
                 {ids.length > 0 && (
-                  <Button variant="secondary" onClick={() => campaigns(domain, selected, ids)}>Voir les campagnes</Button>
+                  <Button variant="secondary" onClick={() => campaigns(domain, selectedModel, ids)}>Voir les campagnes</Button>
                 )}
                 <Button variant="secondary" onClick={() => setLab(domain)}>Analyse des méthodes</Button>
                 <Button variant="secondary" onClick={() => details(domain, selected)}>Détail du radar</Button>
