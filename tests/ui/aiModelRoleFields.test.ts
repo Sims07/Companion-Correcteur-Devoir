@@ -92,4 +92,25 @@ describe('shared simple AI model controls', () => {
     expect(node.querySelector<HTMLInputElement>('#evaluation-direct-decision')!.checked).toBe(true);
     expect(node.textContent).toContain('Ce modèle n’est pas reconnu comme compatible');
   });
+
+  it('lets compatible Instruct profiles omit reasoning without disabling the model itself', () => {
+    const onOmitReasoningParameter = vi.fn();
+    const { node } = render({
+      apiCompatible: true, omitReasoningParameter: true, analysisThinking: true,
+      onOmitReasoningParameter,
+    });
+    const omission = node.querySelector<HTMLInputElement>('#evaluation-omit-reasoning')!;
+    expect(omission.checked).toBe(true);
+    expect(node.querySelector<HTMLInputElement>('#evaluation-analysis-thinking')?.disabled).toBe(true);
+    expect(node.querySelector('#evaluation-reasoning-effort')).toBeNull();
+    expect(node.querySelector('#evaluation-analysis-thinking-status')?.textContent).toContain('Aucun paramètre Reasoning');
+    act(() => omission.click());
+    expect(onOmitReasoningParameter).toHaveBeenCalledWith(false);
+    const defaultMode = render({ apiCompatible: true, omitReasoningParameter: false, analysisThinking: true });
+    expect(defaultMode.node.querySelector<HTMLInputElement>('#evaluation-analysis-thinking')?.disabled).toBe(false);
+    expect(defaultMode.node.querySelector('#evaluation-reasoning-effort')).not.toBeNull();
+    expect(render({ apiCompatible: false }).node.querySelector('#evaluation-omit-reasoning')).toBeNull();
+  });
+
+
 });

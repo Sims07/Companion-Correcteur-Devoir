@@ -251,7 +251,7 @@ export async function checkOllamaReady(
     }
     // Only older compatible servers without /v1/models need a generation
     // fallback. Bound it to one token and explicitly disable reasoning.
-    const requestFetch = createOpenAiCompatibleFetch({ endpoint: settings.endpoint, apiKey: settings.apiKey ?? '', repetitionPenaltyParameter: settings.transcriptionPenaltyParameter, frequencyPenalty: settings.transcriptionFrequencyPenalty }, fetchImpl);
+    const requestFetch = createOpenAiCompatibleFetch({ endpoint: settings.endpoint, apiKey: settings.apiKey ?? '', repetitionPenaltyParameter: settings.transcriptionPenaltyParameter, frequencyPenalty: settings.transcriptionFrequencyPenalty, omitReasoningParameter: settings.omitReasoningParameter }, fetchImpl);
     let response: Response;
     try {
       response = await requestFetch(`${endpoint}/api/chat`, annotateNetworkRequest({
@@ -387,6 +387,7 @@ export function createOllamaProvider(
         apiKey: settings.apiKey ?? '',
         repetitionPenaltyParameter: settings.transcriptionPenaltyParameter,
         frequencyPenalty: settings.transcriptionFrequencyPenalty,
+        omitReasoningParameter: settings.omitReasoningParameter,
         onRequest: (payload) => { try { activeRequestPayloads?.push(JSON.parse(payload)); } catch { activeRequestPayloads?.push({ preview: payload }); } },
       }, fetchImpl)
     : fetchImpl;
@@ -682,7 +683,7 @@ export function createOllamaProvider(
             signal: requestAbortController.signal,
           }, request.diagramCriterionLabel ? intent + ' · ' + request.diagramCriterionLabel : intent, `Modèle ${model} · ${context}`);
           response = chat
-            ? await sendLmStudioDiagramTurn(endpoint, settings.apiKey ?? '', chat, requestBody, init, fetchImpl, payload => activeRequestPayloads?.push(payload))
+            ? await sendLmStudioDiagramTurn(endpoint, settings.apiKey ?? '', chat, { ...requestBody, omitReasoningParameter: settings.omitReasoningParameter }, init, fetchImpl, payload => activeRequestPayloads?.push(payload))
             : await providerFetch(`${endpoint}/api/chat`, init);
           clearFirstResponseTimeout();
         } catch (cause) {
@@ -1507,7 +1508,7 @@ export async function importRubricImageWithOllama(
 ): Promise<ImportedRubric> {
   const endpoint = normalizedEndpoint(settings.endpoint);
   const requestFetch = settings.apiCompatible
-    ? createOpenAiCompatibleFetch({ endpoint: settings.endpoint, apiKey: settings.apiKey ?? '', repetitionPenaltyParameter: settings.transcriptionPenaltyParameter, frequencyPenalty: settings.transcriptionFrequencyPenalty }, fetchImpl)
+    ? createOpenAiCompatibleFetch({ endpoint: settings.endpoint, apiKey: settings.apiKey ?? '', repetitionPenaltyParameter: settings.transcriptionPenaltyParameter, frequencyPenalty: settings.transcriptionFrequencyPenalty, omitReasoningParameter: settings.omitReasoningParameter }, fetchImpl)
     : fetchImpl;
   const visionModel = settings.visionModel?.trim() || settings.model?.trim() || '';
   const analysisModel = settings.analysisModel?.trim();

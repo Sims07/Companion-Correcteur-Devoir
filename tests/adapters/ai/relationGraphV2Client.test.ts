@@ -121,3 +121,19 @@ it('conserve le dessin original et dégrade une destination douteuse au lieu de 
   expect(result.validationIssue).toBeUndefined();
   expect(result.leaders[0]).toMatchObject({status:'uncertain',targetId:'unknown',tipX:-1,tipY:-1});
 });
+
+it('omits reasoning entirely for an Instruct graph-first V2 profile', async () => {
+  const network = vi.fn<typeof fetch>().mockImplementation(async (_url, init) => {
+    const body = JSON.parse(String(init?.body));
+    if ('reasoning_effort' in body) return new Response('reasoning not supported', { status: 400 });
+    return new Response(JSON.stringify({
+      choices: [{ message: { content: JSON.stringify(valid) }, finish_reason: 'stop' }],
+    }), { status: 200 });
+  });
+  await expect(extractVisualRelationGraphV2({
+    endpoint: 'http://localhost:1234', apiCompatible: true, omitReasoningParameter: true,
+    model: 'qwen3-vl-32b-instruct-mlx', image, think: false,
+  }, network)).resolves.toMatchObject({ complete: true });
+  expect(network).toHaveBeenCalledTimes(1);
+  expect(JSON.parse(String(network.mock.calls[0]?.[1]?.body))).not.toHaveProperty('reasoning_effort');
+});

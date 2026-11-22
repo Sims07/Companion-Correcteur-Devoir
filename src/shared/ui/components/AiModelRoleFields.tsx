@@ -15,6 +15,8 @@ interface Props {
   apiCompatible: boolean;
   analysisThinking: boolean;
   analysisReasoningEffort?: AnalysisReasoningEffort;
+  omitReasoningParameter?: boolean;
+  onOmitReasoningParameter?: (omit: boolean) => void;
   gradingOutputTokens?: number;
   onGradingOutputTokens?: (value: number | undefined) => void;
   disabled?: boolean;
@@ -64,9 +66,16 @@ export function AiModelRoleFields(props: Props) {
       </details>}
     </div>
     <div className="evaluation-config-field">
+      {apiCompatible && <label className="analysis-thinking-option" htmlFor={`${prefix}-omit-reasoning`}>
+        <input id={`${prefix}-omit-reasoning`} type="checkbox" checked={props.omitReasoningParameter === true}
+          disabled={disabled} onChange={event => props.onOmitReasoningParameter?.(event.target.checked)} />
+        <span><strong>Ne pas envoyer de paramètre Reasoning (modèles Instruct)</strong>
+          <small>Omet complètement reasoning_effort (Chat Completions) ou reasoning (Chat LM Studio), même quand Thinking est OFF. Le serveur choisit son comportement par défaut.</small>
+        </span>
+      </label>}
       <label className="analysis-thinking-option" htmlFor={`${prefix}-analysis-thinking`}>
         <input id={`${prefix}-analysis-thinking`} type="checkbox" checked={props.analysisThinking}
-          disabled={disabled} onChange={(event) => props.onAnalysisThinking(event.target.checked)} />
+          disabled={disabled || (apiCompatible && props.omitReasoningParameter === true)} onChange={(event) => props.onAnalysisThinking(event.target.checked)} />
         <span><strong>Activer Thinking (raisonnement)</strong>
           <small>{apiCompatible
             ? 'Demande au serveur compatible OpenAI d’activer ou désactiver le raisonnement du modèle. Le résultat dépend du serveur et du modèle. Peut ralentir la correction et consommer plus de tokens.'
@@ -74,7 +83,7 @@ export function AiModelRoleFields(props: Props) {
         </span>
       </label>
       <p className="hint" id={`${prefix}-analysis-thinking-status`} role="status">
-        {apiCompatible
+        {apiCompatible && props.omitReasoningParameter ? 'Aucun paramètre Reasoning ne sera transmis. Le serveur ou le modèle choisit le comportement.' : apiCompatible
           ? props.analysisThinking
             ? 'Thinking demandé (effort ' + (props.analysisReasoningEffort ?? 'medium') + ') pour les prochaines analyses génératives, si le serveur et le modèle prennent en charge ce réglage.'
             : 'Thinking désactivé demandé pour les prochaines analyses génératives. Si LM Studio ignore ce paramètre, désactivez aussi Reasoning dans ses réglages du modèle.'
@@ -93,7 +102,7 @@ export function AiModelRoleFields(props: Props) {
           }} />
         <small id={prefix + '-grading-output-help'}>Budget par appel pour la réflexion et la réponse finale, dès le premier essai. Laissez vide pour le calcul automatique. Les images et le barème occupent aussi une partie du contexte chargé dans LM Studio.</small>
       </div>}
-      {apiCompatible && props.analysisThinking && <div className="evaluation-config-field">
+      {apiCompatible && props.analysisThinking && !props.omitReasoningParameter && <div className="evaluation-config-field">
         <label className="field-label" htmlFor={`${prefix}-reasoning-effort`}>Effort de raisonnement</label>
         <DesignSystemSelect id={`${prefix}-reasoning-effort`}
           value={props.analysisReasoningEffort ?? 'medium'} disabled={disabled}

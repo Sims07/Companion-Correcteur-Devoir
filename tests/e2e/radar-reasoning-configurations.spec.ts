@@ -50,3 +50,28 @@ test('un même Gemma peut ouvrir trois radars indépendants selon le niveau de p
   const restored = page.getByRole('region', { name: 'Radar des candidats scientifiques' });
   await expect(restored.getByLabel('Choisir un LLM')).toHaveValue('gemma-high');
 });
+
+test('un profil Instruct sans Reasoning garde son réglage dans les radars', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(configuration => {
+    localStorage.setItem('companion-correcteur:ollama-profiles:v1', JSON.stringify([{
+      id: 'instruct-no-reasoning', name: 'Qwen VL Instruct',
+      mode: 'single', updatedAt: '2026-11-22T12:00:00Z',
+      configuration: {
+        ...configuration, endpoint: 'http://localhost:1234/v1', apiCompatible: true,
+        visionModel: 'qwen3-vl-32b-instruct-mlx',
+        analysisModel: 'qwen3-vl-32b-instruct-mlx',
+        omitReasoningParameter: true, correctionMethod: 'generative',
+      },
+    }]));
+  }, defaultAiModelConfiguration);
+  await page.reload();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  const selector = page.getByRole('region', { name: 'Tableau de bord des radars' }).getByLabel('Choisir un LLM');
+  await expect(selector.locator('option[value="instruct-no-reasoning"]')).toContainText('Reasoning non envoyé');
+  await page.reload();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await expect(page.getByRole('region', { name: 'Tableau de bord des radars' })
+    .getByLabel('Choisir un LLM').locator('option[value="instruct-no-reasoning"]'))
+    .toContainText('Reasoning non envoyé');
+});

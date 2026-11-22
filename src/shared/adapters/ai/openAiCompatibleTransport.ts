@@ -8,6 +8,8 @@ import { currentFetch } from './currentFetch.ts';
 export interface OpenAiCompatibleSettings {
   endpoint: string;
   apiKey: string;
+  /** When true, never send reasoning_effort or its fallback dialect. */
+  omitReasoningParameter?: boolean;
   repetitionPenaltyParameter?: 'none' | 'frequency_penalty' | 'repeat_penalty';
   frequencyPenalty?: number;
   /** Receives a credential-free, image-redacted preview for local observability. */
@@ -181,7 +183,7 @@ export function createOpenAiCompatibleFetch(settings: OpenAiCompatibleSettings, 
       stream: source.stream ?? false,
       // Put the requested reasoning mode before the potentially huge image and
       // rubric prompt, so it remains immediately visible in local diagnostics.
-      ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
+      ...(reasoningEffort && !settings.omitReasoningParameter ? { reasoning_effort: reasoningEffort } : {}),
       messages: openAiMessages(source.messages ?? []),
       ...(source.options?.temperature !== undefined ? { temperature: source.options.temperature } : {}),
       ...(source.options?.num_predict !== undefined

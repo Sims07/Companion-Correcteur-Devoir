@@ -10,6 +10,7 @@ import { createOpenAiCompatibleFetch } from '../../../shared/adapters/ai/openAiC
 export interface RelationGraphV2Request {
   endpoint: string;
   apiCompatible?: boolean;
+  omitReasoningParameter?: boolean;
   apiKey?: string;
   think?: boolean | string;
   model: string;
@@ -25,7 +26,7 @@ export async function extractVisualRelationGraphV2(
   const compatible = request.apiCompatible === true;
   const url = compatible ? blindGraphCompatibleUrl(request.endpoint) : blindGraphLocalUrl(request.endpoint);
   const send = compatible
-    ? createOpenAiCompatibleFetch({endpoint:request.endpoint,apiKey:request.apiKey ?? ''}, transport)
+    ? createOpenAiCompatibleFetch({endpoint:request.endpoint,apiKey:request.apiKey ?? '',omitReasoningParameter:request.omitReasoningParameter}, transport)
     : transport;
   if (!request.model.trim() || request.model.length > 150) throw new Error('Modèle Vision V2 manquant.');
   if (!request.image.base64 || !/^image\/(png|jpeg|webp)$/.test(request.image.mimeType)) {
