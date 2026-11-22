@@ -12,6 +12,18 @@ export function parseGradingOutputTokens(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isSafeInteger(value) && value > 0 ? value : undefined;
 }
 
+/** Absence of an override preserves the inference backend's model defaults. */
+export function analysisSamplingSettings(value: {
+  analysisTemperature?: unknown; analysisTopP?: unknown; analysisTopK?: unknown;
+}): { analysisTemperature?: number; analysisTopP?: number; analysisTopK?: number } {
+  const { analysisTemperature: temperature, analysisTopP: topP, analysisTopK: topK } = value;
+  return {
+    ...(typeof temperature === 'number' && Number.isFinite(temperature) && temperature >= 0 && temperature <= 2 ? { analysisTemperature: temperature } : {}),
+    ...(typeof topP === 'number' && Number.isFinite(topP) && topP > 0 && topP <= 1 ? { analysisTopP: topP } : {}),
+    ...(typeof topK === 'number' && Number.isSafeInteger(topK) && topK >= 1 && topK <= 1000 ? { analysisTopK: topK } : {}),
+  };
+}
+
 export interface AiModelConfiguration {
   endpoint: string;
   apiCompatible: boolean;
@@ -32,6 +44,10 @@ export interface AiModelConfiguration {
   diagnosticStrategy: AiModelStrategy;
   analysisThinking: boolean;
   gradingOutputTokens?: number;
+  /** Optional generative analysis sampling settings, never applied to OCR. */
+  analysisTemperature?: number;
+  analysisTopP?: number;
+  analysisTopK?: number;
   /** Chat Completions effort when Thinking is enabled. */
   analysisReasoningEffort?: AnalysisReasoningEffort;
   /** Explicitly omit reasoning controls for incompatible Instruct models. */
@@ -80,6 +96,7 @@ export function parseAiModelConfiguration(raw: string | null): AiModelConfigurat
       arbitratorModel: typeof candidate.arbitratorModel === 'string' ? candidate.arbitratorModel : '',
       diagnosticStrategy: isStrategy(candidate.diagnosticStrategy) ? candidate.diagnosticStrategy : 'single',
       gradingOutputTokens: parseGradingOutputTokens(candidate.gradingOutputTokens),
+      ...analysisSamplingSettings(candidate),
       analysisThinking: candidate.analysisThinking === true,
       analysisReasoningEffort: parseAnalysisReasoningEffort(candidate.analysisReasoningEffort),
       omitReasoningParameter: candidate.omitReasoningParameter === true,
@@ -110,7 +127,11 @@ export function parseAiModelProfiles(raw: string | null): AiModelProfile[] {
         delete legacyConfiguration.detectTeacherAnnotations;
         delete legacyConfiguration.regionsEnabled;
         delete legacyConfiguration.regionsModel;
-        const configuration: AiModelConfiguration = { ...defaultAiModelConfiguration, ...legacyConfiguration, gradingOutputTokens: parseGradingOutputTokens(legacyConfiguration.gradingOutputTokens), analysisReasoningEffort: parseAnalysisReasoningEffort(legacyConfiguration.analysisReasoningEffort), correctionMethod: parseCorrectionMethod(legacyConfiguration.correctionMethod) };
+        const rest = { ...legacyConfiguration };
+        delete rest.analysisTemperature;
+        delete rest.analysisTopP;
+        delete rest.analysisTopK;
+        const configuration: AiModelConfiguration = { ...defaultAiModelConfiguration, ...rest, ...analysisSamplingSettings(legacyConfiguration), gradingOutputTokens: parseGradingOutputTokens(legacyConfiguration.gradingOutputTokens), analysisReasoningEffort: parseAnalysisReasoningEffort(legacyConfiguration.analysisReasoningEffort), correctionMethod: parseCorrectionMethod(legacyConfiguration.correctionMethod) };
         // Do not add a new field when migrating legacy saved profiles: deleting
         // another profile must not rewrite otherwise untouched configuration JSON.
         if (legacyConfiguration.omitReasoningParameter === undefined) delete configuration.omitReasoningParameter;

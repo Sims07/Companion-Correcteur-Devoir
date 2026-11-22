@@ -15,6 +15,10 @@ export interface ModelEvaluationConfiguration {
   /** Native Ollama named thinking level discovered for this diagram run, if required. */
   thinkingLevel?: string;
   gradingOutputTokens?: number;
+  /** Sampling overrides retained per evaluated model profile. */
+  analysisTemperature?: number;
+  analysisTopP?: number;
+  analysisTopK?: number;
   criterionByCriterion?: boolean;
   correctionMethod?: CorrectionMethod;
   /** Direct image decisions are an experimental evaluation option, not a teacher default. */

@@ -18,6 +18,12 @@ interface Props {
   omitReasoningParameter?: boolean;
   onOmitReasoningParameter?: (omit: boolean) => void;
   gradingOutputTokens?: number;
+  analysisTemperature?: number;
+  analysisTopP?: number;
+  analysisTopK?: number;
+  onAnalysisTemperature?: (value: number | undefined) => void;
+  onAnalysisTopP?: (value: number | undefined) => void;
+  onAnalysisTopK?: (value: number | undefined) => void;
   onGradingOutputTokens?: (value: number | undefined) => void;
   disabled?: boolean;
   onGenerativeModel: (value: string) => void;
@@ -102,6 +108,32 @@ export function AiModelRoleFields(props: Props) {
           }} />
         <small id={prefix + '-grading-output-help'}>Budget par appel pour la réflexion et la réponse finale, dès le premier essai. Laissez vide pour le calcul automatique. Les images et le barème occupent aussi une partie du contexte chargé dans LM Studio.</small>
       </div>}
+      {!decision && <details className="ai-model-advanced">
+        <summary>Échantillonnage de l’analyse (facultatif)</summary>
+        <p className="hint">Laissez les champs vides pour ne rien envoyer et conserver les valeurs du modèle. Ces options concernent les corrections et radars, pas la lecture OCR.</p>
+        <label className="field-label" htmlFor={prefix + '-temperature'}>Température</label>
+        <input id={prefix + '-temperature'} type="number" min="0" max="2" step="0.05" placeholder="Défaut du modèle"
+          disabled={disabled} value={props.analysisTemperature ?? ''} onChange={event => {
+            if (event.target.value === '') props.onAnalysisTemperature?.(undefined);
+            else if (Number.isFinite(event.target.valueAsNumber) && event.target.valueAsNumber >= 0 && event.target.valueAsNumber <= 2)
+              props.onAnalysisTemperature?.(event.target.valueAsNumber);
+          }} />
+        <label className="field-label" htmlFor={prefix + '-top-p'}>Top-p (0–1)</label>
+        <input id={prefix + '-top-p'} type="number" min="0.01" max="1" step="0.01" placeholder="Défaut du modèle"
+          disabled={disabled} value={props.analysisTopP ?? ''} onChange={event => {
+            if (event.target.value === '') props.onAnalysisTopP?.(undefined);
+            else if (Number.isFinite(event.target.valueAsNumber) && event.target.valueAsNumber > 0 && event.target.valueAsNumber <= 1)
+              props.onAnalysisTopP?.(event.target.valueAsNumber);
+          }} />
+        <label className="field-label" htmlFor={prefix + '-top-k'}>Top-k (entier)</label>
+        <input id={prefix + '-top-k'} type="number" min="1" max="1000" step="1" placeholder="Défaut du modèle"
+          disabled={disabled} value={props.analysisTopK ?? ''} onChange={event => {
+            if (event.target.value === '') props.onAnalysisTopK?.(undefined);
+            else if (Number.isSafeInteger(event.target.valueAsNumber) && event.target.valueAsNumber >= 1 && event.target.valueAsNumber <= 1000)
+              props.onAnalysisTopK?.(event.target.valueAsNumber);
+          }} />
+        <p className="hint">Top-k fonctionne via Ollama et Chat natif LM Studio (/api/v1/chat) ; il n’est pas envoyé à Chat Completions compatible OpenAI.</p>
+      </details>}
       {apiCompatible && props.analysisThinking && !props.omitReasoningParameter && <div className="evaluation-config-field">
         <label className="field-label" htmlFor={`${prefix}-reasoning-effort`}>Effort de raisonnement</label>
         <DesignSystemSelect id={`${prefix}-reasoning-effort`}

@@ -73,6 +73,51 @@ describe('vision + analyse générative directe (laboratoire scientifique)', () 
     expect(diagnostics[0]?.raw).not.toContain('PRIVATE_INTERNAL_REASONING');
   });
 
+  it.each([0, 1])('envoie explicitement T%s seulement si le profil le demande', async temperature => {
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(
+      JSON.stringify({ message: { content: grade } }) + '\n' + JSON.stringify({ done: true, done_reason: 'stop' }) + '\n',
+      { status: 200, headers: { 'Content-Type': 'application/x-ndjson' } },
+    ));
+    const diagnostics: import('../../../src/correction/ports/aiProvider.ts').DiagnosticModelResult[] = [];
+    await createOllamaProvider({
+      endpoint: 'http://localhost:11434', analysisModel: 'gemma:26b',
+      correctionMethod: 'generative', analysisTemperature: temperature,
+      analysisTopP: 0.95, analysisTopK: 64,
+    }, fetchMock as unknown as typeof fetch).generate(request, undefined, undefined, undefined,
+      result => diagnostics.push(result));
+    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(body.options).toMatchObject({ temperature, top_p: 0.95, top_k: 64 });
+    expect(diagnostics[0]?.requestMetadata?.options).toMatchObject({ temperature, topP: 0.95, topK: 64 });
+    expect(diagnostics[0]?.requestPayload).toContain('"temperature": ' + temperature);
+  });
+
+  it('n’impose pas T0 sur une vraie correction directe avec critère et schéma JSON', async () => {
+    const scientificRequest = { ...request, rubric: JSON.stringify({
+      title: 'Dessin scientifique', criteria: [{
+        id: 'legends', title: 'Légendes', maxPoints: 0.68,
+        subcriteria: [{ id: 'arrows', title: 'Correspondance correcte', maxPoints: 0.68 }],
+      }],
+    }) };
+    const answer = JSON.stringify({ criteria: { legends: {
+      evidence: 'Correspondance visible', confidence: 'high', questionForTeacher: '',
+      subcriteria: { arrows: { points: 0.68, evidence: 'Ligne vers la bonne structure' } },
+    } } });
+    const fetchMock = vi.fn(async (_url: RequestInfo | URL, _init?: RequestInit) => new Response(
+      JSON.stringify({ message: { content: answer } }) + '\n' + JSON.stringify({ done: true, done_reason: 'stop' }) + '\n',
+      { status: 200, headers: { 'Content-Type': 'application/x-ndjson' } },
+    ));
+    const diagnostics: import('../../../src/correction/ports/aiProvider.ts').DiagnosticModelResult[] = [];
+    await createOllamaProvider({ endpoint: 'http://localhost:11434',
+      analysisModel: 'gemma-4:26b', correctionMethod: 'generative' },
+    fetchMock as unknown as typeof fetch).generate(scientificRequest, undefined, undefined, undefined,
+      result => diagnostics.push(result));
+    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(body.options).not.toHaveProperty('temperature');
+    expect(body.options).not.toHaveProperty('top_p');
+    expect(body.options).not.toHaveProperty('top_k');
+    expect(diagnostics[0]?.requestMetadata?.options).not.toHaveProperty('temperature');
+  });
+
   it('garde 2048 tokens et think=false pour la référence directe sans raisonnement', async () => {
     const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(
       JSON.stringify({ message: { content: grade } }) + '\n' + JSON.stringify({ done: true, done_reason: 'stop' }) + '\n',
@@ -84,6 +129,9 @@ describe('vision + analyse générative directe (laboratoire scientifique)', () 
     }, fetchMock as unknown as typeof fetch).generate(request);
     const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
     expect(body).toMatchObject({ think: false, options: { num_predict: 2048 } });
+    expect(body.options).not.toHaveProperty('temperature');
+    expect(body.options).not.toHaveProperty('top_p');
+    expect(body.options).not.toHaveProperty('top_k');
   });
 
   it('transmet directement le schéma au serveur OpenAI compatible configuré', async () => {
@@ -105,6 +153,21 @@ describe('vision + analyse générative directe (laboratoire scientifique)', () 
     expect(body.messages[0].content).toEqual(expect.arrayContaining([
       { type: 'image_url', image_url: { url: 'data:image/png;base64,aW1hZ2U=', detail: 'high' } },
     ]));
+  });
+
+  it('translates sampling to standard Chat Completions without non-standard top_k', async () => {
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(
+      'data: ' + JSON.stringify({ choices: [{ delta: { content: grade }, finish_reason: 'stop' }] }) + '\n\ndata: [DONE]\n',
+      { status: 200, headers: { 'Content-Type': 'text/event-stream' } },
+    ));
+    await createOllamaProvider({
+      endpoint: 'https://ai.example/v1/chat/completions', apiCompatible: true,
+      analysisModel: 'gemma', correctionMethod: 'generative',
+      analysisTemperature: 1, analysisTopP: 0.95, analysisTopK: 64,
+    }, fetchMock as unknown as typeof fetch).generate(request);
+    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(body).toMatchObject({ temperature: 1, top_p: 0.95 });
+    expect(body).not.toHaveProperty('top_k');
   });
 
   it('stops a looping LM Studio Thinking Low response instead of grading partial JSON', async () => {

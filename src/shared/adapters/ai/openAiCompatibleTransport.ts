@@ -175,7 +175,7 @@ export function createOpenAiCompatibleFetch(settings: OpenAiCompatibleSettings, 
   return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const requestUrl = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
     if (!requestUrl.endsWith('/api/chat')) return fetchImpl(input, init);
-    const source: { model?: string; stream?: boolean; messages?: Array<{ role: string; content: string; images?: string[]; imageDetail?: 'low' | 'high' }>; think?: boolean | string; options?: { temperature?: number; num_predict?: number; stop?: string[]; repeat_penalty?: number; frequency_penalty?: number }; generation_token_parameter?: 'max_tokens' | 'max_completion_tokens'; format?: unknown } =
+    const source: { model?: string; stream?: boolean; messages?: Array<{ role: string; content: string; images?: string[]; imageDetail?: 'low' | 'high' }>; think?: boolean | string; options?: { temperature?: number; top_p?: number; top_k?: number; num_predict?: number; stop?: string[]; repeat_penalty?: number; frequency_penalty?: number }; generation_token_parameter?: 'max_tokens' | 'max_completion_tokens'; format?: unknown } =
       typeof init?.body === 'string' ? JSON.parse(init.body) : {};
     const reasoningEffort = compatibleReasoningEffort(source.think);
     const body = {
@@ -186,6 +186,9 @@ export function createOpenAiCompatibleFetch(settings: OpenAiCompatibleSettings, 
       ...(reasoningEffort && !settings.omitReasoningParameter ? { reasoning_effort: reasoningEffort } : {}),
       messages: openAiMessages(source.messages ?? []),
       ...(source.options?.temperature !== undefined ? { temperature: source.options.temperature } : {}),
+      ...(source.options?.top_p !== undefined ? { top_p: source.options.top_p } : {}),
+      // top_k is not a standard Chat Completions parameter. Native LM Studio
+      // chat and Ollama support it; omit here to avoid a 400 from strict servers.
       ...(source.options?.num_predict !== undefined
         ? source.generation_token_parameter === 'max_completion_tokens'
           ? { max_completion_tokens: source.options.num_predict }
