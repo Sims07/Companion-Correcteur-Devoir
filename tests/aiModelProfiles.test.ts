@@ -97,7 +97,8 @@ describe('AI model configuration defaults', () => {
     expect(parseAiModelProfiles(JSON.stringify([saved]))[0]?.configuration.omitReasoningParameter).toBe(true);
     const legacy = { ...saved, configuration: { ...defaultAiModelConfiguration } };
     delete (legacy.configuration as { omitReasoningParameter?: boolean }).omitReasoningParameter;
-    expect(parseAiModelProfiles(JSON.stringify([legacy]))[0]?.configuration.omitReasoningParameter).toBe(false);
+    expect(parseAiModelProfiles(JSON.stringify([legacy]))[0]?.configuration.omitReasoningParameter).toBeUndefined();
+    expect(JSON.stringify(parseAiModelProfiles(JSON.stringify([legacy]))[0]?.configuration)).not.toContain('omitReasoningParameter');
   });
 
 
