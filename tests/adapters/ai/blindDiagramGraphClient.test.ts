@@ -584,7 +584,7 @@ describe('Ollama-native timing of the independent graph pipeline', () => {
     const network = vi.fn<typeof fetch>().mockImplementation(async (_url, init) => {
       const body = JSON.parse(String(init?.body));
       if ('reasoning_effort' in body) return new Response('reasoning not supported', { status: 400 });
-      return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(graph), finish_reason: 'stop' }] }), { status: 200 });
+      return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(graph) }, finish_reason: 'stop' }] }), { status: 200 });
     });
     await expect(extractBlindVisualGraph({
       endpoint: 'http://localhost:1234', apiCompatible: true, omitReasoningParameter: true,
