@@ -426,4 +426,10 @@ if __name__ == "__main__":
         raise SystemExit(1)
 COMPAGNON_SERVEUR_PYTHON
 chmod 600 "$DOSSIER/serveur_https.py"
+# Sur macOS, garder le Mac eveille tant que le proxy HTTPS fonctionne.
+# Ne bloque pas la mise en veille de l'ecran (-d volontairement absent).
+if [ "$(uname -s)" = "Darwin" ] && command -v caffeinate >/dev/null 2>&1; then
+  printf 'Mac maintenu eveille pendant le fonctionnement du proxy HTTPS (Ctrl+C pour arreter).\n'
+  exec caffeinate -i -s "$PYTHON_BIN" -u "$DOSSIER/serveur_https.py"
+fi
 exec "$PYTHON_BIN" -u "$DOSSIER/serveur_https.py"
