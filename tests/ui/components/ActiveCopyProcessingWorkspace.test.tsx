@@ -97,4 +97,63 @@ describe('Atelier B: correction en cours centrée sur la copie', () => {
     expect(markup).toContain('Consulter le texte reconnu');
     expect(markup).toContain('aria-current="step"');
   });
+  it('shows the actual diagram criterion being analyzed', () => {
+    const proposal = (criterionId: string) => ({
+      criterionId, points: 1, confidence: 'high' as const, evidence: 'Observation', rationale: '',
+    });
+    const markup = renderToStaticMarkup(<ActiveCopyProcessingWorkspace job={{
+      ...job, status: 'processing', phase: 'grading',
+      gradingFlow: 'scientific-diagram-direct', criterionByCriterion: true,
+      completedCriteria: 2, activeCriterionId: 'concepts',
+      partialCriteria: [proposal('diagram'), proposal('legend')],
+    }} />);
+    expect(markup).toContain('CRITÈRE 3 SUR 3');
+    expect(markup).toContain('Le modèle analyse ce critère.');
+    expect(markup).toContain('2 / 3 critères examinés');
+    expect(markup).toContain('aria-valuenow="2"');
+    expect(markup).toContain('aria-valuetext="2 sur 3 critères examinés"');
+    expect(markup).toContain('class="background-copy-activity-criteria"');
+    expect(markup).toMatch(/aria-current="step"[^>]*>.*?Compréhension.*?En cours/s);
+    expect(markup).not.toContain('Les résultats arriveront ensemble à la fin.');
+  });
+
+  it('does not fabricate individual progress for a global direct-image request', () => {
+    const markup = renderToStaticMarkup(<ActiveCopyProcessingWorkspace job={{
+      ...job, status: 'processing', phase: 'grading',
+      gradingFlow: 'scientific-diagram-direct', criterionByCriterion: false,
+    }} />);
+    expect(markup).toContain('ANALYSE GLOBALE');
+    expect(markup).toContain('Les résultats arriveront ensemble à la fin.');
+    expect(markup).toContain('Analyse globale du schéma en cours');
+    expect(markup).not.toContain('CRITÈRE 1 SUR 3');
+    expect(markup).not.toContain('class="is-active"');
+    expect(markup).toContain('aria-valuenow="0"');
+  });
+
+  it('reports finalization after all criterion results are stored without inventing a grade', () => {
+    const proposal = (criterionId: string) => ({
+      criterionId, points: 1, confidence: 'high' as const, evidence: 'Observation', rationale: '',
+    });
+    const markup = renderToStaticMarkup(<ActiveCopyProcessingWorkspace job={{
+      ...job, status: 'processing', phase: 'grading',
+      gradingFlow: 'scientific-diagram-direct', criterionByCriterion: true,
+      completedCriteria: 3, activeCriterionId: null,
+      partialCriteria: [proposal('diagram'), proposal('legend'), proposal('concepts')],
+    }} />);
+    expect(markup).toContain('FINALISATION');
+    expect(markup).toContain('Tous les critères ont été examinés.');
+    expect(markup).toContain('aria-valuenow="3"');
+    expect(markup).not.toContain('Note proposée');
+  });
+
+  it('stops highlighting a criterion when the processing job is interrupted', () => {
+    const markup = renderToStaticMarkup(<ActiveCopyProcessingWorkspace job={{
+      ...job, status: 'failed', phase: 'grading', activeCriterionId: 'legend',
+      partialCriteria: [{ criterionId: 'diagram', points: 3, confidence: 'high', evidence: 'Observation', rationale: '' }],
+    }} />);
+    expect(markup).not.toContain('background-copy-activity-focus');
+    expect(markup).not.toContain('class="is-active"');
+    expect(markup).toContain('aria-valuenow="1"');
+  });
+
 });
