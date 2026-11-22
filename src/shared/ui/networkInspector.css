@@ -7,3 +7,5 @@
 
 .network-pending-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 8px;border-radius:999px;background:var(--surface-muted,#edf3ed);color:var(--text-primary,#203027);font-weight:700;font-variant-numeric:tabular-nums}
 .network-waiting-hint{display:block;margin-top:4px;color:#a36a19;font-size:10px;line-height:1.35;font-weight:600}
+
+.network-duration .network-token-rate{display:block;margin-top:3px;font-size:10px;font-weight:700;color:var(--text-primary,#27352b);white-space:nowrap}.network-token-metrics{font-size:11px;color:var(--text-secondary,#647467);border-top:1px solid var(--border,#e5ebe5);padding-top:8px}.network-token-metrics p{margin:4px 0}.network-token-metrics strong{color:var(--text-primary,#203027)}

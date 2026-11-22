@@ -4,6 +4,7 @@ import '../../shared/ui/networkInspector.css';
 import { isOllamaInferenceRequest } from '../../shared/domain/ollamaTimings.ts';
 import { extractOllamaMessage, extractOllamaThinking } from '../../shared/domain/ollamaThinkingStream.ts';
 import { extractOpenAiCompletion, isOpenAiCompletionRequest } from '../../shared/domain/openAiCompletionStream.ts';
+import { modelTokenRate } from '../../shared/domain/modelTokenRate.ts';
 
 type Filter = 'all' | 'pending' | 'error' | 'success';
 
@@ -84,6 +85,11 @@ export function NetworkInspector({ initialFilter = 'all', hasRunningCorrections 
     : isOllamaInferenceRequest(record.url) ? record.providerTimings?.totalMs ?? null : record.durationMs;
   const modelDurationLabel = (record: NetworkRequestRecord) => isOllamaInferenceRequest(record.url) && record.state !== 'pending'
     ? record.providerTimings ? 'Temps Ollama' : 'Temps Ollama indisponible' : record.state === 'pending' ? 'En cours' : 'Temps réseau';
+  const tokenRateLabel = (record: NetworkRequestRecord) => {
+    const rate = modelTokenRate(record);
+    return rate ? `${rate.tokensPerSecond.toFixed(1)} tok/s` : null;
+  };
+  const selectedTokenRate = selected ? modelTokenRate(selected) : null;
   const ollamaSelected = Boolean(selected && isOllamaInferenceRequest(selected.url));
   const completionSelected = Boolean(selected && isOpenAiCompletionRequest(selected.url));
   const legacyCompletion = useMemo(() => completionSelected && selected
@@ -114,7 +120,7 @@ export function NetworkInspector({ initialFilter = 'all', hasRunningCorrections 
         <div className="network-request-table" role="list" aria-label="Requêtes HTTP">
           <div className="network-request-columns" aria-hidden="true"><span>Heure</span><span>Méthode</span><span>URL</span><span>Intention</span><span>HTTP</span><span>Durée modèle / réseau</span></div>
           {filtered.map((record) => <button type="button" role="listitem" key={record.id} className={selected?.id === record.id ? 'network-request-row selected' : 'network-request-row'} onClick={() => setSelectedId(record.id)}>
-            <span className="network-request-time" title={new Date(record.startedAt).toLocaleString("fr-FR")}>{formatTime(record.startedAt)}</span><span className="network-method">{record.method}</span><span className="network-url" title={record.url}>{record.url}</span><span className="network-intent" title={record.context ? `${record.intent} · ${record.context}` : record.intent}><strong>{record.intent}</strong>{record.context && <small>{record.context}</small>}</span><span className={`network-state ${record.state}`}>{record.state === 'pending' ? '…' : record.status ?? 'ERR'}</span><span className="network-duration" title={modelDurationLabel(record)}>{formatDuration(visibleDuration(record))}{isOllamaInferenceRequest(record.url) && record.state !== 'pending' && <small>{record.providerTimings ? 'Ollama' : 'Non mesuré'}</small>}{waitingForServer(record) && <small className="network-waiting-hint">En attente du serveur (modèle en cours de chargement ?)</small>}</span>
+            <span className="network-request-time" title={new Date(record.startedAt).toLocaleString("fr-FR")}>{formatTime(record.startedAt)}</span><span className="network-method">{record.method}</span><span className="network-url" title={record.url}>{record.url}</span><span className="network-intent" title={record.context ? `${record.intent} · ${record.context}` : record.intent}><strong>{record.intent}</strong>{record.context && <small>{record.context}</small>}</span><span className={`network-state ${record.state}`}>{record.state === 'pending' ? '…' : record.status ?? 'ERR'}</span><span className="network-duration" title={modelDurationLabel(record)}>{formatDuration(visibleDuration(record))}{isOllamaInferenceRequest(record.url) && record.state !== 'pending' && <small>{record.providerTimings ? 'Ollama' : 'Non mesuré'}</small>}{tokenRateLabel(record) && <small className="network-token-rate" title={modelTokenRate(record)?.source === 'native' ? 'Vitesse native de génération Ollama' : 'Débit bout-en-bout, temps réseau inclus'}>{tokenRateLabel(record)}</small>}{waitingForServer(record) && <small className="network-waiting-hint">En attente du serveur (modèle en cours de chargement ?)</small>}</span>
           </button>)}
           {!filtered.length && <p className="network-empty">Aucune requête. Les prochains appels HTTP apparaîtront ici.</p>}
         </div>
@@ -134,7 +140,11 @@ export function NetworkInspector({ initialFilter = 'all', hasRunningCorrections 
               {selected.providerTimings && <p>Chargement : {formatDuration(selected.providerTimings.loadMs ?? null)} · Prompt : {formatDuration(selected.providerTimings.promptEvaluationMs ?? null)} · Génération : {formatDuration(selected.providerTimings.generationMs ?? null)}</p>}
               {unexplainedGap !== null && unexplainedGap > 60_000 && unexplainedGap > selected.providerTimings!.totalMs * 2 && <p className="network-waiting-hint" role="status">Écart important entre Ollama et le navigateur : veille, attente ou interruption possible. Écart : {formatDuration(unexplainedGap)}.</p>}
             </div>}
-            {selected.state === 'error' && selected.error && <p className="network-error" role="alert"><strong>{selected.status === null ? 'Requête interrompue sans réponse HTTP : ' : 'Erreur réseau : '}</strong>{selected.error}</p>}
+            {selectedTokenRate && <div className="network-token-metrics" aria-label="Débit des tokens">
+               <p><strong>{selectedTokenRate.tokensPerSecond.toFixed(1)} tokens/s</strong> · {selectedTokenRate.source === 'native' ? 'Vitesse native de génération (Ollama)' : 'Débit bout-en-bout estimé (tokens générés / temps réseau, prétraitement inclus)'}</p>
+               <p>Tokens générés : {selectedTokenRate.completionTokens}{selectedTokenRate.promptTokens !== undefined ? ` · Tokens du prompt : ${selectedTokenRate.promptTokens}` : ''}</p>
+             </div>}
+             {selected.state === 'error' && selected.error && <p className="network-error" role="alert"><strong>{selected.status === null ? 'Requête interrompue sans réponse HTTP : ' : 'Erreur réseau : '}</strong>{selected.error}</p>}
           </section>
           <nav className="network-detail-tabs" aria-label="Détails réseau">{(['headers','request','response','message','thinking'] as const).map((item) => <button type="button" key={item} className={tab === item ? 'active' : ''} aria-pressed={tab === item} onClick={() => setTab(item)}>{item === 'headers' ? 'Headers' : item === 'request' ? 'Payload' : item === 'response' ? 'Response' : item === 'message' ? 'Message' : 'Thinking'}</button>)}</nav>
           <div className={`network-detail-body${tab === 'headers' ? '' : ' network-detail-body--single'}`}>
