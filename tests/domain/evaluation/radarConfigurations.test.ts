@@ -5,7 +5,7 @@ import { DIAGRAM_SENSITIVITY_CASES } from '../../../src/evaluation/domain/scient
 import { buildBiologyRadar, type BiologyRadarObservation } from '../../../src/evaluation/domain/biologyTeacherRadar.ts';
 import { rankDiagramLabRadar, RADAR_PRESETS } from '../../../src/evaluation/domain/diagramLabRadar.ts';
 import {
-  buildConfigurationRadars, configuredRadarPlan, radarConfigurationLabel, scopeRadarEntries,
+  buildConfigurationRadars, configuredRadarPlan, radarConfigurationLabel, radarProfileThinking, scopeRadarEntries,
 } from '../../../src/evaluation/domain/radarConfigurations.ts';
 
 const profiles = [
@@ -63,6 +63,14 @@ describe('radar identity is the saved AI configuration', () => {
     const rows = buildConfigurationRadars([sharedCampaign()], []);
     expect(rows.map(row => row.id)).toEqual(['off', 'low']);
     expect(radarConfigurationLabel(profiles[1]!)).toMatch(/Think low/);
+  });
+
+  it('converts profile thinking to the real LM Studio request value', () => {
+    expect(radarProfileThinking(profiles[0]!.configuration)).toBe(false);
+    expect(radarProfileThinking(profiles[1]!.configuration)).toBe('low');
+    expect(radarProfileThinking({ analysisThinking: true, apiCompatible: true, analysisReasoningEffort: 'high' })).toBe('high');
+    expect(radarProfileThinking({ analysisThinking: true, apiCompatible: false })).toBe(true);
+    expect(radarProfileThinking({ analysisThinking: false, apiCompatible: true, analysisReasoningEffort: 'high' })).toBe(false);
   });
 
   it('isolates biology case scores by configuration without changing historical default grouping', () => {
