@@ -67,6 +67,28 @@ describe('OpenAI Chat Completions SSE diagnostic decoding', () => {
     expect(parser.message).toContain('tronqué');
   });
 
+  it('reads LM Studio final token usage from an SSE event without choices', () => {
+    const parser = new OpenAiCompletionStream(true);
+    const stream = 'data: {"choices":[{"delta":{"content":"OK"}}]}\n\n' +
+      'data: {"choices":[],"usage":{"prompt_tokens":650,"completion_tokens":125,"total_tokens":775}}\n\n' +
+      'data: [DONE]\n\n';
+    for (let index = 0; index < stream.length; index += 11) parser.append(stream.slice(index, index + 11));
+    parser.finish();
+    expect(parser.message).toBe('OK');
+    expect(parser.usage).toEqual({ promptTokens: 650, completionTokens: 125 });
+  });
+
+  it('reads non-streaming usage and rejects invalid counts', () => {
+    const valid = new OpenAiCompletionStream(false);
+    valid.append('{"choices":[{"message":{"content":"OK"}}],"usage":{"prompt_tokens":500,"completion_tokens":70}}');
+    valid.finish();
+    expect(valid.usage).toEqual({ promptTokens: 500, completionTokens: 70 });
+    const invalid = new OpenAiCompletionStream(true);
+    invalid.append('data: {"choices":[],"usage":{"completion_tokens":-2}}\n\n');
+    invalid.finish();
+    expect(invalid.usage).toBeUndefined();
+  });
+
   it('recognizes Chat Completions URLs without classifying unrelated requests', () => {
     expect(isOpenAiCompletionRequest('https://macmini.local:8443/v1/chat/completions')).toBe(true);
     expect(isOpenAiCompletionRequest('https://example.local/v1/chat/completions?stream=1')).toBe(true);

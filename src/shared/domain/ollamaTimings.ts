@@ -4,6 +4,8 @@ export interface OllamaNativeTimings {
   loadMs?: number;
   promptEvaluationMs?: number;
   generationMs?: number;
+  evalCount?: number;
+  promptEvalCount?: number;
   doneReason?: string;
 }
 
@@ -39,11 +41,15 @@ export function readOllamaNativeTimings(responseBody: string): OllamaNativeTimin
       const loadMs = milliseconds(data.load_duration);
       const promptEvaluationMs = milliseconds(data.prompt_eval_duration);
       const generationMs = milliseconds(data.eval_duration);
+      const evalCount = typeof data.eval_count === 'number' && Number.isSafeInteger(data.eval_count) && data.eval_count >= 0 ? data.eval_count : undefined;
+      const promptEvalCount = typeof data.prompt_eval_count === 'number' && Number.isSafeInteger(data.prompt_eval_count) && data.prompt_eval_count >= 0 ? data.prompt_eval_count : undefined;
       return {
         totalMs,
         ...(loadMs !== undefined ? { loadMs } : {}),
         ...(promptEvaluationMs !== undefined ? { promptEvaluationMs } : {}),
         ...(generationMs !== undefined ? { generationMs } : {}),
+        ...(evalCount !== undefined ? { evalCount } : {}),
+        ...(promptEvalCount !== undefined ? { promptEvalCount } : {}),
         ...(typeof data.done_reason === 'string' ? { doneReason: data.done_reason } : {}),
       };
     } catch {

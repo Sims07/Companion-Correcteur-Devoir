@@ -1,7 +1,7 @@
 import { getNetworkRequestMetadata } from '../../ports/networkRequestMetadata.ts';
 import { isOllamaInferenceRequest, readOllamaNativeTimings, type OllamaNativeTimings } from '../../domain/ollamaTimings.ts';
 import { OllamaThinkingStream } from '../../domain/ollamaThinkingStream.ts';
-import { isOpenAiCompletionRequest, OpenAiCompletionStream } from '../../domain/openAiCompletionStream.ts';
+import { isOpenAiCompletionRequest, OpenAiCompletionStream, type OpenAiTokenUsage } from '../../domain/openAiCompletionStream.ts';
 
 export type NetworkRequestState = 'pending' | 'success' | 'error';
 
@@ -16,6 +16,8 @@ export type NetworkRequestRecord = {
   durationMs: number | null;
   /** Native model time, never inferred from browser elapsed time. */
   providerTimings?: OllamaNativeTimings | null;
+  /** Usage from the final OpenAI-compatible event, when provided. */
+  tokenUsage?: OpenAiTokenUsage;
   state: NetworkRequestState;
   status: number | null;
   statusText: string;
@@ -257,6 +259,7 @@ export function installNetworkInspector(): () => void {
             messageBody: message(),
             messageCharacters: ollama?.messageCharacters ?? completion?.messageCharacters ?? 0,
             ...(completion?.finishReason ? { finishReason: completion.finishReason } : {}),
+            ...(completion?.usage ? { tokenUsage: completion.usage } : {}),
           } : {};
           const append = (chunk: string) => {
             ollama?.append(chunk);

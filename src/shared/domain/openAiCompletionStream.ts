@@ -1,5 +1,7 @@
 import { OllamaThinkingStream } from './ollamaThinkingStream.ts';
 
+export type OpenAiTokenUsage = { promptTokens?: number; completionTokens: number };
+
 /**
  * Decode native OpenAI Chat Completions responses for LOCAL diagnostics.
  * Reasoning is never promoted to final answer content. SSE may be split at
@@ -11,6 +13,7 @@ export class OpenAiCompletionStream {
   private dataLines: string[] = [];
   private jsonBuffer = '';
   private finalReason: string | undefined;
+  private finalUsage: OpenAiTokenUsage | undefined;
   private static readonly MAX_PENDING = 256_000;
 
   constructor(private readonly streaming: boolean) {}
@@ -47,6 +50,7 @@ export class OpenAiCompletionStream {
   get messageCharacters(): number { return this.collector.messageCharacters; }
   get thinkingCharacters(): number { return this.collector.thinkingCharacters; }
   get finishReason(): string | undefined { return this.finalReason; }
+  get usage(): OpenAiTokenUsage | undefined { return this.finalUsage; }
 
   private consumeLine(raw: string): void {
     const line = raw.endsWith('\r') ? raw.slice(0, -1) : raw;
@@ -76,7 +80,14 @@ export class OpenAiCompletionStream {
         message?: { content?: unknown; reasoning_content?: unknown; reasoning?: unknown };
         finish_reason?: unknown;
       }>;
+      usage?: { prompt_tokens?: unknown; completion_tokens?: unknown };
     };
+    // LM Studio may send the final usage in an SSE frame without choices.
+    const usage = event.usage;
+    if (usage && typeof usage.completion_tokens === 'number' && Number.isSafeInteger(usage.completion_tokens) && usage.completion_tokens >= 0) {
+      const promptTokens = typeof usage.prompt_tokens === 'number' && Number.isSafeInteger(usage.prompt_tokens) && usage.prompt_tokens >= 0 ? usage.prompt_tokens : undefined;
+      this.finalUsage = { completionTokens: usage.completion_tokens, ...(promptTokens !== undefined ? { promptTokens } : {}) };
+    }
     const choice = event.choices?.[0];
     if (!choice) return;
     const segment = choice.delta ?? choice.message;

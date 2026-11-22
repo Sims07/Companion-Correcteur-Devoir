@@ -169,6 +169,7 @@ describe('network inspector fetch integration', () => {
 
     controller.enqueue(encode({ choices: [{ delta: { reasoning_content: 'Internal thought' } }] }));
     controller.enqueue(encode({ choices: [{ delta: { content: '9.5}' }, finish_reason: 'stop' }] }));
+    controller.enqueue(encode({ choices: [], usage: { prompt_tokens: 700, completion_tokens: 160, total_tokens: 860 } }));
     controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'));
     controller.close();
     const raw = await response.text();
@@ -178,10 +179,12 @@ describe('network inspector fetch integration', () => {
     expect(record.messageBody).toBe('{"grade":9.5}');
     expect(record.thinkingBody).toBe('Internal thought');
     expect(record.finishReason).toBe('stop');
+    expect(record.tokenUsage).toEqual({ promptTokens: 700, completionTokens: 160 });
     expect(record.messageBody).not.toContain('Internal thought');
     expect(raw).toContain('reasoning_content');
     const persisted = JSON.parse(values.get('companion-correcteur:network-inspector:v1') ?? '[]');
     expect(persisted[0].messageBody).toBe('{"grade":9.5}');
+    expect(persisted[0].tokenUsage).toEqual({ promptTokens: 700, completionTokens: 160 });
     restore();
   });
 
@@ -224,7 +227,7 @@ describe('network inspector fetch integration', () => {
           controller.enqueue(new TextEncoder().encode(JSON.stringify({ message: { thinking: 'longue analyse'.repeat(8) }, done: false }) + '\n'));
         }
         controller.enqueue(new TextEncoder().encode(JSON.stringify({ message: { thinking: 'Conclusion sur C4.S2' }, done: false }) + '\n'));
-        controller.enqueue(new TextEncoder().encode(JSON.stringify({ done: true, total_duration: 900_000_000, eval_duration: 700_000_000 }) + '\n'));
+        controller.enqueue(new TextEncoder().encode(JSON.stringify({ done: true, total_duration: 900_000_000, eval_duration: 700_000_000, eval_count: 70, prompt_eval_count: 23 }) + '\n'));
         controller.close();
       },
     });
@@ -252,7 +255,7 @@ describe('network inspector fetch integration', () => {
     expect(persisted[0].thinkingBody).toContain('Conclusion sur C4.S2');
     expect(persisted[0].thinkingCharacters).toBe(record.thinkingCharacters);
     expect(record.thinkingBody?.length).toBeLessThanOrEqual(20_000);
-    expect(record.providerTimings).toMatchObject({ totalMs: 900, generationMs: 700 });
+    expect(record.providerTimings).toMatchObject({ totalMs: 900, generationMs: 700, evalCount: 70, promptEvalCount: 23 });
     expect(fakeWindow.dispatchEvent.mock.calls.length).toBeLessThan(30);
     restore();
   });
