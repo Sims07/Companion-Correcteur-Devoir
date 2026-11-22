@@ -148,6 +148,8 @@ describe('vision + analyse générative directe (laboratoire scientifique)', () 
       reasoning_effort: 'low',
     });
     expect(cancelled).toBe(true);
+    // Cancels the original HTTP fetch too (the inspector may hold a clone).
+    expect((fetchMock.mock.calls[0]?.[1]?.signal as AbortSignal).aborted).toBe(true);
     expect(diagnostics).toHaveLength(1);
     expect(diagnostics[0]?.error).toMatch(/Génération répétitive/);
     expect(diagnostics[0]?.raw).toContain("part de l'image.");
