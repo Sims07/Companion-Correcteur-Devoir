@@ -65,6 +65,15 @@ describe('radar identity is the saved AI configuration', () => {
     expect(radarConfigurationLabel(profiles[1]!)).toMatch(/Think low/);
   });
 
+  it('distinguishes temperature overrides even for the same model and thinking level', () => {
+    expect(radarConfigurationLabel({ ...profiles[0], configuration: {
+      ...profiles[0].configuration, analysisTemperature: 0,
+    } })).toBe('Gemma 26B · Think Off · T0');
+    expect(radarConfigurationLabel({ ...profiles[0], configuration: {
+      ...profiles[0].configuration, analysisTemperature: 1, analysisTopP: 0.95, analysisTopK: 64,
+    } })).toBe('Gemma 26B · Think Off · T1 · p0.95 · k64');
+  });
+
   it('converts profile thinking to the real LM Studio request value', () => {
     expect(radarProfileThinking(profiles[0]!.configuration)).toBe(false);
     expect(radarProfileThinking(profiles[1]!.configuration)).toBe('low');
