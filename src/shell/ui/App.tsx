@@ -1833,7 +1833,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
           configuration: {
             ...defaultAiModelConfiguration,
             endpoint, apiCompatible, apiKey, visionModel, analysisModel,
-            omitReasoningParameter, analysisThinking, analysisReasoningEffort, omitReasoningParameter, gradingOutputTokens, criterionByCriterion, correctionMethod,
+            analysisThinking, analysisReasoningEffort, omitReasoningParameter, gradingOutputTokens, criterionByCriterion, correctionMethod,
           },
           signal: abortController.signal,
           onDiagnosticResult: captureDiagramDiagnostic,
