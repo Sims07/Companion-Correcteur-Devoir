@@ -91,6 +91,33 @@ describe('vision + analyse générative directe (laboratoire scientifique)', () 
     expect(diagnostics[0]?.requestPayload).toContain('"temperature": ' + temperature);
   });
 
+  it('n’impose pas T0 sur une vraie correction directe avec critère et schéma JSON', async () => {
+    const scientificRequest = { ...request, rubric: JSON.stringify({
+      title: 'Dessin scientifique', criteria: [{
+        id: 'legends', title: 'Légendes', maxPoints: 0.68,
+        subcriteria: [{ id: 'arrows', title: 'Correspondance correcte', maxPoints: 0.68 }],
+      }],
+    }) };
+    const answer = JSON.stringify({ criteria: { legends: {
+      evidence: 'Correspondance visible', confidence: 'high', questionForTeacher: '',
+      subcriteria: { arrows: { points: 0.68, evidence: 'Ligne vers la bonne structure' } },
+    } } });
+    const fetchMock = vi.fn(async (_url: RequestInfo | URL, _init?: RequestInit) => new Response(
+      JSON.stringify({ message: { content: answer } }) + '\\n' + JSON.stringify({ done: true, done_reason: 'stop' }) + '\\n',
+      { status: 200, headers: { 'Content-Type': 'application/x-ndjson' } },
+    ));
+    const diagnostics: import('../../../src/correction/ports/aiProvider.ts').DiagnosticModelResult[] = [];
+    await createOllamaProvider({ endpoint: 'http://localhost:11434',
+      analysisModel: 'gemma-4:26b', correctionMethod: 'generative' },
+    fetchMock as unknown as typeof fetch).generate(scientificRequest, undefined, undefined, undefined,
+      result => diagnostics.push(result));
+    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(body.options).not.toHaveProperty('temperature');
+    expect(body.options).not.toHaveProperty('top_p');
+    expect(body.options).not.toHaveProperty('top_k');
+    expect(diagnostics[0]?.requestMetadata?.options).not.toHaveProperty('temperature');
+  });
+
   it('garde 2048 tokens et think=false pour la référence directe sans raisonnement', async () => {
     const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(
       JSON.stringify({ message: { content: grade } }) + '\n' + JSON.stringify({ done: true, done_reason: 'stop' }) + '\n',
