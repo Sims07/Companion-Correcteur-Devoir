@@ -43,6 +43,10 @@ test('un même Gemma peut ouvrir trois radars indépendants selon le niveau de p
     .getByLabel('Choisir un LLM')).toHaveValue('gemma-high');
   await page.reload();
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' })
+    .getByRole('button', { name: 'Radars' }).click();
+  await page.getByRole('article', { name: 'Schémas scientifiques' })
+    .getByRole('button', { name: 'Détail du radar' }).click();
   const restored = page.getByRole('region', { name: 'Radar des candidats scientifiques' });
   await expect(restored.getByLabel('Choisir un LLM')).toHaveValue('gemma-high');
 });
