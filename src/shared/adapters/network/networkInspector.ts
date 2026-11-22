@@ -1,3 +1,4 @@
+import { isLmStudioChat } from '../ai/lmStudioDiagramChat.ts';
 import { getNetworkRequestMetadata } from '../../ports/networkRequestMetadata.ts';
 import { isOllamaInferenceRequest, readOllamaNativeTimings, type OllamaNativeTimings } from '../../domain/ollamaTimings.ts';
 import { OllamaThinkingStream } from '../../domain/ollamaThinkingStream.ts';
@@ -248,7 +249,7 @@ export function installNetworkInspector(): () => void {
           let publishedThinking = false;
           let publishedMessage = false;
           const ollama = isOllamaInferenceRequest(url) ? new OllamaThinkingStream() : null;
-          const completion = isOpenAiCompletionRequest(url)
+          const completion = isOpenAiCompletionRequest(url) || isLmStudioChat(url)
             ? new OpenAiCompletionStream(/text\/event-stream/i.test(response.headers.get('content-type') ?? '') || /"stream"\s*:\s*true/.test(record.requestBody))
             : null;
           const message = () => ollama?.message ?? completion?.message ?? '';

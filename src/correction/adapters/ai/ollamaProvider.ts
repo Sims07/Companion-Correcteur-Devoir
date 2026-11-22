@@ -24,6 +24,7 @@ import { SCIENTIFIC_DIAGRAM_MAIN_TITLE_RULE } from '../../domain/scientificDiagr
 import { resolveCloseDiagnosticCriteria } from '../../domain/diagnosticResolution.ts';
 import { parseArbitrationDecisions } from '../../domain/arbitrationDecision.ts';
 import { parseModelJson } from '../../../shared/domain/modelJson.ts';
+import { compatibleEndpoint, isLmStudioChat, sendLmStudioDiagramTurn } from '../../../shared/adapters/ai/lmStudioDiagramChat.ts';
 import { createOpenAiCompatibleFetch } from '../../../shared/adapters/ai/openAiCompatibleTransport.ts';
 import { hasRepetitiveAnswerTail } from '../../../shared/domain/generationRepetition.ts';
 import { currentFetch } from '../../../shared/adapters/ai/currentFetch.ts';
@@ -38,6 +39,7 @@ interface OllamaChatResponse {
   error?: string;
   done?: boolean;
   done_reason?: string;
+  tokens_per_second?: number;
   prompt_eval_count?: number;
   eval_count?: number;
   total_duration?: number;
@@ -165,6 +167,7 @@ async function readOllamaStream(response: Response, onChunk?: (chunk: string) =>
     ...(typeof finalEvent?.total_duration === 'number' && finalEvent.total_duration >= 0 && Number.isFinite(finalEvent.total_duration)
       ? { providerDurationMs: nanosecondsToMilliseconds(finalEvent.total_duration) } : {}),
     ...(typeof finalEvent?.load_duration === 'number' ? { loadMs: nanosecondsToMilliseconds(finalEvent.load_duration) } : {}),
+    ...(typeof finalEvent?.tokens_per_second === 'number' ? { tokensPerSecond: finalEvent.tokens_per_second } : {}),
     ...(generatedTokens !== undefined && generationDurationNs !== undefined && generationDurationNs > 0
       ? { tokensPerSecond: Math.round(generatedTokens / (generationDurationNs / 1_000_000_000) * 100) / 100 }
       : {}),
@@ -216,8 +219,9 @@ export async function checkOllamaReady(
     // Chat Completions was previously used as a readiness probe without ANY
     // generation cap, consuming costly reasoning tokens before every test.
     // OpenAI-compatible metadata is the preferred inference-free health check.
-    const metadataUrl = endpoint.endsWith('/v1/chat/completions')
-      ? endpoint.slice(0, -'/chat/completions'.length) + '/models'
+    const metadataEndpoint = compatibleEndpoint(endpoint);
+    const metadataUrl = metadataEndpoint.endsWith('/v1/chat/completions')
+      ? metadataEndpoint.slice(0, -'/chat/completions'.length) + '/models'
       : endpoint.endsWith('/v1') ? endpoint + '/models' : endpoint + '/v1/models';
     let modelsResponse: Response;
     try {
@@ -397,6 +401,7 @@ export function createOllamaProvider(
       const visionOnly = request.visionOnly === true;
       const directVisualDecision = !visionOnly && (request.directVisualDecision === true || settings.correctionMethod === 'visual-decision');
       const directGenerativeVision = !visionOnly && request.directGenerativeVision === true;
+      const chat = directGenerativeVision && settings.apiCompatible && isLmStudioChat(endpoint) ? request.diagramConversation : undefined;
       onProgress?.({ type: 'phase', phase: 'preparation' });
       const hasTranscription = Boolean(request.transcription?.trim());
       if (!visionOnly && !directVisualDecision && !directGenerativeVision && !hasTranscription && !(settings.visionModel?.trim() || settings.model?.trim())) throw new Error('Choisissez un modèle de lecture pour transcrire les images.');
@@ -461,7 +466,7 @@ export function createOllamaProvider(
         };
         request = {
           ...request,
-          ...(request.images ? { images: await preparePages(request.images) } : {}),
+          ...(request.images ? { images: chat?.responseId ? [] : await preparePages(request.images) } : {}),
           ...(request.subjectImages ? { subjectImages: await preparePages(request.subjectImages) } : {}),
           ...(request.teacherAnnotationImages ? { teacherAnnotationImages: await preparePages(request.teacherAnnotationImages) } : {}),
           ...(request.identityImage ? { identityImage: await prepareImage(request.identityImage) } : {}),
@@ -568,6 +573,7 @@ export function createOllamaProvider(
         think: boolean | string = false,
         tracking?: Pick<DiagnosticModelResult, 'kind' | 'stage' | 'purpose'> & { deferResult?: boolean; temperature?: number; contextTokenLimit?: number; generationTokenLimit?: number; stop?: string[]; repeatPenalty?: number; allowTruncated?: boolean; intent?: string; context?: string; onDoneReason?: (reason: string) => void; onSuspiciousStop?: () => void; pageIndex?: number; promptId?: PromptId },
       ): Promise<string> {
+        if (chat?.responseId) images = undefined;
         const startedAt = Date.now();
         if (gradingOutputTokens && (tracking?.stage === 'analysis' || tracking?.stage === 'arbitration')) {
           tracking = { ...tracking, generationTokenLimit: gradingOutputTokens };
@@ -668,12 +674,15 @@ export function createOllamaProvider(
           }
           const intent = tracking?.intent ?? (tracking?.kind === 'vision' ? 'Lire et transcrire une page' : tracking?.kind === 'arbitrator' ? 'Arbitrer les propositions de correction' : tracking?.stage === 'analysis' ? 'Évaluer la copie selon le barème' : 'Analyser une demande de correction');
           const context = tracking?.context ?? (request.images?.length ? `Copie · ${request.images.map((image) => image.fileName).filter(Boolean).join(', ') || `${request.images.length} page(s)`}` : 'Analyse sans relecture des images');
-          response = await providerFetch(`${endpoint}/api/chat`, annotateNetworkRequest({
+          const init = annotateNetworkRequest({
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(requestBody),
+            body: chat ? undefined : JSON.stringify(requestBody),
             signal: requestAbortController.signal,
-          }, request.diagramCriterionLabel ? intent + ' · ' + request.diagramCriterionLabel : intent, `Modèle ${model} · ${context}`));
+          }, request.diagramCriterionLabel ? intent + ' · ' + request.diagramCriterionLabel : intent, `Modèle ${model} · ${context}`);
+          response = chat
+            ? await sendLmStudioDiagramTurn(endpoint, settings.apiKey ?? '', chat, requestBody, init, fetchImpl, payload => activeRequestPayloads?.push(payload))
+            : await providerFetch(`${endpoint}/api/chat`, init);
           clearFirstResponseTimeout();
         } catch (cause) {
           finishRequest();

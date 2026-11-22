@@ -1,3 +1,4 @@
+import { compatibleEndpoint } from './lmStudioDiagramChat.ts';
 import { currentFetch } from './currentFetch.ts';
 
 export interface OnDemandModelLoadSettings {
@@ -9,7 +10,7 @@ export interface OnDemandModelLoadSettings {
 function modelLoadUrl(endpoint: string, model: string): string {
   const modelId = model.trim();
   if (!modelId) throw new Error('Indiquez le nom du modèle à précharger.');
-  const value = endpoint.trim().replace(/\/+$/, '');
+  const value = compatibleEndpoint(endpoint).replace(/\/+$/, '');
   if (!/^https?:\/\//i.test(value)) {
     throw new Error('L’adresse du serveur doit commencer par http:// ou https://.');
   }
