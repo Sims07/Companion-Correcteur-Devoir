@@ -17,6 +17,12 @@ test('teacher can opt in, place, move and hide a synthetic remark without any LL
       request.onerror = () => reject(request.error);
     });
     const rubric = { title: 'Cellule', criteria: [{ id: 'membrane', title: 'Membrane', description: 'Décrire la membrane.', maxPoints: 2 }] };
+    // The active devoir and queued job must share the same authoritative rubric.
+    localStorage.setItem('companion-correcteur:assignments:v1', JSON.stringify([{
+      id: 'assignment-default', title: 'Cellule', question: 'Décrire la membrane.',
+      correctionMode: 'integrated', rubric,
+    }]));
+    localStorage.setItem('companion-correcteur:active-assignment:v1', 'assignment-default');
     const criterion = { criterionId: 'membrane', points: 1, rationale: 'Description partielle.', evidence: 'Membrane visible.', confidence: 'high', annotationSuggestion: 'Préciser la membrane.', pageNumber: 1 };
     const proposal = { summary: '', criteria: [criterion], questionsForTeacher: [], finalScore: 1 };
     const image = { base64: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jxioAAAAASUVORK5CYII=', mimeType: 'image/png', fileName: 'page.png' };
