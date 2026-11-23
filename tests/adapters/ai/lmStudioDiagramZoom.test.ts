@@ -41,7 +41,7 @@ describe('LM Studio on-demand smart zoom (Responses API)', () => {
     const response = await sendLmStudioZoomDiagramTurn(endpoint, '', conversation, turn, originals,
       { signal: new AbortController().signal }, fetchMock, value => previews.push(JSON.stringify(value)));
     expect(response.ok).toBe(true);
-    expect((await response.text())).toContain('{"ok":true}');
+    expect(JSON.parse((await response.text()).trim()).message.content).toBe('{"ok":true}');
     expect(calls).toHaveLength(2);
     expect(calls[0].input[0].content[0].image_url).toContain('UFJFVklFVw==');
     expect(calls[0].tools[0].name).toBe('inspect_region');
