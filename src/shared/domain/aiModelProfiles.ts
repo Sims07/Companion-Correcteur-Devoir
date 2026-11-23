@@ -75,7 +75,7 @@ export interface AiModelProfile {
 }
 
 export const defaultAiModelConfiguration: AiModelConfiguration = {
-  endpoint: 'http://localhost:11434', apiCompatible: false, apiKey: '', visionModel: '', transcriptionTokenLimit: 2048, transcriptionPromptMode: 'auto', transcriptionRepeatPenalty: 1.05, transcriptionPenaltyParameter: 'none', transcriptionFrequencyPenalty: 0, analysisModel: '', secondAnalysisModel: '', arbitratorModel: '', diagnosticStrategy: 'single', analysisThinking: false, analysisReasoningEffort: 'medium', omitReasoningParameter: false, criterionByCriterion: true, smartZoom: false, correctionMethod: DEFAULT_CORRECTION_METHOD,
+  endpoint: 'http://localhost:11434', apiCompatible: false, apiKey: '', visionModel: '', transcriptionTokenLimit: 2048, transcriptionPromptMode: 'auto', transcriptionRepeatPenalty: 1.05, transcriptionPenaltyParameter: 'none', transcriptionFrequencyPenalty: 0, analysisModel: '', secondAnalysisModel: '', arbitratorModel: '', diagnosticStrategy: 'single', analysisThinking: false, analysisReasoningEffort: 'medium', omitReasoningParameter: false, criterionByCriterion: true, correctionMethod: DEFAULT_CORRECTION_METHOD,
 };
 
 function isStrategy(value: unknown): value is AiModelStrategy { return value === 'single' || value === 'compare' || value === 'arbitrate'; }
@@ -111,7 +111,7 @@ export function parseAiModelConfiguration(raw: string | null): AiModelConfigurat
       omitReasoningParameter: candidate.omitReasoningParameter === true,
       ...(parseModelContextLength(candidate.contextLength) !== undefined ? { contextLength: parseModelContextLength(candidate.contextLength) } : {}),
       criterionByCriterion: candidate.criterionByCriterion !== false,
-      smartZoom: candidate.smartZoom === true,
+      ...(typeof candidate.smartZoom === 'boolean' ? { smartZoom: candidate.smartZoom } : {}),
       correctionMethod: parseCorrectionMethod(candidate.correctionMethod),
     };
   } catch { return { ...defaultAiModelConfiguration }; }
