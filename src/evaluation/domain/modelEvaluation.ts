@@ -9,6 +9,7 @@ export interface ModelEvaluationConfiguration {
   apiCompatible?: boolean;
   omitReasoningParameter?: boolean;
   contextLength?: number;
+  smartZoom?: boolean;
   apiKey?: string;
   visionModel: string;
   analysisModel: string;
