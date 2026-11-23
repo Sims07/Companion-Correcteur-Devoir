@@ -4,6 +4,7 @@ import { copyNetworkRequestMetadata } from '../../ports/networkRequestMetadata.t
 
 export interface ZoomDiagramTurn {
   model: string;
+  criterionLabel?: string;
   messages: { content: string; images?: string[] }[];
   think: boolean | string;
   omitReasoningParameter?: boolean;
@@ -11,7 +12,7 @@ export interface ZoomDiagramTurn {
   format?: unknown;
 }
 export interface ZoomTrace { criterion: string; region: ZoomRegion; cropWidth: number; cropHeight: number; status: 'inspected' | 'rejected'; }
-export interface ZoomConversation { responseId?: string; zoomHistory?: ZoomTrace[] }
+export interface ZoomConversation { responseId?: string; zoomHistory?: ZoomTrace[]; zoomAttempts?: Record<string, number> }
 
 const TOOL = {
   type: 'function',
@@ -53,7 +54,10 @@ export async function sendLmStudioZoomDiagramTurn(
   if (!originalImages.length) throw new Error('La photo originale est nécessaire au zoom intelligent.');
   const signal = init.signal ?? undefined;
   signal?.throwIfAborted();
-  const criterion = turn.messages[0]?.content.slice(0, 180) ?? 'Critère';
+  // Keep the cap across length retries and JSON repairs of the same criterion.
+  const criterion = turn.criterionLabel ?? 'Barème complet';
+  conversation.zoomAttempts ??= {};
+  const attempts = conversation.zoomAttempts;
   const firstImage = conversation.responseId
     ? [] : (turn.messages[0]?.images ?? []).map(image_url => ({ type: 'input_image', image_url }));
   const prompt = (turn.messages[0]?.content ?? '') +
@@ -63,7 +67,7 @@ export async function sendLmStudioZoomDiagramTurn(
     'Après un zoom, interprète la nouvelle image dans le contexte de la page entière.';
   let input: unknown[] = [{ role: 'user', content: [...firstImage, { type: 'input_text', text: prompt }] }];
   let previousId = conversation.responseId;
-  let inspections = 0;
+  let inspections = attempts[criterion] ?? 0;
   let totalInput = 0;
   let totalOutput = 0;
   let total = 0;
@@ -126,6 +130,7 @@ export async function sendLmStudioZoomDiagramTurn(
         continue;
       }
       inspections++;
+      attempts[criterion] = inspections;
       try {
         const args = JSON.parse(call.arguments ?? '') as unknown;
         const region = validateZoomRegion(args, originalImages.length);
