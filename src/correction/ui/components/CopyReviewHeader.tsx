@@ -13,6 +13,10 @@ export interface CopyReviewHeaderProps {
   scoreIncomplete?: boolean;
   maximumPoints: number;
   isFinalized: boolean;
+  copies?: ReadonlyArray<{ id: string; label: string; status: string; score?: string | null }>;
+  activeCopyId?: string | null;
+  onChooseCopy?: (id: string) => void;
+  navigationDisabled?: boolean;
   canPrevious: boolean;
   canNext: boolean;
   previousLabel?: string | null;
@@ -30,7 +34,7 @@ function Chevron({ direction }: { direction: 'left' | 'right' }) {
 export function CopyReviewHeader({
   studentLabel, onStudentLabelChange, position, totalCopies, status, score, scoreIncomplete = false, maximumPoints,
   isFinalized, canPrevious, canNext, previousLabel, nextLabel,
-  onPrevious, onNext,
+  onPrevious, onNext, copies, activeCopyId, onChooseCopy, navigationDisabled,
 }: CopyReviewHeaderProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [draftName, setDraftName] = useState(studentLabel);
@@ -87,11 +91,23 @@ export function CopyReviewHeader({
         </div>
         <div className="copy-review-header-actions">
           <nav className="copy-review-position" aria-label="Parcourir les copies">
-            <Button variant="secondary" aria-label="Copie précédente" title={previousTitle} disabled={!canPrevious} onClick={onPrevious}>
+            <Button variant="secondary" aria-label="Copie précédente" title={previousTitle} disabled={!canPrevious || navigationDisabled} onClick={onPrevious}>
               <Chevron direction="left" />
             </Button>
-            <span className="copy-review-position-label" aria-label={`Copie ${position} sur ${totalCopies}`}>Copie {position} / {totalCopies}</span>
-            <Button variant="secondary" aria-label="Copie suivante" title={nextTitle} disabled={!canNext} onClick={onNext}>
+            <span className="copy-review-picker">
+              <span className="copy-review-position-label" aria-label={`Copie ${position} sur ${totalCopies}`}>Copie {position} / {totalCopies}</span>
+              {copies?.length && onChooseCopy ? <>
+                <span aria-hidden="true">▾</span>
+                <select aria-label={`Choisir une copie · Copie ${position} sur ${totalCopies}`}
+                  value={activeCopyId ?? ''} disabled={navigationDisabled}
+                  onChange={(event) => onChooseCopy(event.target.value)}>
+                  {copies.map((copy) => <option key={copy.id} value={copy.id}>
+                    {[copy.label, copy.status, copy.score].filter(Boolean).join(' · ')}
+                  </option>)}
+                </select>
+              </> : null}
+            </span>
+            <Button variant="secondary" aria-label="Copie suivante" title={nextTitle} disabled={!canNext || navigationDisabled} onClick={onNext}>
               <Chevron direction="right" />
             </Button>
           </nav>

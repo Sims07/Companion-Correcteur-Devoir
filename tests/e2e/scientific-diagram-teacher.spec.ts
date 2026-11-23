@@ -123,6 +123,7 @@ test('an individually corrected scientific diagram uses one direct image request
   await correct.click();
 
   await expect(page.locator('.review-main-column .review-card')).toHaveCount(3, { timeout: 30000 });
+  await expect(page.getByRole('combobox', { name: /Choisir une copie/ })).toBeVisible();
   expect(requests.map(r => r.format.properties.criteria.required)).toEqual([['drawing'], ['title'], ['legends']]);
   for (const r of requests) {
     const rubric = JSON.parse(r.messages[0].content.split('BARÈME ENSEIGNANT :\n')[1].split('\n\n')[0]);
@@ -256,8 +257,8 @@ test('a diagram devoir has the normal library, several copies, review rail and l
   expect(requests.every((payload) => payload.messages?.[0]?.images?.length === 1)).toBe(true);
 
   await page.locator('.copy-overview-grid .correction-series-card').first().getByRole('button', { name: 'Vérifier la copie' }).click();
-  await expect(page.getByRole('complementary', { name: 'Navigation entre les copies' })).toBeVisible();
-  await expect(page.locator('.teacher-copy-rail-list > li')).toHaveCount(2);
+  await expect(page.getByRole('combobox', { name: /Choisir une copie/ })).toBeVisible();
+  await expect(page.locator('.copy-review-picker option')).toHaveCount(2);
   await expect(page.locator('.review-source-pane')).toBeVisible();
   await page.getByRole('button', { name: 'Agrandir la page 1 du schéma' }).click();
   const viewer = page.getByRole('dialog', { name: 'Visualiseur de la page 1' });

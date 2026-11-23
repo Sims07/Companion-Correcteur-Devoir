@@ -117,12 +117,9 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await expect(page.locator('#teacher-copy-intake-files')).toHaveCount(0);
   await expect(page.getByRole('navigation', { name: 'Fil d’Ariane' })).toContainText('Biologie cellulaire');
   await expect(page.getByRole('tab', { name: 'Copies' })).toHaveAttribute('aria-selected', 'true');
-  await expect(page.getByRole('complementary', { name: 'Navigation entre les copies' })).toBeVisible();
-  await expect(page.getByRole('button', { name: /Copie de test/ })).toHaveAttribute('aria-current', 'page');
-  await expect(page.locator('.teacher-step-nav')).toHaveCount(0);
-  await page.getByRole('button', { name: 'Réduire la liste des copies' }).click();
-  await expect(page.getByRole('button', { name: 'Afficher la liste des copies' })).toHaveAttribute('aria-expanded', 'false');
-  await page.getByRole('button', { name: 'Afficher la liste des copies' }).click();
+  await expect(page.getByRole('combobox', { name: /Choisir une copie/ })).toBeVisible();
+  await expect(page.locator('.copy-review-picker option:checked')).toContainText('Copie de test');
+  await expect(page.getByRole('complementary', { name: 'Navigation entre les copies' })).toHaveCount(0);
 
   await expect(page.getByRole('heading', { name: 'Analyse des schémas scientifiques' })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Pages identifiées' })).toHaveCount(0);
@@ -239,7 +236,7 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   expect(railPosition).not.toBeNull();
   expect(sourcePosition).not.toBeNull();
   expect(flaggedPosition).not.toBeNull();
-  expect(railPosition!.x).toBeLessThan(sourcePosition!.x);
+  expect(railPosition!.y + railPosition!.height).toBeLessThanOrEqual(sourcePosition!.y + 1);
   expect(sourcePosition!.x + sourcePosition!.width).toBeLessThan(flaggedPosition!.x + 6);
   await expect(page.locator('.atelier-review-decision-heading')).toContainText('critère à vérifier sur la copie');
   const gradeAdjustment = flaggedCard.locator('details.review-quick-edit');
@@ -259,6 +256,11 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   expect(bottomLayout.footerTop).toBeGreaterThanOrEqual(bottomLayout.questionsBottom - 1);
   await page.screenshot({ path: testInfo.outputPath('atelier-b-review-desktop.png'), fullPage: true, animations: 'disabled' });
 
+  await page.setViewportSize({ width: 1024, height: 768 });
+  const laptopSource = await sourcePane.boundingBox();
+  const laptopCriteria = await flaggedCard.boundingBox();
+  expect(laptopSource!.x + laptopSource!.width).toBeLessThanOrEqual(laptopCriteria!.x + 1);
+
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(assignmentRail).toBeVisible();
   const mobileRail = await assignmentRail.boundingBox();
@@ -268,6 +270,12 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await expect(sourcePane).toHaveCSS('position', 'static');
   await expect(page.locator('.review-workspace')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Rôle de la membrane' })).toBeVisible();
+
+  await locateEvidence.click();
+  const viewer = page.getByRole('dialog', { name: 'Visualiseur de la page 1' });
+  await expect(viewer).toBeVisible();
+  await viewer.getByRole('button', { name: 'Fermer le visualiseur' }).click();
+  await expect(locateEvidence).toBeFocused();
 
   // Existing annotated reviews remain unchanged until the teacher explicitly
   // enables the application flag. Turning it off only hides the SVG/HTML layer.

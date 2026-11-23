@@ -48,7 +48,7 @@ test('multiple files become separate copies and the active follow-up summarizes 
     { name: 'etudiant-2.png', mimeType: 'image/png', buffer: png },
   ]);
   await expect(page.locator('.copy-overview-grid .correction-series-card')).toHaveCount(2);
-  const summary = page.getByLabel('État des corrections');
+  const summary = page.getByRole('group', { name: 'Filtrer les copies' });
   await expect(summary).toContainText('À vérifier');
   await expect(summary).toContainText('Corrigées');
   await expect(page.getByRole('button', { name: /En attente/ })).toContainText('2');
@@ -84,8 +84,7 @@ test('a teacher can cancel or confirm removing one imported copy without affecti
   await expect(page.getByRole('status').filter({ hasText: 'a été retirée du devoir' })).toBeVisible();
 
   await page.reload();
-  await openActiveAssignment(page);
-  await page.getByRole('tab', { name: /Copies/ }).click();
+  await expect(page.getByRole('heading', { name: 'Suivi des copies' })).toBeVisible();
   await expect(page.locator('.copy-overview-grid .correction-series-card')).toHaveCount(1);
   await expect(page.locator('.copy-overview-grid .correction-series-card')).toContainText('etudiant-b.png');
 });

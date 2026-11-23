@@ -106,7 +106,8 @@ describe('CorrectionOverview — comportement enseignant', () => {
       score: null,
     };
     await render('all', [processingJob]);
-    expect(container.querySelector('.teacher-copy-work-summary')?.textContent).toContain('En cours');
+    expect(container.querySelector('.teacher-copy-work-summary')).toBeNull();
+    expect(container.querySelector('.copy-overview-filters')?.textContent).toMatch(/Analyse en cours\s*1/);
     expect(container.querySelector('.teacher-copy-live')?.textContent).toContain('Copie en cours : Copie 12');
     expect(container.querySelector('.teacher-copy-live')?.textContent).toContain('1/3 critères');
     const button = container.querySelector<HTMLButtonElement>('.teacher-copy-live button');

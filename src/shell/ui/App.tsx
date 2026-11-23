@@ -1119,6 +1119,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     return () => { active = false; };
   }, [newlyAvailableReviewJob, isFinalized, teacherStep]);
 
+  const compactReview = teacherStep === 'review' && !showAiSettings && activeBackgroundJob?.status !== 'processing';
   const reviewPosition = copyNavigation.currentPosition ?? (copyNavigation.totalCopies > 0 ? 1 : 0);
   const reviewTotalCopies = copyNavigation.totalCopies;
   useEffect(() => {
@@ -3707,6 +3708,17 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     }
   }
 
+  function showEvidencePage(pageNumber: number) {
+    const page = document.getElementById('review-copy-page-' + pageNumber);
+    const pane = page?.closest<HTMLElement>('.review-source-pane');
+    if (!page || !pane || getComputedStyle(pane).position !== 'sticky') {
+      setCopyViewerPage(pageNumber - 1);
+      return;
+    }
+    setFocusedEvidencePage(pageNumber);
+    pane.scrollTop += page.getBoundingClientRect().top - pane.getBoundingClientRect().top - pane.clientTop;
+  }
+
   async function openQueuedCopyViewer(jobId: string, pageIndex: number) {
     const version = ++queuedViewerLoadSequence.current;
     setQueuedViewer({ jobId, pageIndex });
@@ -4652,13 +4664,14 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
 
 
 
-      {interfaceMode !== 'debug' && !(interfaceMode === 'teacher' && showAssignmentsHome) && <div className={interfaceMode === 'teacher' ? 'teacher-content-column' + (teacherStep === 'review' && !showAiSettings ? ' has-copy-rail' : '') : 'diagnostic-content-column'}>
+      {interfaceMode !== 'debug' && !(interfaceMode === 'teacher' && showAssignmentsHome) && <div className={interfaceMode === 'teacher' ? 'teacher-content-column' + (compactReview ? ' compact-review' : '') : 'diagnostic-content-column'}>
       {interfaceMode === 'teacher' && <TeacherWorkspaceNavigation
         assignmentTitle={assignmentTitle}
         studentLabel={studentLabel}
         educationLevel={assignmentProfiles.find((profile) => profile.id === activeAssignmentId)?.educationLevel}
         maximumPoints={validation.maximumPoints}
         activeSection={teacherStep === 'rubric' || teacherStep === 'details' ? 'rubric' : 'copies'}
+        compactReview={compactReview}
         showCopyRail={(teacherStep === 'review' || (teacherStep === 'rubric' && copyNavigation.copies.length > 0) || (teacherStep === 'copy' && Boolean(currentBackgroundJobId || currentCorrectionId))) && !showAiSettings}
         copies={copyNavigation.copies.map((copy) => ({
           id: copy.id,
@@ -5925,10 +5938,12 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
       </section>}
 
       {activeBackgroundJob?.status === 'pending' && interfaceMode === 'teacher' && teacherStep === 'review' && <section className="analysis-progress teacher-progress-card" role="status"><strong>{preparingCopy?.id === activeBackgroundJob.id ? 'Préparation de cette copie' : 'Copie en attente de correction'}</strong><p>{preparingCopy?.id === activeBackgroundJob.id ? 'Le modèle IA se prépare. La lecture commencera ensuite.' : 'La copie sera analysée lorsque viendra son tour. Aucune note n’a encore été attribuée.'}</p></section>}
-      {(currentBackgroundJobId || currentCorrectionId) && activeBackgroundJob?.status !== 'processing' && interfaceMode === 'teacher' && !showAiSettings && <section className="review-section copy-navigation-only">
+      {(currentBackgroundJobId || currentCorrectionId || (compactReview && currentDraftNavigationItem)) && activeBackgroundJob?.status !== 'processing' && interfaceMode === 'teacher' && !showAiSettings && <section className="review-section copy-navigation-only">
         <CopyReviewHeader studentLabel={studentLabel} onStudentLabelChange={(value) => { void renameDisplayedCopy(value); }} position={reviewPosition} totalCopies={reviewTotalCopies}
-          status={isFinalized ? 'Corrigée' : activeBackgroundJob?.status === 'pending' ? 'En attente' : activeBackgroundJob?.status === 'failed' || activeBackgroundJob?.status === 'needs-review' || (activeBackgroundJob?.status === 'reviewing' && activeBackgroundJob.completedCriteria < activeBackgroundJob.totalCriteria) ? 'À reprendre' : 'À vérifier'}
+          status={isFinalized ? 'Corrigée' : currentDraftNavigationItem ? currentDraftNavigationItem.status : activeBackgroundJob?.status === 'pending' ? 'En attente' : activeBackgroundJob?.status === 'failed' || activeBackgroundJob?.status === 'needs-review' || (activeBackgroundJob?.status === 'reviewing' && activeBackgroundJob.completedCriteria < activeBackgroundJob.totalCriteria) ? 'À reprendre' : 'À vérifier'}
           score={isFinalized || (proposal && review.length > 0 && activeBackgroundJob?.status !== 'pending') ? reviewedTotal : null} scoreIncomplete={unassessedCount > 0 || review.length !== rubric.criteria.length} maximumPoints={validation.maximumPoints} isFinalized={isFinalized}
+          copies={copyNavigation.copies} activeCopyId={currentCopyId}
+          onChooseCopy={(id) => { void openCopyNavigationItem(id); }} navigationDisabled={isAnalyzing}
           canPrevious={Boolean(copyNavigation.previousCopy)} canNext={Boolean(copyNavigation.nextCopy)}
           previousLabel={copyNavigation.previousCopy ? copyNavigation.previousCopy.label + ' · ' + copyNavigation.previousCopy.status : null}
           nextLabel={copyNavigation.nextCopy ? copyNavigation.nextCopy.label + ' · ' + copyNavigation.nextCopy.status : null}
@@ -6060,7 +6075,8 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
           }
           const isFlagged = flaggedCriteriaIds.has(item.criterionId);
           const alertReasons = getReviewAlertReasons(item, criterion?.maxPoints ?? 0);
-          const explanation = reviewExplanationContent(item, isFlagged, item.pageNumber !== undefined && item.pageNumber >= 1 && item.pageNumber <= images.length);
+          const pageNumber = item.pageNumber !== undefined && Number.isInteger(item.pageNumber) && item.pageNumber > 0 && item.pageNumber <= images.length ? item.pageNumber : undefined;
+          const explanation = reviewExplanationContent(item, isFlagged);
           return <article tabIndex={0} data-criterion-id={item.criterionId} className={isFlagged ? "panel review-card is-flagged" : "panel review-card"} key={item.criterionId}>
             <div className="review-card-heading">
               <div><h3>{criterion.title}</h3><p>Maximum : {criterion?.maxPoints ?? 0} points</p></div>
@@ -6069,15 +6085,13 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
                 <span className={item.reviewedByTeacher && !isFlagged ? 'review-result-status is-confirmed' : isFlagged ? 'review-result-status needs-review' : 'review-result-status'}>{isFlagged ? 'À examiner' : item.reviewedByTeacher ? 'Vérifié' : 'Sans alerte'}</span>
               </div>
             </div>
+            {!isFlagged && pageNumber && <button type="button" className="evidence-location-button" onClick={() => showEvidencePage(pageNumber)}>Voir la page {pageNumber}</button>}
             {isFlagged && <ReviewCriterionEvidence
               criterion={item}
               title={criterion.title}
               maximum={criterion.maxPoints}
-              pageNumber={item.pageNumber !== undefined && item.pageNumber >= 1 && item.pageNumber <= images.length ? item.pageNumber : undefined}
-              onShowPage={item.pageNumber !== undefined && item.pageNumber >= 1 && item.pageNumber <= images.length ? () => {
-                setFocusedEvidencePage(item.pageNumber!);
-                document.getElementById(`review-copy-page-${item.pageNumber}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              } : undefined}
+              pageNumber={pageNumber}
+              onShowPage={pageNumber ? () => showEvidencePage(pageNumber) : undefined}
               onResolveSubcriterion={(subcriterionId, action) => verifySubcriterion(item.criterionId, subcriterionId, action)}
               disabled={isAnalyzing}
             />}
@@ -6103,8 +6117,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
             />}
             {explanation.visible && <details className="review-explanation" open={!isFlagged && (item.subcriteria?.some((sub) => sub.assessmentStatus === 'not-evaluated' || sub.verificationSource === 'teacher') || undefined)}>
               <summary>{isFlagged ? 'Compléments de l’analyse IA' : 'Voir la preuve et la justification détaillées'}</summary>
-            {explanation.evidence && <div className="evidence"><span>ÉLÉMENTS REPÉRÉS</span>{item.evidence.trim() && <p>{item.evidence}</p>}{item.pageNumber !== undefined && item.pageNumber >= 1 && item.pageNumber <= images.length && <button type="button" className="evidence-location-button" aria-label={`Repérer la preuve du critère ${criterion?.title ?? item.criterionId} sur la page ${item.pageNumber}`} onClick={() => { setFocusedEvidencePage(item.pageNumber!); document.getElementById(`review-copy-page-${item.pageNumber}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}>Repérer sur la page {item.pageNumber}</button>}</div>}
-            {explanation.annotation && item.pageNumber !== undefined && item.pageNumber >= 1 && item.pageNumber <= images.length && <button type="button" className="evidence-location-button" aria-label={`Afficher la page ${item.pageNumber} pour le commentaire proposé`} onClick={() => { setFocusedEvidencePage(item.pageNumber!); document.getElementById(`review-copy-page-${item.pageNumber}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}>Afficher la page liée</button>}
+            {explanation.evidence && <div className="evidence"><span>ÉLÉMENTS REPÉRÉS</span>{item.evidence.trim() && <p>{item.evidence}</p>}</div>}
             {explanation.annotation && <section className="annotation-suggestion" aria-label={`Suggestion d’annotation pour le critère ${criterion?.title ?? item.criterionId}`}>
               <div className="annotation-suggestion-heading"><span className="eyebrow">COMMENTAIRE ÉVENTUEL À REPORTER AU STYLO</span><span className="annotation-suggestion-status">Suggestion IA</span></div>
               <p className="annotation-suggestion-text">{item.annotationSuggestion}</p>

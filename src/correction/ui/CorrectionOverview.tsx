@@ -189,12 +189,6 @@ export function CorrectionOverview({ children, jobs, corrections, currentCopy, f
     </header>
     {children}
     {notice && <p className="copy-overview-notice" role="status">{notice}</p>}
-    <div className="teacher-copy-work-summary" aria-label="État des corrections">
-      <div><strong>{counts.toReview}</strong><span>À vérifier</span></div>
-      <div><strong>{counts.processing}</strong><span>En cours</span></div>
-      <div><strong>{counts.toRetry}</strong><span>À reprendre</span></div>
-      <div><strong>{counts.completed}</strong><span>Corrigées</span></div>
-    </div>
     {latestCorrection && !(visibleItems.length === 1 && visibleItems[0].id === latestCorrection.id) && <div className="copy-overview-latest" aria-label="Dernière correction disponible">
       <div className="copy-overview-latest-details">
         <span className="eyebrow">DERNIÈRE CORRECTION</span>
@@ -217,7 +211,7 @@ export function CorrectionOverview({ children, jobs, corrections, currentCopy, f
       <span className="copy-overview-result-count" role="status">{visibleItems.length} résultat(s)</span>
     </div>
     <div className="copy-overview-filters" role="group" aria-label="Filtrer les copies">
-      {(['all', 'to-retry', 'to-review', 'processing', 'to-do', 'completed'] as const).map((key) => (
+      {(['all', 'to-do', 'processing', 'to-review', 'to-retry', 'completed'] as const).map((key) => (
         <button type="button" key={key} className={filter === key ? 'is-active' : ''} aria-pressed={filter === key} onClick={() => onFilterChange(key)}>
           {labels[key]} <span>{countFor(key)}</span>
         </button>

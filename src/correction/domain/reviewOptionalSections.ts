@@ -6,7 +6,6 @@ import { summarizeTeacherReason } from './teacherReviewSummary.ts';
 export function reviewExplanationContent(
   item: ReviewedCriterion,
   flagged: boolean,
-  hasAvailablePage: boolean,
 ) {
   const annotation = Boolean(item.annotationSuggestion?.trim());
   const rationale = usefulTeacherRationale(item.rationale, item.evidence, item.questionForTeacher ?? '');
@@ -14,7 +13,7 @@ export function reviewExplanationContent(
   // The alert already shows a short rationale; only a longer, distinct explanation
   // needs another disclosure in the flagged teacher workflow.
   const detailedRationale = Boolean(rationale && (!flagged || summarizeTeacherReason(rationale) !== normalizedRationale));
-  const evidence = !flagged && Boolean(item.evidence.trim() || hasAvailablePage);
+  const evidence = !flagged && Boolean(item.evidence.trim());
   const subcriteria = !flagged && Boolean(item.subcriteria?.length);
   const question = !flagged && Boolean(item.questionForTeacher?.trim());
   return {
