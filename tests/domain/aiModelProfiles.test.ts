@@ -82,4 +82,15 @@ describe('AI model configuration persistence', () => {
     expect(upsertAiModelProfile([], profile)).toEqual([profile]);
     expect(upsertAiModelProfile([profile], updated)).toEqual([updated]);
   });
+  it('keeps smart zoom opt-in, persists it per profile and does not enable it for legacy saves', () => {
+    expect(defaultAiModelConfiguration.smartZoom).toBeUndefined();
+    expect(parseAiModelConfiguration(JSON.stringify(defaultAiModelConfiguration)).smartZoom).toBeUndefined();
+    const enabled = { ...defaultAiModelConfiguration, smartZoom: true };
+    expect(parseAiModelConfiguration(JSON.stringify(enabled)).smartZoom).toBe(true);
+    expect(parseAiModelProfiles(JSON.stringify([{ ...profile, configuration: enabled }]))[0]!.configuration.smartZoom).toBe(true);
+    expect(parseAiModelProfiles(JSON.stringify([profile]))[0]!.configuration.smartZoom).toBeUndefined();
+    const corrupted = { ...profile, configuration: { ...profile.configuration, smartZoom: 'yes' } };
+    expect(parseAiModelProfiles(JSON.stringify([corrupted]))).toEqual([]);
+  });
+
 });
