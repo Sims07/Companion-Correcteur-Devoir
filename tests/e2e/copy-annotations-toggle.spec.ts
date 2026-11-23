@@ -77,6 +77,21 @@ test('teacher can opt in, place, move and hide a synthetic remark without any LL
   await page.getByRole('button', { name: 'Placer l’annotation sur la page 1' }).click({ position: { x: 140, y: 80 } });
   await expect(page.locator('.copy-inline-annotation')).toHaveCount(1);
   await expect(page.locator('.copy-inline-annotation')).toContainText('Préciser la membrane.');
+  // Queued reviews must be saved immediately, not only when navigating away.
+  await expect.poll(() => page.evaluate(async () => {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('companion-correcteur-devoir', 7);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const job = await new Promise<{ reviewDraft?: Array<{ criterionId: string; annotationPlacement?: { pageNumber: number } }> } | undefined>((resolve, reject) => {
+      const request = db.transaction('background-corrections').objectStore('background-corrections').get('annotation-teacher-copy');
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    db.close();
+    return job?.reviewDraft?.find((item) => item.criterionId === 'membrane')?.annotationPlacement?.pageNumber;
+  })).toBe(1);
   const firstX = await page.locator('.copy-inline-annotation').evaluate((node) => (node as HTMLElement).style.left);
   await criterion.getByRole('button', { name: 'Déplacer sur la copie' }).click();
   await page.getByRole('button', { name: 'Placer l’annotation sur la page 1' }).click({ position: { x: 200, y: 120 } });
