@@ -2693,7 +2693,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
         if (pilotStopRef.current || evaluationCancelledRef.current) break;
         const testCase = ALL_QUESTION_CONTRACT_CASES.find((item) => item.id === step.caseId)!;
         setPilotCurrentCase(step.caseId);
-        setPilotMessage('Répétabilité ' + (suite === 'stress' ? 'robustesse' : 'variante B') + ' · passage ' + step.repetition + '/' + repetitions +
+        setPilotMessage('Répétabilité ' + (suite === 'paired' ? 'paires A/H/I' : suite === 'stress' ? 'robustesse' : 'variante B') + ' · passage ' + step.repetition + '/' + repetitions +
           ' · copie ' + step.caseId + ' · ' + profiles.length + ' profil(s) · série ' +
           (index + 1) + '/' + steps.length + '.');
         const record = await startModelEvaluation({
@@ -4909,7 +4909,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
             journey: 'biology', scenario: 'contracts', targetId: 'evaluation-biology-contract-results', profiles: selectedEvaluationProfiles.map((profile) => profile.name).join(' · '),
           }, runPilotQuestionContractBenchmark); }}
           onRunRepeatability={(count, suite) => { void followEvaluation({
-            title: 'Biologie · répétabilité ' + count + ' passages · ' + (suite === 'stress' ? 'robustesse' : 'référence'),
+            title: 'Biologie · répétabilité ' + count + ' passages · ' + (suite === 'paired' ? 'paires A/H/I' : suite === 'stress' ? 'robustesse' : 'référence'),
             journey: 'biology', scenario: 'repeatability', targetId: 'evaluation-biology-repeatability-results', profiles: selectedEvaluationProfiles.map((profile) => profile.name).join(' · '),
           }, () => runPilotRepeatabilityBenchmark(count, suite)); }}
           onStop={stopPilotProtocol} onExport={exportPilotReport}
