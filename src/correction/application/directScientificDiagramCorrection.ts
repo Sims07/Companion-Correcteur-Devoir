@@ -47,5 +47,5 @@ export async function correctScientificDiagramDirect(
   await gateway.checkReady({ ...settings, model: configuration.analysisModel });
   if (signal?.aborted) throw new DOMException('Traitement interrompu.', 'AbortError');
 
-  return gradeDiagramImages(gateway.createProvider(settings), request, configuration.criterionByCriterion);
+  return gradeDiagramImages(gateway.createProvider(settings), request, configuration.criterionByCriterion, undefined, configuration.smartZoom === true);
 }
