@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { sendLmStudioZoomDiagramTurn } from '../../../src/shared/adapters/ai/lmStudioDiagramZoom.ts';
+import { sendLmStudioZoomDiagramTurn, type ZoomConversation } from '../../../src/shared/adapters/ai/lmStudioDiagramZoom.ts';
 import { cropOriginalDiagram } from '../../../src/shared/adapters/image/cropOriginalDiagram.ts';
 import { createOllamaProvider } from '../../../src/correction/adapters/ai/ollamaProvider.ts';
 import { gradeDiagramImages } from '../../../src/correction/ports/gradeDiagramImages.ts';
@@ -36,7 +36,7 @@ describe('LM Studio on-demand smart zoom (Responses API)', () => {
         ? completion('resp_before_zoom', [toolCall('tool_1')])
         : completion('resp_final', [{ type: 'message', content: [{ type: 'output_text', text: '{"ok":true}' }] }]);
     };
-    const conversation: { responseId?: string; zoomHistory?: unknown[] } = {};
+    const conversation: ZoomConversation = {};
     const previews: string[] = [];
     const response = await sendLmStudioZoomDiagramTurn(endpoint, '', conversation, turn, originals,
       { signal: new AbortController().signal }, fetchMock, value => previews.push(JSON.stringify(value)));
