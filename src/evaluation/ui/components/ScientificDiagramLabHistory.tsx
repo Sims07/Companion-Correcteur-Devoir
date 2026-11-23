@@ -1,3 +1,4 @@
+import { PairedReaderPanel } from './PairedReaderPanel.tsx';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { DiagramLabArchiveRepository } from '../../ports/diagramLabArchiveRepository.ts';
 import { compareDiagramLabEntries, diagramLabProtocolLabels, parseDiagramLabReportJson, summarizeDiagramLabReport, type DiagramLabArchiveEntry, type DiagramLabProtocol } from '../../domain/diagramLabHistory.ts';
@@ -371,6 +372,7 @@ export function ScientificDiagramLabHistory({ initialReportId, revision, archive
             <div><strong>{selected.profiles.length}</strong><span>Configurations</span></div>
           </div>
 
+          <PairedReaderPanel entry={selected} entries={entries} names={decisionNames} />
           <ReportDetails key={selected.id + ':' + selected.report.format} entry={selected} />
           <details className="diagram-lab-compare"><summary>Comparer avec une autre campagne (facultatif)</summary>
             <label>Comparer à un ancien essai
