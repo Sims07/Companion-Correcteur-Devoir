@@ -117,6 +117,8 @@ export interface OllamaSettings {
   apiCompatible?: boolean;
   /** Instruct models can reject even reasoning_effort: none. */
   omitReasoningParameter?: boolean;
+  /** Enable the on-demand original-image zoom tool for native LM Studio diagram correction. */
+  smartZoom?: boolean;
   /** Native LM Studio Chat context. Absent lets the server decide. */
   contextLength?: number;
   /** Optional bearer token, never included in diagnostic metadata. */
