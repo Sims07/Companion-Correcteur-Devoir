@@ -40,6 +40,7 @@ export async function correctScientificDiagramDirect(
     thinking: configuration.analysisThinking,
     ...(configuration.apiCompatible && configuration.analysisThinking ? { thinkingLevel: configuration.analysisReasoningEffort } : {}),
     criterionByCriterion: configuration.criterionByCriterion,
+    smartZoom: configuration.smartZoom,
     correctionMethod: 'generative' as const,
     diagnosticStrategy: 'single' as const,
   };
