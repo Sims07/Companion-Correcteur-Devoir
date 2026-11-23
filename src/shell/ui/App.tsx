@@ -5931,13 +5931,13 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
         <div className="review-workspace">
           <aside className="review-source-pane" aria-labelledby="review-source-pane-title">
             <div className="review-source-heading"><h3 id="review-source-pane-title">Copie de l’étudiant</h3><p>Pages de la copie · rotation modifiable si nécessaire.</p>
-              <div className="copy-annotation-preference"><label htmlFor="copy-annotation-toggle"><input
-                id="copy-annotation-toggle" type="checkbox" checked={copyAnnotationsEnabled}
+              <div className="copy-annotation-preference"><Checkbox
+                id="copy-annotation-toggle" checked={copyAnnotationsEnabled}
                 onChange={(event) => {
                   setCopyAnnotationsEnabled(event.target.checked);
                   setPlacingCopyAnnotationCriterionId(null);
                 }}
-              />Annoter la copie</label><small>{copyAnnotationsEnabled ? 'Activé · annotations locales' : 'Désactivé · copie sans annotations ajoutées'}</small></div>
+              >Annoter la copie</Checkbox><small>{copyAnnotationsEnabled ? 'Activé · annotations locales' : 'Désactivé · copie sans annotations ajoutées'}</small></div>
               {copyAnnotationsEnabled && placingCopyAnnotationCriterionId && <p className="copy-annotation-placement-help" role="status">Cliquez sur la page à l’emplacement de la remarque, ou désactivez le mode d’annotation.</p>}
             </div>
             <div className="review-source-pages" aria-label="Pages originales de la copie">
