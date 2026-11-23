@@ -89,6 +89,31 @@ describe('LM Studio on-demand smart zoom (Responses API)', () => {
     expect(calls[1].input[1].output).toContain('non autorisé');
   });
 
+  it('holds the two-zoom ceiling across repair calls but resets the budget for the next criterion', async () => {
+    vi.mocked(cropOriginalDiagram).mockClear();
+    const calls: Record<string, any>[] = [];
+    const response = (id: string) => completion(id, [{
+      type: 'message', content: [{ type: 'output_text', text: 'verdict' }],
+    }]);
+    const fetchMock: typeof fetch = async (_url, init) => {
+      const body = JSON.parse(String(init?.body));
+      calls.push(body);
+      if (calls.length === 1) return completion('resp_tool', [toolCall('a'), toolCall('b')]);
+      return response('resp_' + calls.length);
+    };
+    const conversation: { responseId?: string; zoomAttempts?: Record<string, number> } = {};
+    const first = { ...turn, criterionLabel: '1/2 · Légendes' };
+    await sendLmStudioZoomDiagramTurn(endpoint, '', conversation, first, originals, {}, fetchMock, () => {});
+    expect(cropOriginalDiagram).toHaveBeenCalledTimes(2);
+    expect(conversation.zoomAttempts?.['1/2 · Légendes']).toBe(2);
+    await sendLmStudioZoomDiagramTurn(endpoint, '', conversation, first, originals, {}, fetchMock, () => {});
+    expect(calls[2].tools).toBeUndefined();
+    expect(cropOriginalDiagram).toHaveBeenCalledTimes(2);
+    await sendLmStudioZoomDiagramTurn(endpoint, '', conversation, { ...turn,
+      criterionLabel: '2/2 · Titre' }, originals, {}, fetchMock, () => {});
+    expect(calls[3].tools?.[0]?.name).toBe('inspect_region');
+  });
+
   it('propagates cancellation before contacting LM Studio', async () => {
     const controller = new AbortController();
     controller.abort();
