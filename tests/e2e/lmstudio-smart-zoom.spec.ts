@@ -38,7 +38,7 @@ test('laboratory editor offers the same opt-in only on native LM Studio', async 
   const dialog = page.getByRole('dialog', { name: 'Créer ou modifier une configuration IA' });
   await dialog.getByLabel('Fournisseur IA').selectOption('openai');
   await expect(dialog.getByRole('checkbox', { name: /Zoom intelligent sur demande/ })).toHaveCount(0);
-  await dialog.getByLabel('Adresse du serveur').fill('http://localhost:1234/api/v1/chat');
+  await dialog.getByLabel('URL de l’API IA').fill('http://localhost:1234/api/v1/chat');
   const toggle = dialog.getByRole('checkbox', { name: /Zoom intelligent sur demande/ });
   await expect(toggle).toBeVisible();
   await toggle.check();
