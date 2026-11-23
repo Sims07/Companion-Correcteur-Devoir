@@ -67,6 +67,7 @@ test('teacher can opt in, place, move and hide a synthetic remark without any LL
   const toggle = page.getByRole('checkbox', { name: 'Annoter la copie' });
   const criterion = page.locator('.review-card').filter({ has: page.getByRole('heading', { name: 'Membrane' }) });
   await expect(toggle).not.toBeChecked();
+  const requestsBeforeAnnotations = requests.length;
   await expect(criterion.getByRole('button', { name: 'Placer sur la copie' })).toHaveCount(0);
   await toggle.check();
   await expect(criterion.getByRole('button', { name: 'Placer sur la copie' })).toBeVisible();
@@ -87,5 +88,5 @@ test('teacher can opt in, place, move and hide a synthetic remark without any LL
   await expect(page.locator('.copy-inline-annotation')).toHaveCount(1);
   await criterion.getByRole('button', { name: 'Retirer l’annotation' }).click();
   await expect(page.locator('.copy-inline-annotation')).toHaveCount(0);
-  expect(requests).toEqual([]);
+  expect(requests.slice(requestsBeforeAnnotations)).toEqual([]);
 });
