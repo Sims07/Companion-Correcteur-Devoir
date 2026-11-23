@@ -1,3 +1,4 @@
+import { BiologyReaderComparison } from './BiologyReaderComparison.tsx';
 import { BiologyProfileControls, type BiologyProfileSelection } from './BiologyProfileControls.tsx';
 import { buildRadarTimelineExport } from '../../domain/radarTimelineExport.ts';
 import { remainingBiologyMethods, type BiologyMethod } from '../../domain/radarRemainingMethods.ts';
@@ -424,6 +425,7 @@ export function EvaluationRadarHome({
                 ) : (
                   <BiologyRadarPlot candidate={bio} />
                 )}
+                {!scientific && comparison && <BiologyReaderComparison history={eligibleHistory} readers={biologies} />}
                 {comparison && (
                   <div className="radar-home-legend" aria-label={'Modèles comparés en ' + domainLabels[domain]}>
                     {(scientific ? sciences.map((candidate) => ({
