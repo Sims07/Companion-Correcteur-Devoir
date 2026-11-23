@@ -124,7 +124,7 @@ export function PilotEvaluationPanel({
     <section id="evaluation-biology-repeatability-launch" hidden={scenario !== 'repeatability'} className="pilot-evaluation-parallel" aria-label="Test de répétabilité variante B">
       <div>
         <h4>Répétabilité · Variante B</h4>
-        <p>Choisissez le protocole initial A/B/C ou quatre cas de robustesse D/E/F/G (négations, équivalences, contradictions et énoncé imprimé). La même copie et le même contrat sont rejoués pour mesurer justesse, stabilité et demandes de vérification, sans confondre décision stable et décision correcte.</p>
+        <p>Comparez les copies de référence A/B/C, les pièges D/E/F/G ou la série A/H/I où seule la dernière phrase change. La même copie et le même contrat sont rejoués pour mesurer justesse, stabilité et demandes de vérification, sans confondre décision stable et décision correcte.</p>
         <details className="pilot-evaluation-protocol-notes"><summary>Conditions d’exécution</summary><p>Analyse seule, sans photo ; appels strictement séquentiels et libération des modèles Ollama entre profils. Des appels et frais d’API peuvent s’appliquer. Gardez l’onglet ouvert et le Mac éveillé pendant le test.</p></details>
       </div>
       <div className="pilot-evaluation-actions">
@@ -133,6 +133,7 @@ export function PilotEvaluationPanel({
           onChange={(event) => setRepeatabilityMode(event.target.value as RepeatabilitySuite)}>
           <option value="baseline">Référence A/B/C · 3 copies</option>
           <option value="stress">Robustesse D/E/F/G · 4 copies</option>
+          <option value="paired">Paires contrôlées A/H/I · inversion et paraphrase</option>
         </DesignSystemSelect>
         <label htmlFor="pilot-repeatability-count">Nombre de passages</label>
         <DesignSystemSelect id="pilot-repeatability-count" value={repeatabilityCount} disabled={busy}
@@ -149,7 +150,7 @@ export function PilotEvaluationPanel({
       </div>
       {repeatabilityProgress && <p role="status">Répétabilité : {repeatabilityProgress.completed}/{repeatabilityProgress.total} séries copie × passage terminées.</p>}
       {repeatabilityReport && <div id="evaluation-biology-repeatability-results" className="pilot-evaluation-report" aria-label="Résultats de répétabilité">
-        <h4>Stabilité et justesse par modèle et par copie · {repeatabilityReport.suite === 'stress' ? 'robustesse D/E/F/G' : 'référence A/B/C'}</h4>
+        <h4>Stabilité et justesse par modèle et par copie · {repeatabilityReport.suite === 'paired' ? 'paires contrôlées A/H/I' : repeatabilityReport.suite === 'stress' ? 'robustesse D/E/F/G' : 'référence A/B/C'}</h4>
         <div className="pilot-evaluation-table-scroll">
           <table className="pilot-evaluation-table">
             <thead><tr><th scope="col">Modèle</th><th scope="col">Copie</th><th scope="col">Passages</th><th scope="col">Notes</th><th scope="col">Accord</th><th scope="col">Toujours corrects</th><th scope="col">Stables et évalués</th><th scope="col">Attendus non évalués</th><th scope="col">Demandes au professeur</th><th scope="col">Durée moy.</th></tr></thead>
