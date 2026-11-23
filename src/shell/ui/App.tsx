@@ -27,7 +27,7 @@ import { ReviewAttentionSummary } from '../../correction/ui/components/ReviewAtt
 import { TeacherReviewAlert } from '../../correction/ui/components/TeacherReviewAlert.tsx';
 import { ReviewCriterionEvidence } from '../../correction/ui/components/ReviewCriterionEvidence.tsx';
 import { CopyAnnotationCanvas } from '../../correction/ui/components/CopyAnnotationCanvas.tsx';
-import { COPY_ANNOTATIONS_SETTING_KEY, parseCopyAnnotationsEnabled, copyAnnotationMessage, isCopyAnnotationPlacement } from '../../correction/domain/copyAnnotationFeature.ts';
+import { COPY_ANNOTATIONS_SETTING_KEY, parseCopyAnnotationsEnabled, copyAnnotationMessage, isCopyAnnotationPlacement, type CopyAnnotationPlacement } from '../../correction/domain/copyAnnotationFeature.ts';
 import { reviewExplanationContent } from '../../correction/domain/reviewOptionalSections.ts';
 import { teacherReviewStatus } from '../../correction/domain/teacherReviewSummary.ts';
 import type { CorrectionWorkspaceService } from '../../correction/application/correctionWorkspaceService.ts';
@@ -3359,6 +3359,22 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
       : item));
   }
 
+  function updateCopyAnnotationPlacement(criterionId: string, placement: CopyAnnotationPlacement | undefined) {
+    if (isFinalized || !review.some((item) => item.criterionId === criterionId)) return;
+    updateReview(criterionId, { annotationPlacement: placement });
+    // Foreground drafts persist through useScientificDiagramDraft. Queued copies
+    // need an explicit write so a reload immediately after placing a note does
+    // not lose it; review metadata never modifies the underlying image.
+    if (currentBackgroundJobId) {
+      const updatedReview = review.map((item) => item.criterionId === criterionId
+        ? { ...item, annotationPlacement: placement } : item);
+      void backgroundService.saveReviewDraft(currentBackgroundJobId, updatedReview, teacherQuestions)
+        .catch((cause) => setError(cause instanceof Error
+          ? `Impossible de sauvegarder l’annotation : ${cause.message}`
+          : 'Impossible de sauvegarder l’annotation sur cette copie.'));
+    }
+  }
+
   function verifySubcriterion(criterionId: string, subcriterionId: string, action: SubcriterionTeacherDecision) {
     const item = review.find((candidate) => candidate.criterionId === criterionId);
     if (!item) return;
@@ -5959,7 +5975,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
                       pageNumber={pageNumber} annotations={pageAnnotations}
                       placingCriterion={!isAnalyzing && !isFinalized ? placingCopyAnnotationCriterionId : null}
                       onPlace={(criterionId, placement) => {
-                        updateReview(criterionId, { annotationPlacement: placement });
+                        updateCopyAnnotationPlacement(criterionId, placement);
                         setPlacingCopyAnnotationCriterionId(null);
                       }}
                     >{preview}</CopyAnnotationCanvas> : preview}
@@ -6065,7 +6081,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
                 if (targetPage) document.getElementById(`review-copy-page-${targetPage}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
               }}>{item.annotationPlacement ? 'Déplacer sur la copie' : 'Placer sur la copie'}</button>
               {item.annotationPlacement && <button type="button" className="text-button" onClick={() => {
-                updateReview(item.criterionId, { annotationPlacement: undefined });
+                updateCopyAnnotationPlacement(item.criterionId, undefined);
                 setPlacingCopyAnnotationCriterionId(null);
               }}>Retirer l’annotation</button>}
             </div>}
