@@ -123,6 +123,7 @@ test('an individually corrected scientific diagram uses one direct image request
   await correct.click();
 
   await expect(page.locator('.review-main-column .review-card')).toHaveCount(3, { timeout: 30000 });
+  await expect(page.getByRole('combobox', { name: /Choisir une copie/ })).toBeVisible();
   expect(requests.map(r => r.format.properties.criteria.required)).toEqual([['drawing'], ['title'], ['legends']]);
   for (const r of requests) {
     const rubric = JSON.parse(r.messages[0].content.split('BARÈME ENSEIGNANT :\n')[1].split('\n\n')[0]);
