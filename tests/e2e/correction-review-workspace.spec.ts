@@ -61,7 +61,7 @@ test('review workspace keeps original evidence beside grading criteria on deskto
           finalScore: 4,
         },
         review: [
-          { criterionId: 'membrane', points: 2, rationale: 'Le mécanisme est partiellement expliqué.', evidence: 'La réponse mentionne la membrane.', annotationSuggestion: 'Précise le rôle de la membrane.', pageNumber: 1, confidence: 'medium', scientificDiagramElements: [{ label: 'Membrane plasmique', status: 'partial', points: 1, maxPoints: 2, evidence: 'Le contour est incomplet.' }], scientificDiagramPages: [1], teacherPoints: 2, teacherComment: '', decision: 'pending' },
+          { criterionId: 'membrane', points: 2, rationale: 'Le mécanisme est partiellement expliqué.', evidence: 'La réponse mentionne la membrane.', annotationSuggestion: 'Précise le rôle de la membrane.', pageNumber: 1, annotationPlacement: { pageNumber: 1, x: 500, y: 500 }, confidence: 'medium', scientificDiagramElements: [{ label: 'Membrane plasmique', status: 'partial', points: 1, maxPoints: 2, evidence: 'Le contour est incomplet.' }], scientificDiagramPages: [1], teacherPoints: 2, teacherComment: '', decision: 'pending' },
           { criterionId: 'transport', points: 2, rationale: 'Le transport sélectif est identifié.', evidence: 'La membrane contrôle les échanges.', pageNumber: 1, confidence: 'high', teacherPoints: 2, teacherComment: '', decision: 'pending' },
         ],
         teacherQuestions: '',
@@ -268,6 +268,25 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await expect(sourcePane).toHaveCSS('position', 'static');
   await expect(page.locator('.review-workspace')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Rôle de la membrane' })).toBeVisible();
+
+  // Existing annotated reviews remain unchanged until the teacher explicitly
+  // enables the application flag. Turning it off only hides the SVG/HTML layer.
+  const annotationsToggle = page.getByRole('checkbox', { name: 'Annoter la copie' });
+  await expect(annotationsToggle).not.toBeChecked();
+  await expect(page.locator('.copy-inline-annotation')).toHaveCount(0);
+  await annotationsToggle.check();
+  await expect(page.locator('.copy-inline-annotation')).toHaveCount(1);
+  await expect(page.locator('.copy-inline-annotation')).toContainText('Précise le rôle de la membrane.');
+  await page.reload();
+  await openActiveAssignment(page);
+  await page.getByRole('tab', { name: /Copies/ }).click();
+  await page.locator('.copy-overview-filters').getByRole('button', { name: /Corrigées/ }).click();
+  await page.getByRole('button', { name: 'Consulter la correction' }).click();
+  await expect(annotationsToggle).toBeChecked();
+  await expect(page.locator('.copy-inline-annotation')).toHaveCount(1);
+  await annotationsToggle.uncheck();
+  await expect(page.locator('.copy-inline-annotation')).toHaveCount(0);
+  await expect(page.locator('.review-card').filter({ has: page.getByRole('heading', { name: 'Rôle de la membrane' }) })).toBeVisible();
 
   // Empty or duplicated model explanations must not add a disclosure to an already
   // visible teacher evidence / alert block.
