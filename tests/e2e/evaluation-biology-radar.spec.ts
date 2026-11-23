@@ -92,6 +92,12 @@ test('comparison overlays LLMs on both radar cards instead of pushing charts bel
   await expect(biology.locator('[data-radar-model]')).toHaveCount(2);
   await expect(biology.locator('[data-radar-model] polygon')).toHaveCount(2);
   await expect(biology.locator('.radar-home-legend-item')).toHaveCount(2);
+  const paired = biology.getByText('Comparer les décisions sur les mêmes copies', { exact: true });
+  await paired.click();
+  await expect(biology.getByText(/70 décisions appariées/)).toBeVisible();
+  await biology.getByText('Voir les écarts avec la référence (7)').click();
+  await expect(biology.getByText(/Copie F · q0/)).toBeVisible();
+  await paired.click();
   await expect(science.getByRole('img')).toBeVisible();
   await expect(home.locator('.radar-comparison table')).toHaveCount(0);
   await page.screenshot({ path: 'test-results/radars-comparison-desktop.png', fullPage: true });
