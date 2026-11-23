@@ -1,3 +1,4 @@
+import { ControlledVisualTrial } from './ControlledVisualTrial.tsx';
 import { LocalArrowExperiment } from './LocalArrowExperiment.tsx';
 import { downloadJson as downloadScientificDiagramJson } from '../../../shared/ui/downloadJson.ts';
 import { BlindGraphRunDetails } from './BlindGraphRunDetails.tsx';
@@ -1081,5 +1082,6 @@ export function ScientificDiagramProtocolPanel({
       </details>
     </div>}
     </details>
+    <ControlledVisualTrial profiles={selectedProfiles} busy={busy} />
   </section>;
 }
