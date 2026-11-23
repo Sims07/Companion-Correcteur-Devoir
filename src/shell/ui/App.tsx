@@ -26,6 +26,8 @@ import { CopyReviewHeader } from '../../correction/ui/components/CopyReviewHeade
 import { ReviewAttentionSummary } from '../../correction/ui/components/ReviewAttentionSummary.tsx';
 import { TeacherReviewAlert } from '../../correction/ui/components/TeacherReviewAlert.tsx';
 import { ReviewCriterionEvidence } from '../../correction/ui/components/ReviewCriterionEvidence.tsx';
+import { CopyAnnotationCanvas } from '../../correction/ui/components/CopyAnnotationCanvas.tsx';
+import { COPY_ANNOTATIONS_SETTING_KEY, parseCopyAnnotationsEnabled, copyAnnotationMessage, isCopyAnnotationPlacement, type CopyAnnotationPlacement } from '../../correction/domain/copyAnnotationFeature.ts';
 import { reviewExplanationContent } from '../../correction/domain/reviewOptionalSections.ts';
 import { teacherReviewStatus } from '../../correction/domain/teacherReviewSummary.ts';
 import type { CorrectionWorkspaceService } from '../../correction/application/correctionWorkspaceService.ts';
@@ -975,6 +977,18 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     [assignmentProfiles, archivedCorrections, activeAssignmentId],
   );
   const [review, setReview] = useState<ReviewedCriterion[]>([]);
+  // Teacher-controlled feature flag, independent of model configurations and profiles.
+  // Never enable for existing browsers unless the teacher explicitly opts in.
+  const [copyAnnotationsEnabled, setCopyAnnotationsEnabled] = useState(() => {
+    try { return parseCopyAnnotationsEnabled(window.localStorage.getItem(COPY_ANNOTATIONS_SETTING_KEY)); }
+    catch { return false; }
+  });
+  const [placingCopyAnnotationCriterionId, setPlacingCopyAnnotationCriterionId] = useState<string | null>(null);
+  useEffect(() => {
+    try { window.localStorage.setItem(COPY_ANNOTATIONS_SETTING_KEY, String(copyAnnotationsEnabled)); }
+    catch { /* Available for the current session even if storage is full. */ }
+  }, [copyAnnotationsEnabled]);
+  useEffect(() => { setPlacingCopyAnnotationCriterionId(null); }, [currentBackgroundJobId, currentCorrectionId]);
   const [showOnlyFlagged, setShowOnlyFlagged] = useState(true);
   const [focusedEvidencePage, setFocusedEvidencePage] = useState<number | null>(null);
   const [teacherQuestions, setTeacherQuestions] = useState('');
@@ -3350,6 +3364,22 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
         ? resolveManualCriterionOverride({ ...item, ...patch })
         : { ...item, ...patch }
       : item));
+  }
+
+  function updateCopyAnnotationPlacement(criterionId: string, placement: CopyAnnotationPlacement | undefined) {
+    if (isFinalized || !review.some((item) => item.criterionId === criterionId)) return;
+    updateReview(criterionId, { annotationPlacement: placement });
+    // Foreground drafts persist through useScientificDiagramDraft. Queued copies
+    // need an explicit write so a reload immediately after placing a note does
+    // not lose it; review metadata never modifies the underlying image.
+    if (currentBackgroundJobId) {
+      const updatedReview = review.map((item) => item.criterionId === criterionId
+        ? { ...item, annotationPlacement: placement } : item);
+      void backgroundService.saveReviewDraft(currentBackgroundJobId, updatedReview, teacherQuestions)
+        .catch((cause) => setError(cause instanceof Error
+          ? `Impossible de sauvegarder l’annotation : ${cause.message}`
+          : 'Impossible de sauvegarder l’annotation sur cette copie.'));
+    }
   }
 
   function verifySubcriterion(criterionId: string, subcriterionId: string, action: SubcriterionTeacherDecision) {
@@ -5923,13 +5953,39 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
         {teacherAnnotations?.trim() && <details className="review-annotations-details"><summary>✎ {teacherAnnotations.split('\n').filter((line) => line.trim()).length} annotations repérées</summary><pre>{teacherAnnotations}</pre></details>}
         <div className="review-workspace">
           <aside className="review-source-pane" aria-labelledby="review-source-pane-title">
-            <div className="review-source-heading"><h3 id="review-source-pane-title">Copie de l’étudiant</h3><p>Pages de la copie · rotation modifiable si nécessaire.</p></div>
+            <div className="review-source-heading"><h3 id="review-source-pane-title">Copie de l’étudiant</h3><p>Pages de la copie · rotation modifiable si nécessaire.</p>
+              <div className="copy-annotation-preference"><Checkbox
+                id="copy-annotation-toggle" checked={copyAnnotationsEnabled}
+                onChange={(event) => {
+                  setCopyAnnotationsEnabled(event.target.checked);
+                  setPlacingCopyAnnotationCriterionId(null);
+                }}
+              >Annoter la copie</Checkbox><small>{copyAnnotationsEnabled ? 'Activé · annotations locales' : 'Désactivé · copie sans annotations ajoutées'}</small></div>
+              {copyAnnotationsEnabled && placingCopyAnnotationCriterionId && <p className="copy-annotation-placement-help" role="status">Cliquez sur la page à l’emplacement de la remarque, ou désactivez le mode d’annotation.</p>}
+            </div>
             <div className="review-source-pages" aria-label="Pages originales de la copie">
               {images.length > 0 ? images.map((image, index) => {
                 const pageNumber = index + 1;
+                const preview = isScientificDiagramAssignment
+                  ? <img src={`data:${image.mimeType};base64,${image.base64}`} alt={`Page de travail ${pageNumber} de la copie`} style={{ maxWidth: '100%' }} />
+                  : <ZoomableImage src={`data:${image.mimeType};base64,${image.base64}`} alt={`Page de travail ${pageNumber} de la copie`} />;
+                const pageAnnotations = copyAnnotationsEnabled ? review.flatMap((item) => {
+                  const placement = item.annotationPlacement;
+                  const maximum = rubric.criteria.find((criterion) => criterion.id === item.criterionId)?.maxPoints;
+                  const message = maximum === undefined ? null : copyAnnotationMessage(item, maximum);
+                  return isCopyAnnotationPlacement(placement) && placement.pageNumber === pageNumber && message
+                    ? [{ criterionId: item.criterionId, message, x: placement.x, y: placement.y }] : [];
+                }) : [];
                 return <figure id={`review-copy-page-${pageNumber}`} className={focusedEvidencePage === pageNumber ? 'live-copy-page evidence-page-focused' : 'live-copy-page'} key={image.fileName + '-review-' + index}>
                   <div className="evidence-image-stage">
-                    {isScientificDiagramAssignment ? <img src={`data:${image.mimeType};base64,${image.base64}`} alt={`Page de travail ${pageNumber} de la copie`} style={{ maxWidth: '100%' }} /> : <ZoomableImage src={`data:${image.mimeType};base64,${image.base64}`} alt={`Page de travail ${pageNumber} de la copie`} />}
+                    {copyAnnotationsEnabled ? <CopyAnnotationCanvas
+                      pageNumber={pageNumber} annotations={pageAnnotations}
+                      placingCriterion={!isAnalyzing && !isFinalized ? placingCopyAnnotationCriterionId : null}
+                      onPlace={(criterionId, placement) => {
+                        updateCopyAnnotationPlacement(criterionId, placement);
+                        setPlacingCopyAnnotationCriterionId(null);
+                      }}
+                    >{preview}</CopyAnnotationCanvas> : preview}
                     {isScientificDiagramAssignment && <Button variant="secondary" className="diagram-review-enlarge" aria-label={`Agrandir la page ${pageNumber} du schéma`} onClick={() => setCopyViewerPage(index)}>Agrandir · Zoom</Button>}
                     <div className="copy-image-rotation-controls review-image-rotation-controls"><button type="button" className="text-button" aria-label={`Réorienter la page ${pageNumber} à gauche de 90 degrés`} disabled={isAnalyzing} onClick={() => { void rotateCopyPage(index, 270); }}>↶ 90°</button><button type="button" className="text-button" aria-label={`Réorienter la page ${pageNumber} à droite de 90 degrés`} disabled={isAnalyzing} onClick={() => { void rotateCopyPage(index, 90); }}>↷ 90°</button></div>
                     {originalImages[pageNumber - 1] && originalImages[pageNumber - 1].base64 !== image.base64 && <details className="original-image-details"><summary>Voir l’image originale non tournée</summary><ZoomableImage src={`data:${originalImages[pageNumber - 1].mimeType};base64,${originalImages[pageNumber - 1].base64}`} alt={`Image originale non modifiée de la page ${pageNumber}`} /></details>}
@@ -6025,6 +6081,17 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
               onResolveSubcriterion={(subcriterionId, action) => verifySubcriterion(item.criterionId, subcriterionId, action)}
               disabled={isAnalyzing}
             />}
+            {copyAnnotationsEnabled && !isAnalyzing && !isFinalized && copyAnnotationMessage(item, criterion.maxPoints) && <div className="copy-annotation-actions">
+              <button type="button" className="secondary-button" onClick={() => {
+                setPlacingCopyAnnotationCriterionId(item.criterionId);
+                const targetPage = item.annotationPlacement?.pageNumber ?? item.pageNumber;
+                if (targetPage) document.getElementById(`review-copy-page-${targetPage}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }}>{item.annotationPlacement ? 'Déplacer sur la copie' : 'Placer sur la copie'}</button>
+              {item.annotationPlacement && <button type="button" className="text-button" onClick={() => {
+                updateCopyAnnotationPlacement(item.criterionId, undefined);
+                setPlacingCopyAnnotationCriterionId(null);
+              }}>Retirer l’annotation</button>}
+            </div>}
             {isFlagged && criterion.description && <p className="review-rubric-context"><strong>Attendu du barème</strong><br />{criterion.description}</p>}
             {isFlagged && <TeacherReviewAlert
               reasons={alertReasons}

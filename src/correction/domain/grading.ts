@@ -50,6 +50,8 @@ export interface GradingProposal {
 }
 
 export interface ReviewedCriterion extends CriterionProposal {
+  /** Optional teacher-positioned note: part of the review archive, never a model decision. */
+  annotationPlacement?: import('./copyAnnotationFeature.ts').CopyAnnotationPlacement;
   reviewedByTeacher?: boolean;
   teacherPoints: number;
   teacherComment: string;
