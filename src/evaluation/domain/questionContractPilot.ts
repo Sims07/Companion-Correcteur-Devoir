@@ -15,7 +15,7 @@ export const QUESTION_CONTRACT_QUESTION = [
   'Question 2 (4 points) — Expliquez la respiration aérobie des cellules végétales : lieu, besoin en oxygène, ATP et fonctionnement nocturne.',
 ].join('\n');
 export type QuestionContractVariant = 'standard' | 'contract';
-export type QuestionContractCase = Omit<PilotCase, 'id'> & { id: PilotCase['id'] | 'D' | 'E' | 'F' | 'G' };
+export type QuestionContractCase = Omit<PilotCase, 'id'> & { id: PilotCase['id'] | 'D' | 'E' | 'F' | 'G' | 'H' | 'I' };
 
 const instructions = {
   '1': 'Décrivez la photosynthèse : lieu, source d’énergie, réactifs et produits.',
@@ -177,8 +177,20 @@ export const QUESTION_CONTRACT_STRESS_CASES: readonly QuestionContractCase[] = [
   },
 ];
 
+// Keep the first answer identical. Only the final sentence about respiration at night varies.
+const control = QUESTION_CONTRACT_CASES[0]!;
+export const QUESTION_CONTRACT_PAIRED_CASES: readonly QuestionContractCase[] = [
+  control,
+  { ...control, id:'H', label:'H — relation inversée', description:'Un seul attendu change par rapport à A.',
+    transcription:control.transcription.replace('respirent aussi pendant la nuit','cessent de respirer pendant la nuit'),
+    referenceScore:9, presentSubcriteria:control.presentSubcriteria.filter(id => id !== 'p10') },
+  { ...control, id:'I', label:'I — reformulation', description:'Les dix attendus de A sont conservés.',
+    transcription:control.transcription.replace('Les cellules végétales respirent aussi pendant la nuit.',
+      'Même dans l’obscurité, ce processus se poursuit dans les cellules de la plante.') },
+];
+
 export const ALL_QUESTION_CONTRACT_CASES: readonly QuestionContractCase[] = [
-  ...QUESTION_CONTRACT_CASES, ...QUESTION_CONTRACT_STRESS_CASES,
+  ...QUESTION_CONTRACT_CASES, ...QUESTION_CONTRACT_STRESS_CASES, ...QUESTION_CONTRACT_PAIRED_CASES.slice(1),
 ];
 
 export interface QuestionContractRun {
