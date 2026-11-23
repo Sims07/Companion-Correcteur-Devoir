@@ -26,12 +26,12 @@ export function PairedReaderPanel({ entry, entries, names }: {
   const differences = rows.filter(r => r.first.choice !== r.second.choice || r.first.review || r.second.review ||
     r.first.choice !== r.expected);
   return <details className="diagram-lab-compare"><summary>Comparer deux lecteurs sur les mêmes copies</summary>
-    <label>Premier lecteur <select value={first?.id ?? ''} onChange={e => setFirstId(e.target.value)}>
+    <label>Premier lecteur <select aria-label="Premier lecteur" value={first?.id ?? ''} onChange={e => setFirstId(e.target.value)}>
       {firstOptions.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}</select></label>
-    <label>Campagne du second lecteur <select value={other.id} onChange={e => setOtherId(e.target.value)}>
+    <label>Campagne du second lecteur <select aria-label="Campagne du second lecteur" value={other.id} onChange={e => setOtherId(e.target.value)}>
       {entries.filter(e => e.report.format === left.format).map(e => <option key={e.id} value={e.id}>
         {e.profiles.join(', ')} · {e.title} · {new Date(e.createdAt).toLocaleString('fr-FR')}</option>)}</select></label>
-    <label>Second lecteur <select value={second?.id ?? ''} onChange={e => setSecondId(e.target.value)}>
+    <label>Second lecteur <select aria-label="Second lecteur" value={second?.id ?? ''} onChange={e => setSecondId(e.target.value)}>
       {secondOptions.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}</select></label>
     {!second ? <p>Choisissez une campagne contenant un autre passage ou un deuxième profil.</p>
       : !paired || paired.incompatible ? <p>Les versions du protocole et du barème doivent coïncider.</p>
