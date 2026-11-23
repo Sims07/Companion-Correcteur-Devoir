@@ -134,4 +134,20 @@ describe('shared simple AI model controls', () => {
       .node.querySelector<HTMLInputElement>('#evaluation-context-length')?.disabled).toBe(true);
   });
 
+  it('offers bounded zoom only for LM Studio native chat in generative mode', () => {
+    const onSmartZoom = vi.fn();
+    const { node } = render({ apiCompatible: true, nativeChat: true,
+      smartZoom: true, onSmartZoom });
+    const checkbox = node.querySelector<HTMLInputElement>('#evaluation-smart-zoom')!;
+    expect(checkbox.checked).toBe(true);
+    expect(node.textContent).toContain('2 par critère maximum');
+    act(() => checkbox.click());
+    expect(onSmartZoom).toHaveBeenCalledWith(false);
+    expect(render({ apiCompatible: true, nativeChat: false }).node.querySelector('#evaluation-smart-zoom')).toBeNull();
+    expect(render({ apiCompatible: false, nativeChat: true }).node.querySelector('#evaluation-smart-zoom')).toBeNull();
+    expect(render({ apiCompatible: true, nativeChat: true, method: 'decision' }).node.querySelector('#evaluation-smart-zoom')).toBeNull();
+    expect(render({ apiCompatible: true, nativeChat: true, disabled: true })
+      .node.querySelector<HTMLInputElement>('#evaluation-smart-zoom')?.disabled).toBe(true);
+  });
+
 });
