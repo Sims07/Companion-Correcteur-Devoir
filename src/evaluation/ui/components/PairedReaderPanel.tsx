@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { DiagramLabArchiveEntry } from '../../domain/diagramLabHistory.ts';
-import { availableReaders, pairedDecisions, summarizeReader } from '../../domain/pairedReaders.ts';
+import { availableReaders, pairedDecisions, passageMetrics, summarizeReader } from '../../domain/pairedReaders.ts';
 import { compareCampaignRubrics } from '../../domain/diagramRubricComparison.ts';
 
 const strategies = { first: 'Premier lecteur', second: 'Second lecteur', targeted: 'Relecture ciblée simulée' } as const;
@@ -45,6 +45,11 @@ export function PairedReaderPanel({ entry, entries, names }: {
             return <tr key={key}><th scope="row">{strategies[key]}</th><td>{s.correct}</td><td>{s.wrong}</td>
               <td>{s.missing}</td><td>{s.reviews}</td><td>{s.silentErrors}</td><td>{key === 'targeted' ? s.calls : '—'}</td></tr>;
           })}</tbody></table></div>
+          <ul>{(['first','second'] as const).map(side => {
+            const m = passageMetrics(paired.passages,side);
+            return <li key={side}>{strategies[side]} · écart absolu moyen {m.error?.toFixed(2) ?? '—'} /10 ({m.graded} notes)
+              {' · '}durée moyenne {m.seconds === null ? '—' : m.seconds.toFixed(1)+' s'} ({m.timed} mesures)</li>;
+          })}</ul>
           <details><summary>Examiner les écarts et les relectures ({differences.length})</summary>
             <div className="pilot-evaluation-table-scroll"><table className="pilot-evaluation-table">
               <thead><tr><th>Dessin · passage</th><th>Critère</th><th>Référence du jeu</th><th>Premier lecteur</th><th>Second lecteur</th></tr></thead>
