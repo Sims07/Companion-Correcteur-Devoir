@@ -84,8 +84,7 @@ test('a teacher can cancel or confirm removing one imported copy without affecti
   await expect(page.getByRole('status').filter({ hasText: 'a été retirée du devoir' })).toBeVisible();
 
   await page.reload();
-  await openActiveAssignment(page);
-  await page.getByRole('tab', { name: /Copies/ }).click();
+  await expect(page.getByRole('heading', { name: 'Suivi des copies' })).toBeVisible();
   await expect(page.locator('.copy-overview-grid .correction-series-card')).toHaveCount(1);
   await expect(page.locator('.copy-overview-grid .correction-series-card')).toContainText('etudiant-b.png');
 });
