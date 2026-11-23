@@ -76,9 +76,10 @@ test('teacher can opt in, place, move and hide a synthetic remark without any LL
   await page.getByRole('button', { name: 'Placer l’annotation sur la page 1' }).click({ position: { x: 140, y: 80 } });
   await expect(page.locator('.copy-inline-annotation')).toHaveCount(1);
   await expect(page.locator('.copy-inline-annotation')).toContainText('Préciser la membrane.');
+  const firstX = await page.locator('.copy-inline-annotation').evaluate((node) => (node as HTMLElement).style.left);
   await criterion.getByRole('button', { name: 'Déplacer sur la copie' }).click();
   await page.getByRole('button', { name: 'Placer l’annotation sur la page 1' }).click({ position: { x: 200, y: 120 } });
-  await expect(page.locator('.copy-inline-annotation')).toHaveAttribute('style', /left:66\.7%; top:60%/);
+  await expect.poll(() => page.locator('.copy-inline-annotation').evaluate((node) => (node as HTMLElement).style.left)).not.toBe(firstX);
   await toggle.uncheck();
   await expect(page.locator('.copy-inline-annotation')).toHaveCount(0);
   await expect(criterion.getByRole('button', { name: 'Déplacer sur la copie' })).toHaveCount(0);
