@@ -23,6 +23,7 @@ test('les lectures synthétiques reprennent la conversation et offrent arrêt et
     const body = route.request().postDataJSON();
     calls++;
     expect(body.reasoning).toBeUndefined();
+    expect(body.max_output_tokens).toBeUndefined();
     const image = body.input.some((i:{type:string}) => i.type === 'image');
     if (image) images++;
     expect(image).toBe(!body.previous_response_id);
@@ -46,4 +47,6 @@ test('les lectures synthétiques reprennent la conversation et offrent arrêt et
   await expect(page.getByText(/Essai terminé · 16\/16/)).toBeVisible();
   expect(calls).toBe(16);
   expect(images).toBe(8);
+  await page.getByText('Essais enregistrés',{exact:true}).click();
+  await expect(page.getByRole('button',{name:'Exporter',exact:true})).toBeVisible();
 });
