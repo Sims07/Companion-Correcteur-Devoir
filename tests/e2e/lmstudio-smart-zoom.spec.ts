@@ -6,6 +6,7 @@ const key = 'companion-correcteur:ollama-configuration:v1';
 
 test('teacher enables local smart zoom and the configuration survives reload', async ({ page }) => {
   await page.addInitScript(key => {
+    if (localStorage.getItem(key)) return;
     localStorage.setItem(key, JSON.stringify({
       endpoint: 'http://localhost:1234/api/v1/chat', apiCompatible: true,
       visionModel: 'gemma', analysisModel: 'gemma', generativeModel: 'gemma',
