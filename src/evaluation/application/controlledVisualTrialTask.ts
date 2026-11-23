@@ -2,7 +2,7 @@ import type { AiModelProfile } from '../../shared/domain/aiModelProfiles.ts';
 import { sendLmStudioDiagramTurn } from '../../shared/adapters/ai/lmStudioDiagramChat.ts';
 import { readAnswer, runVisualTrial, visualPromptVersion, type VisualCase, type VisualRow } from '../domain/controlledVisualTrial.ts';
 
-function drawingPng(drawing: VisualCase) {
+export function drawingPng(drawing: VisualCase) {
   const canvas = document.createElement('canvas');
   canvas.width = 640; canvas.height = 330;
   const c = canvas.getContext('2d');
@@ -37,6 +37,13 @@ function restore(): State {
   } catch { /* Local storage can be unavailable. */ }
   return empty;
 }
+const historyKey = key + ':history';
+export function visualTrialHistory(): State[] {
+  try {
+    const items = JSON.parse(localStorage.getItem(historyKey) ?? '[]');
+    return Array.isArray(items) ? items.filter(item => item?.version === visualPromptVersion && Array.isArray(item.rows)) : [];
+  } catch { return []; }
+}
 let state = restore();
 let controller: AbortController | undefined;
 const listeners = new Set<() => void>();
@@ -54,7 +61,7 @@ export async function startVisualTrial(profile: AiModelProfile) {
   controller = task;
   const settings = { think:cfg.omitReasoningParameter ? 'omis' : cfg.analysisThinking ? cfg.analysisReasoningEffort ?? 'medium' : 'off',
     context:cfg.contextLength, temperature:cfg.analysisTemperature, topP:cfg.analysisTopP,
-    topK:cfg.analysisTopK, outputTokens:cfg.gradingOutputTokens ?? 256 };
+    topK:cfg.analysisTopK, outputTokens:cfg.gradingOutputTokens };
   update({status:'running',label:'Préparation du témoin',started:Date.now(),rows:[],profile:profile.name,model:cfg.analysisModel,settings});
   try {
     await runVisualTrial(async (drawing,session,prompt) => {
@@ -75,7 +82,11 @@ export async function startVisualTrial(profile: AiModelProfile) {
       : error instanceof Error ? error.message : 'Échec de la lecture'});
   } finally {
     controller = undefined;
-    try { localStorage.setItem(key,JSON.stringify({...state,version:visualPromptVersion})); }
+    try {
+      const record = {...state,version:visualPromptVersion};
+      localStorage.setItem(key,JSON.stringify(record));
+      if (state.rows.length) localStorage.setItem(historyKey,JSON.stringify([record,...visualTrialHistory()]));
+    }
     catch { update({...state,storageError:true}); }
   }
 }
