@@ -30,9 +30,10 @@ export interface PairedDecision {
 
 export function pairedDecisions(left: FixtureReport, first: string, right: FixtureReport, second: string) {
   const rows: PairedDecision[] = [];
+  const passages: { first: Run; second: Run; expected: number }[] = [];
   let excluded = 0;
   if (!left.protocolId || left.protocolId !== right.protocolId || left.version !== right.version)
-    return { rows, excluded, incompatible: true };
+    return { rows, passages, excluded, incompatible: true };
   for (const caseId of new Set([...left.cases, ...right.cases].map(c => c.caseId))) {
     const a = left.cases.find(c => c.caseId === caseId);
     const b = right.cases.find(c => c.caseId === caseId);
@@ -45,11 +46,13 @@ export function pairedDecisions(left: FixtureReport, first: string, right: Fixtu
       const keys = Object.keys(a.gold);
       if (!keys.length || keys.length !== Object.keys(b.gold).length || keys.some(k => a.gold[k] !== b.gold[k]
         || a.expectedPoints?.[k] !== b.expectedPoints?.[k])) { excluded++; continue; }
+      if (a.referenceScore !== b.referenceScore) { excluded++; continue; }
+      passages.push({ first:aa[0]!, second:bb[0]!, expected:a.referenceScore });
       for (const key of keys) rows.push({ caseId, repetition, key, expected: a.gold[key]!,
         first: reading(aa[0]!, key), second: reading(bb[0]!, key) });
     }
   }
-  return { rows, excluded, incompatible: false };
+  return { rows, passages, excluded, incompatible: false };
 }
 
 export function summarizeReader(rows: PairedDecision[], strategy: 'first' | 'second' | 'targeted') {
@@ -66,4 +69,17 @@ export function summarizeReader(rows: PairedDecision[], strategy: 'first' | 'sec
     else { wrong++; if (!review) silentErrors++; }
   }
   return { correct, wrong, missing, reviews, silentErrors, calls };
+}
+
+export function passageMetrics(passages: ReturnType<typeof pairedDecisions>['passages'], side: 'first'|'second') {
+  const errors: number[] = [], times: number[] = [];
+  for (const passage of passages) {
+    const run = passage[side];
+    if (run.status === 'success' && typeof run.score === 'number' && Number.isFinite(passage.expected))
+      errors.push(Math.abs(run.score-passage.expected));
+    const duration = run.clientDurationMs ?? run.durationMs;
+    if (typeof duration === 'number' && Number.isFinite(duration)) times.push(duration/1000);
+  }
+  const mean = (values: number[]) => values.length ? values.reduce((a,b) => a+b,0)/values.length : null;
+  return { error:mean(errors), graded:errors.length, seconds:mean(times), timed:times.length };
 }
