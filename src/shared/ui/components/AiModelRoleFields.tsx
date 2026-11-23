@@ -17,6 +17,8 @@ interface Props {
   analysisReasoningEffort?: AnalysisReasoningEffort;
   omitReasoningParameter?: boolean;
   nativeChat?: boolean;
+  smartZoom?: boolean;
+  onSmartZoom?: (enabled: boolean) => void;
   contextLength?: number;
   onContextLength?: (length: number | undefined) => void;
   onOmitReasoningParameter?: (omit: boolean) => void;
@@ -100,6 +102,13 @@ export function AiModelRoleFields(props: Props) {
             ? 'Thinking activé pour les prochaines analyses génératives.'
             : 'Thinking désactivé pour les prochaines analyses génératives.'}
       </p>
+      {apiCompatible && props.nativeChat && !decision && <label className="analysis-thinking-option" htmlFor={prefix + '-smart-zoom'}>
+        <input id={prefix + '-smart-zoom'} type="checkbox" checked={props.smartZoom === true} disabled={disabled}
+          onChange={event => props.onSmartZoom?.(event.target.checked)} />
+        <span><strong>Zoom intelligent sur demande du LLM (2 par critère maximum)</strong>
+          <small>Correction directe des schémas : inspecte une zone de la photo originale seulement si le modèle hésite. LM Studio Responses + outil inspect_region ; aucune amélioration générative de l’image. Les modèles doivent prendre en charge les outils.</small>
+        </span>
+      </label>}
       {apiCompatible && props.nativeChat && <div className="evaluation-config-field">
         <label className="field-label" htmlFor={`${prefix}-context-length`}>Contexte LM Studio Chat (tokens, facultatif)</label>
         <input id={`${prefix}-context-length`} type="number" min="1" step="1" disabled={disabled}
