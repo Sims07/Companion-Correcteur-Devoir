@@ -12,7 +12,7 @@ describe('teacher and AI diagnostic interface modes', () => {
     const text = app();
     expect(text).toContain('COMMENTAIRE ÉVENTUEL À REPORTER AU STYLO');
     expect(text).toContain('Suggestion IA');
-    expect(text).toContain('Afficher la page liée');
+    expect(text).toContain('showEvidencePage(pageNumber)');
     expect(text).toContain('item.annotationSuggestion');
     expect(text).toContain('item.pageNumber');
     expect(text).not.toContain('Repère indicatif');

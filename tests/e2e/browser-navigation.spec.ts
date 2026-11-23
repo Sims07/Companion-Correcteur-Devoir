@@ -95,7 +95,7 @@ test('copy route is recovered from local IndexedDB after refresh', async ({ page
   await expect(page).toHaveURL(/#\/devoir\/assignment-default\/copie\/queued-copy-browser-route$/);
   await page.reload();
   await expect(page.locator('.copy-review-identity-title h2')).toHaveText('Copie locale à retrouver');
-  await expect(page.locator('.teacher-copy-rail-list button[aria-current="page"]')).toContainText('Copie locale à retrouver');
+  await expect(page.locator('.copy-review-picker option:checked')).toContainText('Copie locale à retrouver');
 });
 
 test('rubric anchors scroll and focus without replacing the addressable teacher route', async ({ page }) => {

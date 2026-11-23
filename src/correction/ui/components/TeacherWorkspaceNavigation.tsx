@@ -16,6 +16,7 @@ export interface TeacherWorkspaceNavigationProps {
   maximumPoints?: number;
   activeSection: 'copies' | 'rubric';
   showCopyRail: boolean;
+  compactReview?: boolean;
   copies: TeacherCopyNavigationItem[];
   activeCopyId: string | null;
   aiConfigured: boolean;
@@ -40,6 +41,7 @@ export function TeacherWorkspaceNavigation({
   maximumPoints,
   activeSection,
   showCopyRail,
+  compactReview = false,
   copies,
   activeCopyId,
   aiConfigured,
@@ -83,7 +85,7 @@ export function TeacherWorkspaceNavigation({
             </button>
           </div>
         </div>
-        {showCopyRail && (
+        {showCopyRail && !compactReview && (
           <aside className={railExpanded ? 'teacher-copy-rail is-expanded' : 'teacher-copy-rail is-collapsed'} aria-label="Navigation entre les copies">
             <div className="teacher-copy-rail-heading">
               <div><span className="eyebrow">COPIES</span><h2>Copies <span>{copies.length}</span></h2></div>

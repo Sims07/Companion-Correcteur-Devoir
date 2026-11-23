@@ -70,7 +70,7 @@ test('navigue entre huit copies de statuts variés en gardant compteur et rail s
   await expect(page.getByRole('textbox', { name: 'Nom de l’étudiant' })).toBeFocused();
   await page.getByRole('textbox', { name: 'Nom de l’étudiant' }).press('Escape');
   await expect(page.locator('.copy-review-identity-title h2')).toHaveText('01-reprendre');
-  await expect(page.locator('.teacher-copy-rail-list button[aria-current="page"]')).toContainText('01-reprendre');
+  await expect(page.locator('.copy-review-picker option:checked')).toContainText('01-reprendre');
 
   // A teacher rename must update the active copy, rail and breadcrumb, then survive
   // leaving the review and a complete reload of IndexedDB-backed state.
@@ -78,7 +78,7 @@ test('navigue entre huit copies de statuts variés en gardant compteur et rail s
   await page.getByRole('textbox', { name: 'Nom de l’étudiant' }).fill('Copie renommée par le professeur');
   await page.getByRole('textbox', { name: 'Nom de l’étudiant' }).press('Enter');
   await expect(page.locator('.copy-review-identity-title h2')).toHaveText('Copie renommée par le professeur');
-  await expect(page.locator('.teacher-copy-rail-list button[aria-current="page"]')).toContainText('Copie renommée par le professeur');
+  await expect(page.locator('.copy-review-picker option:checked')).toContainText('Copie renommée par le professeur');
   await expect(page.locator('.teacher-breadcrumb [aria-current="page"]')).toHaveText('Copie renommée par le professeur');
   await page.getByRole('tab', { name: /Copies/ }).click();
   await expect(page.locator('.copy-overview-grid')).toContainText('Copie renommée par le professeur');
@@ -98,7 +98,7 @@ test('navigue entre huit copies de statuts variés en gardant compteur et rail s
     await expect(nextButton, 'La copie suivante doit être accessible : ' + expectedLabels[index]).toBeEnabled();
     await nextButton.click();
     await expect(page.locator('.copy-review-position-label')).toHaveText('Copie ' + (index + 2) + ' / 8');
-    await expect(page.locator('.teacher-copy-rail-list button[aria-current="page"]')).toContainText(expectedLabels[index]);
+    await expect(page.locator('.copy-review-picker option:checked')).toContainText(expectedLabels[index]);
   }
   await expect(page.getByRole('button', { name: 'Copie suivante' })).toBeDisabled();
   // Editing the last opened correction keeps the navigation independent of identity changes.
@@ -106,7 +106,7 @@ test('navigue entre huit copies de statuts variés en gardant compteur et rail s
   await page.getByRole('textbox', { name: 'Nom de l’étudiant' }).fill('Étudiant identifié');
   await page.getByRole('textbox', { name: 'Nom de l’étudiant' }).press('Enter');
   await expect(page.locator('.copy-review-identity-title h2')).toHaveText('Étudiant identifié');
-  await expect(page.locator('.teacher-copy-rail-list button[aria-current="page"]')).toContainText('Étudiant identifié');
+  await expect(page.locator('.copy-review-picker option:checked')).toContainText('Étudiant identifié');
   await expect(page.locator('.teacher-breadcrumb [aria-current="page"]')).toHaveText('Étudiant identifié');
 
   await page.getByRole('tab', { name: /Copies/ }).click();

@@ -687,3 +687,36 @@ body:has(.teacher-flow-shell .copy-review-validation-bar) .memory-fab {
     font-size: 10px;
   }
 }
+
+/* In review, assignment navigation occupies one row above the original and criteria. */
+.teacher-flow-shell .teacher-content-column.compact-review {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding-inline: clamp(12px, 2vw, 32px);
+  box-sizing: border-box;
+}
+.compact-review .atelier-assignment-sidebar {
+  flex-direction: row;
+  position: static;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 0;
+  height: auto;
+  padding: 6px 0;
+  border: 0;
+}
+.compact-review .atelier-sidebar-assignment,
+.compact-review .atelier-sidebar-footer,
+.compact-review .atelier-sidebar-section > .eyebrow { display: none; }
+.compact-review .atelier-sidebar-tabs { display: flex; }
+.copy-review-picker { position: relative; display: inline-flex; gap: .25em; align-items: center; }
+.copy-review-picker:focus-within { outline: 2px solid currentColor; outline-offset: 2px; }
+.copy-review-picker select { position: absolute; inset: 0; width: 100%; opacity: 0; cursor: pointer; }
+@media (min-width: 861px) {
+  .teacher-flow-shell .compact-review .review-workspace { display: grid; grid-template-columns: minmax(0, 1.04fr) minmax(0, 1fr); }
+  .teacher-flow-shell .compact-review .review-source-pane { position: sticky; max-height: calc(100dvh - 32px); }
+}
