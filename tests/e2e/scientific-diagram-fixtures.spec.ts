@@ -444,6 +444,13 @@ test(scenario.model + ' compares Think OFF/ON on E with runtime Ollama capabilit
     ['direct-image-generative', false, false, false, 5120, 200],
     ['direct-image-generative-thinking', true, true, scenario.wire, 6144, 850],
   ]);
+  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: /Campagnes/ }).click();
+  await page.getByRole('button', { name: 'Archives scientifiques' }).click();
+  const history = page.getByRole('region', { name: 'Campagnes de test scientifiques' });
+  await history.getByText('Comparer deux lecteurs sur les mêmes copies', { exact: true }).click();
+  await expect(history.getByLabel('Second lecteur', { exact: true })).toBeVisible();
+  await expect(history.getByText('19 décisions appariées', { exact: false })).toBeVisible();
+  await expect(history.getByRole('rowheader', { name: 'Relecture ciblée simulée' })).toBeVisible();
   expect(JSON.stringify(report)).not.toMatch(/PRIVATE_REASONING_NOT_EXPORTED|iVBORw0KGgo|api\/chat|127\.0\.0\.1/);
 });
 }
