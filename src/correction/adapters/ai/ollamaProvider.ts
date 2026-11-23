@@ -27,6 +27,7 @@ import { parseModelJson } from '../../../shared/domain/modelJson.ts';
 import { isLmStudioChat } from '../../../shared/domain/openAiCompletionStream.ts';
 import { explainLmStudioContextLoadError } from '../../../shared/domain/lmStudioContextLoadError.ts';
 import { compatibleEndpoint, sendLmStudioDiagramTurn } from '../../../shared/adapters/ai/lmStudioDiagramChat.ts';
+import { sendLmStudioZoomDiagramTurn } from '../../../shared/adapters/ai/lmStudioDiagramZoom.ts';
 import { createOpenAiCompatibleFetch } from '../../../shared/adapters/ai/openAiCompatibleTransport.ts';
 import { hasRepetitiveAnswerTail } from '../../../shared/domain/generationRepetition.ts';
 import { currentFetch } from '../../../shared/adapters/ai/currentFetch.ts';
@@ -405,6 +406,9 @@ export function createOllamaProvider(
       const directVisualDecision = !visionOnly && (request.directVisualDecision === true || settings.correctionMethod === 'visual-decision');
       const directGenerativeVision = !visionOnly && request.directGenerativeVision === true;
       const chat = directGenerativeVision && settings.apiCompatible && isLmStudioChat(endpoint) ? request.diagramConversation : undefined;
+      // Preserve the original photo before the transport-wide 1300px resize.
+      // Only on-demand tool calls may inspect these bytes; never log or export them.
+      const originalDiagramImages = directGenerativeVision ? request.images : undefined;
       onProgress?.({ type: 'phase', phase: 'preparation' });
       const hasTranscription = Boolean(request.transcription?.trim());
       if (!visionOnly && !directVisualDecision && !directGenerativeVision && !hasTranscription && !(settings.visionModel?.trim() || settings.model?.trim())) throw new Error('Choisissez un modèle de lecture pour transcrire les images.');
@@ -693,9 +697,13 @@ export function createOllamaProvider(
             body: chat ? undefined : JSON.stringify(requestBody),
             signal: requestAbortController.signal,
           }, request.diagramCriterionLabel ? intent + ' · ' + request.diagramCriterionLabel : intent, `Modèle ${model} · ${context}`);
-          response = chat
-            ? await sendLmStudioDiagramTurn(endpoint, settings.apiKey ?? '', chat, { ...requestBody, omitReasoningParameter: settings.omitReasoningParameter, contextLength: settings.contextLength }, init, fetchImpl, payload => activeRequestPayloads?.push(payload))
-            : await providerFetch(`${endpoint}/api/chat`, init);
+          response = chat && settings.smartZoom === true
+            ? await sendLmStudioZoomDiagramTurn(endpoint, settings.apiKey ?? '', chat,
+                { ...requestBody, omitReasoningParameter: settings.omitReasoningParameter },
+                originalDiagramImages ?? [], init, fetchImpl, payload => activeRequestPayloads?.push(payload))
+            : chat
+              ? await sendLmStudioDiagramTurn(endpoint, settings.apiKey ?? '', chat, { ...requestBody, omitReasoningParameter: settings.omitReasoningParameter, contextLength: settings.contextLength }, init, fetchImpl, payload => activeRequestPayloads?.push(payload))
+              : await providerFetch(`${endpoint}/api/chat`, init);
           clearFirstResponseTimeout();
         } catch (cause) {
           finishRequest();
