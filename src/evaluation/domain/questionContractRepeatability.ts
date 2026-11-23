@@ -1,11 +1,12 @@
 import { isLoopbackPilotEndpoint } from './pilotEvaluationProtocol.ts';
 import type { ModelEvaluationRecord } from './modelEvaluation.ts';
-import { QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_STRESS_CASES, QUESTION_CONTRACT_PROTOCOL_ID, buildQuestionContractReport, type QuestionContractCase } from './questionContractPilot.ts';
+import { QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_STRESS_CASES, QUESTION_CONTRACT_PAIRED_CASES, QUESTION_CONTRACT_PROTOCOL_ID, buildQuestionContractReport, type QuestionContractCase } from './questionContractPilot.ts';
 
 export type RepeatabilityCount = 3 | 5;
-export type RepeatabilitySuite = 'baseline' | 'stress';
+export type RepeatabilitySuite = 'baseline' | 'stress' | 'paired';
 
 export function repeatabilitySuiteCases(suite: RepeatabilitySuite) {
+  if (suite === 'paired') return QUESTION_CONTRACT_PAIRED_CASES;
   return suite === 'stress' ? QUESTION_CONTRACT_STRESS_CASES : QUESTION_CONTRACT_CASES;
 }
 
