@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { availableReaders, pairedDecisions, summarizeReader, type FixtureReport } from '../../../src/evaluation/domain/pairedReaders.ts';
+import { availableReaders, pairedDecisions, passageMetrics, summarizeReader, type FixtureReport } from '../../../src/evaluation/domain/pairedReaders.ts';
 
 function report(choices: (string | null)[], version = 9) {
   const gold = { title: 'present', label: 'absent', scale: 'present' };
@@ -28,4 +28,16 @@ it('écarte les versions, références et répétitions incompatibles', () => {
   expect(pairedDecisions(a,key,b,key)).toMatchObject({ rows:[],excluded:1 });
   b.cases[0]!.experiments[0]!.repetition = 2;
   expect(pairedDecisions(a,key,b,key)).toMatchObject({ rows:[],excluded:2 });
+});
+
+it('limite les moyennes aux passages disposant de la mesure', () => {
+  const a = report([]), key = availableReaders(a)[0]!.id;
+  a.cases[0]!.referenceScore = 8;
+  const run = a.cases[0]!.experiments[0]!;
+  run.score = 9; run.clientDurationMs = 2500;
+  const b = structuredClone(a);
+  b.cases[0]!.experiments[0]!.score = null;
+  const { passages } = pairedDecisions(a,key,b,key);
+  expect(passageMetrics(passages,'first')).toEqual({ error:1, graded:1, seconds:2.5, timed:1 });
+  expect(passageMetrics(passages,'second').error).toBeNull();
 });
