@@ -13,7 +13,7 @@ export interface DiagramImageGradingInput {
 
 export async function gradeDiagramImages(provider: GradingProvider,
   request: DiagramImageGradingInput,
-  split: boolean, onActivity?: () => void): Promise<GradingProposal> {
+  split: boolean, onActivity?: () => void, allowSmartZoom = false): Promise<GradingProposal> {
   const { rubric, signal } = request;
   const groups = split ? rubric.criteria.map(criterion => [criterion]) : [rubric.criteria];
   const diagramConversation = {};
@@ -30,7 +30,8 @@ export async function gradeDiagramImages(provider: GradingProvider,
       images: request.images,
       directGenerativeVision: true,
       retryDiagramGenerationLimit: true,
-      ...(split ? { diagramConversation, diagramCriterionLabel: (index + 1) + '/' + groups.length + ' · ' + title } : {}),
+      ...(split || allowSmartZoom ? { diagramConversation } : {}),
+      ...(split ? { diagramCriterionLabel: (index + 1) + '/' + groups.length + ' · ' + title } : {}),
     }, onActivity, undefined, undefined, request.onDiagnosticResult, undefined, undefined, undefined, signal);
     signal?.throwIfAborted();
     const proposal = parseGradingProposal(raw, part);

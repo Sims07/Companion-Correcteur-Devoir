@@ -40,11 +40,12 @@ export async function correctScientificDiagramDirect(
     thinking: configuration.analysisThinking,
     ...(configuration.apiCompatible && configuration.analysisThinking ? { thinkingLevel: configuration.analysisReasoningEffort } : {}),
     criterionByCriterion: configuration.criterionByCriterion,
+    smartZoom: configuration.smartZoom,
     correctionMethod: 'generative' as const,
     diagnosticStrategy: 'single' as const,
   };
   await gateway.checkReady({ ...settings, model: configuration.analysisModel });
   if (signal?.aborted) throw new DOMException('Traitement interrompu.', 'AbortError');
 
-  return gradeDiagramImages(gateway.createProvider(settings), request, configuration.criterionByCriterion);
+  return gradeDiagramImages(gateway.createProvider(settings), request, configuration.criterionByCriterion, undefined, configuration.smartZoom === true);
 }
