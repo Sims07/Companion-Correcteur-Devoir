@@ -1,5 +1,5 @@
 import type { ImageInput } from '../../domain/imageInput.ts';
-import { cropOriginalDiagram, validateZoomRegion, type ZoomRegion } from '../image/cropOriginalDiagram.ts';
+import { cropOriginalDiagram, validateZoomRegion, type ZoomRegion, type ZoomEvidence } from '../image/cropOriginalDiagram.ts';
 import { copyNetworkRequestMetadata } from '../../ports/networkRequestMetadata.ts';
 
 export interface ZoomDiagramTurn {
@@ -48,6 +48,7 @@ export async function sendLmStudioZoomDiagramTurn(
   endpoint: string, apiKey: string, conversation: ZoomConversation, turn: ZoomDiagramTurn,
   originalImages: readonly ImageInput[], init: RequestInit, fetchImpl: typeof fetch,
   preview: (metadata: unknown) => void,
+  onCrop?: (evidence: ZoomEvidence) => void,
 ): Promise<Response> {
   const url = endpoint.trim().replace(/\/api\/v1\/chat\/?$/, '/v1/responses');
   if (!url.endsWith('/v1/responses')) throw new Error('Le zoom intelligent nécessite LM Studio /api/v1/chat.');
@@ -148,6 +149,7 @@ export async function sendLmStudioZoomDiagramTurn(
             ', hauteur=' + region.height + '). Inspecte le détail sans inventer de trait.' },
           { type: 'input_image', image_url: 'data:' + evidence.image.mimeType + ';base64,' + evidence.image.base64 },
         ] });
+        onCrop?.(evidence);
         conversation.zoomHistory ??= [];
         conversation.zoomHistory.push({ criterion, region, cropWidth: evidence.cropWidth,
           cropHeight: evidence.cropHeight, status: 'inspected' });
