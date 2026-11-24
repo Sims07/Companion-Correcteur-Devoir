@@ -45,3 +45,29 @@ test('laboratory editor offers the same opt-in only on native LM Studio', async 
   await toggle.check();
   await expect.poll(() => page.evaluate(key => JSON.parse(localStorage.getItem(key) ?? '{}').smartZoom, key)).toBe(true);
 });
+
+test('laboratory displays the same crop that is delivered to the model', async ({ page }) => {
+  await page.addInitScript(key => localStorage.setItem(key, JSON.stringify({
+    endpoint: 'http://localhost:1234/api/v1/chat', apiCompatible: true,
+    analysisModel: 'gemma', generativeModel: 'gemma', correctionMethod: 'generative',
+  })), key);
+  let sentCrop = '';
+  await page.route('**/v1/responses', async route => {
+    const body = route.request().postDataJSON();
+    if (body.previous_response_id) sentCrop = body.input[1].content[1].image_url;
+    await route.fulfill({ json: body.previous_response_id
+      ? { id: 'resp_end', output: [], output_text: '0000' }
+      : { id: 'resp_start', output: [{ type: 'function_call', name: 'inspect_region', call_id: 'one',
+          arguments: JSON.stringify({ page: 1, x: 0.64, y: 0.46, width: 0.12, height: 0.08 }) }] } });
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await openCustomTests(page);
+  await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: 'Schémas scientifiques' }).click();
+  await page.getByText('Vérifier le zoom du modèle', { exact: true }).click();
+  await page.getByRole('button', { name: 'Tester le cadrage' }).click();
+  await expect(page.getByText(/1 zoom\(s\) obtenu/)).toBeVisible();
+  await expect(page.getByText(/cible couverte à 100 %/)).toBeVisible();
+  expect(sentCrop).toMatch(/^data:image\/png;base64,/);
+  await expect(page.getByAltText('Recadrage réel 1')).toHaveAttribute('src', sentCrop);
+});
