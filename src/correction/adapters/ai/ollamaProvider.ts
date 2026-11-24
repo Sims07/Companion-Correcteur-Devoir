@@ -834,7 +834,9 @@ export function createOllamaProvider(
           }
           if (!result.content.trim()) {
             throw new Error(result.thinkingPresent
-              ? 'Ollama a produit un raisonnement interne mais aucune réponse finale exploitable (message.content vide). Désactivez le mode thinking ou essayez un autre modèle.'
+              ? chat && (responses || settings.smartZoom === true)
+                ? 'LM Studio Responses a renvoyé un raisonnement mais aucune réponse finale exploitable. Vérifiez le réglage Thinking du modèle et le budget de génération ; aucune note n’a été attribuée.'
+                : 'Ollama a produit un raisonnement interne mais aucune réponse finale exploitable (message.content vide). Désactivez le mode thinking ou essayez un autre modèle.'
               : 'Ollama a retourné une réponse vide.');
           }
           requestedModels.add(model);
