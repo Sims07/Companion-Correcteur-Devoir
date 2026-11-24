@@ -1,3 +1,4 @@
+import { responsesEndpoint } from '../../domain/lmStudioTransport.ts';
 import type { ImageInput } from '../../domain/imageInput.ts';
 import { cropOriginalDiagram, validateZoomRegion, type ZoomRegion, type ZoomEvidence } from '../image/cropOriginalDiagram.ts';
 import { copyNetworkRequestMetadata } from '../../ports/networkRequestMetadata.ts';
@@ -49,10 +50,11 @@ export async function sendLmStudioZoomDiagramTurn(
   originalImages: readonly ImageInput[], init: RequestInit, fetchImpl: typeof fetch,
   preview: (metadata: unknown) => void,
   onCrop?: (evidence: ZoomEvidence) => void,
+  enableZoom = true,
 ): Promise<Response> {
-  const url = endpoint.trim().replace(/\/api\/v1\/chat\/?$/, '/v1/responses');
-  if (!url.endsWith('/v1/responses')) throw new Error('Le zoom intelligent nécessite LM Studio /api/v1/chat.');
-  if (!originalImages.length) throw new Error('La photo originale est nécessaire au zoom intelligent.');
+  const url = responsesEndpoint(endpoint);
+  if (!url) throw new Error('Adresse LM Studio Responses incompatible.');
+  if (enableZoom && !originalImages.length) throw new Error('La photo originale est nécessaire au zoom intelligent.');
   const signal = init.signal ?? undefined;
   signal?.throwIfAborted();
   // Keep the cap across length retries and JSON repairs of the same criterion.
@@ -63,13 +65,13 @@ export async function sendLmStudioZoomDiagramTurn(
     ? [] : (turn.messages[0]?.images ?? []).map(image_url => ({ type: 'input_image', image_url }));
   const prompt = (turn.messages[0]?.content ?? '') +
     (turn.format ? '\nRéponds avec un JSON conforme à ce schéma :\n' + JSON.stringify(turn.format) : '') +
-    '\nTu peux appeler inspect_region pour vérifier au maximum deux détails ambigus de CE critère. ' +
+    (enableZoom ? '\nTu peux appeler inspect_region pour vérifier au maximum deux détails ambigus de CE critère. ' +
     'N’appelle pas cet outil lorsque tu peux déjà conclure. N’invente aucune connexion entre légende et structure. ' +
     'Si l’identification d’une structure biologique est incertaine, cadre la structure et les repères voisins utiles pour la distinguer, même sans légende. ' +
     'Si le zoom reste ambigu, indique que l’identification est incertaine. ' +
     'Si plusieurs dessins sont proches et que l’attribution d’une légende est ambiguë, cadre ensemble le dessin, le libellé et le trait de rappel entier. ' +
     'Si le trait sort du cadre ou si la légende est partagée, vérifie sur la vue d’ensemble et signale toute attribution encore incertaine. ' +
-    'Après un zoom, interprète la nouvelle image dans le contexte de la page entière.';
+    'Après un zoom, interprète la nouvelle image dans le contexte de la page entière.' : '');
   let input: unknown[] = [{ role: 'user', content: [...firstImage, { type: 'input_text', text: prompt }] }];
   let previousId = conversation.responseId;
   let inspections = attempts[criterion] ?? 0;
@@ -84,7 +86,7 @@ export async function sendLmStudioZoomDiagramTurn(
       model: turn.model, stream: false, store: true,
       ...(previousId ? { previous_response_id: previousId } : {}),
       input,
-      ...(inspections < 2 ? { tools: [TOOL], tool_choice: 'auto' } : {}),
+      ...(enableZoom && inspections < 2 ? { tools: [TOOL], tool_choice: 'auto' } : {}),
       ...(turn.options.num_predict !== undefined ? { max_output_tokens: turn.options.num_predict } : {}),
       ...(turn.options.temperature !== undefined ? { temperature: turn.options.temperature } : {}),
       ...(turn.options.top_p !== undefined ? { top_p: turn.options.top_p } : {}),
@@ -93,7 +95,7 @@ export async function sendLmStudioZoomDiagramTurn(
         ? { reasoning: { effort: turn.think === true ? 'medium' : turn.think } } : {}),
     };
     // Never persist copies or crops in the network request inspector.
-    preview({ ...body, input: '[TEXT / IMAGE REDACTED]', tools: inspections < 2 ? ['inspect_region'] : [] });
+    preview({ ...body, input: '[TEXT / IMAGE REDACTED]', tools: enableZoom && inspections < 2 ? ['inspect_region'] : [] });
     const response = await fetchImpl(url, copyNetworkRequestMetadata(init, {
       ...init,
       method: 'POST', headers: { 'Content-Type': 'application/json',
@@ -129,7 +131,7 @@ export async function sendLmStudioZoomDiagramTurn(
     const next: unknown[] = [];
     for (const call of calls) {
       if (!call.call_id) throw new Error('Appel de zoom sans identifiant.');
-      if (call.name !== 'inspect_region' || inspections >= 2) {
+      if (!enableZoom || call.name !== 'inspect_region' || inspections >= 2) {
         next.push({ type: 'function_call_output', call_id: call.call_id,
           output: 'Outil non autorisé ou limite de deux inspections atteinte. Conclus sans zoom supplémentaire et signale toute incertitude.' });
         continue;
