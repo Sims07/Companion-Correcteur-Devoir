@@ -128,6 +128,22 @@ describe('LM Studio on-demand smart zoom (Responses API)', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it('uses explicitly selected Responses without enabling the zoom tool', async () => {
+    const calls: Record<string, any>[] = [];
+    const conversation: ZoomConversation = {};
+    const fetchMock: typeof fetch = async (url, init) => {
+      expect(url).toBe('https://mac-mini.test/v1/responses');
+      calls.push(JSON.parse(String(init?.body)));
+      return completion('resp_' + calls.length, [{ type: 'message', content: [{ type: 'output_text', text: 'ok' }] }]);
+    };
+    await sendLmStudioZoomDiagramTurn('https://mac-mini.test/v1/responses/', '', conversation, turn, [], {}, fetchMock, () => {}, undefined, false);
+    await sendLmStudioZoomDiagramTurn('https://mac-mini.test/v1/responses/', '', conversation, turn, [], {}, fetchMock, () => {}, undefined, false);
+    expect(calls[0].tools).toBeUndefined();
+    expect(calls[0].input[0].content[0].type).toBe('input_image');
+    expect(calls[1].previous_response_id).toBe('resp_1');
+    expect(calls[1].input[0].content.some((x: {type: string}) => x.type === 'input_image')).toBe(false);
+  });
+
   it('preserves a full photo only in the first criterion request and continues with the same response ID', async () => {
     const rubric = { ...SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC,
       criteria: SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC.criteria.slice(0, 2).map(c => ({ ...c, subcriteria: [], maxPoints: 1 })) };
