@@ -87,6 +87,7 @@ import { describeAiConnectionFailure } from '../../shared/domain/aiConnectionDia
 import { biologyRadarObservations, loadBiologyRadarHistory, mergeBiologyRadarHistory, saveBiologyRadarHistory } from '../../evaluation/domain/biologyTeacherRadar.ts';
 import type { DiagramThinkSetting, EvaluationVisionGateway } from '../../evaluation/ports/evaluationVision.ts';
 import { ScientificDiagramProtocolPanel, downloadScientificDiagramJson, type DiagramProtocolRequest } from '../../evaluation/ui/components/ScientificDiagramProtocolPanel.tsx';
+import { ZoomWitnessPanel } from '../../evaluation/ui/components/ZoomWitnessPanel.tsx';
 import { ScientificDiagramLabHistory } from '../../evaluation/ui/components/ScientificDiagramLabHistory.tsx';
 import type { RadarMissingTestRequest } from '../../evaluation/domain/diagramLabRadarLaunch.ts';
 import { type DiagramLabReport, type DiagramLabArchiveEntry } from '../../evaluation/domain/diagramLabHistory.ts';
@@ -5675,6 +5676,9 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
             setEvaluationBiologyScenario(scenario);
             setBiologyRadarOpen(false);
           }} /></div>}
+      <ZoomWitnessPanel profiles={aiModelProfiles} busy={busy || pilotBusy || radarAutoBusy}
+        current={{ endpoint, apiCompatible, apiKey, analysisModel, analysisThinking, analysisReasoningEffort, omitReasoningParameter, gradingOutputTokens, analysisTemperature, analysisTopP }}
+        visible={interfaceMode === 'diagnostic' && evaluationJourney === 'diagrams' && diagramLabView === 'protocols' && evaluationWorkspaceStep === 'configuration'} />
       {interfaceMode === 'diagnostic' && evaluationJourney === 'diagrams' && diagramLabView !== 'protocols' && evaluationWorkspaceStep === 'configuration' &&
         <ScientificDiagramLabHistory repository={diagramArchive} revision={diagramHistoryRevision} archiveError={diagramHistoryError}
           view={diagramLabView === 'radar' ? 'radar' : 'campaigns'} onViewChange={(view) => { if (view === 'radar') openCandidateRadar('diagrams'); else setDiagramLabView('history'); }}
