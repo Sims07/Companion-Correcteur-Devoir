@@ -36,7 +36,7 @@ const TOOL = {
 type ApiOutput =
   | { type: 'function_call'; name?: string; call_id?: string; arguments?: string }
   | { type: 'message'; content?: Array<{ type?: string; text?: string }> }
-  | { type: 'reasoning'; content?: Array<{ type?: string; text?: string }> };
+  | { type: 'reasoning'; content?: Array<{ type?: string; text?: string }>; summary?: Array<{ type?: string; text?: string }> };
 interface ApiResponse {
   id?: string;
   output?: ApiOutput[];
@@ -131,7 +131,8 @@ export async function sendLmStudioZoomDiagramTurn(
         .map(item => item.text ?? '').join('');
       text = payload.output_text?.trim() ? payload.output_text : messageText;
       const reasoning = payload.output.filter((item): item is Extract<ApiOutput, { type: 'reasoning' }> => item.type === 'reasoning')
-        .flatMap(item => item.content ?? []).filter(item => item.type === 'reasoning_text')
+        .flatMap(item => [...(item.content ?? []), ...(item.summary ?? [])])
+        .filter(item => item.type === 'reasoning_text' || item.type === 'summary_text')
         .map(item => item.text ?? '').join('');
       const atLimit = incomplete || (!text.trim() && turn.options.num_predict !== undefined &&
         (payload.usage?.output_tokens ?? 0) >= turn.options.num_predict);

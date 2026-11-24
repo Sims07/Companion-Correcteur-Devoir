@@ -210,15 +210,20 @@ describe('LM Studio on-demand smart zoom (Responses API)', () => {
       criteria: SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC.criteria.slice(0, 1).map(c => ({ ...c, subcriteria: [], maxPoints: 1 })) };
     const fetchMock: typeof fetch = async () => new Response(JSON.stringify({
       id: 'resp_reasoning_only', status: 'completed',
-      output: [{ type: 'reasoning', content: [{ type: 'reasoning_text', text: '{"criteria":{}}' }] }],
+      output: [{ type: 'reasoning', summary: [{ type: 'summary_text', text: '{"criteria":{}}' }] }],
       usage: { output_tokens: 10 },
     }));
     const provider = createOllamaProvider({
       endpoint, apiCompatible: true, correctionMethod: 'generative', analysisModel: 'gemma-26b',
       smartZoom: true, omitReasoningParameter: true,
     }, fetchMock);
-    await expect(gradeDiagramImages(provider, { rubric, question: 'Observer le dessin', images: originals }, true))
+    const onDiagnosticResult = vi.fn();
+    await expect(gradeDiagramImages(provider, { rubric, question: 'Observer le dessin', images: originals, onDiagnosticResult }, true))
       .rejects.toThrow('LM Studio Responses a renvoyé un raisonnement mais aucune réponse finale exploitable');
+    expect(onDiagnosticResult).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+      raw: '', thinkingPresent: true,
+      error: expect.stringContaining('LM Studio Responses a renvoyé un raisonnement mais aucune réponse finale exploitable'),
+    }));
   });
 
   it('preserves a full photo only in the first criterion request and continues with the same response ID', async () => {

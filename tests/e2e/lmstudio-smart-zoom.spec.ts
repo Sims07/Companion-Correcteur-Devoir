@@ -57,7 +57,7 @@ test('laboratory displays the same crop that is delivered to the model', async (
     analysisModel: 'gemma', generativeModel: 'gemma', correctionMethod: 'generative',
   })), key);
   let sentCrop = '';
-  let mode: 'zoom' | 'no-call' | 'error' | 'wait' = 'zoom';
+  let mode: 'zoom' | 'no-call' | 'truncated' | 'reasoning' | 'error' | 'wait' = 'zoom';
   let release = () => {};
   await page.route('**/v1/responses', async route => {
     if (mode === 'error') return route.fulfill({ status: 503, body: 'indisponible' });
@@ -65,6 +65,14 @@ test('laboratory displays the same crop that is delivered to the model', async (
       await new Promise<void>(resolve => { release = resolve; });
       return route.abort().catch(() => {});
     }
+    if (mode === 'truncated') return route.fulfill({ json: {
+      id: 'resp_truncated', status: 'incomplete', incomplete_details: { reason: 'max_output_tokens' },
+      output: [{ type: 'message', content: [{ type: 'output_text', text: '02' }] }],
+    } });
+    if (mode === 'reasoning') return route.fulfill({ json: {
+      id: 'resp_reasoning', status: 'completed',
+      output: [{ type: 'reasoning', summary: [{ type: 'summary_text', text: '0283' }] }],
+    } });
     if (mode === 'no-call') return route.fulfill({ json: { id: 'resp_skip', output: [], output_text: '0283' } });
     const body = route.request().postDataJSON();
     if (body.previous_response_id) sentCrop = body.input[1].content[1].image_url;
@@ -88,6 +96,12 @@ test('laboratory displays the same crop that is delivered to the model', async (
   await launch.click();
   await expect(page.getByText(/Aucun appel de zoom/)).toBeVisible();
   await expect(page.getByAltText('Recadrage réel 1')).toHaveCount(0);
+  mode = 'truncated';
+  await launch.click();
+  await expect(page.getByText('Limite de génération atteinte pendant le test de zoom.')).toBeVisible();
+  mode = 'reasoning';
+  await launch.click();
+  await expect(page.getByText('LM Studio Responses n’a renvoyé aucune réponse finale pour le test de zoom.')).toBeVisible();
   mode = 'error';
   await launch.click();
   await expect(page.getByText(/LM Studio a répondu HTTP 503/)).toBeVisible();

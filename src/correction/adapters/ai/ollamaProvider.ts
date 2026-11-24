@@ -410,6 +410,7 @@ export function createOllamaProvider(
       const responses = transport === 'lmstudio-responses';
       const chat = directGenerativeVision && (responses || transport === 'lmstudio-chat')
         ? request.diagramConversation ?? (responses ? {} : undefined) : undefined;
+      const usesResponses = Boolean(chat && (responses || settings.smartZoom === true));
       // Preserve the original photo before the transport-wide 1300px resize.
       // Only on-demand tool calls may inspect these bytes; never log or export them.
       const originalDiagramImages = directGenerativeVision ? request.images : undefined;
@@ -701,7 +702,7 @@ export function createOllamaProvider(
             body: chat ? undefined : JSON.stringify(requestBody),
             signal: requestAbortController.signal,
           }, request.diagramCriterionLabel ? intent + ' · ' + request.diagramCriterionLabel : intent, `Modèle ${model} · ${context}`);
-          response = chat && (responses || settings.smartZoom === true)
+          response = chat && usesResponses
             ? await sendLmStudioZoomDiagramTurn(endpoint, settings.apiKey ?? '', chat,
                 { ...requestBody, criterionLabel: request.diagramCriterionLabel, omitReasoningParameter: settings.omitReasoningParameter },
                 originalDiagramImages ?? [], init, fetchImpl, payload => activeRequestPayloads?.push(payload), undefined, settings.smartZoom === true)
@@ -765,6 +766,20 @@ export function createOllamaProvider(
           const repetitionError = result.suspiciousStop && tracking?.stage === 'analysis'
             ? 'Génération répétitive détectée dans la réponse du modèle : flux arrêté avant épuisement des tokens [diagram-output:repetition]. Aucune note attribuée. Essayez sans Thinking ou avec un autre niveau de raisonnement.'
             : null;
+          let emptyResponseError: string | undefined;
+          if (!result.content.trim()) {
+            if (result.doneReason === 'length') {
+              emptyResponseError = 'Limite de génération atteinte sans réponse finale.';
+            } else if (usesResponses) {
+              emptyResponseError = result.thinkingPresent
+                ? 'LM Studio Responses a renvoyé un raisonnement mais aucune réponse finale exploitable. Vérifiez le réglage Thinking du modèle et le budget de génération. Aucune note n’a été attribuée.'
+                : 'LM Studio Responses a renvoyé une réponse vide.';
+            } else {
+              emptyResponseError = result.thinkingPresent
+                ? 'Ollama a produit un raisonnement interne mais aucune réponse finale exploitable (message.content vide). Désactivez le mode thinking ou essayez un autre modèle.'
+                : 'Ollama a retourné une réponse vide.';
+            }
+          }
           if (tracking && typeof result.loadMs === 'number' && result.loadMs > 0) {
             onProgress?.({ type: 'model-load', role: tracking.kind === 'vision' ? 'reading' : 'analysis', durationMs: result.loadMs });
           }
@@ -814,7 +829,9 @@ export function createOllamaProvider(
             lastDiagnosticMetrics = metrics;
             completedRequestMetrics = metrics;
             if (!tracking.deferResult) {
-              onDiagnosticResult?.({ ...metrics, raw: metrics.promptId === 'vision.copy-transcription' ? '' : result.content, ...(repetitionError ? { error: repetitionError } : !result.content.trim() ? { error: result.doneReason === 'length' ? 'Limite de génération atteinte sans réponse finale.' : 'Ollama a retourné une réponse vide.' } : {}) });
+              const error = repetitionError ?? emptyResponseError;
+              onDiagnosticResult?.({ ...metrics, raw: metrics.promptId === 'vision.copy-transcription' ? '' : result.content,
+                ...(error ? { error } : {}) });
               diagnosticResultEmitted = true;
             }
           }
@@ -832,13 +849,7 @@ export function createOllamaProvider(
             const isDirectDiagram = tracking?.promptId === 'diagram.direct-grading' || tracking?.promptId === 'diagram.direct-repair';
             throw new Error(`Limite de génération atteinte sans réponse finale (done_reason=length, num_predict=${tracking?.generationTokenLimit ?? 2048}).${isDirectDiagram ? ' [diagram-output:generation-limit]' : ''} Réessayez avec un modèle plus rapide ou un barème plus court ; aucune note n’a été attribuée.`);
           }
-          if (!result.content.trim()) {
-            throw new Error(result.thinkingPresent
-              ? chat && (responses || settings.smartZoom === true)
-                ? 'LM Studio Responses a renvoyé un raisonnement mais aucune réponse finale exploitable. Vérifiez le réglage Thinking du modèle et le budget de génération ; aucune note n’a été attribuée.'
-                : 'Ollama a produit un raisonnement interne mais aucune réponse finale exploitable (message.content vide). Désactivez le mode thinking ou essayez un autre modèle.'
-              : 'Ollama a retourné une réponse vide.');
-          }
+          if (emptyResponseError) throw new Error(emptyResponseError);
           requestedModels.add(model);
           finishRequest();
           return result.content;
