@@ -113,6 +113,7 @@ test('le contexte LM Studio Chat est facultatif et sauvegardé dans les réglage
   await page.reload();
   await page.locator('.assignment-overview-card').first().getByRole('button', { name: /Reprendre le devoir/ }).click();
   await page.getByRole('button', { name: /Réglages IA|Configurer l’IA/ }).click();
+  await page.locator('#teacher-ai-settings-panel').getByText('Réglages avancés de génération', { exact: true }).click();
   const input = page.locator('#ai-context-length');
   await expect(input).toHaveValue('16384');
   await input.fill('');
