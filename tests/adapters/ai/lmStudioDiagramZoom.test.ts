@@ -44,6 +44,11 @@ describe('LM Studio on-demand smart zoom (Responses API)', () => {
     expect(JSON.parse((await response.text()).trim()).message.content).toBe('{"ok":true}');
     expect(calls).toHaveLength(2);
     expect(calls[0].input[0].content[0].image_url).toContain('UFJFVklFVw==');
+    const prompt = calls[0].input[0].content.find((part: { type: string }) => part.type === 'input_text').text;
+    expect(prompt).toContain('cadre la structure et les repères voisins utiles pour la distinguer, même sans légende');
+    expect(prompt).toContain('indique que l’identification est incertaine');
+    expect(prompt).toContain('cadre ensemble le dessin, le libellé et le trait de rappel entier');
+    expect(prompt).toContain('si la légende est partagée, vérifie sur la vue d’ensemble');
     expect(calls[0].tools[0].name).toBe('inspect_region');
     expect(calls[0]).not.toHaveProperty('reasoning');
     expect(calls[1].previous_response_id).toBe('resp_before_zoom');

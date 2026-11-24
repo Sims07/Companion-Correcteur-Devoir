@@ -64,6 +64,10 @@ export async function sendLmStudioZoomDiagramTurn(
     (turn.format ? '\nRéponds avec un JSON conforme à ce schéma :\n' + JSON.stringify(turn.format) : '') +
     '\nTu peux appeler inspect_region pour vérifier au maximum deux détails ambigus de CE critère. ' +
     'N’appelle pas cet outil lorsque tu peux déjà conclure. N’invente aucune connexion entre légende et structure. ' +
+    'Si l’identification d’une structure biologique est incertaine, cadre la structure et les repères voisins utiles pour la distinguer, même sans légende. ' +
+    'Si le zoom reste ambigu, indique que l’identification est incertaine. ' +
+    'Si plusieurs dessins sont proches et que l’attribution d’une légende est ambiguë, cadre ensemble le dessin, le libellé et le trait de rappel entier. ' +
+    'Si le trait sort du cadre ou si la légende est partagée, vérifie sur la vue d’ensemble et signale toute attribution encore incertaine. ' +
     'Après un zoom, interprète la nouvelle image dans le contexte de la page entière.';
   let input: unknown[] = [{ role: 'user', content: [...firstImage, { type: 'input_text', text: prompt }] }];
   let previousId = conversation.responseId;
