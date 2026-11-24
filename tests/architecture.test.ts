@@ -85,7 +85,7 @@ describe('hexagonal architecture boundaries', () => {
       '../src/correction/adapters/ai/openAiScientificDiagramAnalyzer.ts',
       '../src/shared/adapters/ai/openAiCompatibleTransport.ts',
       '../src/correction/adapters/ai/ollamaProvider.ts',
-      '../src/shared/adapters/ai/modelLoadClient.ts',
+      '../src/shared/adapters/ai/compatibleModelDiscovery.ts',
     ];
     for (const file of networkAdapters) {
       const text = source(file);

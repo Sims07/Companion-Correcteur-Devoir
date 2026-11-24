@@ -58,7 +58,7 @@ describe('parcours sans bandeaux de consentement ou de confidentialité répéti
     expect(app).not.toContain('J’autorise l’envoi');
     expect(app).not.toContain('Serveur non local');
     expect(app).not.toContain('evaluation-remote-endpoint-notice');
-    expect(app).toContain('<option value="ollama">Ollama local</option>');
+    expect(source('../../src/shared/ui/components/AiConnectionFields.tsx')).toContain('<option value="ollama">Ollama local</option>');
     expect(app).toContain('Vérifiez toujours le résultat avant utilisation.');
   });
 

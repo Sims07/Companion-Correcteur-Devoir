@@ -66,6 +66,8 @@ test('the teacher journey starts with Copies, keeps advanced options collapsed a
   await expect(page.getByRole('heading', { name: 'Paramètres IA' })).toBeVisible();
   await expect(page.getByLabel('Adresse du serveur Ollama')).toBeVisible();
   await expect(page.getByLabel('Modèle génératif', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('Modèle décisionnel (facultatif)')).toBeHidden();
+  await page.getByText('Méthode de correction et modèle décisionnel', { exact: true }).click();
   await expect(page.getByLabel('Modèle décisionnel (facultatif)')).toBeVisible();
   await expect(page.getByLabel('Modèle de lecture des copies')).toBeHidden();
   await expect(page.getByRole('heading', { name: 'Ajouter une copie' })).toHaveCount(0);
@@ -96,6 +98,8 @@ test('the teacher journey starts with Copies, keeps advanced options collapsed a
   await expect(page.getByRole('dialog', { name: 'Créer ou modifier une configuration IA' })).toBeVisible();
   await expect(page.getByLabel('Nom de la configuration')).toBeVisible();
   await expect(page.getByLabel('Modèle génératif', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('Modèle décisionnel (facultatif)')).toBeHidden();
+  await page.getByText('Méthode de correction et modèle décisionnel', { exact: true }).click();
   await expect(page.getByLabel('Modèle décisionnel (facultatif)')).toBeVisible();
   await expect(page.getByLabel('Modèle de lecture des images')).toBeHidden();
   await page.getByText('Options avancées du test', { exact: true }).click();

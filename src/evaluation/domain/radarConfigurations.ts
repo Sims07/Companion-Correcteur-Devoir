@@ -1,3 +1,4 @@
+import type { AnalysisReasoningEffort } from '../../shared/domain/aiModelProfiles.ts';
 import type { DiagramLabArchiveEntry } from './diagramLabHistory.ts';
 import {
   buildDiagramLabRadar, type RadarAxisId, type RadarModelConfiguration,
@@ -42,7 +43,7 @@ export function radarConfigurationLabel(profile: RadarModelConfiguration): strin
 export function radarProfileThinking(configuration: {
   analysisThinking?: boolean;
   apiCompatible?: boolean;
-  analysisReasoningEffort?: 'low' | 'medium' | 'high';
+  analysisReasoningEffort?: AnalysisReasoningEffort;
 }): boolean | string {
   return configuration.analysisThinking
     ? configuration.apiCompatible ? configuration.analysisReasoningEffort ?? 'medium' : true

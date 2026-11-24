@@ -10,7 +10,7 @@ afterEach(() => { for (const { root, node } of containers.splice(0)) { act(() =>
 function render(overrides = {}) {
   const node = document.createElement('div'); document.body.append(node);
   const root = createRoot(node); containers.push({ root, node });
-  const props = { prefix: 'evaluation' as const, models: [], generativeModel: 'qwen', decisionModel: 'tev1:4b', visionModel: 'ocr', method: 'generative' as const, apiCompatible: false, analysisThinking: false, analysisReasoningEffort: 'medium' as const, onAnalysisThinking: vi.fn(), onAnalysisReasoningEffort: vi.fn(), onGenerativeModel: vi.fn(), onDecisionModel: vi.fn(), onMethod: vi.fn(), ...overrides };
+  const props = { prefix: 'evaluation' as const, models: [], generativeModel: 'qwen', decisionModel: 'tev1:4b', visionModel: 'ocr', method: 'generative' as const, apiCompatible: false, analysisThinking: false, analysisReasoningEffort: 'medium' as const, onReasoning: vi.fn(), onGenerativeModel: vi.fn(), onDecisionModel: vi.fn(), onMethod: vi.fn(), ...overrides };
   act(() => root.render(createElement(AiModelRoleFields, props)));
   return { node, props };
 }
@@ -20,15 +20,15 @@ describe('shared simple AI model controls', () => {
     const { node, props } = render({ method: 'decision' });
     const method = node.querySelector<HTMLSelectElement>('#evaluation-correction-method')!;
     expect(Array.from(method.options).map(option => option.value)).toEqual(['generative', 'decision']);
-    expect(node.querySelector('details')!.open).toBe(false);
     const direct = node.querySelector<HTMLInputElement>('#evaluation-direct-decision')!;
+    expect(direct.closest('details')!.open).toBe(false);
     act(() => direct.click());
     expect(props.onMethod).toHaveBeenCalledWith('visual-decision');
     expect(node.querySelector('[role="status"]')?.textContent).toContain('ocr → décisions : tev1:4b');
   });
 
   it('preserves manually entered model names when the server lists different models', () => {
-    const { node } = render({ models: ['other'] });
+    const { node } = render({ models: [{ name: 'other' }] });
     expect(node.querySelector<HTMLSelectElement>('#evaluation-analysis-model')!.value).toBe('qwen');
     expect(node.querySelector<HTMLSelectElement>('#evaluation-decision-model')!.value).toBe('tev1:4b');
   });
@@ -40,51 +40,24 @@ describe('shared simple AI model controls', () => {
     expect(props.onMethod).not.toHaveBeenCalled();
   });
 
-  it('shows Thinking beside model selection, announces changes and passes the new value to the editor', () => {
+  it('exposes a single reasoning choice for Ollama', () => {
     const { node, props } = render({ prefix: 'ai' });
-    const checkbox = node.querySelector<HTMLInputElement>('#ai-analysis-thinking')!;
-    expect(checkbox.checked).toBe(false);
-    expect(checkbox.disabled).toBe(false);
-    expect(node.querySelector('#ai-analysis-thinking-status')?.textContent).toContain('désactivé');
-    act(() => checkbox.click());
-    expect(props.onAnalysisThinking).toHaveBeenCalledWith(true);
-    expect(node.querySelector('#ai-analysis-thinking-status')).not.toBeNull();
-
-    const enabled = render({ prefix: 'ai', analysisThinking: true });
-    expect(enabled.node.querySelector<HTMLInputElement>('#ai-analysis-thinking')!.checked).toBe(true);
-    expect(enabled.node.querySelector('#ai-analysis-thinking-status')?.textContent).toContain('activé');
+    const select = node.querySelector<HTMLSelectElement>('#ai-reasoning')!;
+    expect(select.value).toBe('off');
+    expect(Array.from(select.options).map(option => option.value)).toEqual(['off', 'on']);
+    act(() => { select.value = 'on'; select.dispatchEvent(new Event('change', { bubbles: true })); });
+    expect(props.onReasoning).toHaveBeenCalledWith('on');
+    expect(render({ disabled: true }).node.querySelector<HTMLSelectElement>('#evaluation-reasoning')?.disabled).toBe(true);
   });
 
-  it('allows Thinking on OpenAI-compatible APIs and explains that provider support may vary', () => {
-    const { node, props } = render({ apiCompatible: true, analysisThinking: true });
-    const checkbox = node.querySelector<HTMLInputElement>('#evaluation-analysis-thinking')!;
-    expect(checkbox.checked).toBe(true);
-    expect(checkbox.disabled).toBe(false);
-    expect(node.querySelector('#evaluation-analysis-thinking-status')?.textContent).toContain('Thinking demandé');
-    act(() => checkbox.click());
-    expect(props.onAnalysisThinking).toHaveBeenCalledWith(false);
-
-    const disabled = render({ apiCompatible: true, analysisThinking: false });
-    expect(disabled.node.querySelector<HTMLInputElement>('#evaluation-analysis-thinking')?.disabled).toBe(false);
-    expect(disabled.node.querySelector('#evaluation-analysis-thinking-status')?.textContent).toContain('désactivé demandé');
-  });
-
-  it('selects a compatible reasoning effort and hides it when Thinking is OFF', () => {
-    const { node, props } = render({ apiCompatible: true, analysisThinking: true, analysisReasoningEffort: 'high' });
-    const level = node.querySelector<HTMLSelectElement>('#evaluation-reasoning-effort')!;
-    expect(Array.from(level.options).map(option => option.value)).toEqual(['low', 'medium', 'high']);
-    expect(level.value).toBe('high');
-    expect(node.querySelector('#evaluation-analysis-thinking-status')?.textContent).toContain('high');
-    act(() => { level.value = 'low'; level.dispatchEvent(new Event('change', { bubbles: true })); });
-    expect(props.onAnalysisReasoningEffort).toHaveBeenCalledWith('low');
-    expect(render({ apiCompatible: true, analysisThinking: false }).node.querySelector('#evaluation-reasoning-effort')).toBeNull();
-    expect(render({ apiCompatible: false, analysisThinking: true }).node.querySelector('#evaluation-reasoning-effort')).toBeNull();
-    expect(render({ apiCompatible: true, analysisThinking: true, disabled: true }).node.querySelector<HTMLSelectElement>('#evaluation-reasoning-effort')?.disabled).toBe(true);
-  });
-
-  it('disables Thinking while a model evaluation is busy', () => {
-    const { node } = render({ disabled: true });
-    expect(node.querySelector<HTMLInputElement>('#evaluation-analysis-thinking')?.disabled).toBe(true);
+  it('uses the native model metadata and keeps the saved choice readable', () => {
+    const { node } = render({ apiCompatible: true, nativeChat: true, analysisThinking: true, analysisReasoningEffort: 'high',
+      models: [{ name: 'qwen', vision: true, tools: true, reasoningOptions: ['off', 'low'] }] });
+    const select = node.querySelector<HTMLSelectElement>('#evaluation-reasoning')!;
+    expect(select.value).toBe('high');
+    expect(Array.from(select.options).map(option => option.value)).toEqual(['default', 'off', 'low', 'high']);
+    expect(node.textContent).toContain('vision prise en charge');
+    expect(node.textContent).toContain('modèle entraîné aux appels d’outils');
   });
 
   it('restores direct-image mode and visibly identifies an unsupported image model', () => {
@@ -93,26 +66,14 @@ describe('shared simple AI model controls', () => {
     expect(node.textContent).toContain('Ce modèle n’est pas reconnu comme compatible');
   });
 
-  it('lets compatible Instruct profiles omit reasoning without disabling the model itself', () => {
-    const onOmitReasoningParameter = vi.fn();
-    const { node } = render({
-      apiCompatible: true, omitReasoningParameter: true, analysisThinking: true,
-      onOmitReasoningParameter,
-    });
-    const omission = node.querySelector<HTMLInputElement>('#evaluation-omit-reasoning')!;
-    expect(omission.checked).toBe(true);
-    expect(node.querySelector<HTMLInputElement>('#evaluation-analysis-thinking')?.disabled).toBe(true);
-    expect(node.querySelector('#evaluation-reasoning-effort')).toBeNull();
-    expect(node.querySelector('#evaluation-analysis-thinking-status')?.textContent).toContain('Aucun paramètre Reasoning');
-    act(() => omission.click());
-    expect(onOmitReasoningParameter).toHaveBeenCalledWith(false);
-    const defaultMode = render({ apiCompatible: true, omitReasoningParameter: false, analysisThinking: true });
-    expect(defaultMode.node.querySelector<HTMLInputElement>('#evaluation-analysis-thinking')?.disabled).toBe(false);
-    expect(defaultMode.node.querySelector('#evaluation-reasoning-effort')).not.toBeNull();
-    expect(render({ apiCompatible: false }).node.querySelector('#evaluation-omit-reasoning')).toBeNull();
+  it('restores the no-parameter choice for Instruct and shows the model default on Responses', () => {
+    const instruct = render({ apiCompatible: true, omitReasoningParameter: true, analysisThinking: true });
+    expect(instruct.node.querySelector<HTMLSelectElement>('#evaluation-reasoning')?.value).toBe('default');
+    const responses = render({ apiCompatible: true, responses: true, analysisThinking: false });
+    const select = responses.node.querySelector<HTMLSelectElement>('#evaluation-reasoning')!;
+    expect(select.value).toBe('default');
+    expect(select.querySelector('option[value="off"]')).toBeNull();
   });
-
-
 
   it('offers no imposed context threshold and supports a native Chat override', () => {
     const onContextLength = vi.fn();

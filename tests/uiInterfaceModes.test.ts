@@ -230,10 +230,8 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('id="evaluation-profile-name"');
     expect(text).toContain('id="evaluation-vision-model"');
     expect(text).toContain('<AiModelRoleFields prefix="evaluation"');
-    expect(text).toContain('id="evaluation-provider"');
-    expect(text).toContain('API compatible OpenAI');
-    expect(text).toContain('id="evaluation-api-key"');
-    expect(text).toContain('value={apiKey}');
+    expect(text).toContain('<AiConnectionFields prefix="evaluation"');
+    expect(text).toContain('apiKey={apiKey}');
     expect(text).toContain('className="debug-advanced-settings"');
     expect(text).toContain('id="diagnostic-strategy"');
     expect(text).toContain("interfaceMode === 'teacher' && showAiSettings && <section id=");
@@ -244,16 +242,6 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('id="teacher-ai-settings-panel"');
   });
 
-  it('exposes named model preloading only for the OpenAI-compatible server', () => {
-    const text = app();
-    const panel = source('../src/shared/ui/components/ModelPreloadPanel.tsx');
-    expect(text).toContain('{apiCompatible && <ModelPreloadPanel endpoint={endpoint} apiKey={apiKey} busy={busy} loadModel={loadOnDemandModel} />}');
-    expect(text).not.toContain('handleLoadSaluki');
-    expect(panel).toContain('Précharger un modèle');
-    expect(panel).toContain('Nom du modèle à précharger');
-    expect(panel).toContain('loadModel({ endpoint, apiKey, model: name })');
-    expect(panel).toContain("useState('saluki-27b')");
-  });
 
   it('keeps model-evaluation streaming separate from technical debug traces', () => {
     const text = app();

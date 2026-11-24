@@ -17,6 +17,7 @@ test('the evaluator creates, reloads and resets decision-model configurations in
   await expect(method).toHaveValue('generative');
   await expect(byCriterion).toBeEnabled();
 
+  await editor.getByText('Méthode de correction et modèle décisionnel', { exact: true }).click();
   await editor.getByText('Options avancées du test', { exact: true }).click();
   await editor.locator('#evaluation-profile-name').fill('Laboratoire décisionnel');
   await editor.locator('#evaluation-vision-model').fill('gemma3:4b');

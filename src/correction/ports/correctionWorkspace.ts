@@ -42,6 +42,7 @@ export interface OllamaGateway {
   prewarmModel?(settings: OllamaSettings, model: string, signal?: AbortSignal): Promise<void>;
   unloadModel?(settings: OllamaSettings, model: string): Promise<void>;
   listModels(endpoint: string): Promise<OllamaModel[]>;
+  discoverCompatibleModels?(endpoint: string, token: string): Promise<OllamaModel[] | undefined>;
   createProvider(settings: OllamaSettings): GradingProvider;
   importRubricImage(images: ImageInput[], settings: OllamaSettings, onProgress?: (progress: RubricImportProgress) => void, signal?: AbortSignal): Promise<ImportedRubric>;
 }

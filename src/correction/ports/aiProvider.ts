@@ -1,3 +1,4 @@
+import type { AiModelOption } from '../../shared/domain/aiModelProfiles.ts';
 import type { CorrectionMethod } from '../../shared/domain/correctionMethod.ts';
 import type { TeacherAnnotationReviewCandidate, TeacherAnnotationReviewDecision } from '../domain/teacherAnnotations.ts';
 import type { ImageInput } from '../../shared/domain/imageInput.ts';
@@ -162,6 +163,4 @@ export interface OllamaSettings {
   autoBackgroundCorrection?: boolean;
 }
 
-export interface OllamaModel {
-  name: string;
-}
+export type OllamaModel = AiModelOption;

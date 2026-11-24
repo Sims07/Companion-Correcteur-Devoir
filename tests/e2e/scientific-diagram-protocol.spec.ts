@@ -37,7 +37,7 @@ test('Qwen direct diagram repairs missing evidence and exports all 19 decisions 
     configuration: { endpoint: 'http://localhost:11434', apiCompatible: false, apiKey: '',
       visionModel: 'unused-ocr', analysisModel: 'qwen3.5:4b', correctionMethod: 'generative',
       secondAnalysisModel: '', arbitratorModel: '',
-      diagnosticStrategy: 'single', analysisThinking: false, criterionByCriterion: true },
+      diagnosticStrategy: 'single', analysisThinking: false, criterionByCriterion: false },
   }])));
   const payloads: Record<string, any>[] = [];
   await page.route('http://localhost:11434/**', async route => {
@@ -285,4 +285,53 @@ test('a personal diagram runs once without teacher references and exports a read
   expect(report.plannedRepetitions).toBe(1);
   expect(chatPayloads).toHaveLength(1);
   expect(chatPayloads[0].messages?.[0]?.images?.length).toBe(1);
+});
+
+test('the direct diagram laboratory shares one Responses image across the criteria of each copy', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('companion-correcteur:ollama-profiles:v1', JSON.stringify([{
+    id: 'gemma-responses', name: 'Gemma Responses', mode: 'single', updatedAt: '2026-11-24T00:00:00Z',
+    configuration: { endpoint: 'http://localhost:1234/v1/responses', apiCompatible: true, apiKey: '',
+      visionModel: 'gemma', analysisModel: 'gemma', correctionMethod: 'generative',
+      secondAnalysisModel: '', arbitratorModel: '', diagnosticStrategy: 'single',
+      analysisThinking: false, criterionByCriterion: true, smartZoom: false },
+  }])));
+  const requests: { previousId?: string; images: number; criterion: string }[] = [];
+  const rubric = SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC;
+  await page.route('http://localhost:1234/**', async route => {
+    const headers = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*',
+      'access-control-allow-methods': 'GET,POST,OPTIONS' };
+    if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers });
+    if (route.request().url().endsWith('/v1/models')) return route.fulfill({ headers, json: { data: [{ id: 'gemma' }] } });
+    const body = route.request().postDataJSON();
+    const content = body.input[0].content;
+    const prompt = content.find((item: { type: string }) => item.type === 'input_text').text;
+    const criterion = rubric.criteria[requests.length % rubric.criteria.length];
+    expect(prompt).toContain(criterion.id);
+    requests.push({ previousId: body.previous_response_id,
+      images: content.filter((item: { type: string }) => item.type === 'input_image').length, criterion: criterion.id });
+    return route.fulfill({ headers, json: {
+      id: 'resp_' + requests.length, output: [], output_text: JSON.stringify({ criteria: {
+        [criterion.id]: { evidence: 'Observation visible', confidence: 'medium', questionForTeacher: '',
+          subcriteria: Object.fromEntries(criterion.subcriteria!.map(item => [item.id, { points: 0, evidence: 'Élément absent' }])) },
+      } }),
+    } });
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Tests', exact: true }).click();
+  await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: /Schémas scientifiques/ }).click();
+  const panel = page.getByRole('region', { name: 'Protocole schémas scientifiques' });
+  await chooseEvaluationModel(page);
+  await panel.getByRole('combobox', { name: 'Méthode de correction scientifique à tester' }).selectOption('direct-image-generative');
+  await panel.getByRole('button', { name: 'Tester les 3 schémas en un clic' }).click();
+  const results = panel.getByRole('region', { name: 'Résultats des schémas scientifiques' });
+  await expect(results.locator('tbody tr')).toHaveCount(3);
+  const [download] = await Promise.all([page.waitForEvent('download'), results.getByRole('button', { name: 'Exporter le rapport JSON' }).click()]);
+  const report = JSON.parse(await readFile(await download.path(), 'utf8'));
+  expect(report.cases.flatMap((diagram: { experiments: unknown[] }) => diagram.experiments))
+    .toEqual(Array.from({ length: 3 }, () => expect.objectContaining({ status: 'success', score: 0 })));
+  expect(requests).toEqual(Array.from({ length: 3 }, (_, diagram) => rubric.criteria.map((criterion, index) => ({
+    criterion: criterion.id, previousId: index ? 'resp_' + (diagram * rubric.criteria.length + index) : undefined,
+    images: index ? 0 : 1,
+  }))).flat());
 });

@@ -37,6 +37,7 @@ test('third method persists and sends diagram + all typed questions to Clef thro
   await page.getByRole('dialog', { name: 'Gérer les configurations IA' })
     .getByRole('button', { name: 'Modifier les réglages courants' }).click();
   await page.locator('#evaluation-profile-name').fill('Clef Vision + Décision');
+  await page.getByText('Méthode de correction et modèle décisionnel', { exact: true }).click();
   await page.locator('#evaluation-decision-model').fill('clef-flash');
   await page.locator('#evaluation-correction-method').selectOption('decision');
   await page.getByText('Options de décision sur image', { exact: true }).click();
@@ -86,6 +87,7 @@ test('TEV1 configured as direct image decision is blocked visibly before running
   await page.getByRole('dialog', { name: 'Gérer les configurations IA' })
     .getByRole('button', { name: 'Modifier les réglages courants' }).click();
   await page.locator('#evaluation-profile-name').fill('TEV1 visual incompatible');
+  await page.getByText('Méthode de correction et modèle décisionnel', { exact: true }).click();
   await page.locator('#evaluation-decision-model').fill('tev1:4b');
   await page.locator('#evaluation-correction-method').selectOption('decision');
   await page.getByText('Options de décision sur image', { exact: true }).click();

@@ -5,6 +5,7 @@ test('the two grading strategies coexist and the selected one persists across na
   await page.goto('/');
   await openActiveAssignment(page);
   await page.getByRole('button', { name: 'Configurer l’IA' }).click();
+  await page.getByText('Méthode de correction et modèle décisionnel', { exact: true }).click();
   const method = page.getByLabel('Méthode de correction');
   await expect(method).toHaveValue('generative');
   await method.selectOption('decision');
