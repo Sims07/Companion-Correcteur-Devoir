@@ -52,7 +52,15 @@ test('laboratory displays the same crop that is delivered to the model', async (
     analysisModel: 'gemma', generativeModel: 'gemma', correctionMethod: 'generative',
   })), key);
   let sentCrop = '';
+  let mode: 'zoom' | 'no-call' | 'error' | 'wait' = 'zoom';
+  let release = () => {};
   await page.route('**/v1/responses', async route => {
+    if (mode === 'error') return route.fulfill({ status: 503, body: 'indisponible' });
+    if (mode === 'wait') {
+      await new Promise<void>(resolve => { release = resolve; });
+      return route.abort().catch(() => {});
+    }
+    if (mode === 'no-call') return route.fulfill({ json: { id: 'resp_skip', output: [], output_text: '0283' } });
     const body = route.request().postDataJSON();
     if (body.previous_response_id) sentCrop = body.input[1].content[1].image_url;
     await route.fulfill({ json: body.previous_response_id
@@ -70,4 +78,24 @@ test('laboratory displays the same crop that is delivered to the model', async (
   await expect(page.getByText(/cible couverte à 100 %/)).toBeVisible();
   expect(sentCrop).toMatch(/^data:image\/png;base64,/);
   await expect(page.getByAltText('Recadrage réel 1')).toHaveAttribute('src', sentCrop);
+  const launch = page.getByRole('button', { name: 'Tester le cadrage' });
+  mode = 'no-call';
+  await launch.click();
+  await expect(page.getByText(/Aucun appel de zoom/)).toBeVisible();
+  await expect(page.getByAltText('Recadrage réel 1')).toHaveCount(0);
+  mode = 'error';
+  await launch.click();
+  await expect(page.getByText(/LM Studio a répondu HTTP 503/)).toBeVisible();
+  mode = 'wait';
+  const pending = page.waitForRequest('**/v1/responses');
+  await launch.click();
+  await pending;
+  await expect(launch).toBeDisabled();
+  const journeys = page.getByRole('group', { name: 'Parcours de test' });
+  await journeys.getByRole('button', { name: 'Ma copie' }).click();
+  await journeys.getByRole('button', { name: 'Schémas scientifiques' }).click();
+  await page.getByRole('button', { name: 'Arrêter le test' }).click();
+  release();
+  await expect(page.getByText('Essai arrêté')).toBeVisible();
+  await expect(launch).toBeEnabled();
 });
