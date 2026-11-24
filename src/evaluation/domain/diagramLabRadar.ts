@@ -1,3 +1,4 @@
+import type { AnalysisReasoningEffort } from '../../shared/domain/aiModelProfiles.ts';
 import { SCIENTIFIC_DIAGRAM_FIXTURES, SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET } from './scientificDiagramFixtures.ts';
 import { DIAGRAM_SENSITIVITY_CASES, DIAGRAM_SENSITIVITY_TARGETS } from './scientificDiagramSensitivity.ts';
 import { diagramLabProtocolLabels, type DiagramLabArchiveEntry, type DiagramLabProtocol } from './diagramLabHistory.ts';
@@ -23,7 +24,7 @@ export type RadarGrouping = 'model' | 'profile' | 'method';
 export interface RadarModelConfiguration {
   id: string;
   name: string;
-  configuration: { visionModel: string; analysisModel: string; generativeModel?: string; correctionMethod?: string; apiCompatible?: boolean; analysisThinking?: boolean; analysisReasoningEffort?: 'low' | 'medium' | 'high'; omitReasoningParameter?: boolean; analysisTemperature?: number; analysisTopP?: number; analysisTopK?: number };
+  configuration: { visionModel: string; analysisModel: string; generativeModel?: string; correctionMethod?: string; apiCompatible?: boolean; analysisThinking?: boolean; analysisReasoningEffort?: AnalysisReasoningEffort; omitReasoningParameter?: boolean; analysisTemperature?: number; analysisTopP?: number; analysisTopK?: number };
 }
 
 export const RADAR_PRESETS = {

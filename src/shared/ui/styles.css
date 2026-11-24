@@ -986,19 +986,6 @@ footer { padding-top: 24px; line-height: 1.6; }
 }
 
 /* On-demand Saluki model loading in compatible API settings. */
-.model-preload-card{display:grid;gap:12px;margin:20px 0;padding:18px;border:1px solid var(--ds-color-border);border-radius:var(--ds-radius-lg);background:var(--ds-color-surface-subtle)}
-.model-preload-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
-.model-preload-heading h3{margin:0;color:var(--ds-color-text);font-size:16px}
-.model-preload-status{padding:5px 9px;border-radius:999px;background:var(--ds-color-surface);color:var(--ds-color-text-muted);font-size:11px;font-weight:700;white-space:nowrap}
-.model-preload-status.is-loaded{background:var(--ds-color-success-surface,#eaf6ee);color:var(--ds-color-success,#247348)}
-.model-preload-card>p{margin:0;color:var(--ds-color-text-muted);font-size:12px;line-height:1.6}
-.model-preload-card .field-label{margin:0}
-.model-preload-card .ds-button{width:100%}
-.model-preload-card .ds-status-notice{margin:0}
-.model-preload-card details{padding-top:9px;border-top:1px solid var(--ds-color-border);color:var(--ds-color-text-muted);font-size:11px}
-.model-preload-card summary{cursor:pointer;font-weight:700}
-.model-preload-card details p{margin:8px 0;overflow-wrap:anywhere}
-@media(max-width:560px){.model-preload-heading{align-items:flex-start;flex-direction:column}}
 
 
 /* Explicit routing control for visual criteria in the rubric editor. */

@@ -92,7 +92,7 @@ export async function sendLmStudioZoomDiagramTurn(
       ...(turn.options.top_p !== undefined ? { top_p: turn.options.top_p } : {}),
       // Responses has a different reasoning dialect from native Chat.
       ...(!turn.omitReasoningParameter && turn.think && turn.think !== 'none'
-        ? { reasoning: { effort: turn.think === true ? 'medium' : turn.think } } : {}),
+        ? { reasoning: { effort: turn.think === true || turn.think === 'on' ? 'medium' : turn.think } } : {}),
     };
     // Never persist copies or crops in the network request inspector.
     preview({ ...body, input: '[TEXT / IMAGE REDACTED]', tools: enableZoom && inspections < 2 ? ['inspect_region'] : [] });

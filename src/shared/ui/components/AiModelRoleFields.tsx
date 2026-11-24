@@ -1,13 +1,14 @@
 import './AiModelRoleFields.css';
+import { useState } from 'react';
+import type { AiModelOption, AnalysisReasoningEffort } from '../../domain/aiModelProfiles.ts';
 import type { CorrectionMethod } from '../../domain/correctionMethod.ts';
-import type { AnalysisReasoningEffort } from '../../domain/aiModelProfiles.ts';
 import { isVisualDecisionModel } from '../../domain/decisionModelCapabilities.ts';
 import { DesignSystemSelect } from './DesignSystemSelect.tsx';
 import { StatusNotice } from '../design-system/index.ts';
 
 interface Props {
   prefix: 'ai' | 'evaluation';
-  models: string[];
+  models: AiModelOption[];
   generativeModel: string;
   decisionModel: string;
   visionModel: string;
@@ -22,7 +23,7 @@ interface Props {
   onSmartZoom?: (enabled: boolean) => void;
   contextLength?: number;
   onContextLength?: (length: number | undefined) => void;
-  onOmitReasoningParameter?: (omit: boolean) => void;
+  onReasoning: (mode: ReasoningMode) => void;
   gradingOutputTokens?: number;
   analysisTemperature?: number;
   analysisTopP?: number;
@@ -35,30 +36,52 @@ interface Props {
   onGenerativeModel: (value: string) => void;
   onDecisionModel: (value: string) => void;
   onMethod: (value: CorrectionMethod) => void;
-  onAnalysisThinking: (enabled: boolean) => void;
-  onAnalysisReasoningEffort?: (effort: AnalysisReasoningEffort) => void;
 }
+
+export type ReasoningMode = 'default' | 'off' | AnalysisReasoningEffort;
 
 /** The same vocabulary and model selection in teacher settings and the evaluator. */
 export function AiModelRoleFields(props: Props) {
   const { prefix, generativeModel, decisionModel, visionModel, method, apiCompatible, disabled } = props;
+  const [manualModel, setManualModel] = useState(false);
+  const generativeId = prefix === 'ai' ? 'ollama-analysis-model' : 'evaluation-analysis-model';
   function modelField(id: string, label: string, value: string, onChange: (value: string) => void, hint: string) {
-    const choices = Array.from(new Set([value, ...props.models].filter(Boolean)));
+    const choices = Array.from(new Set([value, ...props.models.map(model => model.name)].filter(Boolean)));
+    const canToggleManual = id === generativeId && apiCompatible && props.models.length > 0;
     return <div className="evaluation-config-field">
       <label className="field-label" htmlFor={id}>{label}</label>
-      {props.models.length > 0
+      {props.models.length > 0 && !(canToggleManual && manualModel)
         ? <DesignSystemSelect id={id} value={value} disabled={disabled} onChange={event => onChange(event.target.value)}>
           <option value="">Choisir un modèle</option>
-          {choices.map(model => <option key={model} value={model}>{model}</option>)}
+          {choices.map(model => {
+            const label = props.models.find(item => item.name === model)?.label;
+            return <option key={model} value={model}>{label && label !== model ? label + ' · ' : ''}{model}</option>;
+          })}
         </DesignSystemSelect>
         : <input id={id} value={value} disabled={disabled} onChange={event => onChange(event.target.value)} placeholder={label.startsWith('Modèle génératif') ? 'Ex. qwen3.5:4b' : 'Ex. tev1:4b'} />}
+      {canToggleManual && <button type="button" className="secondary-button" disabled={disabled}
+        onClick={() => setManualModel(!manualModel)}>{manualModel ? 'Afficher les modèles détectés' : 'Saisir un identifiant'}</button>}
       <p className="hint">{hint}</p>
     </div>;
   }
   const decision = method !== 'generative';
+  const selectedModel = props.models.find(model => model.name === generativeModel);
+  const diagramUsesResponses = props.responses || (props.nativeChat && props.smartZoom);
+  const mode: ReasoningMode = props.omitReasoningParameter && apiCompatible ? 'default'
+    : props.analysisThinking ? apiCompatible ? props.analysisReasoningEffort ?? 'medium' : 'on'
+    : props.responses ? 'default' : 'off';
+  const nativeOptions = props.nativeChat && !diagramUsesResponses ? selectedModel?.reasoningOptions : undefined;
+  const efforts = (['low', 'medium', 'high'] as const).filter(effort =>
+    !nativeOptions || nativeOptions.includes(effort) || mode === effort);
+  const effortLabels = { low: 'Faible', medium: 'Moyen', high: 'Élevé' };
   return <>
-    {modelField(prefix === 'ai' ? 'ollama-analysis-model' : 'evaluation-analysis-model', 'Modèle génératif', generativeModel, props.onGenerativeModel,
+    {modelField(generativeId, 'Modèle génératif', generativeModel, props.onGenerativeModel,
       'Prépare les barèmes et peut corriger les copies. Choisissez un modèle avec vision pour lire aussi les images, ou configurez une lecture distincte dans les options avancées.')}
+    {props.models.length > 0 && generativeModel && !selectedModel && <p className="hint">Ce modèle est absent du catalogue détecté.</p>}
+    {selectedModel && (selectedModel.vision !== undefined || selectedModel.tools !== undefined) &&
+      <p className="hint" role="status">LM Studio indique {[selectedModel.vision === undefined ? '' : selectedModel.vision ? 'vision prise en charge' : 'vision indisponible',
+        selectedModel.tools === undefined ? '' : selectedModel.tools ? 'modèle entraîné aux appels d’outils' : 'modèle sans entraînement aux appels d’outils'].filter(Boolean).join(' · ')}.</p>}
+    <details className="ai-model-advanced" open={decision || undefined}><summary>Méthode de correction et modèle décisionnel</summary>
     {modelField(`${prefix}-decision-model`, 'Modèle décisionnel (facultatif)', decisionModel, props.onDecisionModel,
       'Évalue les attendus du barème avec System One. Ce choix est mémorisé séparément du modèle génératif.')}
     <div className="evaluation-config-field">
@@ -77,37 +100,24 @@ export function AiModelRoleFields(props: Props) {
         {method === 'visual-decision' && !isVisualDecisionModel(decisionModel) && <StatusNotice tone="warning">Ce modèle n’est pas reconnu comme compatible avec les images System One. Utilisez un modèle compatible ou désactivez cette option pour utiliser la transcription.</StatusNotice>}
       </details>}
     </div>
+    </details>
     <div className="evaluation-config-field">
-      {apiCompatible && <label className="analysis-thinking-option" htmlFor={`${prefix}-omit-reasoning`}>
-        <input id={`${prefix}-omit-reasoning`} type="checkbox" checked={props.omitReasoningParameter === true}
-          disabled={disabled} onChange={event => props.onOmitReasoningParameter?.(event.target.checked)} />
-        <span><strong>Ne pas envoyer de paramètre Reasoning (modèles Instruct)</strong>
-          <small>Omet complètement reasoning_effort (Chat Completions) ou reasoning (Chat LM Studio), même quand Thinking est OFF. Le serveur choisit son comportement par défaut.</small>
-        </span>
-      </label>}
-      <label className="analysis-thinking-option" htmlFor={`${prefix}-analysis-thinking`}>
-        <input id={`${prefix}-analysis-thinking`} type="checkbox" checked={props.analysisThinking}
-          disabled={disabled || (apiCompatible && props.omitReasoningParameter === true)} onChange={(event) => props.onAnalysisThinking(event.target.checked)} />
-        <span><strong>Activer Thinking (raisonnement)</strong>
-          <small>{apiCompatible
-            ? 'Demande au serveur compatible OpenAI d’activer ou désactiver le raisonnement du modèle. Le résultat dépend du serveur et du modèle. Peut ralentir la correction et consommer plus de tokens.'
-            : 'Pour les analyses génératives avec Ollama. Peut améliorer le raisonnement, mais allonger les corrections et consommer davantage de tokens. N’affecte pas la lecture Vision ni la décision System One.'}</small>
-        </span>
-      </label>
-      <p className="hint" id={`${prefix}-analysis-thinking-status`} role="status">
-        {apiCompatible && props.omitReasoningParameter ? 'Aucun paramètre Reasoning ne sera transmis. Le serveur ou le modèle choisit le comportement.' : apiCompatible
-          ? props.analysisThinking
-            ? 'Thinking demandé (effort ' + (props.analysisReasoningEffort ?? 'medium') + ') pour les prochaines analyses génératives, si le serveur et le modèle prennent en charge ce réglage.'
-            : 'Thinking désactivé demandé pour les prochaines analyses génératives. Si LM Studio ignore ce paramètre, désactivez aussi Reasoning dans ses réglages du modèle.'
-          : props.analysisThinking
-            ? 'Thinking activé pour les prochaines analyses génératives.'
-            : 'Thinking désactivé pour les prochaines analyses génératives.'}
-      </p>
+      <label className="field-label" htmlFor={prefix + '-reasoning'}>Raisonnement</label>
+      <DesignSystemSelect id={prefix + '-reasoning'} value={mode} disabled={disabled}
+        onChange={event => props.onReasoning(event.target.value as ReasoningMode)}>
+        {apiCompatible && <option value="default">Par défaut du modèle</option>}
+        {!props.responses && (!nativeOptions || nativeOptions.includes('off') || mode === 'off') && <option value="off">Désactivé</option>}
+        {(!apiCompatible || nativeOptions?.includes('on') || mode === 'on') && <option value="on">Activé</option>}
+        {apiCompatible && efforts.map(effort => <option key={effort} value={effort}>{effortLabels[effort]}</option>)}
+      </DesignSystemSelect>
+      {props.responses && <p className="hint">Pour désactiver le raisonnement des schémas via Responses, utilisez les réglages du modèle dans LM Studio.</p>}
+      {props.nativeChat && props.smartZoom && mode === 'off' &&
+        <p className="hint">Avec le zoom, les schémas suivent le réglage de raisonnement du modèle dans LM Studio.</p>}
       {apiCompatible && (props.nativeChat || props.responses) && !decision && <label className="analysis-thinking-option" htmlFor={prefix + '-smart-zoom'}>
         <input id={prefix + '-smart-zoom'} type="checkbox" checked={props.smartZoom === true} disabled={disabled}
           onChange={event => props.onSmartZoom?.(event.target.checked)} />
-        <span><strong>Zoom intelligent sur demande du LLM (2 par critère maximum)</strong>
-          <small>Correction directe des schémas : inspecte une zone de la photo originale seulement si le modèle hésite. LM Studio Responses + outil inspect_region ; aucune amélioration générative de l’image. Les modèles doivent prendre en charge les outils.</small>
+        <span><strong>Zoom intelligent sur demande (2 par critère maximum)</strong>
+          <small>Pour les schémas, le modèle peut examiner une zone de la photo originale quand il hésite. Le test de cadrage du laboratoire permet de vérifier les appels de zoom.</small>
         </span>
       </label>}
       <details className="ai-model-advanced"><summary>Réglages avancés de génération</summary>
@@ -156,20 +166,9 @@ export function AiModelRoleFields(props: Props) {
             else if (Number.isSafeInteger(event.target.valueAsNumber) && event.target.valueAsNumber >= 1 && event.target.valueAsNumber <= 1000)
               props.onAnalysisTopK?.(event.target.valueAsNumber);
           }} />
-        <p className="hint">Top-k fonctionne via Ollama et Chat natif LM Studio (/api/v1/chat) ; il n’est pas envoyé à Chat Completions compatible OpenAI.</p>
+        <p className="hint">Top-k s’applique avec Ollama et Chat natif LM Studio, hors mode Responses.</p>
       </details>}
       </details>
-      {apiCompatible && props.analysisThinking && !props.omitReasoningParameter && <div className="evaluation-config-field">
-        <label className="field-label" htmlFor={`${prefix}-reasoning-effort`}>Effort de raisonnement</label>
-        <DesignSystemSelect id={`${prefix}-reasoning-effort`}
-          value={props.analysisReasoningEffort ?? 'medium'} disabled={disabled}
-          onChange={(event) => props.onAnalysisReasoningEffort?.(event.target.value as AnalysisReasoningEffort)}>
-          <option value="low">Faible (low)</option>
-          <option value="medium">Moyen (medium)</option>
-          <option value="high">Élevé (high)</option>
-        </DesignSystemSelect>
-        <p className="hint">Niveau demandé à l’API pour les analyses, y compris les tests de biologie. Le serveur ou le modèle peut ignorer ce paramètre.</p>
-      </div>}
     </div>
   </>;
 }

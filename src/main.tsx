@@ -1,4 +1,5 @@
 import './instrumentation.ts';
+import { discoverCompatibleModels } from './shared/adapters/ai/compatibleModelDiscovery.ts';
 import './pwa/registerServiceWorker.ts';
 import { prepareQuestionContracts } from './correction/adapters/ai/contractPreparation.ts';
 import { createEvaluationVisionService } from './evaluation/application/evaluationVisionService.ts';
@@ -8,7 +9,6 @@ import { App } from './shell/ui/App.tsx';
 import { LocalMemoryCompanion } from './correction/ui/LocalMemoryCompanion.tsx';
 import { installLocalMemoryFetchBridge } from './correction/adapters/ai/localMemoryFetchBridge.ts';
 import { currentFetch } from './shared/adapters/ai/currentFetch.ts';
-import { loadOnDemandModel } from './shared/adapters/ai/modelLoadClient.ts';
 import { unloadPilotOllamaModels } from './evaluation/adapters/ai/pilotOllamaMemory.ts';
 import { IndexedDbBackgroundCorrectionRepository, IndexedDbLocalCorrectionRepository } from './correction/adapters/storage/correctionRepository.ts';
 import { IndexedDbModelEvaluationRepository } from './evaluation/adapters/storage/evaluationRepository.ts';
@@ -53,7 +53,7 @@ const scientificDiagramAnalysisService = createScientificDiagramAnalysisService(
 const backgroundCorrectionService = createBackgroundCorrectionService(new IndexedDbBackgroundCorrectionRepository(), { checkReady: (settings, signal) => checkOllamaReady(settings, currentFetch, signal), prewarmModel: (settings, model, signal) => prewarmOllamaModel(settings, model, currentFetch, signal), unloadModel: unloadOllamaModel, listModels: listOllamaModels, createProvider: createOllamaProvider, importRubricImage: (images, settings, onProgress, signal) => importRubricImageWithOllama(images, settings, currentFetch, onProgress, signal) }, scientificDiagramAnalysisService);
 installLocalMemoryFetchBridge(localCorrectionRepository);
 const correctionWorkspaceService = createCorrectionWorkspaceService(
-  { prepareQuestionContracts, checkReady: (settings, signal) => checkOllamaReady(settings, currentFetch, signal), prewarmModel: (settings, model, signal) => prewarmOllamaModel(settings, model, currentFetch, signal), listModels: listOllamaModels, createProvider: createOllamaProvider, importRubricImage: (images, settings, onProgress, signal) => importRubricImageWithOllama(images, settings, currentFetch, onProgress, signal) },
+  { prepareQuestionContracts, discoverCompatibleModels, checkReady: (settings, signal) => checkOllamaReady(settings, currentFetch, signal), prewarmModel: (settings, model, signal) => prewarmOllamaModel(settings, model, currentFetch, signal), listModels: listOllamaModels, createProvider: createOllamaProvider, importRubricImage: (images, settings, onProgress, signal) => importRubricImageWithOllama(images, settings, currentFetch, onProgress, signal) },
   { prepareFiles: prepareLocalFiles, rotateImage: rotateLocalImage, eraseTeacherAnnotationColor, importRubric: importRubricFile },
 );
 
@@ -65,7 +65,7 @@ const evaluationVision = createEvaluationVisionService({
 
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <App evaluationVision={evaluationVision} service={correctionWorkspaceService} archiveService={localCorrectionService} evaluationService={modelEvaluationService} diagramLabArchive={diagramLabArchive} storageDiagnosticsService={storageDiagnosticsService} backgroundCorrectionService={backgroundCorrectionService} diagramAnalysisService={scientificDiagramAnalysisService} loadOnDemandModel={loadOnDemandModel} releasePilotModels={unloadPilotOllamaModels} />
+    <App evaluationVision={evaluationVision} service={correctionWorkspaceService} archiveService={localCorrectionService} evaluationService={modelEvaluationService} diagramLabArchive={diagramLabArchive} storageDiagnosticsService={storageDiagnosticsService} backgroundCorrectionService={backgroundCorrectionService} diagramAnalysisService={scientificDiagramAnalysisService} releasePilotModels={unloadPilotOllamaModels} />
     <LocalMemoryCompanion service={localCorrectionService} />
   </React.StrictMode>,
 );
