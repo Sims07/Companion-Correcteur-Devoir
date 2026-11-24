@@ -1,3 +1,4 @@
+import { responsesEndpoint } from '../../../shared/domain/lmStudioTransport.ts';
 import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import type { AiModelConfiguration, AiModelProfile } from '../../../shared/domain/aiModelProfiles.ts';
@@ -15,9 +16,10 @@ export function ZoomWitnessPanel({ profiles, current, visible, busy }: {
   profiles: readonly AiModelProfile[]; current: Pick<AiModelConfiguration, 'endpoint' | 'apiCompatible' | 'apiKey' | 'analysisModel' | 'analysisThinking' | 'analysisReasoningEffort' | 'omitReasoningParameter' | 'gradingOutputTokens' | 'analysisTemperature' | 'analysisTopP'>; visible: boolean; busy: boolean;
 }) {
   const choices = [{ id: '', name: 'Réglages courants', configuration: current }, ...profiles]
-    .filter(({ configuration: c }) => c.apiCompatible && /\/api\/v1\/chat\/?$/.test(c.endpoint.trim()) && c.analysisModel);
-  const [id, choose] = useState('');
-  const selected = choices.find(p => p.id === id) ?? choices[0];
+    .map(p => ({ ...p, testEndpoint: p.configuration.apiCompatible && p.configuration.analysisModel
+      ? responsesEndpoint(p.configuration.endpoint) : undefined }));
+  const [id, choose] = useState<string | undefined>(undefined);
+  const selected = choices.find(p => p.id === id) ?? choices.find(p => p.testEndpoint) ?? choices[0];
   const controller = useRef<AbortController | null>(null);
   const [running, setRunning] = useState(false);
   const [seconds, setSeconds] = useState(0);
@@ -34,7 +36,7 @@ export function ZoomWitnessPanel({ profiles, current, visible, busy }: {
   }, [running]);
 
   async function run() {
-    if (controller.current || !selected) return;
+    if (controller.current || !selected?.testEndpoint) return;
     const ac = new AbortController();
     controller.current = ac;
     setRunning(true); setSeconds(0); setCrops([]); setAnswer(''); setWitness(undefined);
@@ -45,7 +47,7 @@ export function ZoomWitnessPanel({ profiles, current, visible, busy }: {
     try {
       const sheet = makeZoomWitness();
       setWitness(sheet);
-      const response = await sendLmStudioZoomDiagramTurn(c.endpoint, c.apiKey, {}, {
+      const response = await sendLmStudioZoomDiagramTurn(selected.testEndpoint, c.apiKey, {}, {
         model: c.analysisModel, criterionLabel: 'Cadrage du noyau B',
         think: c.analysisThinking && (c.analysisReasoningEffort ?? 'medium'),
         omitReasoningParameter: c.omitReasoningParameter,
@@ -77,9 +79,9 @@ export function ZoomWitnessPanel({ profiles, current, visible, busy }: {
     <details><summary>Vérifier le zoom du modèle</summary>
       <p>Le modèle reçoit un aperçu de deux cellules et doit cadrer le noyau de B pour lire son code.</p>
       <label>Profil LM Studio <select value={selected?.id ?? ''} disabled={running || !choices.length}
-        onChange={event => choose(event.target.value)}>{choices.map(p => <option key={p.id} value={p.id}>{p.name} · {p.configuration.analysisModel}</option>)}</select></label>
-      {!choices.length && <p>Configurez un profil vision LM Studio avec son adresse /api/v1/chat.</p>}
-      <button type="button" className="primary-button" disabled={!selected || busy || running} onClick={() => void run()}>Tester le cadrage</button>
+        onChange={event => choose(event.target.value)}>{choices.map(p => <option key={p.id} value={p.id}>{p.name} · {p.configuration.analysisModel || 'Modèle non renseigné'}{p.testEndpoint ? '' : ' · Non compatible'}</option>)}</select></label>
+      {selected?.testEndpoint ? <p className="hint">Test via Responses : {selected.testEndpoint}. Le profil enregistré reste inchangé. Le serveur et le modèle doivent accepter les outils et les images.</p> : <p>Ce profil ne fournit pas une adresse compatible Responses et un modèle d’analyse. Configurez un profil LM Studio.</p>}
+      <button type="button" className="primary-button" disabled={!selected?.testEndpoint || busy || running} onClick={() => void run()}>Tester le cadrage</button>
       {running && <button type="button" onClick={() => controller.current?.abort()}>Arrêter le test</button>}
       <p role="status">{status}{running && ' · ' + seconds + ' s'}</p>
       {witness && <><p>Référence en vert pointillé. Chaque cadre bleu numéroté correspond à un zoom demandé.</p>
