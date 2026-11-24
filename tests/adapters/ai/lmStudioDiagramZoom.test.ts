@@ -64,6 +64,67 @@ describe('LM Studio on-demand smart zoom (Responses API)', () => {
     expect(previews.join('')).not.toContain('UFJFVklFVw==');
   });
 
+  it('distinguishes an explicit Thinking OFF from omitting the parameter', async () => {
+    const bodies: Record<string, any>[] = [];
+    const fetchMock: typeof fetch = async (_url, init) => {
+      bodies.push(JSON.parse(String(init?.body)));
+      return completion('resp_final', [{ type: 'message', content: [{ type: 'output_text', text: 'ok' }] }]);
+    };
+    for (const config of [
+      { think: false, omitReasoningParameter: false },
+      { think: true, omitReasoningParameter: false },
+      { think: false, omitReasoningParameter: true },
+    ]) {
+      await sendLmStudioZoomDiagramTurn(endpoint, '', {}, { ...turn, ...config }, originals, {}, fetchMock, () => {});
+    }
+    expect(bodies[0].reasoning).toEqual({ effort: 'none' });
+    expect(bodies[1].reasoning).toEqual({ effort: 'medium' });
+    expect(bodies[2]).not.toHaveProperty('reasoning');
+  });
+
+  it('extracts a final message after reasoning even if output_text is empty', async () => {
+    const reasoning = { type: 'reasoning', content: [{ type: 'reasoning_text', text: 'Analyse intermédiaire' }] };
+    const fetchMock: typeof fetch = async () => new Response(JSON.stringify({
+      id: 'resp_final', status: 'completed', output_text: '',
+      output: [reasoning, { type: 'message', content: [{ type: 'output_text', text: '{"ok":true}' }] }],
+    }));
+    const conversation: ZoomConversation = {};
+    const response = await sendLmStudioZoomDiagramTurn(endpoint, '', conversation, turn, originals, {}, fetchMock, () => {});
+    expect(JSON.parse(await response.text())).toMatchObject({
+      message: { content: '{"ok":true}', thinking: 'Analyse intermédiaire' }, done_reason: 'stop',
+    });
+    expect(conversation.responseId).toBe('resp_final');
+  });
+
+  it('does not mistake a completed reasoning-only response for a grade', async () => {
+    const fetchMock: typeof fetch = async () => new Response(JSON.stringify({
+      id: 'resp_reasoning', status: 'completed',
+      output: [{ type: 'reasoning', content: [{ type: 'reasoning_text', text: '{"ok":true}' }] }],
+    }));
+    const conversation: ZoomConversation = {};
+    const response = await sendLmStudioZoomDiagramTurn(endpoint, '', conversation, turn, originals, {}, fetchMock, () => {});
+    expect(JSON.parse(await response.text())).toMatchObject({
+      message: { content: '', thinking: '{"ok":true}' }, done_reason: 'stop',
+    });
+    expect(conversation.responseId).toBeUndefined();
+  });
+
+  it('propagates explicit or exhausted generation limits without advancing the conversation', async () => {
+    for (const details of [
+      { status: 'incomplete', incomplete_details: { reason: 'max_output_tokens' } },
+      { status: 'completed', usage: { output_tokens: 1024 } },
+    ]) {
+      const fetchMock: typeof fetch = async () => new Response(JSON.stringify({
+        id: 'resp_limit', output: [{ type: 'reasoning', content: [{ type: 'reasoning_text', text: 'analyse' }] }],
+        ...details,
+      }));
+      const conversation: ZoomConversation = {};
+      const response = await sendLmStudioZoomDiagramTurn(endpoint, '', conversation, turn, originals, {}, fetchMock, () => {});
+      expect(JSON.parse(await response.text())).toMatchObject({ message: { content: '' }, done_reason: 'length' });
+      expect(conversation.responseId).toBeUndefined();
+    }
+  });
+
   it('refuses a third crop even if a model requests more tool calls', async () => {
     vi.mocked(cropOriginalDiagram).mockClear();
     const calls: Record<string, any>[] = [];
@@ -142,6 +203,27 @@ describe('LM Studio on-demand smart zoom (Responses API)', () => {
     expect(calls[0].input[0].content[0].type).toBe('input_image');
     expect(calls[1].previous_response_id).toBe('resp_1');
     expect(calls[1].input[0].content.some((x: {type: string}) => x.type === 'input_image')).toBe(false);
+  });
+
+  it('rejects reasoning-only output through the actual grading provider without awarding a grade', async () => {
+    const rubric = { ...SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC,
+      criteria: SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC.criteria.slice(0, 1).map(c => ({ ...c, subcriteria: [], maxPoints: 1 })) };
+    const fetchMock: typeof fetch = async () => new Response(JSON.stringify({
+      id: 'resp_reasoning_only', status: 'completed',
+      output: [{ type: 'reasoning', summary: [{ type: 'summary_text', text: '{"criteria":{}}' }] }],
+      usage: { output_tokens: 10 },
+    }));
+    const provider = createOllamaProvider({
+      endpoint, apiCompatible: true, correctionMethod: 'generative', analysisModel: 'gemma-26b',
+      smartZoom: true, omitReasoningParameter: true,
+    }, fetchMock);
+    const onDiagnosticResult = vi.fn();
+    await expect(gradeDiagramImages(provider, { rubric, question: 'Observer le dessin', images: originals, onDiagnosticResult }, true))
+      .rejects.toThrow('LM Studio Responses a renvoyé un raisonnement mais aucune réponse finale exploitable');
+    expect(onDiagnosticResult).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+      raw: '', thinkingPresent: true,
+      error: expect.stringContaining('LM Studio Responses a renvoyé un raisonnement mais aucune réponse finale exploitable'),
+    }));
   });
 
   it('preserves a full photo only in the first criterion request and continues with the same response ID', async () => {

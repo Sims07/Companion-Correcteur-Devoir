@@ -65,7 +65,10 @@ export function ZoomWitnessPanel({ profiles, current, visible, busy }: {
       if (!response.ok) throw new Error('LM Studio a répondu HTTP ' + response.status);
       const result = await response.json();
       ac.signal.throwIfAborted();
-      setAnswer(result.message.content.trim());
+      if (result.done_reason === 'length') throw new Error('Limite de génération atteinte pendant le test de zoom.');
+      const finalAnswer = result.message.content.trim();
+      if (!finalAnswer) throw new Error('LM Studio Responses n’a renvoyé aucune réponse finale pour le test de zoom.');
+      setAnswer(finalAnswer);
       setStatus(c.analysisModel + ' · ' + (inspected ? inspected + ' zoom(s) obtenu(s)' : attempts ? 'Demande de zoom rejetée' : 'Aucun appel de zoom'));
     } catch (error) {
       setStatus(ac.signal.aborted ? 'Essai arrêté' : error instanceof Error ? error.message : 'Échec du test');
