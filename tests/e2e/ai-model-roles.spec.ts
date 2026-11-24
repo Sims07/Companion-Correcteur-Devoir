@@ -77,6 +77,7 @@ test('LM Studio high reasoning effort is saved and restored for biology evaluati
   const effort = editor.getByLabel('Effort de raisonnement');
   await expect(effort).toHaveValue('medium');
   await effort.selectOption('high');
+  await editor.getByText('Réglages avancés de génération', { exact: true }).click();
   await editor.getByLabel('Plafond de sortie par correction (tokens)').fill('16384');
   await expect(editor.locator('#evaluation-analysis-thinking-status')).toContainText('high');
   await editor.getByLabel('Nom de la configuration').fill('Gemma high');

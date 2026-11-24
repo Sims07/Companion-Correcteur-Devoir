@@ -42,13 +42,16 @@ test('laboratory editor offers the same opt-in only on native LM Studio', async 
   await dialog.getByLabel('URL de l’API IA').fill('http://localhost:1234/api/v1/chat');
   const toggle = dialog.getByRole('checkbox', { name: /Zoom intelligent sur demande/ });
   await expect(toggle).toBeVisible();
+  await dialog.getByLabel('Fournisseur IA').selectOption('lmstudio-responses');
+  await expect(dialog.getByLabel('URL de l’API IA')).toHaveValue('http://localhost:1234/v1/responses');
+  await expect(toggle).toBeVisible();
   await toggle.check();
   await expect.poll(() => page.evaluate(key => JSON.parse(localStorage.getItem(key) ?? '{}').smartZoom, key)).toBe(true);
 });
 
 test('laboratory displays the same crop that is delivered to the model', async ({ page }) => {
   await page.addInitScript(key => localStorage.setItem(key, JSON.stringify({
-    endpoint: 'http://localhost:1234/api/v1/chat', apiCompatible: true,
+    endpoint: 'http://localhost:1234/v1/chat/completions', apiCompatible: true,
     analysisModel: 'gemma', generativeModel: 'gemma', correctionMethod: 'generative',
   })), key);
   let sentCrop = '';

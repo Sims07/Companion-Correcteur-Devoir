@@ -1,7 +1,7 @@
 import { copyNetworkRequestMetadata } from '../../ports/networkRequestMetadata.ts';
 
 export function compatibleEndpoint(endpoint: string): string {
-  return endpoint.trim().replace(/\/api\/v1\/chat\/?$/, '/v1/chat/completions');
+  return endpoint.trim().replace(/\/(?:api\/v1\/chat|v1\/responses)\/?$/, '/v1/chat/completions');
 }
 
 interface DiagramTurn {

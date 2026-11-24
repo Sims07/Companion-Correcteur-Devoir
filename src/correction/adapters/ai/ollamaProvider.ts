@@ -1,3 +1,4 @@
+import { aiTransport } from '../../../shared/domain/lmStudioTransport.ts';
 import { arrowContext } from '../../../shared/adapters/image/arrowContext.ts';
 import { questionGroups, scopedCriterionInput } from '../../domain/questionContract.ts';
 import { promptTrace, type PromptId } from '../../../shared/adapters/ai/prompts/promptRegistry.ts';
@@ -405,7 +406,10 @@ export function createOllamaProvider(
       const visionOnly = request.visionOnly === true;
       const directVisualDecision = !visionOnly && (request.directVisualDecision === true || settings.correctionMethod === 'visual-decision');
       const directGenerativeVision = !visionOnly && request.directGenerativeVision === true;
-      const chat = directGenerativeVision && settings.apiCompatible && isLmStudioChat(endpoint) ? request.diagramConversation : undefined;
+      const transport = aiTransport(settings.apiCompatible === true, endpoint);
+      const responses = transport === 'lmstudio-responses';
+      const chat = directGenerativeVision && (responses || transport === 'lmstudio-chat')
+        ? request.diagramConversation ?? (responses ? {} : undefined) : undefined;
       // Preserve the original photo before the transport-wide 1300px resize.
       // Only on-demand tool calls may inspect these bytes; never log or export them.
       const originalDiagramImages = directGenerativeVision ? request.images : undefined;
@@ -697,10 +701,10 @@ export function createOllamaProvider(
             body: chat ? undefined : JSON.stringify(requestBody),
             signal: requestAbortController.signal,
           }, request.diagramCriterionLabel ? intent + ' · ' + request.diagramCriterionLabel : intent, `Modèle ${model} · ${context}`);
-          response = chat && settings.smartZoom === true
+          response = chat && (responses || settings.smartZoom === true)
             ? await sendLmStudioZoomDiagramTurn(endpoint, settings.apiKey ?? '', chat,
                 { ...requestBody, criterionLabel: request.diagramCriterionLabel, omitReasoningParameter: settings.omitReasoningParameter },
-                originalDiagramImages ?? [], init, fetchImpl, payload => activeRequestPayloads?.push(payload))
+                originalDiagramImages ?? [], init, fetchImpl, payload => activeRequestPayloads?.push(payload), undefined, settings.smartZoom === true)
             : chat
               ? await sendLmStudioDiagramTurn(endpoint, settings.apiKey ?? '', chat, { ...requestBody, omitReasoningParameter: settings.omitReasoningParameter, contextLength: settings.contextLength }, init, fetchImpl, payload => activeRequestPayloads?.push(payload))
               : await providerFetch(`${endpoint}/api/chat`, init);
