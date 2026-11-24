@@ -35,11 +35,14 @@ const TOOL = {
 
 type ApiOutput =
   | { type: 'function_call'; name?: string; call_id?: string; arguments?: string }
-  | { type: 'message'; content?: Array<{ type?: string; text?: string }> };
+  | { type: 'message'; content?: Array<{ type?: string; text?: string }> }
+  | { type: 'reasoning'; content?: Array<{ type?: string; text?: string }> };
 interface ApiResponse {
   id?: string;
   output?: ApiOutput[];
   output_text?: string;
+  status?: string;
+  incomplete_details?: { reason?: string } | null;
   usage?: { input_tokens?: number; output_tokens?: number; total_tokens?: number };
 }
 
@@ -91,8 +94,9 @@ export async function sendLmStudioZoomDiagramTurn(
       ...(turn.options.temperature !== undefined ? { temperature: turn.options.temperature } : {}),
       ...(turn.options.top_p !== undefined ? { top_p: turn.options.top_p } : {}),
       // Responses has a different reasoning dialect from native Chat.
-      ...(!turn.omitReasoningParameter && turn.think && turn.think !== 'none'
-        ? { reasoning: { effort: turn.think === true || turn.think === 'on' ? 'medium' : turn.think } } : {}),
+      ...(!turn.omitReasoningParameter ? { reasoning: { effort:
+        !turn.think || turn.think === 'off' || turn.think === 'none' ? 'none' :
+          turn.think === true || turn.think === 'on' ? 'medium' : turn.think } } : {}),
     };
     // Never persist copies or crops in the network request inspector.
     preview({ ...body, input: '[TEXT / IMAGE REDACTED]', tools: enableZoom && inspections < 2 ? ['inspect_region'] : [] });
@@ -114,14 +118,27 @@ export async function sendLmStudioZoomDiagramTurn(
     totalOutput += payload.usage?.output_tokens ?? 0;
     total += payload.usage?.total_tokens ?? 0;
     const calls = payload.output.filter((item): item is Extract<ApiOutput, { type: 'function_call' }> => item.type === 'function_call');
-    if (calls.length === 0) {
-      text = typeof payload.output_text === 'string' ? payload.output_text :
-        payload.output.filter((item): item is Extract<ApiOutput, { type: 'message' }> => item.type === 'message')
-          .flatMap(item => item.content ?? []).filter(item => item.type === 'output_text' || item.type === 'text')
-          .map(item => item.text ?? '').join('');
-      if (!text.trim()) throw new Error('Réponse finale vide après inspection de la copie.');
-      conversation.responseId = previousId;
-      const last = { message: { content: text }, done: true,
+    const incomplete = payload.status === 'incomplete';
+    if (payload.status && payload.status !== 'completed' && !incomplete) {
+      throw new Error('LM Studio Responses : réponse non terminée (' + payload.status + ').');
+    }
+    if (incomplete && payload.incomplete_details?.reason !== 'max_output_tokens') {
+      throw new Error('LM Studio Responses : génération incomplète (' + (payload.incomplete_details?.reason ?? 'cause inconnue') + ').');
+    }
+    if (calls.length === 0 || incomplete) {
+      const messageText = payload.output.filter((item): item is Extract<ApiOutput, { type: 'message' }> => item.type === 'message')
+        .flatMap(item => item.content ?? []).filter(item => item.type === 'output_text' || item.type === 'text')
+        .map(item => item.text ?? '').join('');
+      text = payload.output_text?.trim() ? payload.output_text : messageText;
+      const reasoning = payload.output.filter((item): item is Extract<ApiOutput, { type: 'reasoning' }> => item.type === 'reasoning')
+        .flatMap(item => item.content ?? []).filter(item => item.type === 'reasoning_text')
+        .map(item => item.text ?? '').join('');
+      const atLimit = incomplete || (!text.trim() && turn.options.num_predict !== undefined &&
+        (payload.usage?.output_tokens ?? 0) >= turn.options.num_predict);
+      // Never promote reasoning or truncated JSON to a final answer.
+      if (text.trim() && !atLimit) conversation.responseId = previousId;
+      const last = { message: { content: text, ...(reasoning ? { thinking: reasoning } : {}) },
+        done: true, done_reason: atLimit ? 'length' : 'stop',
         prompt_eval_count: totalInput, eval_count: totalOutput, usage: { prompt_tokens: totalInput,
           completion_tokens: totalOutput, total_tokens: total || totalInput + totalOutput } };
       return new Response(JSON.stringify(last) + '\n', {
