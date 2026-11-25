@@ -2,6 +2,15 @@ import { OllamaThinkingStream } from './ollamaThinkingStream.ts';
 
 export type OpenAiTokenUsage = { promptTokens?: number; completionTokens: number };
 
+type ResponsesDiagnosticPayload = {
+  status?: string;
+  incomplete_details?: { reason?: string } | null;
+  output_text?: string;
+  output?: Array<{ type?: string; content?: Array<{ type?: string; text?: string }>;
+    summary?: Array<{ type?: string; text?: string }> }>;
+  usage?: { input_tokens?: number; output_tokens?: number };
+};
+
 /**
  * Decode native OpenAI Chat Completions responses for LOCAL diagnostics.
  * Reasoning is never promoted to final answer content. SSE may be split at
@@ -76,6 +85,8 @@ export class OpenAiCompletionStream {
     if (!payload || typeof payload !== 'object') return;
     const event = payload as {
       type?: string;
+      delta?: string;
+      response?: ResponsesDiagnosticPayload;
       content?: string;
       result?: { stats?: { input_tokens?: number; total_output_tokens?: number } };
       choices?: Array<{
@@ -85,6 +96,20 @@ export class OpenAiCompletionStream {
       }>;
       usage?: { prompt_tokens?: unknown; completion_tokens?: unknown };
     };
+    if (event.type === 'response.output_text.delta' || event.type === 'response.reasoning_text.delta' ||
+        event.type === 'response.reasoning_summary_text.delta') {
+      const key = event.type === 'response.output_text.delta' ? 'content' : 'thinking';
+      if (typeof event.delta === 'string') this.collector.append(JSON.stringify({ message: { [key]: event.delta } }) + '\n');
+      return;
+    }
+    if (event.type === 'response.completed' || event.type === 'response.incomplete' || event.type === 'response.failed') {
+      if (event.response) this.consumeResponses(event.response, event.type);
+      return;
+    }
+    if (Array.isArray((payload as ResponsesDiagnosticPayload).output)) {
+      this.consumeResponses(payload as ResponsesDiagnosticPayload);
+      return;
+    }
     // LM Studio may send the final usage in an SSE frame without choices.
     if (event.type === 'message.delta' || event.type === 'reasoning.delta') {
       const key = event.type === 'message.delta' ? 'content' : 'thinking';
@@ -109,6 +134,37 @@ export class OpenAiCompletionStream {
     const thinking = typeof rawThinking === 'string' ? rawThinking : '';
     if (message || thinking) this.collector.append(JSON.stringify({ message: { content: message, thinking } }) + '\n');
   }
+  private consumeResponses(payload: ResponsesDiagnosticPayload, eventType?: string): void {
+    const status = payload.status ?? eventType?.slice('response.'.length);
+    if (status === 'completed') this.finalReason = 'stop';
+    if (status === 'failed') this.finalReason = 'failed';
+    if (status === 'incomplete') this.finalReason = payload.incomplete_details?.reason === 'max_output_tokens'
+      ? 'length' : payload.incomplete_details?.reason ?? 'incomplete';
+    const usage = payload.usage;
+    if (usage && typeof usage.output_tokens === 'number' && Number.isSafeInteger(usage.output_tokens) && usage.output_tokens >= 0) {
+      const promptTokens = usage.input_tokens;
+      this.finalUsage = { completionTokens: usage.output_tokens,
+        ...(typeof promptTokens === 'number' && Number.isSafeInteger(promptTokens) && promptTokens >= 0 ? { promptTokens } : {}) };
+    }
+    // Terminal events repeat deltas. Use their full output only if no
+    // fragments of that channel were received (some servers omit deltas).
+    const output = payload.output ?? [];
+    const message = payload.output_text?.trim() ? payload.output_text : output.filter(item => item.type === 'message')
+      .flatMap(item => item.content ?? []).filter(part => part.type === 'output_text' || part.type === 'text')
+      .map(part => part.text ?? '').join('');
+    const thinking = output.filter(item => item.type === 'reasoning')
+      .flatMap(item => [...(item.content ?? []), ...(item.summary ?? [])])
+      .filter(part => part.type === 'reasoning_text' || part.type === 'summary_text')
+      .map(part => part.text ?? '').join('');
+    this.collector.append(JSON.stringify({ message: {
+      content: this.collector.messageCharacters ? '' : message,
+      thinking: this.collector.thinkingCharacters ? '' : thinking,
+    } }) + '\n');
+  }
+}
+
+export function isOpenAiResponsesRequest(url: string): boolean {
+  return /\/v1\/responses\/?(?:[?#]|$)/i.test(url);
 }
 
 export function isOpenAiCompletionRequest(url: string): boolean {

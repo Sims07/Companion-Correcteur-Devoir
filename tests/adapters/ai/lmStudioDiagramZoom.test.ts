@@ -21,8 +21,9 @@ const region = { page: 1, x: 0.25, y: 0.2, width: 0.3, height: 0.4 };
 const toolCall = (id: string, args = region) =>
   ({ type: 'function_call', name: 'inspect_region', call_id: id, arguments: JSON.stringify(args) });
 const completion = (id: string, output: unknown[]) =>
-  new Response(JSON.stringify({ id, output, usage: { input_tokens: 20, output_tokens: 10, total_tokens: 30 } }),
-    { status: 200, headers: { 'Content-Type': 'application/json' } });
+  new Response('data: ' + JSON.stringify({ type: 'response.completed', response: {
+    id, output, usage: { input_tokens: 20, output_tokens: 10, total_tokens: 30 },
+  } }) + '\n\n', { status: 200, headers: { 'Content-Type': 'text/event-stream' } });
 
 describe('LM Studio on-demand smart zoom (Responses API)', () => {
   it('calls only the requested region, returns a visible crop, redacts diagnostics and reuses the same conversation', async () => {
@@ -43,6 +44,7 @@ describe('LM Studio on-demand smart zoom (Responses API)', () => {
     expect(response.ok).toBe(true);
     expect(JSON.parse((await response.text()).trim()).message.content).toBe('{"ok":true}');
     expect(calls).toHaveLength(2);
+    expect(calls.every(call => call.stream === true)).toBe(true);
     expect(calls[0].input[0].content[0].image_url).toContain('UFJFVklFVw==');
     const prompt = calls[0].input[0].content.find((part: { type: string }) => part.type === 'input_text').text;
     expect(prompt).toContain('cadre la structure et les repères voisins utiles pour la distinguer, même sans légende');
@@ -62,6 +64,36 @@ describe('LM Studio on-demand smart zoom (Responses API)', () => {
     expect(previews.join('')).toContain('inspected');
     expect(previews.join('')).not.toContain('Q1JPUA==');
     expect(previews.join('')).not.toContain('UFJFVklFVw==');
+  });
+
+  it('rejects an interrupted SSE stream without executing a partial tool or advancing conversation', async () => {
+    vi.mocked(cropOriginalDiagram).mockClear();
+    const fetchMock: typeof fetch = async () => new Response(
+      'data: ' + JSON.stringify({ type: 'response.output_item.added', item: toolCall('partial') }) + '\n\n',
+      { headers: { 'Content-Type': 'text/event-stream' } });
+    const conversation: ZoomConversation = {};
+    await expect(sendLmStudioZoomDiagramTurn(endpoint, '', conversation, turn, originals, {}, fetchMock, () => {}))
+      .rejects.toThrow('interrompu avant la réponse finale');
+    expect(conversation.responseId).toBeUndefined();
+    expect(cropOriginalDiagram).not.toHaveBeenCalled();
+  });
+
+  it('reads split UTF-8 SSE events and preserves terminal incomplete usage', async () => {
+    const events = [
+      { type: 'response.reasoning_text.delta', delta: 'réflexion' },
+      { type: 'response.incomplete', response: { id: 'resp_limit',
+        incomplete_details: { reason: 'max_output_tokens' }, output: [{ type: 'reasoning',
+          content: [{ type: 'reasoning_text', text: 'réflexion' }] }], usage: { input_tokens: 7, output_tokens: 1024 } } },
+    ];
+    const bytes = new TextEncoder().encode(events.map(event => 'data: ' + JSON.stringify(event) + '\r\n\r\n').join(''));
+    const fetchMock: typeof fetch = async () => new Response(new ReadableStream<Uint8Array>({
+      start(controller) { for (let i = 0; i < bytes.length; i += 3) controller.enqueue(bytes.slice(i, i + 3)); controller.close(); },
+    }), { headers: { 'Content-Type': 'text/event-stream' } });
+    const conversation: ZoomConversation = {};
+    const response = await sendLmStudioZoomDiagramTurn(endpoint, '', conversation, turn, originals, {}, fetchMock, () => {});
+    expect(await response.json()).toMatchObject({ message: { content: '', thinking: 'réflexion' },
+      done_reason: 'length', prompt_eval_count: 7, eval_count: 1024 });
+    expect(conversation.responseId).toBeUndefined();
   });
 
   it('distinguishes an explicit Thinking OFF from omitting the parameter', async () => {

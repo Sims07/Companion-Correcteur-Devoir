@@ -134,6 +134,41 @@ describe('network inspector fetch integration', () => {
     restore();
   });
 
+  it('shows Responses reasoning live before final message and records usage without duplication', async () => {
+    let controller!: ReadableStreamDefaultController<Uint8Array>;
+    const source = new ReadableStream<Uint8Array>({ start(c) { controller = c; } });
+    const values = new Map<string, string>();
+    vi.stubGlobal('window', {
+      fetch: vi.fn(async () => new Response(source, { headers: { 'content-type': 'text/event-stream' } })),
+      localStorage: { getItem: (key: string) => values.get(key) ?? null,
+        setItem: (key: string, value: string) => values.set(key, value),
+        removeItem: (key: string) => values.delete(key) },
+      dispatchEvent: vi.fn(), location: { origin: 'http://localhost' },
+    });
+    vi.stubGlobal('CustomEvent', class { constructor(public type: string) {} });
+    clearNetworkHistory();
+    const restore = installNetworkInspector();
+    const response = await window.fetch('https://macmini.local/v1/responses', {
+      method: 'POST', body: JSON.stringify({ stream: true }),
+    });
+    const emit = (event: unknown) => controller.enqueue(new TextEncoder().encode('data: ' + JSON.stringify(event) + '\n\n'));
+    emit({ type: 'response.reasoning_text.delta', delta: 'Observation' });
+    await vi.waitFor(() => expect(loadNetworkHistory()[0]).toMatchObject({
+      state: 'pending', thinkingBody: 'Observation', messageBody: '',
+    }));
+    emit({ type: 'response.output_text.delta', delta: 'OK' });
+    await vi.waitFor(() => expect(loadNetworkHistory()[0]).toMatchObject({ state: 'pending', messageBody: 'OK' }));
+    emit({ type: 'response.completed', response: { status: 'completed', output: [], output_text: 'OK',
+      usage: { input_tokens: 20, output_tokens: 10 } } });
+    controller.close();
+    expect(await response.text()).toContain('response.completed');
+    await vi.waitFor(() => expect(loadNetworkHistory()[0]).toMatchObject({
+      state: 'success', thinkingBody: 'Observation', messageBody: 'OK', finishReason: 'stop',
+      tokenUsage: { promptTokens: 20, completionTokens: 10 },
+    }));
+    restore();
+  });
+
   it('shows LM Studio final content and reasoning while SSE is still streaming without consuming the correction response', async () => {
     const values = new Map<string, string>();
     let controller!: ReadableStreamDefaultController<Uint8Array>;
