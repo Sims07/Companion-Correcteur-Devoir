@@ -15,6 +15,17 @@ export interface CopyAnnotationModelSettings {
 
 export type CopyAnnotationGenerationPhase = 'preparing' | 'waiting' | 'receiving' | 'validating';
 
+export interface CopyAnnotationPdfInput {
+  assignmentTitle: string;
+  studentLabel: string;
+  score: number;
+  maximum: number;
+  finalized: boolean;
+  appreciation: string;
+  images: readonly ImageInput[];
+  annotations: readonly CopyAnnotation[];
+}
+
 export type RubricImportProgress = {
   stage: 'preparing' | 'sending' | 'vision-reading' | 'structuring' | 'response' | 'parsing' | 'page-complete' | 'complete' | 'cancelled' | 'error';
   message: string;
@@ -63,6 +74,7 @@ export interface OllamaGateway {
 }
 
 export interface LocalFileGateway {
+  exportCopyAnnotationPdf?(copy: CopyAnnotationPdfInput): Promise<Blob>;
   prepareFiles(files: FileList | File[]): Promise<ImageInput[]>;
   /** Rotate a working image locally; callers retain the untouched source image separately. */
   rotateImage(image: ImageInput, clockwiseDegrees: 90 | 180 | 270): Promise<ImageInput>;

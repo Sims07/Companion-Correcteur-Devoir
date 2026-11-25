@@ -32,6 +32,7 @@ import { CopyAnnotationGenerationControls } from '../../correction/ui/components
 import { useCopyAnnotationGeneration } from '../../correction/ui/components/useCopyAnnotationGeneration.ts';
 import { annotationEndpointIsLocal, appendNewCopyAnnotations } from '../../correction/domain/copyAnnotationSuggestions.ts';
 import { CopyAnnotationLab, prepareCopyAnnotationLabFixture } from '../../correction/ui/components/CopyAnnotationLab.tsx';
+import { CopyAnnotationPdfPanel } from '../../correction/ui/components/CopyAnnotationPdfPanel.tsx';
 import { CopyAnnotationPanel, type CopyAnnotationEdit } from '../../correction/ui/components/CopyAnnotationPanel.tsx';
 import { COPY_ANNOTATIONS_SETTING_KEY, parseCopyAnnotationsEnabled, copyAnnotationMessage, restoreCopyAnnotations, placeAnnotationsAfterRotation, placeAnnotationsAfterPageRemoval, MAX_COPY_ANNOTATION_LENGTH, type CopyAnnotation, type CopyAnnotationPlacement } from '../../correction/domain/copyAnnotationFeature.ts';
 import { reviewExplanationContent } from '../../correction/domain/reviewOptionalSections.ts';
@@ -6174,6 +6175,12 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
                     onGenerate={startCopyAnnotationGeneration} onStop={annotationGeneration.cancel} />
                   {annotationGenerationIssue && <small>{annotationGenerationIssue}</small>}
                 </>}
+              />}
+              {copyAnnotationsEnabled && service.exportCopyAnnotationPdf && !isAnalyzing && images.length > 0 && proposal && unassessedCount === 0 && criterionProgress.isComplete && <CopyAnnotationPdfPanel
+                createPdf={service.exportCopyAnnotationPdf}
+                key={`${activeAssignmentId}-${currentCopyId}`}
+                copy={{ assignmentTitle, studentLabel, images, annotations: copyAnnotations, score: reviewedTotal,
+                  maximum: validation.maximumPoints, finalized: isFinalized }}
               />}
             </div>
             <div className="review-source-pages" aria-label="Pages originales de la copie">

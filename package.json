@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
+    "jspdf": "^4.2.1",
     "pdfjs-dist": "latest",
     "vite": "latest",
     "react": "latest",

@@ -174,3 +174,23 @@ test('generates reviewable suggestions, survives tab navigation and supports can
   await expect(panel.getByText('Suggestion IA à valider', { exact: false })).toHaveCount(0);
   await expect(page.locator('.review-card-result strong')).toHaveText('1 / 2');
 });
+
+test('downloads an annotated copy with a teacher appreciation as a PDF', async ({ page }) => {
+  await openAnnotationReview(page);
+  await page.getByRole('checkbox', { name: 'Annoter la copie' }).check();
+  const annotations = page.getByRole('region', { name: 'Annotations de la copie' });
+  await annotations.getByRole('button', { name: 'Ajouter' }).click();
+  await annotations.getByRole('button', { name: 'Sans emplacement' }).click();
+  await annotations.getByRole('textbox', { name: 'Remarque' }).fill('Bonne observation.');
+  await annotations.getByRole('button', { name: 'Enregistrer' }).click();
+  await page.getByText('Exporter la copie annotée', { exact: true }).click();
+  await page.getByRole('textbox', { name: 'Appréciation générale' }).fill('Appréciation de test.');
+  const downloadEvent = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Télécharger le PDF' }).click();
+  const download = await downloadEvent;
+  expect(download.suggestedFilename()).toBe('Copie à annoter-corrigee.pdf');
+  const stream = await download.createReadStream();
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+  expect(Buffer.concat(chunks).subarray(0, 5).toString()).toBe('%PDF-');
+});

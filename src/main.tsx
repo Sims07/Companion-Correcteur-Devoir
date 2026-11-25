@@ -55,7 +55,9 @@ const backgroundCorrectionService = createBackgroundCorrectionService(new Indexe
 installLocalMemoryFetchBridge(localCorrectionRepository);
 const correctionWorkspaceService = createCorrectionWorkspaceService(
   { generateCopyAnnotations, prepareQuestionContracts, discoverCompatibleModels: (endpoint, token, signal) => discoverCompatibleModels(endpoint, token, currentFetch, signal), checkReady: (settings, signal) => checkOllamaReady(settings, currentFetch, signal), prewarmModel: (settings, model, signal) => prewarmOllamaModel(settings, model, currentFetch, signal), listModels: (endpoint, signal) => listOllamaModels(endpoint, currentFetch, signal), createProvider: createOllamaProvider, importRubricImage: (images, settings, onProgress, signal) => importRubricImageWithOllama(images, settings, currentFetch, onProgress, signal) },
-  { prepareFiles: prepareLocalFiles, rotateImage: rotateLocalImage, eraseTeacherAnnotationColor, importRubric: importRubricFile },
+  {
+    exportCopyAnnotationPdf: async (copy) => (await import('./correction/adapters/files/copyAnnotationPdf.ts')).createCopyAnnotationPdf(copy),
+    prepareFiles: prepareLocalFiles, rotateImage: rotateLocalImage, eraseTeacherAnnotationColor, importRubric: importRubricFile },
 );
 
 const evaluationVision = createEvaluationVisionService({
