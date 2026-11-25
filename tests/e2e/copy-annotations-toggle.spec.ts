@@ -1,10 +1,10 @@
 import { expect, test, type Page } from '@playwright/test';
 import { openActiveAssignment } from './helpers/teacher-workspace';
 
-async function openAnnotationReview(page: Page) {
+async function openAnnotationReview(page: Page, scan: { width: number; height: number; scientific?: boolean } | null = null) {
   await page.goto('/');
   await openActiveAssignment(page);
-  await page.evaluate(async () => {
+  await page.evaluate(async (scan) => {
     localStorage.setItem('companion-correcteur:auto-background-correction:v1', 'false');
     localStorage.setItem('companion-correcteur:ollama-configuration:v1', JSON.stringify({ endpoint: 'http://127.0.0.1:11434', visionModel: 'vision', generativeModel: 'analysis' }));
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
@@ -16,12 +16,23 @@ async function openAnnotationReview(page: Page) {
     // The active devoir and queued job must share the same authoritative rubric.
     localStorage.setItem('companion-correcteur:assignments:v1', JSON.stringify([{
       id: 'assignment-default', title: 'Cellule', question: 'Décrire la membrane.',
-      correctionMode: 'integrated', rubric,
+      correctionMode: 'integrated', rubric, ...(scan?.scientific ? { kind: 'scientific-diagram' } : {}),
     }]));
     localStorage.setItem('companion-correcteur:active-assignment:v1', 'assignment-default');
     const criterion = { criterionId: 'membrane', points: 1, rationale: 'Description partielle.', evidence: 'Membrane visible.', confidence: 'high', annotationSuggestion: 'Préciser la membrane.', pageNumber: 1 };
     const proposal = { summary: '', criteria: [criterion], questionsForTeacher: [], finalScore: 1 };
     const image = { base64: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC', mimeType: 'image/png', fileName: 'page.png' };
+    if (scan) {
+      const canvas = document.createElement('canvas');
+      canvas.width = scan.width;
+      canvas.height = scan.height;
+      const context = canvas.getContext('2d')!;
+      context.fillStyle = '#fff';
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.strokeStyle = '#000';
+      context.strokeRect(2, 2, canvas.width - 4, canvas.height - 4);
+      image.base64 = canvas.toDataURL('image/png').split(',')[1];
+    }
     const transaction = db.transaction('background-corrections', 'readwrite');
     transaction.objectStore('background-corrections').put({
       id: 'annotation-teacher-copy',
@@ -58,7 +69,7 @@ async function openAnnotationReview(page: Page) {
       transaction.onerror = () => reject(transaction.error);
     });
     db.close();
-  });
+  }, scan);
 
   await page.reload();
   await openActiveAssignment(page);
@@ -235,3 +246,40 @@ test('keeps the source visible and the annotation controls compact on desktop', 
   await expect(toggle).not.toBeChecked();
   await expect(page.getByRole('button', { name: 'Générer', exact: true })).toHaveCount(0);
 });
+
+for (const scan of [
+  { width: 1800, height: 900, scientific: true },
+  { width: 900, height: 1800, scientific: false },
+]) {
+  test(`fits a ${scan.width} × ${scan.height} copy without clipping, with or without annotations`, async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await openAnnotationReview(page, scan);
+    const toggle = page.getByRole('switch', { name: 'Annotations' });
+    const image = page.getByRole('img', { name: 'Page de travail 1 de la copie', exact: true });
+    if (scan.scientific) {
+      await expect(page.getByRole('button', { name: 'Agrandir la page 1 du schéma' })).toBeVisible();
+    }
+    await expect.poll(() => image.evaluate((node: HTMLImageElement) => node.naturalWidth)).toBe(scan.width);
+
+    for (const width of [1440, 1024, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      for (const enabled of [false, true]) {
+        await toggle.setChecked(enabled);
+        await expect.poll(() => image.evaluate((node: HTMLImageElement) => {
+          const rect = node.getBoundingClientRect();
+          const stage = node.closest('.evidence-image-stage')!.getBoundingClientRect();
+          const pane = node.closest<HTMLElement>('.review-source-pane')!;
+          const overlay = node.closest('.copy-annotation-canvas')?.getBoundingClientRect();
+          const ratio = node.naturalWidth / node.naturalHeight;
+          return {
+            fits: rect.width > 0 && rect.height > 0 && rect.left >= stage.left - 1 && rect.right <= stage.right + 1,
+            proportional: Math.abs(rect.width - rect.height * ratio) < 2,
+            noHorizontalScroll: pane.scrollWidth <= pane.clientWidth + 1,
+            overlayAligned: !overlay || (Math.abs(rect.width - overlay.width) < 1 && Math.abs(rect.height - overlay.height) < 1
+              && Math.abs(rect.left - overlay.left) < 1 && Math.abs(rect.top - overlay.top) < 1),
+          };
+        })).toEqual({ fits: true, proportional: true, noHorizontalScroll: true, overlayAligned: true });
+      }
+    }
+  });
+}
