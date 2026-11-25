@@ -1,3 +1,4 @@
+import { isTokenCount, type ResponsesDiagnostics } from '../../domain/responsesOutput.ts';
 import { getNetworkRequestMetadata } from '../../ports/networkRequestMetadata.ts';
 import { isOllamaInferenceRequest, readOllamaNativeTimings, type OllamaNativeTimings } from '../../domain/ollamaTimings.ts';
 import { OllamaThinkingStream } from '../../domain/ollamaThinkingStream.ts';
@@ -18,6 +19,8 @@ export type NetworkRequestRecord = {
   providerTimings?: OllamaNativeTimings | null;
   /** Usage from the final OpenAI-compatible event, when provided. */
   tokenUsage?: OpenAiTokenUsage;
+  responsesDiagnostics?: ResponsesDiagnostics;
+  generationBudget?: number;
   state: NetworkRequestState;
   status: number | null;
   statusText: string;
@@ -61,6 +64,9 @@ function truncateThinkingTail(value: string, limit: number): string {
 }
 
 function sanitizeValue(value: unknown, key = ''): unknown {
+  // Only these exact numerical settings are public. Credentials with similar names stay hidden.
+  if ((key === 'max_output_tokens' || key === 'max_completion_tokens' || key === 'max_tokens') &&
+    isTokenCount(value)) return value;
   if (SENSITIVE_KEY.test(key)) return '[masqué]';
   if (typeof value === 'string') {
     if (/^data:[^,]*;base64,/i.test(value) || value.length > 20_000 && /^[A-Za-z0-9+/=\s]+$/.test(value)) return '[données binaires masquées]';
@@ -229,10 +235,18 @@ export function installNetworkInspector(): () => void {
       publish(persistNow);
     };
 
+    const responses = isOpenAiResponsesRequest(url);
+    let generationBudget: number | undefined;
+    if (responses) {
+      try {
+        const value: unknown = JSON.parse(record.requestBody)?.max_output_tokens;
+        if (isTokenCount(value)) generationBudget = value;
+      } catch { /* Unknown budget. */ }
+    }
     const started = performance.now();
     try {
       const response = await originalFetch(input, init);
-      update({ status: response.status, statusText: response.statusText, responseHeaders: sanitizeHeaders(response.headers), state: response.ok ? 'pending' : 'error' });
+      update({ status: response.status, statusText: response.statusText, generationBudget, responseHeaders: sanitizeHeaders(response.headers), state: response.ok ? 'pending' : 'error' });
       const clone = response.clone();
       if (clone.body) {
         void (async () => {
@@ -248,8 +262,9 @@ export function installNetworkInspector(): () => void {
           let publishedThinking = false;
           let publishedMessage = false;
           const ollama = isOllamaInferenceRequest(url) ? new OllamaThinkingStream() : null;
-          const completion = isOpenAiCompletionRequest(url) || isOpenAiResponsesRequest(url) || isLmStudioChat(url)
-            ? new OpenAiCompletionStream(/text\/event-stream/i.test(response.headers.get('content-type') ?? '') || (!/application\/json/i.test(response.headers.get('content-type') ?? '') && /"stream"\s*:\s*true/.test(record.requestBody)))
+          const completion = isOpenAiCompletionRequest(url) || responses || isLmStudioChat(url)
+            ? new OpenAiCompletionStream(/text\/event-stream/i.test(response.headers.get('content-type') ?? '') || (!/application\/json/i.test(response.headers.get('content-type') ?? '') && /"stream"\s*:\s*true/.test(record.requestBody)),
+              responses ? { expectsJson: metadata?.responsesExpectsJson ?? false, budget: generationBudget } : undefined)
             : null;
           const message = () => ollama?.message ?? completion?.message ?? '';
           const reasoning = () => ollama?.text ?? completion?.thinking ?? '';
@@ -260,6 +275,8 @@ export function installNetworkInspector(): () => void {
             messageCharacters: ollama?.messageCharacters ?? completion?.messageCharacters ?? 0,
             ...(completion?.finishReason ? { finishReason: completion.finishReason } : {}),
             ...(completion?.usage ? { tokenUsage: completion.usage } : {}),
+            ...(responses && response.ok && completion?.responsesDiagnostics
+              ? { responsesDiagnostics: completion.responsesDiagnostics } : {}),
           } : {};
           const append = (chunk: string) => {
             ollama?.append(chunk);
@@ -292,7 +309,9 @@ export function installNetworkInspector(): () => void {
               ...(response.ok && isOllamaInferenceRequest(url) ? { providerTimings: readOllamaNativeTimings(tail) ?? readOllamaNativeTimings(body) } : {}),
             }, true);
           } catch (cause) {
-            update({ responseBody: body, ...diagnosticPatch(), durationMs: Math.round(performance.now() - started), state: 'error', error: cause instanceof Error ? cause.message : 'Lecture de la réponse impossible.' }, true);
+            update({ responseBody: body, ...diagnosticPatch(), ...(responses && response.ok ? { responsesDiagnostics: {
+              ...completion?.responsesDiagnostics, outcome: 'interrupted',
+            } } : {}), durationMs: Math.round(performance.now() - started), state: 'error', error: cause instanceof Error ? cause.message : 'Lecture de la réponse impossible.' }, true);
           }
         })();
       } else {
