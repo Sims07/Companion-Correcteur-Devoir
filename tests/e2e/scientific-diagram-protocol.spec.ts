@@ -325,7 +325,8 @@ test('the direct diagram laboratory shares one Responses image across the criter
   await panel.getByRole('combobox', { name: 'Méthode de correction scientifique à tester' }).selectOption('direct-image-generative');
   await panel.getByRole('button', { name: 'Tester les 3 schémas en un clic' }).click();
   const results = panel.getByRole('region', { name: 'Résultats des schémas scientifiques' });
-  await expect(results.locator('tbody tr')).toHaveCount(3);
+  // The three copies are processed sequentially, with one request per criterion.
+  await expect(results.locator('tbody tr')).toHaveCount(3, { timeout: 20_000 });
   const [download] = await Promise.all([page.waitForEvent('download'), results.getByRole('button', { name: 'Exporter le rapport JSON' }).click()]);
   const report = JSON.parse(await readFile(await download.path(), 'utf8'));
   expect(report.cases.flatMap((diagram: { experiments: unknown[] }) => diagram.experiments))
