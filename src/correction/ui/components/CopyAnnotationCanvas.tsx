@@ -13,12 +13,13 @@ export interface CopyAnnotationView {
 }
 
 export function CopyAnnotationCanvas({
-  children, pageNumber, annotations, onPlace,
+  children, pageNumber, annotations, onPlace, onAnnotationClick,
 }: {
   children: ReactNode;
   pageNumber: number;
   annotations: readonly CopyAnnotationView[];
   onPlace?: (placement: CopyAnnotationPlacement) => void;
+  onAnnotationClick?: (id: string) => void;
 }) {
   const handlePlace = (event: MouseEvent<HTMLButtonElement>) => {
     if (!onPlace) return;
@@ -39,7 +40,10 @@ export function CopyAnnotationCanvas({
       title={annotation.message}
       aria-label={`Annotation ${annotation.number} : ${annotation.message}`}
       style={{ left: `${annotation.x / 10}%`, top: `${annotation.y / 10}%` }}
-      onClick={() => document.getElementById(`copy-annotation-${annotation.id}`)?.focus()}
+      onClick={() => {
+        if (onAnnotationClick) onAnnotationClick(annotation.id);
+        else document.getElementById(`copy-annotation-${annotation.id}`)?.focus();
+      }}
     >
       <span className="copy-inline-annotation-number" aria-hidden="true">{annotation.number}</span>
       <span className="copy-inline-annotation-message" aria-hidden="true">{annotation.message}</span>

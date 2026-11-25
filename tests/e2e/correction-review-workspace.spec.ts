@@ -279,12 +279,13 @@ test('review workspace keeps original evidence beside grading criteria on deskto
 
   // Existing annotated reviews remain unchanged until the teacher explicitly
   // enables the application flag. Turning it off only hides the SVG/HTML layer.
-  const annotationsToggle = page.getByRole('checkbox', { name: 'Annoter la copie' });
+  const annotationsToggle = page.getByRole('switch', { name: 'Annotations' });
   await expect(annotationsToggle).not.toBeChecked();
   await expect(page.locator('.copy-inline-annotation')).toHaveCount(0);
   await annotationsToggle.check();
   await expect(page.locator('.copy-inline-annotation')).toHaveCount(1);
   await expect(page.getByRole('button', { name: 'Annotation 1 : Précise le rôle de la membrane.' })).toBeVisible();
+  await page.getByRole('button', { name: 'Annotations (1)' }).click();
   await expect(page.getByRole('region', { name: 'Annotations de la copie' })
     .getByText('1. Précise le rôle de la membrane.', { exact: true })).toBeVisible();
   await page.reload();

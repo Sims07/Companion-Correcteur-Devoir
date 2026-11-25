@@ -64,3 +64,137 @@
 .copy-annotation-list li + li { border-top: 1px solid var(--ds-color-border); }
 .copy-annotation-editor label { display: grid; gap: .25rem; }
 .copy-annotation-editor textarea { resize: vertical; }
+
+/* The annotation controls belong to the image viewer, not to its heading. */
+.copy-annotation-workspace.copy-annotation-panel {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  gap: .65rem;
+  min-width: 0;
+}
+.copy-annotation-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .65rem 1rem;
+  padding: .65rem .75rem;
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-sm);
+  background: var(--ds-color-surface);
+}
+.copy-annotation-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: .55rem;
+  flex: 0 0 auto;
+  min-height: 36px;
+  font-size: .82rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+.copy-annotation-switch input {
+  position: absolute;
+  opacity: 0;
+  width: 2.5rem;
+  height: 1.4rem;
+  margin: 0;
+  cursor: pointer;
+}
+.copy-annotation-switch-track {
+  width: 2.5rem;
+  height: 1.4rem;
+  border-radius: 1rem;
+  background: var(--ds-color-border-strong);
+  border: 1px solid var(--ds-color-text-muted);
+  display: inline-flex;
+  align-items: center;
+  padding: 2px;
+  box-sizing: border-box;
+}
+.copy-annotation-switch-track::after {
+  content: '';
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 20%);
+}
+.copy-annotation-switch input:checked + .copy-annotation-switch-track {
+  background: var(--ds-color-brand-700);
+  border-color: var(--ds-color-brand-700);
+  justify-content: flex-end;
+}
+.copy-annotation-switch input:focus-visible + .copy-annotation-switch-track {
+  outline: 3px solid var(--ds-color-brand-700);
+  outline-offset: 3px;
+}
+.copy-annotation-toolbar-actions {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: .45rem;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.copy-annotation-toolbar-actions button {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .35rem;
+  font-size: .78rem;
+  white-space: normal;
+}
+.copy-annotation-toolbar-actions .copy-annotation-actions { margin: 0; }
+.copy-annotation-toolbar-actions > div { min-width: 0; }
+.copy-annotation-toolbar-actions > div > p {
+  font-size: .78rem;
+  margin: .45rem 0 0;
+  overflow-wrap: anywhere;
+}
+.copy-annotation-list-toggle { margin-left: auto; }
+.copy-annotation-generation-issue, .copy-annotation-empty {
+  color: var(--ds-color-text-muted);
+  font-size: .8rem;
+  margin: 0;
+}
+.copy-annotation-workspace .copy-annotation-editor,
+.copy-annotation-workspace #copy-annotation-list:not([hidden]) {
+  padding: .75rem;
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-sm);
+  background: var(--ds-color-surface);
+}
+.copy-annotation-workspace #copy-annotation-list { max-height: 15rem; overflow: auto; }
+.copy-annotation-workspace .copy-annotation-list li:focus-visible {
+  outline: 2px solid var(--ds-color-brand-700);
+  outline-offset: -2px;
+}
+.copy-review-validation-bar > .copy-review-final-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: .5rem;
+  min-width: 0;
+}
+.copy-review-final-actions > button { min-height: 36px; }
+.copy-annotation-export-button {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+}
+.copy-annotation-export-content {
+  display: grid;
+  gap: .75rem;
+}
+.copy-annotation-export-content textarea { width: 100%; box-sizing: border-box; }
+@media (max-width: 600px) {
+  .copy-review-final-actions > .primary-button { flex: 1 1 auto; }
+}
+@media (max-width: 480px) {
+  .copy-annotation-toolbar-actions { flex-basis: 100%; }
+  .copy-annotation-list-toggle { margin-left: 0; }
+}
