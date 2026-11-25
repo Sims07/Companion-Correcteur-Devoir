@@ -34,7 +34,7 @@ export function CopyAnnotationPanel({
         <div className="copy-annotation-toolbar-actions">
           <button type="button" className="secondary-button" disabled={disabled} onClick={onAdd}><span aria-hidden="true">＋</span> Ajouter</button>
           {generation}
-          <button type="button" className="secondary-button copy-annotation-list-toggle" aria-expanded={listOpen && !edit} aria-controls="copy-annotation-list" onClick={() => onListOpen(!listOpen)}>
+          <button type="button" className="secondary-button copy-annotation-list-toggle" aria-expanded={listOpen && !edit} aria-controls="copy-annotation-list" disabled={Boolean(edit)} onClick={() => onListOpen(!listOpen)}>
             <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg>
             <span>Annotations ({annotations.length})</span>
           </button>

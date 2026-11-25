@@ -155,7 +155,7 @@ test('generates reviewable suggestions, survives tab navigation and supports can
   await openAnnotationReview(page);
   await page.getByRole('switch', { name: 'Annotations' }).check();
   const panel = page.getByRole('region', { name: 'Annotations de la copie' });
-  const generate = panel.getByRole('button', { name: 'Générer les annotations' });
+  const generate = panel.getByRole('button', { name: 'Générer', exact: true });
   await generate.click();
   await expect.poll(() => calls).toBe(1);
   await expect(generate).toBeDisabled();
@@ -188,8 +188,9 @@ test('downloads an annotated copy with a teacher appreciation as a PDF', async (
   await annotations.getByRole('button', { name: 'Sans emplacement' }).click();
   await annotations.getByRole('textbox', { name: 'Remarque' }).fill('Bonne observation.');
   await annotations.getByRole('button', { name: 'Enregistrer' }).click();
-  await expect(page.locator('.review-source-pane').getByText('Exporter la copie annotée', { exact: true })).toHaveCount(0);
-  await page.locator('.review-main-column').getByText('Exporter la copie annotée', { exact: true }).click();
+  await expect(page.locator('.review-source-pane').getByRole('button', { name: 'Exporter la copie annotée' })).toHaveCount(0);
+  await page.locator('.copy-review-validation-bar').getByRole('button', { name: 'Exporter la copie annotée' }).click();
+  await expect(page.getByRole('dialog', { name: 'Exporter la copie annotée' })).toBeVisible();
   await page.getByRole('textbox', { name: 'Appréciation générale' }).fill('Appréciation de test.');
   const downloadEvent = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Télécharger le PDF' }).click();
@@ -199,4 +200,29 @@ test('downloads an annotated copy with a teacher appreciation as a PDF', async (
   const chunks: Buffer[] = [];
   for await (const chunk of stream) chunks.push(Buffer.from(chunk));
   expect(Buffer.concat(chunks).subarray(0, 5).toString()).toBe('%PDF-');
+});
+
+test('keeps the source visible and the annotation controls compact on desktop', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await openAnnotationReview(page);
+  const heading = page.locator('.review-source-heading');
+  const source = page.locator('.review-source-pages');
+  const toggle = page.getByRole('switch', { name: 'Annotations' });
+  await toggle.check();
+  const toolbar = page.locator('.copy-annotation-toolbar');
+  await expect(toolbar).toBeVisible();
+  await expect(page.locator('#copy-annotation-list')).toBeHidden();
+  const top = await heading.boundingBox();
+  const tools = await toolbar.boundingBox();
+  const image = await source.boundingBox();
+  expect(top).not.toBeNull();
+  expect(tools).not.toBeNull();
+  expect(image).not.toBeNull();
+  expect(tools!.height).toBeLessThan(115);
+  expect(image!.y - top!.y).toBeLessThan(200);
+  expect(image!.width).toBeGreaterThan(250);
+  await toggle.focus();
+  await page.keyboard.press('Space');
+  await expect(toggle).not.toBeChecked();
+  await expect(page.getByRole('button', { name: 'Générer', exact: true })).toHaveCount(0);
 });
