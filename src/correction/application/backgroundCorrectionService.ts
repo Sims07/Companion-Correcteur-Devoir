@@ -1,5 +1,5 @@
 import { placeAnnotationsAfterRotation, restoreCopyAnnotations } from '../domain/copyAnnotationFeature.ts';
-import { parseGradingProposal } from '../domain/grading.ts';
+import { parseGradingProposal, toReviewedCriteria } from '../domain/grading.ts';
 import { gradeDiagramImages } from '../ports/gradeDiagramImages.ts';
 import { directDiagramAssignmentIssue } from '../domain/directDiagramAssignment.ts';
 import { sumGradeScores } from '../../shared/domain/scorePrecision.ts';
@@ -72,6 +72,7 @@ export interface BackgroundCorrectionService {
   markCompleted(jobId: string): Promise<void>;
   remove(jobId: string): Promise<void>;
   retry(jobId: string, settings: OllamaSettings, gradingFlow?: BackgroundCorrectionJob['gradingFlow'], overrides?: { rubric: Rubric; question: string }): Promise<void>;
+  retryDiagramCriterion(jobId: string, criterionId: string, settings: OllamaSettings): Promise<void>;
   setAutomatic(enabled: boolean, settings: OllamaSettings, assignmentId: string): Promise<void>;
 }
 
@@ -219,6 +220,7 @@ export function createBackgroundCorrectionService(
           ...(interrupted ? {
             status: 'failed' as const,
             activeCriterionId: null,
+            retryDiagramCriterionId: undefined,
             error: 'La correction a été interrompue. Vous pouvez la relancer.',
             ...(job.partialCriteria.length ? { proposal: createProposal(job.rubric, job.partialCriteria) } : {}),
           } : {}),
@@ -290,7 +292,9 @@ export function createBackgroundCorrectionService(
           if (current.gradingFlow === 'scientific-diagram-direct') {
             // A scientific diagram assignment uses the same one-pass vision
             // engine as the laboratory, never OCR or double analysis.
-            current = { ...current, phase: 'grading', criterionByCriterion: jobSettings.criterionByCriterion === true,
+            const split = Boolean(current.retryDiagramCriterionId) || jobSettings.criterionByCriterion === true
+              || current.partialCriteria.length > 0;
+            current = { ...current, phase: 'grading', criterionByCriterion: split,
               activeCriterionId: null, updatedAt: new Date().toISOString() };
             await persist(current);
             // Use the exact direct-image provider contract. There is no OCR
@@ -311,34 +315,61 @@ export function createBackgroundCorrectionService(
               visionModel: current.visionModel,
               analysisModel: model,
               thinking: current.thinking,
-              criterionByCriterion: jobSettings.criterionByCriterion,
+              criterionByCriterion: split,
               correctionMethod: 'generative',
               diagnosticStrategy: 'single',
             });
-            const proposal = await withModelInactivityTimeout(requestAbortController, markActivity => gradeDiagramImages(provider, {
-              question: current.question, images: current.images, rubric: current.rubric, signal: requestAbortController.signal,
-              onCriterion: async (index, _title, result) => {
-                markActivity();
-                const partialCriteria = result ? mergeCriteria(current.partialCriteria, result.criteria) : current.partialCriteria;
-                current = { ...current, activeCriterionId: result ? null : current.rubric.criteria[index]!.id,
-                  partialCriteria, completedCriteria: partialCriteria.length, updatedAt: new Date().toISOString() };
-                await persist(current);
-              },
-            }, current.criterionByCriterion === true, markActivity));
-            if (requestAbortController.signal.aborted) throw new DOMException('Traitement interrompu.', 'AbortError');
+            const previous = current.partialCriteria;
+            const outstanding = remainingRubric(current.rubric, previous.filter(
+              criterion => criterion.assessmentStatus !== 'not-evaluated'));
+            const requested = current.retryDiagramCriterionId
+              ? { ...outstanding, criteria: outstanding.criteria.filter(criterion => criterion.id === current.retryDiagramCriterionId) }
+              : outstanding;
+            const signal = requestAbortController.signal;
+            const updateProgress = async (activeCriterionId: string | null, criteria: BackgroundCorrectionJob['partialCriteria']) => {
+              signal.throwIfAborted();
+              const partialCriteria = mergeCriteria(current.partialCriteria, criteria);
+              current = { ...current, activeCriterionId, partialCriteria,
+                completedCriteria: partialCriteria.filter(criterion => criterion.assessmentStatus !== 'not-evaluated').length,
+                updatedAt: new Date().toISOString() };
+              await persist(current);
+            };
+            const assessment = requested.criteria.length > 0
+              ? await withModelInactivityTimeout(requestAbortController, markActivity => gradeDiagramImages(provider, {
+                question: current.question, images: current.images, rubric: requested, signal,
+                onCriterion: (index, _title, result) => {
+                  markActivity();
+                  return updateProgress(result ? null : requested.criteria[index]!.id, result?.criteria ?? []);
+                },
+                onCriterionFailure: async () => {
+                  markActivity();
+                  await updateProgress(null, []);
+                },
+              }, split, markActivity))
+              : null;
+            signal.throwIfAborted();
+            const partialCriteria = mergeCriteria(previous, assessment?.criteria ?? []);
+            const proposal = assessment && previous.length === 0 && requested.criteria.length === current.rubric.criteria.length
+              ? assessment
+              : createProposal(current.rubric, partialCriteria);
             const complete = !proposal.scoreIncomplete;
+            const reviewDraft = current.reviewDraft && toReviewedCriteria(proposal).map(criterion =>
+              current.reviewDraft?.find(item => item.criterionId === criterion.criterionId
+                && item.assessmentStatus !== 'not-evaluated') ?? criterion);
             await persist({
               ...current,
               transcription: null,
               partialCriteria: proposal.criteria,
               completedPages: current.images.length,
-              completedCriteria: proposal.criteria.length,
+              completedCriteria: proposal.criteria.filter(criterion => criterion.assessmentStatus !== 'not-evaluated').length,
               activeCriterionId: null,
+              retryDiagramCriterionId: undefined,
               proposal,
+              reviewDraft,
               status: complete ? 'ready' : 'needs-review',
               phase: 'complete',
               updatedAt: new Date().toISOString(),
-              error: complete ? null : 'Certains attendus restent à vérifier.',
+              error: complete ? null : 'Certains critères restent à évaluer. Vous pouvez les relancer individuellement.',
             });
             if (activeRequestAbortController === requestAbortController) activeRequestAbortController = null;
             continue;
@@ -559,8 +590,10 @@ export function createBackgroundCorrectionService(
             ...current,
             // An LLM transport/generation failure is not a teacher-review
             // outcome, even when earlier criteria have completed.
-            status: cancelled ? 'pending' : 'failed',
+            status: current.retryDiagramCriterionId && current.partialCriteria.length ? 'needs-review'
+              : cancelled && !current.retryDiagramCriterionId ? 'pending' : 'failed',
             activeCriterionId: null,
+            retryDiagramCriterionId: undefined,
             ...(current.partialCriteria.length ? { proposal: createProposal(current.rubric, current.partialCriteria) } : {}),
             updatedAt: new Date().toISOString(),
             error: cancelled ? 'Correction interrompue par l’enseignant. Vous pouvez la reprendre.' : cause instanceof Error ? cause.message : 'La correction en arrière-plan a échoué.'
@@ -570,6 +603,27 @@ export function createBackgroundCorrectionService(
       }
     })().finally(() => { activeLoop = null; activeLoopAssignmentId = null; });
     return activeLoop;
+  }
+
+  const criterionRetries = new Set<string>();
+
+  async function runRetry(settings: OllamaSettings, assignmentId: string) {
+    autoEnabled = true;
+    if (foregroundPriority) { settingsByAssignment.set(assignmentId, settings); return; }
+    paused = false;
+    await run(settings, assignmentId);
+    // A retry can race with the final iteration of an already-running loop:
+    // run() then joins that loop, which may have observed an empty queue just
+    // before this job was persisted as pending. Re-check after the joined loop
+    // settles so the retry cannot remain pending without a generation request.
+    if (!paused && !foregroundPriority) {
+      const remaining = repository.getNextPendingJob
+        ? await repository.getNextPendingJob(assignmentId)
+        : (await repository.listJobs(assignmentId)).find((item) => item.status === 'pending' || item.status === 'processing');
+      if (remaining) {
+        await run(settings, assignmentId);
+      }
+    }
   }
 
   return {
@@ -725,6 +779,7 @@ export function createBackgroundCorrectionService(
         transcription: null,
         transcriptionPageNumbers: undefined,
         partialCriteria: [],
+        retryDiagramCriterionId: undefined,
         completedPages: 0,
         completedCriteria: 0,
         totalCriteria: job.rubric.criteria.length,
@@ -780,6 +835,7 @@ export function createBackgroundCorrectionService(
       if (job) await persist({ ...job, status: 'completed', updatedAt: new Date().toISOString() });
     },
     async retry(jobId, settings, gradingFlow, overrides) {
+      if (criterionRetries.has(jobId)) return;
       const job = await readStoredJob(jobId);
       if (!job) return;
       // A queued attempt can be refreshed before its first run, but never
@@ -808,6 +864,7 @@ export function createBackgroundCorrectionService(
         scientificDiagramAnalysis: null,
         studentIdentity: null,
         partialCriteria: [],
+        retryDiagramCriterionId: undefined,
         completedPages: 0,
         completedCriteria: 0,
         proposal: null,
@@ -822,21 +879,28 @@ export function createBackgroundCorrectionService(
         error: null,
         updatedAt: new Date().toISOString(),
       });
-      autoEnabled = true;
-      if (foregroundPriority) { settingsByAssignment.set(job.assignmentId, settings); return; }
-      paused = false;
-      await run(settings, job.assignmentId);
-      // A retry can race with the final iteration of an already-running loop:
-      // run() then joins that loop, which may have observed an empty queue just
-      // before this job was persisted as pending. Re-check after the joined loop
-      // settles so the retry cannot remain pending without a generation request.
-      if (!paused && !foregroundPriority) {
-        const remaining = repository.getNextPendingJob
-          ? await repository.getNextPendingJob(job.assignmentId)
-          : (await repository.listJobs(job.assignmentId)).find((item) => item.status === 'pending' || item.status === 'processing');
-        if (remaining) {
-          await run(settings, job.assignmentId);
-        }
+      await runRetry(settings, job.assignmentId);
+    },
+    async retryDiagramCriterion(jobId, criterionId, settings) {
+      if (criterionRetries.has(jobId)) return;
+      criterionRetries.add(jobId);
+      try {
+        const job = await readStoredJob(jobId);
+        if (!job || job.gradingFlow !== 'scientific-diagram-direct'
+          || !['needs-review', 'failed', 'reviewing'].includes(job.status)) return;
+        if (!job.rubric.criteria.some(criterion => criterion.id === criterionId)
+          || job.partialCriteria.some(criterion => criterion.criterionId === criterionId
+            && criterion.assessmentStatus !== 'not-evaluated')) return;
+        const issue = directDiagramAssignmentIssue(job.rubric, {
+          endpoint: settings.endpoint, analysisModel: settings.analysisModel ?? job.analysisModel,
+          correctionMethod: settings.correctionMethod ?? job.correctionMethod ?? 'generative',
+        });
+        if (issue) throw new Error(issue);
+        await persist({ ...job, retryDiagramCriterionId: criterionId, status: 'pending',
+          phase: 'preparation', error: null, updatedAt: new Date().toISOString() });
+        await runRetry(settings, job.assignmentId);
+      } finally {
+        criterionRetries.delete(jobId);
       }
     },
     async setAutomatic(enabled, settings, assignmentId) {

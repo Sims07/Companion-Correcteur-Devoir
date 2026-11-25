@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
+import { toReviewedCriteria } from '../src/correction/domain/grading.ts';
+import { validateReviewedCorrection } from '../src/correction/domain/reviewFinalization.ts';
 import { createBackgroundCorrection, toBackgroundJobOverview } from '../src/correction/domain/backgroundCorrection.ts';
 import { createBackgroundCorrectionService } from '../src/correction/application/backgroundCorrectionService.ts';
 import { createScientificDiagramAnalysisService } from '../src/correction/application/scientificDiagramAnalysisService.ts';
@@ -1481,6 +1483,85 @@ describe('diagram assignments share the resumable correction queue', () => {
       status: 'ready', criterionByCriterion: true, activeCriterionId: null,
       completedCriteria: rubric.criteria.length,
     });
+  });
+
+  it('continues after invalid points and retries only the missing criterion after reopening the queue', async () => {
+    const { f, rubric } = diagramFixture();
+    const [first, missing, last] = rubric.criteria;
+    const settings: OllamaSettings = {
+      endpoint: 'http://localhost:11434', analysisModel: 'qwen-vision',
+      correctionMethod: 'generative', criterionByCriterion: true,
+    };
+    let fail = true;
+    f.setGenerateImplementation(async (request) => {
+      f.requests.push(request);
+      const sent = JSON.parse(request.rubric) as typeof rubric;
+      const response = JSON.parse(diagramResponse(sent));
+      if (sent.criteria[0].id === missing.id && fail) response.criteria[0].points = missing.maxPoints + 1;
+      else if (sent.criteria[0].id === last.id) {
+        response.criteria[0].subcriteria[0].points = last.subcriteria![0].maxPoints;
+        response.finalScore = response.criteria[0].points = last.subcriteria![0].maxPoints;
+      }
+      return JSON.stringify(response);
+    });
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    await service.processPending(settings, 'assignment-1');
+    const stored = f.jobs.get('copy-1')!;
+    expect(stored).toMatchObject({ status: 'needs-review', completedCriteria: 2, proposal: { scoreIncomplete: true } });
+    expect(stored.proposal!.criteria.map(item => item.criterionId)).toEqual([first.id, last.id]);
+    expect((await service.listJobSummaries('assignment-1'))[0].score).toBeNull();
+    const review = toReviewedCriteria(stored.proposal!);
+    expect(validateReviewedCorrection(rubric, review).total).toBeNull();
+
+    const reopened = createBackgroundCorrectionService(f.repository, f.workspace);
+    review[0].teacherComment = 'Vérifié par le professeur.';
+    await reopened.saveReviewDraft('copy-1', review, 'Remarque conservée');
+    await reopened.retryDiagramCriterion('copy-1', first.id, settings);
+    expect(f.requests).toHaveLength(3);
+    await reopened.retryDiagramCriterion('copy-1', missing.id, settings);
+    expect(f.jobs.get('copy-1')).toMatchObject({ status: 'needs-review', completedCriteria: 2 });
+    expect((await reopened.listJobSummaries('assignment-1'))[0].score).toBeNull();
+    fail = false;
+    await Promise.all([
+      reopened.retryDiagramCriterion('copy-1', missing.id, { ...settings, criterionByCriterion: false }),
+      reopened.retryDiagramCriterion('copy-1', missing.id, settings),
+    ]);
+    expect(f.requests.map(request => JSON.parse(request.rubric).criteria.map((criterion: { id: string }) => criterion.id)))
+      .toEqual([[first.id], [missing.id], [last.id], [missing.id], [missing.id]]);
+    const complete = f.jobs.get('copy-1')!;
+    expect(complete).toMatchObject({ status: 'ready', completedCriteria: 3, teacherQuestionsDraft: 'Remarque conservée' });
+    expect(complete.proposal!.criteria.map(item => item.criterionId)).toEqual([first.id, missing.id, last.id]);
+    expect(complete.proposal!.criteria[2]).toEqual(stored.proposal!.criteria[1]);
+    expect(complete.reviewDraft?.[0].teacherComment).toBe('Vérifié par le professeur.');
+    expect((await reopened.listJobSummaries('assignment-1'))[0].score).toBe(last.subcriteria![0].maxPoints);
+  });
+
+  it('stops a targeted retry and ignores a late result while retaining the other marks', async () => {
+    const { f, rubric, first } = diagramFixture();
+    const target = rubric.criteria[1];
+    const accepted = JSON.parse(diagramResponse({ ...rubric, criteria: [rubric.criteria[0]] })).criteria;
+    f.jobs.set('copy-1', { ...first, partialCriteria: accepted, completedCriteria: 1,
+      status: 'needs-review', proposal: { criteria: accepted, scoreIncomplete: true,
+        finalScore: 0, summary: '', questionsForTeacher: [] } });
+    let started!: () => void;
+    const inFlight = new Promise<void>(resolve => { started = resolve; });
+    let respond!: (response: string) => void;
+    f.setGenerateImplementation(async () => {
+      started();
+      return new Promise<string>(resolve => { respond = resolve; });
+    });
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    const retry = service.retryDiagramCriterion('copy-1', target.id, {
+      endpoint: 'http://localhost:11434', analysisModel: 'qwen-vision', correctionMethod: 'generative',
+    });
+    await inFlight;
+    expect(f.jobs.get('copy-1')).toMatchObject({ activeCriterionId: target.id, status: 'processing' });
+    await service.stopAndWait();
+    respond(diagramResponse({ ...rubric, criteria: [target] }));
+    await retry;
+    expect(f.jobs.get('copy-1')).toMatchObject({ status: 'needs-review', activeCriterionId: null,
+      completedCriteria: 1, proposal: { scoreIncomplete: true } });
+    expect(f.jobs.get('copy-1')!.partialCriteria).toEqual(accepted);
   });
 
   it('corrige avec le serveur distant configuré et autorise la reprise après changement de serveur', async () => {
