@@ -28,7 +28,8 @@ import { ReviewAttentionSummary } from '../../correction/ui/components/ReviewAtt
 import { TeacherReviewAlert } from '../../correction/ui/components/TeacherReviewAlert.tsx';
 import { ReviewCriterionEvidence } from '../../correction/ui/components/ReviewCriterionEvidence.tsx';
 import { CopyAnnotationCanvas } from '../../correction/ui/components/CopyAnnotationCanvas.tsx';
-import { COPY_ANNOTATIONS_SETTING_KEY, parseCopyAnnotationsEnabled, copyAnnotationMessage, isCopyAnnotationPlacement, type CopyAnnotationPlacement } from '../../correction/domain/copyAnnotationFeature.ts';
+import { CopyAnnotationPanel, type CopyAnnotationEdit } from '../../correction/ui/components/CopyAnnotationPanel.tsx';
+import { COPY_ANNOTATIONS_SETTING_KEY, parseCopyAnnotationsEnabled, copyAnnotationMessage, restoreCopyAnnotations, placeAnnotationsAfterRotation, placeAnnotationsAfterPageRemoval, MAX_COPY_ANNOTATION_LENGTH, type CopyAnnotation, type CopyAnnotationPlacement } from '../../correction/domain/copyAnnotationFeature.ts';
 import { reviewExplanationContent } from '../../correction/domain/reviewOptionalSections.ts';
 import { teacherReviewStatus } from '../../correction/domain/teacherReviewSummary.ts';
 import type { CorrectionWorkspaceService } from '../../correction/application/correctionWorkspaceService.ts';
@@ -196,6 +197,7 @@ type AssignmentDraft = {
   subjectTranscription: string | null;
   proposal: GradingProposal | null;
   review: ReviewedCriterion[];
+  copyAnnotations?: CopyAnnotation[];
   teacherQuestions: string;
   studentLabel: string;
   studentIdentity: StudentIdentity | null;
@@ -1019,12 +1021,14 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     try { return parseCopyAnnotationsEnabled(window.localStorage.getItem(COPY_ANNOTATIONS_SETTING_KEY)); }
     catch { return false; }
   });
-  const [placingCopyAnnotationCriterionId, setPlacingCopyAnnotationCriterionId] = useState<string | null>(null);
+  const [copyAnnotations, setCopyAnnotations] = useState<CopyAnnotation[]>([]);
+  const [copyAnnotationEdit, setCopyAnnotationEdit] = useState<CopyAnnotationEdit | null>(null);
+  const annotationWrite = useRef<Promise<void>>(Promise.resolve());
   useEffect(() => {
     try { window.localStorage.setItem(COPY_ANNOTATIONS_SETTING_KEY, String(copyAnnotationsEnabled)); }
     catch { /* Available for the current session even if storage is full. */ }
   }, [copyAnnotationsEnabled]);
-  useEffect(() => { setPlacingCopyAnnotationCriterionId(null); }, [currentBackgroundJobId, currentCorrectionId]);
+  useEffect(() => { setCopyAnnotationEdit(null); }, [activeAssignmentId, currentBackgroundJobId, currentCorrectionId, images]);
   const [showOnlyFlagged, setShowOnlyFlagged] = useState(true);
   const [focusedEvidencePage, setFocusedEvidencePage] = useState<number | null>(null);
   const [teacherQuestions, setTeacherQuestions] = useState('');
@@ -1041,6 +1045,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     subjectTranscription: currentBackgroundJobId || isFinalized ? null : subjectTranscription,
     proposal: currentBackgroundJobId || isFinalized ? null : proposal,
     review: currentBackgroundJobId || isFinalized ? [] : review,
+    copyAnnotations: currentBackgroundJobId || isFinalized ? [] : copyAnnotations,
     teacherQuestions, studentLabel, studentIdentity,
     currentCorrectionId: currentBackgroundJobId || isFinalized ? null : currentCorrectionId,
     isFinalized: false, reviewMessage, detectTeacherAnnotations, teacherAnnotations,
@@ -1048,7 +1053,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     scientificPageClassifications: currentBackgroundJobId || isFinalized ? null : pageClassifications,
     manualRotationAngles, annotationInkColor, annotationInkColorApplied,
   }), [images, originalImages, transcription, subjectImages, subjectTranscription, proposal,
-    review, teacherQuestions, studentLabel, studentIdentity, currentCorrectionId, isFinalized,
+    review, copyAnnotations, teacherQuestions, studentLabel, studentIdentity, currentCorrectionId, isFinalized,
     reviewMessage, detectTeacherAnnotations, teacherAnnotations, scientificDiagramAnalysis,
     pageClassifications, manualRotationAngles, annotationInkColor, annotationInkColorApplied,
     currentBackgroundJobId]);
@@ -1065,6 +1070,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
       setSubjectTranscription(saved.subjectTranscription ?? null);
       setProposal(saved.proposal ?? null);
       setReview(saved.review ?? []);
+      setCopyAnnotations(restoreCopyAnnotations(saved.copyAnnotations, saved.review ?? []));
       setTeacherQuestions(saved.teacherQuestions ?? '');
       setStudentLabel(saved.studentLabel ?? '');
       setStudentIdentity(saved.studentIdentity ?? null);
@@ -1137,6 +1143,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
       // Refresh only the first result. Preserve teacher edits once loaded.
       setProposal(structuredClone(ready.proposal));
       setReview(structuredClone(ready.reviewDraft ?? toReviewedCriteria(ready.proposal)));
+      setCopyAnnotations(restoreCopyAnnotations(ready.copyAnnotations, ready.reviewDraft ?? []));
       setTeacherQuestions(ready.teacherQuestionsDraft ?? ready.proposal.questionsForTeacher.join('\n'));
       setTranscription(ready.transcription);
       setImages(structuredClone(ready.images));
@@ -1586,6 +1593,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
       const workingImage = annotationInkColor !== 'none' && annotationInkColorApplied
         ? await service.eraseTeacherAnnotationColor(rotated, annotationInkColor)
         : rotated;
+      persistCopyAnnotations(placeAnnotationsAfterRotation(copyAnnotations, pageIndex + 1, clockwiseDegrees));
       setImages((current) => current.map((entry, index) => index === pageIndex ? workingImage : entry));
       setManualRotationAngles((current) => ({ ...current, [pageIndex]: nextAngle }));
       setAnnotationInkColorPreview(null);
@@ -1608,6 +1616,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
   }
 
   function removeCopyPage(pageIndex: number) {
+    persistCopyAnnotations(placeAnnotationsAfterPageRemoval(copyAnnotations, pageIndex + 1));
     setImages((current) => current.filter((_, index) => index !== pageIndex));
     setAnnotationInkColorPreview(null);
     setOriginalImages((current) => current.filter((_, index) => index !== pageIndex));
@@ -3444,20 +3453,51 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
       : item));
   }
 
-  function updateCopyAnnotationPlacement(criterionId: string, placement: CopyAnnotationPlacement | undefined) {
-    if (isFinalized || !review.some((item) => item.criterionId === criterionId)) return;
-    updateReview(criterionId, { annotationPlacement: placement });
-    // Foreground drafts persist through useScientificDiagramDraft. Queued copies
-    // need an explicit write so a reload immediately after placing a note does
-    // not lose it; review metadata never modifies the underlying image.
-    if (currentBackgroundJobId) {
-      const updatedReview = review.map((item) => item.criterionId === criterionId
-        ? { ...item, annotationPlacement: placement } : item);
-      void backgroundService.saveReviewDraft(currentBackgroundJobId, updatedReview, teacherQuestions)
-        .catch((cause) => setError(cause instanceof Error
-          ? `Impossible de sauvegarder l’annotation : ${cause.message}`
-          : 'Impossible de sauvegarder l’annotation sur cette copie.'));
+  function persistCopyAnnotations(next: CopyAnnotation[]) {
+    setCopyAnnotations(next);
+    const jobId = currentBackgroundJobId;
+    const correctionId = currentCorrectionId;
+    if (!jobId && !(isFinalized && correctionId)) return;
+    annotationWrite.current = annotationWrite.current.then(async () => {
+      if (jobId) {
+        await backgroundService.saveReviewDraft(jobId, review, teacherQuestions, next);
+      } else if (correctionId) {
+        const archived = await archiveService.getCorrection?.(correctionId)
+          ?? archivedCorrections.find((correction) => correction.id === correctionId);
+        if (!archived?.snapshot) throw new Error('La correction locale est introuvable.');
+        const updated = { ...archived, updatedAt: new Date().toISOString(), snapshot: { ...archived.snapshot, copyAnnotations: next } };
+        await archiveService.saveCorrection(updated);
+        setArchivedCorrections((records) => records.map((record) => record.id === correctionId && !record.imagesDeferred ? updated : record));
+      }
+    }).catch((cause) => {
+      setError(cause instanceof Error ? `Impossible de sauvegarder les annotations : ${cause.message}` : 'Impossible de sauvegarder les annotations.');
+    });
+  }
+
+  function saveCopyAnnotation(annotation: CopyAnnotation) {
+    const message = annotation.message.trim();
+    if (!message) return;
+    const next = { ...annotation, message: message.slice(0, MAX_COPY_ANNOTATION_LENGTH) };
+    persistCopyAnnotations(copyAnnotations.some((entry) => entry.id === next.id)
+      ? copyAnnotations.map((entry) => entry.id === next.id ? next : entry)
+      : [...copyAnnotations, next]);
+    setCopyAnnotationEdit(null);
+  }
+
+  function selectCopyAnnotation(edit: CopyAnnotationEdit, page?: number) {
+    setCopyAnnotationEdit(edit);
+    if (edit.selecting) {
+      requestAnimationFrame(() => document.querySelector<HTMLButtonElement>(
+        `#review-copy-page-${page ?? 1} .copy-annotation-placement-target`,
+      )?.focus());
     }
+  }
+
+  function placeCopyAnnotation(placement: CopyAnnotationPlacement) {
+    if (!copyAnnotationEdit?.selecting) return;
+    const annotation = { ...copyAnnotationEdit.annotation, placement };
+    if (copyAnnotationEdit.saveOnPlacement) saveCopyAnnotation(annotation);
+    else setCopyAnnotationEdit({ annotation, selecting: false, saveOnPlacement: false });
   }
 
   function verifySubcriterion(criterionId: string, subcriterionId: string, action: SubcriterionTeacherDecision) {
@@ -3494,6 +3534,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
       rubric: structuredClone(rubric),
       proposal: structuredClone(proposal),
       review: structuredClone(review),
+      copyAnnotations: structuredClone(copyAnnotations),
       teacherQuestions,
       images: structuredClone(images),
       originalImages: structuredClone(originalImages),
@@ -3522,6 +3563,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
       snapshot,
     };
     try {
+      await annotationWrite.current;
       await archiveService.saveCorrection(correction);
       if (currentBackgroundJobId) await backgroundService.markCompleted(currentBackgroundJobId);
       // The validated correction is already stored in the archive. Do not
@@ -3580,7 +3622,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
 
   function captureActiveDraft(): AssignmentDraft {
     return {
-      images, originalImages, transcription, subjectImages, subjectTranscription, proposal, review,
+      images, originalImages, transcription, subjectImages, subjectTranscription, proposal, review, copyAnnotations,
       teacherQuestions, studentLabel, studentIdentity, currentCorrectionId, isFinalized, reviewMessage, detectTeacherAnnotations, teacherAnnotations, scientificDiagramAnalysis, scientificPageClassifications: pageClassifications,
       annotationInkColor, annotationInkColorApplied, manualRotationAngles,
     };
@@ -3614,6 +3656,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     setSubjectImages(draft?.subjectImages ?? []);
     setSubjectTranscription(draft?.subjectTranscription ?? null);
     setProposal(draft?.proposal ?? null);
+    setCopyAnnotations(restoreCopyAnnotations(draft?.copyAnnotations, draft?.review ?? []));
     setReview((draft?.review ?? []).map((item) => item.decision === 'pending' ? { ...item, decision: 'accepted' as const } : item));
     setTeacherQuestions(draft?.teacherQuestions ?? '');
     setStudentLabel(draft?.studentLabel ?? '');
@@ -3900,6 +3943,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
         setCurrentCorrectionId(null);
         setStudentLabel('');
         setStudentIdentity(null);
+        setCopyAnnotations([]);
         setImages([]);
         setOriginalImages([]);
         setManualRotationAngles({});
@@ -3975,6 +4019,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
       setAnnotationInkColorApplied(true);
       setAnnotationInkColorPreview(null);
       setTeacherAnnotations('');
+      setCopyAnnotations([]);
       setImages([]);
       setOriginalImages([]);
       setTranscription(null);
@@ -4016,6 +4061,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     setIsFinalized(false);
     setStudentLabel('');
     setStudentIdentity(null);
+    setCopyAnnotations([]);
     setImages([]);
     setOriginalImages([]);
     setProposal(null);
@@ -4152,6 +4198,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     // or processing copy must not be blocked by the foreground copy's analysis flag.
     if (isAnalyzing && !jobId) { setReviewMessage('Attendez la fin du traitement avant de changer de copie.'); return; }
 
+    await annotationWrite.current;
     const requestedJob = jobId
       ? await loadFullQueuedJob(jobId)
       : copyNavigation.nextCopyToReview?.job ?? null;
@@ -4205,6 +4252,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     setPageClassifications(next.scientificPageClassifications ?? null);
     setScientificDiagramError('');
     setProposal(canReview && next.proposal ? structuredClone(next.proposal) : null);
+    setCopyAnnotations(restoreCopyAnnotations(next.copyAnnotations, next.reviewDraft ?? []));
     setReview(canReview && next.proposal ? structuredClone(next.reviewDraft ?? toReviewedCriteria(next.proposal)) : []);
     setTeacherQuestions(canReview && next.proposal ? next.teacherQuestionsDraft ?? next.proposal.questionsForTeacher.join('\\n') : '');
     setShowOnlyFlagged(true);
@@ -4227,7 +4275,8 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
 
     if (currentBackgroundJobId && !isFinalized) {
       try {
-        await backgroundService.saveReviewDraft(currentBackgroundJobId, structuredClone(review), teacherQuestions);
+        await annotationWrite.current;
+        await backgroundService.saveReviewDraft(currentBackgroundJobId, structuredClone(review), teacherQuestions, copyAnnotations);
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : 'Impossible de sauvegarder votre vérification avant de passer à la copie suivante.');
         return false;
@@ -4282,6 +4331,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
           partialCriteria: savedCriteria,
           proposal: savedProposal,
           reviewDraft: structuredClone(review),
+          copyAnnotations: structuredClone(copyAnnotations),
           teacherQuestionsDraft: teacherQuestions,
           error: null,
           updatedAt: now,
@@ -4303,6 +4353,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     setCurrentBackgroundJobId(null);
     setStudentLabel('');
     setStudentIdentity(null);
+    setCopyAnnotations([]);
     setImages([]);
     setOriginalImages([]);
     setDetectTeacherAnnotations(false);
@@ -4408,6 +4459,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     setQuestion(snapshot.question);
     setRubric(snapshot.rubric);
     setProposal(snapshot.proposal);
+    setCopyAnnotations(restoreCopyAnnotations(snapshot.copyAnnotations, snapshot.review));
     setReview(snapshot.review.map((item) => item.decision === 'pending' ? { ...item, decision: 'accepted' as const } : item));
     setScientificDiagramAnalysis(snapshot.scientificDiagramAnalysis ?? null);
     setPageClassifications(snapshot.scientificPageClassifications ?? null);
@@ -6024,7 +6076,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
         {reviewMessage && <p className="copy-review-navigation-message" role="status">{reviewMessage}</p>}
       </section>}
       {(proposal || isAnalyzing || review.length > 0 || Boolean(pageClassifications?.some((page) => page.kind !== 'text')) || (analysisStage === 'grading' && teacherStep === 'review')) && !(currentBackgroundJobId && activeBackgroundJob?.status === 'processing') && interfaceMode === 'teacher' && teacherStep === 'review' && <section className="review-section" onKeyDown={(event) => {
-        if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+        if ((event.metaKey || event.ctrlKey) && event.key === 'Enter' && !(event.target instanceof HTMLElement && event.target.closest('.copy-annotation-panel'))) {
           event.preventDefault();
           if (!isAnalyzing && !isFinalized && unassessedCount === 0 && review.length === rubric.criteria.length) void finalizeReview(true);
         }
@@ -6044,10 +6096,19 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
                 id="copy-annotation-toggle" checked={copyAnnotationsEnabled}
                 onChange={(event) => {
                   setCopyAnnotationsEnabled(event.target.checked);
-                  setPlacingCopyAnnotationCriterionId(null);
+                  setCopyAnnotationEdit(null);
                 }}
               >Annoter la copie</Checkbox><small>{copyAnnotationsEnabled ? 'Activé · annotations locales' : 'Désactivé · copie sans annotations ajoutées'}</small></div>
-              {copyAnnotationsEnabled && placingCopyAnnotationCriterionId && <p className="copy-annotation-placement-help" role="status">Cliquez sur la page à l’emplacement de la remarque, ou désactivez le mode d’annotation.</p>}
+              {copyAnnotationsEnabled && <CopyAnnotationPanel
+                annotations={copyAnnotations} criteria={rubric.criteria} edit={copyAnnotationEdit}
+                onEdit={setCopyAnnotationEdit} onSelect={selectCopyAnnotation} onSave={saveCopyAnnotation}
+                onAdd={() => selectCopyAnnotation({
+                  annotation: { id: crypto.randomUUID(), message: '', status: 'accepted' },
+                  selecting: images.length > 0, saveOnPlacement: false,
+                })}
+                onDelete={(id) => { persistCopyAnnotations(copyAnnotations.filter((entry) => entry.id !== id)); setCopyAnnotationEdit(null); }}
+                disabled={isAnalyzing} readOnly={false}
+              />}
             </div>
             <div className="review-source-pages" aria-label="Pages originales de la copie">
               {images.length > 0 ? images.map((image, index) => {
@@ -6055,22 +6116,18 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
                 const preview = isScientificDiagramAssignment
                   ? <img src={`data:${image.mimeType};base64,${image.base64}`} alt={`Page de travail ${pageNumber} de la copie`} style={{ maxWidth: '100%' }} />
                   : <ZoomableImage src={`data:${image.mimeType};base64,${image.base64}`} alt={`Page de travail ${pageNumber} de la copie`} />;
-                const pageAnnotations = copyAnnotationsEnabled ? review.flatMap((item) => {
-                  const placement = item.annotationPlacement;
-                  const maximum = rubric.criteria.find((criterion) => criterion.id === item.criterionId)?.maxPoints;
-                  const message = maximum === undefined ? null : copyAnnotationMessage(item, maximum);
-                  return isCopyAnnotationPlacement(placement) && placement.pageNumber === pageNumber && message
-                    ? [{ criterionId: item.criterionId, message, x: placement.x, y: placement.y }] : [];
-                }) : [];
+                const pageAnnotations = copyAnnotations.flatMap((annotation, number) => {
+                  const placement = annotation.placement;
+                  return placement?.pageNumber === pageNumber ? [{
+                    id: annotation.id, number: number + 1, message: annotation.message,
+                    x: placement.x, y: placement.y, suggested: annotation.status === 'suggested',
+                  }] : [];
+                });
                 return <figure id={`review-copy-page-${pageNumber}`} className={focusedEvidencePage === pageNumber ? 'live-copy-page evidence-page-focused' : 'live-copy-page'} key={image.fileName + '-review-' + index}>
                   <div className="evidence-image-stage">
                     {copyAnnotationsEnabled ? <CopyAnnotationCanvas
                       pageNumber={pageNumber} annotations={pageAnnotations}
-                      placingCriterion={!isAnalyzing && !isFinalized ? placingCopyAnnotationCriterionId : null}
-                      onPlace={(criterionId, placement) => {
-                        updateCopyAnnotationPlacement(criterionId, placement);
-                        setPlacingCopyAnnotationCriterionId(null);
-                      }}
+                      onPlace={!isAnalyzing && copyAnnotationEdit?.selecting ? placeCopyAnnotation : undefined}
                     >{preview}</CopyAnnotationCanvas> : preview}
                     {isScientificDiagramAssignment && <Button variant="secondary" className="diagram-review-enlarge" aria-label={`Agrandir la page ${pageNumber} du schéma`} onClick={() => setCopyViewerPage(index)}>Agrandir · Zoom</Button>}
                     <div className="copy-image-rotation-controls review-image-rotation-controls"><button type="button" className="text-button" aria-label={`Réorienter la page ${pageNumber} à gauche de 90 degrés`} disabled={isAnalyzing} onClick={() => { void rotateCopyPage(index, 270); }}>↶ 90°</button><button type="button" className="text-button" aria-label={`Réorienter la page ${pageNumber} à droite de 90 degrés`} disabled={isAnalyzing} onClick={() => { void rotateCopyPage(index, 90); }}>↷ 90°</button></div>
@@ -6166,16 +6223,14 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
               onResolveSubcriterion={(subcriterionId, action) => verifySubcriterion(item.criterionId, subcriterionId, action)}
               disabled={isAnalyzing}
             />}
-            {copyAnnotationsEnabled && !isAnalyzing && !isFinalized && copyAnnotationMessage(item, criterion.maxPoints) && <div className="copy-annotation-actions">
-              <button type="button" className="secondary-button" onClick={() => {
-                setPlacingCopyAnnotationCriterionId(item.criterionId);
-                const targetPage = item.annotationPlacement?.pageNumber ?? item.pageNumber;
-                if (targetPage) document.getElementById(`review-copy-page-${targetPage}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              }}>{item.annotationPlacement ? 'Déplacer sur la copie' : 'Placer sur la copie'}</button>
-              {item.annotationPlacement && <button type="button" className="text-button" onClick={() => {
-                updateCopyAnnotationPlacement(item.criterionId, undefined);
-                setPlacingCopyAnnotationCriterionId(null);
-              }}>Retirer l’annotation</button>}
+            {copyAnnotationsEnabled && <div className="copy-annotation-actions">
+              <button type="button" className="secondary-button" disabled={isAnalyzing} onClick={() => {
+                const message = copyAnnotationMessage(item);
+                selectCopyAnnotation({
+                  annotation: { id: crypto.randomUUID(), message, criterionId: item.criterionId, status: 'accepted' },
+                  selecting: false, saveOnPlacement: false,
+                });
+              }}>Annoter la copie</button>
             </div>}
             {isFlagged && criterion.description && <p className="review-rubric-context"><strong>Attendu du barème</strong><br />{criterion.description}</p>}
             {isFlagged && <TeacherReviewAlert

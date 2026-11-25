@@ -1,3 +1,4 @@
+import type { CopyAnnotation } from './copyAnnotationFeature.ts';
 import type { ImageInput } from '../../shared/domain/imageInput.ts';
 import type { GradingProposal, CriterionProposal, ReviewedCriterion } from './grading.ts';
 import type { Rubric } from './rubric.ts';
@@ -83,6 +84,7 @@ export interface BackgroundCorrectionJob {
   partialCriteria: CriterionProposal[];
   proposal: GradingProposal | null;
   /** Teacher edits kept when an unarchived foreground copy is moved to the queue. */
+  copyAnnotations?: CopyAnnotation[];
   reviewDraft?: ReviewedCriterion[];
   teacherQuestionsDraft?: string;
   error: string | null;

@@ -15,15 +15,8 @@ export interface CopyAnnotationPlacement {
   y: number;
 }
 
-/** Grading remains authoritative: only an actual deduction with an explicit
- * teacher-facing remark can become a mark on the student's page. */
-export function copyAnnotationMessage(
-  item: Pick<ReviewedCriterion, 'teacherPoints' | 'teacherComment' | 'annotationSuggestion' | 'assessmentStatus'>,
-  maximum: number,
-): string | null {
-  if (item.assessmentStatus === 'not-evaluated' || !Number.isFinite(maximum) || !(item.teacherPoints < maximum)) return null;
-  const message = item.teacherComment.trim() || item.annotationSuggestion?.trim() || '';
-  return message || null;
+export function copyAnnotationMessage(item: Pick<ReviewedCriterion, 'teacherComment' | 'annotationSuggestion'>): string {
+  return (item.annotationSuggestion?.trim() || item.teacherComment.trim()).slice(0, MAX_COPY_ANNOTATION_LENGTH);
 }
 
 /** The UI—not the LLM—normalizes a teacher-selected location on the visible image. */
@@ -47,4 +40,45 @@ export function isCopyAnnotationPlacement(value: unknown): value is CopyAnnotati
   return Number.isInteger(placement.pageNumber) && (placement.pageNumber as number) > 0
     && Number.isInteger(placement.x) && (placement.x as number) >= 0 && (placement.x as number) <= 1000
     && Number.isInteger(placement.y) && (placement.y as number) >= 0 && (placement.y as number) <= 1000;
+}
+
+export interface CopyAnnotation {
+  id: string;
+  message: string;
+  criterionId?: string;
+  placement?: CopyAnnotationPlacement;
+  status: 'accepted' | 'suggested';
+}
+
+export const MAX_COPY_ANNOTATION_LENGTH = 240;
+
+export function restoreCopyAnnotations(saved: CopyAnnotation[] | undefined, review: readonly ReviewedCriterion[]): CopyAnnotation[] {
+  if (saved) return saved;
+  return review.flatMap((item) => {
+    const message = item.teacherComment.trim() || item.annotationSuggestion?.trim();
+    return message && isCopyAnnotationPlacement(item.annotationPlacement)
+      ? [{ id: `legacy-${item.criterionId}`, message, criterionId: item.criterionId, placement: item.annotationPlacement, status: 'accepted' as const }]
+      : [];
+  });
+}
+
+export function placeAnnotationsAfterRotation(
+  annotations: CopyAnnotation[], pageNumber: number, degrees: 90 | 180 | 270,
+): CopyAnnotation[] {
+  return annotations.map((annotation) => {
+    const placement = annotation.placement;
+    if (placement?.pageNumber !== pageNumber) return annotation;
+    const { x, y } = placement;
+    const point = degrees === 90 ? { x: 1000 - y, y: x }
+      : degrees === 180 ? { x: 1000 - x, y: 1000 - y } : { x: y, y: 1000 - x };
+    return { ...annotation, placement: { pageNumber, ...point } };
+  });
+}
+
+export function placeAnnotationsAfterPageRemoval(annotations: CopyAnnotation[], pageNumber: number): CopyAnnotation[] {
+  return annotations.map((annotation) => {
+    const placement = annotation.placement;
+    if (!placement || placement.pageNumber < pageNumber) return annotation;
+    return { ...annotation, placement: placement.pageNumber === pageNumber ? undefined : { ...placement, pageNumber: placement.pageNumber - 1 } };
+  });
 }

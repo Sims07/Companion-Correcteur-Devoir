@@ -1,3 +1,4 @@
+import type { CopyAnnotation } from './copyAnnotationFeature.ts';
 import type { GradingProposal, ReviewedCriterion } from './grading.ts';
 import type { Rubric } from './rubric.ts';
 import type { ScientificDiagramAnalysis } from './scientificDiagram.ts';
@@ -19,6 +20,7 @@ export interface CorrectionArchiveSnapshot {
   question: string;
   rubric: Rubric;
   proposal: GradingProposal;
+  copyAnnotations?: CopyAnnotation[];
   review: ReviewedCriterion[];
   teacherQuestions: string;
   images: ArchivedImage[];

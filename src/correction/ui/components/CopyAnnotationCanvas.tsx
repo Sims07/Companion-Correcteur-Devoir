@@ -3,40 +3,45 @@ import { placementFromPageClick, type CopyAnnotationPlacement } from '../../doma
 import './CopyAnnotationCanvas.css';
 
 export interface CopyAnnotationView {
-  criterionId: string;
+  id: string;
+  number: number;
   message: string;
   x: number;
   y: number;
+  suggested?: boolean;
 }
 
-/** Display-only SVG-free overlay. Marks live in the review, never in image pixels. */
 export function CopyAnnotationCanvas({
-  children, pageNumber, annotations, placingCriterion, onPlace,
+  children, pageNumber, annotations, onPlace,
 }: {
   children: ReactNode;
   pageNumber: number;
   annotations: readonly CopyAnnotationView[];
-  placingCriterion?: string | null;
-  onPlace?: (criterionId: string, placement: CopyAnnotationPlacement) => void;
+  onPlace?: (placement: CopyAnnotationPlacement) => void;
 }) {
   const handlePlace = (event: MouseEvent<HTMLButtonElement>) => {
-    if (!placingCriterion || !onPlace) return;
-    const placement = placementFromPageClick(pageNumber, event.clientX, event.clientY, event.currentTarget.getBoundingClientRect());
-    if (placement) onPlace(placingCriterion, placement);
+    if (!onPlace) return;
+    // Keyboard activation has no pointer position. Use the page center.
+    const rect = event.currentTarget.getBoundingClientRect();
+    const placement = event.detail === 0
+      ? { pageNumber, x: 500, y: 500 }
+      : placementFromPageClick(pageNumber, event.clientX, event.clientY, rect);
+    if (placement) onPlace(placement);
   };
   return <div className="copy-annotation-canvas">
     {children}
-    {annotations.map((annotation) => <div
-      key={annotation.criterionId}
-      className="copy-inline-annotation"
+    {annotations.map((annotation) => <button type="button"
+      key={annotation.id}
+      className={annotation.suggested ? 'copy-inline-annotation is-suggested' : 'copy-inline-annotation'}
       title={annotation.message}
+      aria-label={`Annotation ${annotation.number} : ${annotation.message}`}
       style={{ left: `${annotation.x / 10}%`, top: `${annotation.y / 10}%` }}
-      data-criterion-id={annotation.criterionId}
-    ><span aria-hidden="true" className="copy-inline-annotation-symbol">✎</span><span>{annotation.message}</span></div>)}
-    {placingCriterion && onPlace && <button type="button"
+      onClick={() => document.getElementById(`copy-annotation-${annotation.id}`)?.focus()}
+    >{annotation.number}</button>)}
+    {onPlace && <button type="button"
       className="copy-annotation-placement-target"
       aria-label={`Placer l’annotation sur la page ${pageNumber}`}
-      title="Cliquez sur l’emplacement de la remarque"
+      title="Cliquez sur l’emplacement de la remarque. Au clavier, Entrée place le repère au centre."
       onClick={handlePlace}
     />}
   </div>;

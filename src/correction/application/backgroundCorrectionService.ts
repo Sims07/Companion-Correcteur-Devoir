@@ -67,7 +67,7 @@ export interface BackgroundCorrectionService {
   subscribeSummaries(listener: (jobs: BackgroundJobSummary[]) => void): () => void;
   markForReview(jobId: string): Promise<void>;
   renameJob(jobId: string, label: string): Promise<void>;
-  saveReviewDraft(jobId: string, reviewDraft: BackgroundCorrectionJob['reviewDraft'], teacherQuestionsDraft: string): Promise<void>;
+  saveReviewDraft(jobId: string, reviewDraft: BackgroundCorrectionJob['reviewDraft'], teacherQuestionsDraft: string, copyAnnotations?: BackgroundCorrectionJob['copyAnnotations']): Promise<void>;
   markCompleted(jobId: string): Promise<void>;
   remove(jobId: string): Promise<void>;
   retry(jobId: string, settings: OllamaSettings, gradingFlow?: BackgroundCorrectionJob['gradingFlow'], overrides?: { rubric: Rubric; question: string }): Promise<void>;
@@ -750,12 +750,13 @@ export function createBackgroundCorrectionService(
       const job = await readStoredJob(jobId);
       if (job) await persist({ ...job, status: 'reviewing', updatedAt: new Date().toISOString() });
     },
-    async saveReviewDraft(jobId, reviewDraft, teacherQuestionsDraft) {
+    async saveReviewDraft(jobId, reviewDraft, teacherQuestionsDraft, copyAnnotations) {
       const job = await readStoredJob(jobId);
       if (job) await persist({
         ...job,
         reviewDraft: structuredClone(reviewDraft ?? []),
         teacherQuestionsDraft,
+        ...(copyAnnotations ? { copyAnnotations: structuredClone(copyAnnotations) } : {}),
         updatedAt: new Date().toISOString(),
       });
     },

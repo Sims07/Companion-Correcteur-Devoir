@@ -74,40 +74,52 @@ test('teacher can opt in, place, move and hide a synthetic remark without any LL
   const criterion = page.locator('.review-card').filter({ has: page.getByRole('heading', { name: 'Membrane' }) });
   await expect(toggle).not.toBeChecked();
   const requestsBeforeAnnotations = requests.length;
-  await expect(criterion.getByRole('button', { name: 'Placer sur la copie' })).toHaveCount(0);
+  const annotations = page.getByRole('region', { name: 'Annotations de la copie' });
+  await expect(criterion.getByRole('button', { name: 'Annoter la copie' })).toHaveCount(0);
   await toggle.check();
-  await expect(criterion.getByRole('button', { name: 'Placer sur la copie' })).toBeVisible();
-  await criterion.getByRole('button', { name: 'Placer sur la copie' }).click();
-  // A one-pixel synthetic fixture is enlarged for hit-target testing only.
+  await criterion.getByRole('button', { name: 'Annoter la copie' }).click();
+  await expect(annotations.getByRole('textbox', { name: 'Remarque' })).toHaveValue('Préciser la membrane.');
+  await annotations.getByRole('button', { name: 'Placer sur la copie' }).click();
   await page.addStyleTag({ content: '.copy-annotation-canvas .zoomable-image-trigger, .copy-annotation-canvas img { width: 300px !important; height: 200px !important; }' });
-  await page.getByRole('button', { name: 'Placer l’annotation sur la page 1' }).click({ position: { x: 140, y: 80 } });
-  await expect(page.locator('.copy-inline-annotation')).toHaveCount(1);
-  await expect(page.locator('.copy-inline-annotation')).toContainText('Préciser la membrane.');
-  // Queued reviews must be saved immediately, not only when navigating away.
+  const target = page.getByRole('button', { name: 'Placer l’annotation sur la page 1' });
+  await target.click({ position: { x: 140, y: 80 } });
+  await expect(annotations.getByText('1. Préciser la membrane.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Annotation 1 : Préciser la membrane.' })).toBeVisible();
+
   await expect.poll(() => page.evaluate(async () => {
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
       const request = indexedDB.open('companion-correcteur-devoir', 7);
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
-    const job = await new Promise<{ reviewDraft?: Array<{ criterionId: string; annotationPlacement?: { pageNumber: number } }> } | undefined>((resolve, reject) => {
+    const job = await new Promise<{ copyAnnotations?: Array<{ criterionId?: string; placement?: { pageNumber: number } }> } | undefined>((resolve, reject) => {
       const request = db.transaction('background-corrections').objectStore('background-corrections').get('annotation-teacher-copy');
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
     db.close();
-    return job?.reviewDraft?.find((item) => item.criterionId === 'membrane')?.annotationPlacement?.pageNumber;
+    return job?.copyAnnotations?.find((item) => item.criterionId === 'membrane')?.placement?.pageNumber;
   })).toBe(1);
+
   const firstX = await page.locator('.copy-inline-annotation').evaluate((node) => (node as HTMLElement).style.left);
-  await criterion.getByRole('button', { name: 'Déplacer sur la copie' }).click();
-  await page.getByRole('button', { name: 'Placer l’annotation sur la page 1' }).click({ position: { x: 200, y: 120 } });
+  await annotations.getByRole('button', { name: 'Déplacer sur la copie' }).click();
+  await target.click({ position: { x: 200, y: 120 } });
   await expect.poll(() => page.locator('.copy-inline-annotation').evaluate((node) => (node as HTMLElement).style.left)).not.toBe(firstX);
+
+  await annotations.getByRole('button', { name: 'Ajouter' }).click();
+  await target.click({ position: { x: 50, y: 50 } });
+  await annotations.getByRole('textbox', { name: 'Remarque' }).fill('Très bon dessin !');
+  await expect(annotations.getByRole('combobox', { name: 'Critère associé' })).toHaveValue('');
+  await annotations.getByRole('button', { name: 'Enregistrer' }).click();
+  await expect(page.locator('.copy-inline-annotation')).toHaveCount(2);
+  await expect(criterion.getByText('1 / 2', { exact: true })).toBeVisible();
+
   await toggle.uncheck();
   await expect(page.locator('.copy-inline-annotation')).toHaveCount(0);
-  await expect(criterion.getByRole('button', { name: 'Déplacer sur la copie' })).toHaveCount(0);
+  await expect(annotations).toHaveCount(0);
   await toggle.check();
+  await expect(page.locator('.copy-inline-annotation')).toHaveCount(2);
+  await annotations.getByRole('listitem').filter({ hasText: 'Très bon dessin !' }).getByRole('button', { name: 'Supprimer' }).click();
   await expect(page.locator('.copy-inline-annotation')).toHaveCount(1);
-  await criterion.getByRole('button', { name: 'Retirer l’annotation' }).click();
-  await expect(page.locator('.copy-inline-annotation')).toHaveCount(0);
   expect(requests.slice(requestsBeforeAnnotations)).toEqual([]);
 });
