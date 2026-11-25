@@ -6,6 +6,7 @@ export function compatibleEndpoint(endpoint: string): string {
 
 interface DiagramTurn {
   model: string;
+  store?: boolean;
   messages: { content: string; images?: string[] }[];
   think: boolean | string;
   omitReasoningParameter?: boolean;
@@ -23,7 +24,7 @@ export async function sendLmStudioDiagramTurn(endpoint: string, apiKey: string, 
   const textInput = { type: 'text', content: prompt };
   const reasoning = turn.think === true ? 'on' : !turn.think || turn.think === 'none' ? 'off' : turn.think;
   const body = {
-    model: turn.model, store: true, stream: true, ...(turn.omitReasoningParameter ? {} : { reasoning }),
+    model: turn.model, store: turn.store ?? true, stream: true, ...(turn.omitReasoningParameter ? {} : { reasoning }),
     ...(typeof turn.contextLength === 'number' && Number.isSafeInteger(turn.contextLength) && turn.contextLength > 0
       ? { context_length: turn.contextLength } : {}),
     ...(turn.options.temperature !== undefined ? { temperature: turn.options.temperature } : {}),
@@ -53,8 +54,10 @@ export async function sendLmStudioDiagramTurn(endpoint: string, apiKey: string, 
     if (event.type === 'reasoning.delta') chunk = { message: { thinking: event.content } };
     if (event.type === 'chat.end') {
       const id = event.result?.response_id;
-      if (typeof id !== 'string' || !id.startsWith('resp_')) throw new Error('LM Studio n’a pas fourni l’identifiant de conversation de cette copie.');
-      conversation.responseId = id;
+      if (turn.store !== false) {
+        if (typeof id !== 'string' || !id.startsWith('resp_')) throw new Error('LM Studio n’a pas fourni l’identifiant de conversation de cette copie.');
+        conversation.responseId = id;
+      }
       completed = true;
       const stats = event.result.stats;
       chunk = { done: true, prompt_eval_count: stats?.input_tokens, eval_count: stats?.total_output_tokens,

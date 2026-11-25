@@ -284,7 +284,9 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await expect(page.locator('.copy-inline-annotation')).toHaveCount(0);
   await annotationsToggle.check();
   await expect(page.locator('.copy-inline-annotation')).toHaveCount(1);
-  await expect(page.locator('.copy-inline-annotation')).toContainText('Précise le rôle de la membrane.');
+  await expect(page.getByRole('button', { name: 'Annotation 1 : Précise le rôle de la membrane.' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Annotations de la copie' })
+    .getByText('1. Précise le rôle de la membrane.', { exact: true })).toBeVisible();
   await page.reload();
   await openActiveAssignment(page);
   await page.getByRole('tab', { name: /Copies/ }).click();

@@ -5,6 +5,7 @@ import { copyNetworkRequestMetadata } from '../../ports/networkRequestMetadata.t
 
 export interface ZoomDiagramTurn {
   model: string;
+  store?: boolean;
   criterionLabel?: string;
   messages: { content: string; images?: string[] }[];
   think: boolean | string;
@@ -137,7 +138,7 @@ export async function sendLmStudioZoomDiagramTurn(
   for (let turnIndex = 0; turnIndex < 5; turnIndex++) {
     signal?.throwIfAborted();
     const body = {
-      model: turn.model, stream: true, store: true,
+      model: turn.model, stream: true, store: turn.store ?? true,
       ...(previousId ? { previous_response_id: previousId } : {}),
       input,
       ...(enableZoom && inspections < 2 ? { tools: [TOOL], tool_choice: 'auto' } : {}),
@@ -165,7 +166,7 @@ export async function sendLmStudioZoomDiagramTurn(
       if (error instanceof SyntaxError) throw new Error('Réponse LM Studio Responses illisible.');
       throw error;
     }
-    if (!payload.id || !payload.id.startsWith('resp_') || !Array.isArray(payload.output)) {
+    if ((turn.store !== false && !payload.id?.startsWith('resp_')) || !Array.isArray(payload.output)) {
       throw new Error('LM Studio n’a pas retourné de réponse Responses exploitable.');
     }
     previousId = payload.id;
@@ -173,6 +174,7 @@ export async function sendLmStudioZoomDiagramTurn(
     totalOutput += payload.usage?.output_tokens ?? 0;
     total += payload.usage?.total_tokens ?? 0;
     const calls = payload.output.filter((item): item is Extract<ApiOutput, { type: 'function_call' }> => item.type === 'function_call');
+    if (turn.store === false && calls.length) throw new Error('Réponse inattendue : le modèle a demandé un outil.');
     const incomplete = payload.status === 'incomplete';
     if (payload.status && payload.status !== 'completed' && !incomplete) {
       throw new Error('LM Studio Responses : réponse non terminée (' + payload.status + ').');
@@ -192,7 +194,7 @@ export async function sendLmStudioZoomDiagramTurn(
       const atLimit = incomplete || (!text.trim() && turn.options.num_predict !== undefined &&
         (payload.usage?.output_tokens ?? 0) >= turn.options.num_predict);
       // Never promote reasoning or truncated JSON to a final answer.
-      if (text.trim() && !atLimit) conversation.responseId = previousId;
+      if (turn.store !== false && text.trim() && !atLimit) conversation.responseId = previousId;
       const last = { message: { content: text, ...(reasoning ? { thinking: reasoning } : {}) },
         done: true, done_reason: atLimit ? 'length' : 'stop',
         prompt_eval_count: totalInput, eval_count: totalOutput, usage: { prompt_tokens: totalInput,

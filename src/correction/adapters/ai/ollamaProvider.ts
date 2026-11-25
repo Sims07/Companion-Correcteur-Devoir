@@ -93,7 +93,7 @@ function hasTranscriptionDrift(content: string): boolean {
   return repeats >= 2;
 }
 
-async function readOllamaStream(response: Response, onChunk?: (chunk: string) => boolean | void): Promise<OllamaStreamResult> {
+export async function readOllamaStream(response: Response, onChunk?: (chunk: string) => boolean | void): Promise<OllamaStreamResult> {
   if (!response.body) throw new Error('Ollama n’a pas fourni de flux de réponse lisible.');
   const reader = response.body.getReader();
   const decoder = new TextDecoder();

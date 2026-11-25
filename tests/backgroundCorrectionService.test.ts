@@ -1202,6 +1202,7 @@ describe('background correction service', () => {
       partialCriteria: [{ criterionId: 'c1', points: 1, rationale: '', evidence: 'Ancienne preuve', confidence: 'low' }],
       completedCriteria: 1,
       imageFingerprint: 'old-fingerprint',
+      copyAnnotations: [{ id: 'remark', message: 'Très bon dessin !', status: 'accepted', placement: { pageNumber: 1, x: 300, y: 250 } }],
       error: 'Ancienne erreur',
     });
     const service = createBackgroundCorrectionService(f.repository, f.workspace);
@@ -1212,6 +1213,7 @@ describe('background correction service', () => {
     expect(f.jobs.get('copy-1')).toMatchObject({
       images: rotated,
       rotationAngles: { 0: 90 },
+      copyAnnotations: [{ id: 'remark', message: 'Très bon dessin !', placement: { pageNumber: 1, x: 750, y: 300 } }],
       status: 'pending',
       phase: 'preparation',
       transcription: null,

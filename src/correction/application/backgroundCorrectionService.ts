@@ -1,3 +1,4 @@
+import { placeAnnotationsAfterRotation, restoreCopyAnnotations } from '../domain/copyAnnotationFeature.ts';
 import { parseGradingProposal } from '../domain/grading.ts';
 import { gradeDiagramImages } from '../ports/gradeDiagramImages.ts';
 import { directDiagramAssignmentIssue } from '../domain/directDiagramAssignment.ts';
@@ -67,7 +68,7 @@ export interface BackgroundCorrectionService {
   subscribeSummaries(listener: (jobs: BackgroundJobSummary[]) => void): () => void;
   markForReview(jobId: string): Promise<void>;
   renameJob(jobId: string, label: string): Promise<void>;
-  saveReviewDraft(jobId: string, reviewDraft: BackgroundCorrectionJob['reviewDraft'], teacherQuestionsDraft: string): Promise<void>;
+  saveReviewDraft(jobId: string, reviewDraft: BackgroundCorrectionJob['reviewDraft'], teacherQuestionsDraft: string, copyAnnotations?: BackgroundCorrectionJob['copyAnnotations']): Promise<void>;
   markCompleted(jobId: string): Promise<void>;
   remove(jobId: string): Promise<void>;
   retry(jobId: string, settings: OllamaSettings, gradingFlow?: BackgroundCorrectionJob['gradingFlow'], overrides?: { rubric: Rubric; question: string }): Promise<void>;
@@ -709,10 +710,16 @@ export function createBackgroundCorrectionService(
       if (job.status === 'processing' && !paused) throw new Error('Attendez la fin du traitement avant de réorienter cette copie.');
       if (job.status === 'completed') throw new Error('Une copie archivée ne peut plus être réorientée.');
       if (!images.length || images.length !== job.originalImages.length) throw new Error('La rotation doit conserver toutes les pages de la copie.');
+      const copyAnnotations = images.reduce((notes, _image, index) => {
+        const rotation = ((rotationAngles[index] ?? 0) - (job.rotationAngles?.[index] ?? 0) + 360) % 360;
+        return rotation === 90 || rotation === 180 || rotation === 270
+          ? placeAnnotationsAfterRotation(notes, index + 1, rotation) : notes;
+      }, restoreCopyAnnotations(job.copyAnnotations, job.reviewDraft ?? []));
       const updated: BackgroundCorrectionJob = {
         ...job,
         images: structuredClone(images),
         rotationAngles: { ...rotationAngles },
+        copyAnnotations,
         scientificPageClassifications: undefined,
         scientificDiagramAnalysis: null,
         transcription: null,
@@ -750,12 +757,13 @@ export function createBackgroundCorrectionService(
       const job = await readStoredJob(jobId);
       if (job) await persist({ ...job, status: 'reviewing', updatedAt: new Date().toISOString() });
     },
-    async saveReviewDraft(jobId, reviewDraft, teacherQuestionsDraft) {
+    async saveReviewDraft(jobId, reviewDraft, teacherQuestionsDraft, copyAnnotations) {
       const job = await readStoredJob(jobId);
       if (job) await persist({
         ...job,
         reviewDraft: structuredClone(reviewDraft ?? []),
         teacherQuestionsDraft,
+        ...(copyAnnotations ? { copyAnnotations: structuredClone(copyAnnotations) } : {}),
         updatedAt: new Date().toISOString(),
       });
     },
