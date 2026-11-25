@@ -15,6 +15,21 @@ const request = { question: 'Vérifier le dessin', rubric: JSON.stringify({ titl
   images: [{ mimeType: 'image/png', base64: 'aW1hZ2U=', fileName: 'copy.png' }], directGenerativeVision: true };
 
 describe('compact direct diagram output', () => {
+  it('extracts only the invalid leaf when a conversational model repeats the full criterion', async () => {
+    const bad = answer();
+    bad.criteria.title.subcriteria.position.points = 1;
+    const repeated = answer();
+    repeated.criteria.title.subcriteria.position.points = 0;
+    repeated.criteria.title.subcriteria.content.points = 0;
+    const fetchMock = vi.fn().mockResolvedValueOnce(stream(JSON.stringify(bad)))
+      .mockResolvedValueOnce(stream(JSON.stringify(repeated)));
+    const raw = await createOllamaProvider({ endpoint: 'http://localhost:11434',
+      analysisModel: 'qwen3.5:4b', correctionMethod: 'generative' }, fetchMock).generate(request);
+    expect(JSON.parse(raw).finalScore).toBe(0.34);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+
   it('handles all 19 real fixture targets with mixed zero, partial and maximum marks', () => {
     const rubric = SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC;
     const values = Object.fromEntries(rubric.criteria.map(c => [c.id, {
