@@ -29,6 +29,15 @@ describe('annotation suggestions', () => {
     expect(appendNewCopyAnnotations(suggestions, suggestions)).toEqual(suggestions);
   });
 
+  it('preserves explicit tones and leaves missing or invalid tones unqualified', () => {
+    const notes = parseCopyAnnotationSuggestions(JSON.stringify({ annotations: [
+      { message: 'Bon dessin', tone: 'positive', criterionId: 'titre' },
+      { message: 'À souligner', tone: 'improvement', criterionId: 'titre' },
+      { message: 'Autre', tone: 'invalid' }, { message: 'Ancienne' },
+    ] }), criteria, 1);
+    expect(notes.map((note) => note.tone)).toEqual(['positive', 'improvement', undefined, undefined]);
+  });
+
   it('accepts an empty list and distinguishes it from unusable output', () => {
     expect(parseCopyAnnotationSuggestions('{"annotations":[]}', criteria, 1)).toEqual([]);
     expect(() => parseCopyAnnotationSuggestions('{"annotations":[{"placement":null}]}', criteria, 1)).toThrow(/illisibles/);

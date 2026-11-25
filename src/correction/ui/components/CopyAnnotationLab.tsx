@@ -48,7 +48,7 @@ export function CopyAnnotationLab({ state, result, onGenerate, onStop }: {
     <CopyAnnotationGenerationControls state={state} disabled={false} onGenerate={onGenerate} onStop={onStop} label="Lancer le test d’annotation" />
     {result && <>
       <CopyAnnotationCanvas pageNumber={1} annotations={result.annotations.flatMap((annotation, index) => annotation.placement
-        ? [{ id: 'lab-' + annotation.id, number: index + 1, message: annotation.message, ...annotation.placement, suggested: true }] : [])}>
+        ? [{ id: 'lab-' + annotation.id, number: index + 1, message: annotation.message, tone: annotation.tone, ...annotation.placement, suggested: true }] : [])}>
         <img src={result.preview} alt="Copie fictive avec le titre Cellule végétale en haut à gauche" style={{ maxWidth: '100%', display: 'block' }} />
       </CopyAnnotationCanvas>
       <p role="status">

@@ -9,8 +9,8 @@ it('exports the score, appreciation, every image page and only accepted remarks'
     assignmentTitle: 'Étude de la membrane', studentLabel: 'Copie 1', score: 1.67, maximum: 2, finalized: true,
     appreciation: 'Très bon dessin !', images: [image, image],
     annotations: [
-      { id: 'one', message: 'Souligne le titre.', status: 'accepted', placement: { pageNumber: 2, x: 300, y: 700 } },
-      { id: 'two', message: 'Excellente légende.', status: 'accepted' },
+      { id: 'one', message: 'Souligne le titre.', tone: 'improvement', status: 'accepted', placement: { pageNumber: 2, x: 300, y: 700 } },
+      { id: 'two', message: 'Excellente légende.', tone: 'positive', status: 'accepted', placement: { pageNumber: 1, x: 300, y: 300 } },
       { id: 'three', message: 'Suggestion privée.', status: 'suggested', placement: { pageNumber: 1, x: 500, y: 500 } },
     ],
   });
@@ -23,11 +23,13 @@ it('exports the score, appreciation, every image page and only accepted remarks'
       .flatMap((item) => 'str' in item ? [item.str] : []).join(' ');
     expect(await text(1)).toContain('Note validée : 1,67 / 2');
     expect(await text(1)).toContain('Très bon dessin !');
-    expect(await text(1)).toContain('Page 2 · Souligne le titre.');
-    expect(await text(1)).toContain('Excellente légende.');
+    expect(await text(1)).toContain('À améliorer · Page 2 · Souligne le titre.');
+    expect(await text(1)).toContain('Réussite · Page 1 · Excellente légende.');
     expect(await text(1)).not.toContain('Suggestion privée.');
-    expect((await text(2)).trim()).toBe('Copie · page 1 / 2');
-    expect((await text(3)).trim()).toBe('Copie · page 2 / 2  1');
+    expect(await text(2)).toContain('Copie · page 1 / 2');
+    expect(await text(2)).toContain('+');
+    expect(await text(3)).toContain('Copie · page 2 / 2');
+    expect(await text(3)).toContain('!');
   } finally {
     await document.destroy();
   }

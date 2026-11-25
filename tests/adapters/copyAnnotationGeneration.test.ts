@@ -18,6 +18,14 @@ it('sends every page in a single request to Ollama and returns reviewable sugges
   const payload = JSON.parse(String(init?.body));
   expect(payload.messages[0].images).toEqual([image.base64, image.base64]);
   expect(payload.messages[0].content).toContain('"points":1');
+  expect(payload.messages[0].content).toContain('tone:"positive"');
+  expect(payload.messages[0].content).toContain('tone:"improvement"');
+  expect(payload.messages[0].content).toContain('Pour chaque page, planifie ensemble les positions');
+  expect(payload.messages[0].content).toContain('Évite tout chevauchement entre les textes et les repères');
+  expect(payload.messages[0].content).toContain('à droite si x ≤ 500, à gauche sinon');
+  expect(payload.messages[0].content).toContain('vers le bas si y ≤ 500, vers le haut sinon');
+  expect(payload.messages[0].content).toContain('sans masquer les réponses, dessins ou légendes');
+  expect(payload.messages[0].content).toContain('si aucun emplacement sans chevauchement n’est disponible, conserve la remarque et renvoie placement:null');
   expect(phase).toHaveBeenLastCalledWith('validating');
   expect(result[0]).toMatchObject({ criterionId: 'titre', status: 'suggested' });
 });

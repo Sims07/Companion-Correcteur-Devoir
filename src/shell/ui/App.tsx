@@ -6205,7 +6205,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
                   const placement = annotation.placement;
                   return placement?.pageNumber === pageNumber ? [{
                     id: annotation.id, number: number + 1, message: annotation.message,
-                    x: placement.x, y: placement.y, suggested: annotation.status === 'suggested',
+                    x: placement.x, y: placement.y, tone: annotation.tone, suggested: annotation.status === 'suggested',
                   }] : [];
                 });
                 return <figure id={`review-copy-page-${pageNumber}`} className={focusedEvidencePage === pageNumber ? 'live-copy-page evidence-page-focused' : 'live-copy-page'} key={image.fileName + '-review-' + index}>

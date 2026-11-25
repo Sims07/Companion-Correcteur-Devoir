@@ -29,6 +29,19 @@ describe('copy annotation overlay', () => {
     expect(html).toContain('Titre &lt; à revoir');
   });
 
+  it('distinguishes praise and improvement with symbols and accessible names, retaining numbers', () => {
+    const html = renderToStaticMarkup(<CopyAnnotationCanvas pageNumber={1} annotations={[
+      { id: 'p', number: 1, message: 'Très bien', x: 100, y: 100, tone: 'positive' },
+      { id: 'n', number: 2, message: 'Précise', x: 500, y: 500, tone: 'improvement' },
+    ]}><img src="page.png" alt="Copie" /></CopyAnnotationCanvas>);
+    expect(html).toContain('data-tone="positive"');
+    expect(html).toContain('data-tone="improvement"');
+    expect(html).toContain('copy-inline-annotation-symbol">✓ ');
+    expect(html).toContain('copy-inline-annotation-symbol">! ');
+    expect(html).toContain('Annotation 1 : Réussite · Très bien');
+    expect(html).toContain('Annotation 2 : À améliorer · Précise');
+  });
+
   it('only exposes the placement target while a teacher explicitly chooses a criterion', () => {
     const html = renderToStaticMarkup(<CopyAnnotationCanvas
       pageNumber={1} annotations={[]} onPlace={vi.fn()}

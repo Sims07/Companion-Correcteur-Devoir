@@ -16,6 +16,14 @@ describe('annotation toolbar', () => {
     expect(html).not.toContain('Ajouter');
     expect(html).not.toContain('Relire le titre.');
   });
+  it('allows the teacher to qualify a remark', () => {
+    const html = renderToStaticMarkup(<CopyAnnotationPanel {...props} enabled listOpen edit={{
+      annotation: { ...props.annotations[0], tone: 'positive' }, selecting: false, saveOnPlacement: false,
+    }} />);
+    expect(html).toContain('Type de remarque');
+    expect(html).toContain('value="positive" selected=""');
+    expect(html).toContain('value="improvement"');
+  });
   it('keeps the list closed until explicitly opened', () => {
     const closed = renderToStaticMarkup(<CopyAnnotationPanel {...props} enabled listOpen={false} />);
     const open = renderToStaticMarkup(<CopyAnnotationPanel {...props} enabled listOpen />);

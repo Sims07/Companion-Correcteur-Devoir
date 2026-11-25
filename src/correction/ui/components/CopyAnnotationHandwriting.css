@@ -38,6 +38,10 @@
   background: #fffdf9;
   font: 700 .72rem/1 system-ui, sans-serif;
 }
+.copy-annotation-canvas .copy-inline-annotation[data-tone="positive"] { color: #27764b; }
+.copy-annotation-canvas .copy-inline-annotation[data-tone="improvement"] { color: #b33136; }
+.copy-annotation-canvas .copy-inline-annotation:not([data-tone]) { color: #4b5563; }
+.copy-inline-annotation-symbol { font: 700 1rem/1 system-ui, sans-serif; }
 .copy-inline-annotation.is-suggested .copy-inline-annotation-number {
   border-style: dashed;
 }
