@@ -175,6 +175,18 @@ export function directDiagramPointsRepairSchema(issues: DirectDiagramPointRepair
   ]))) });
 }
 
+// Some conversational models repeat the complete grading object during repair.
+// Extract only the requested leaves; never replace previously accepted decisions.
+function repairLeaf(value: unknown, issue: DirectDiagramPointRepair): unknown {
+  if (!record(value) || !record(value.criteria)) return undefined;
+  const criterion = value.criteria[issue.criterionId];
+  if (!record(criterion)) return undefined;
+  const leaf = issue.subcriterionId
+    ? record(criterion.subcriteria) ? criterion.subcriteria[issue.subcriterionId] : undefined
+    : criterion;
+  return record(leaf) ? { points: leaf.points, evidence: leaf.evidence } : undefined;
+}
+
 export function applyDirectDiagramPointsRepair(
   originalRaw: string, repairRaw: string, issues: DirectDiagramPointRepair[],
   criteria: RubricCriterion[],
@@ -186,6 +198,9 @@ export function applyDirectDiagramPointsRepair(
     corrected = parseModelJson(repairRaw);
   } catch { fail('invalid-json'); }
   if (!record(initial) || !record(initial.criteria) || !record(corrected)) fail('invalid-shape');
+  if (record(corrected.criteria)) {
+    corrected = { corrections: Object.fromEntries(issues.map((issue, index) => ['item' + (index + 1), repairLeaf(corrected, issue)])) };
+  }
   exactKeys(corrected, ['corrections']);
   exactKeys(corrected.corrections, issues.map((_, index) => 'item' + (index + 1)));
   const values = corrected.corrections;
@@ -227,6 +242,7 @@ export function applyDirectDiagramPointRepair(
     corrected = parseModelJson(repairRaw);
     initial = parseModelJson(originalRaw);
   } catch { fail('invalid-json'); }
+  if (record(corrected) && record(corrected.criteria)) corrected = repairLeaf(corrected, issue);
   exactKeys(corrected, ['points', 'evidence']);
   const newPoints = points(corrected.points, issue.maximum,
     issue.subcriterionId ? `${issue.criterionId}.subcriteria.${issue.subcriterionId}.points`
