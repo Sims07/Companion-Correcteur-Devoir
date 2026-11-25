@@ -1,5 +1,5 @@
 import { responsesEndpoint } from '../../domain/lmStudioTransport.ts';
-import { ResponsesOutput, responsesMessage, responsesReasoning, type ResponsesOutputItem, type ResponsesPayload } from '../../domain/responsesOutput.ts';
+import { ResponsesOutput, responsesAtLimit, responsesMessage, responsesReasoning, type ResponsesOutputItem, type ResponsesPayload } from '../../domain/responsesOutput.ts';
 import { ServerSentEvents } from '../../domain/serverSentEvents.ts';
 import type { ImageInput } from '../../domain/imageInput.ts';
 import { cropOriginalDiagram, validateZoomRegion, type ZoomRegion, type ZoomEvidence } from '../image/cropOriginalDiagram.ts';
@@ -125,7 +125,7 @@ export async function sendLmStudioZoomDiagramTurn(
       method: 'POST', headers: { 'Content-Type': 'application/json',
         ...(apiKey.trim() ? { Authorization: 'Bearer ' + apiKey.trim() } : {}) },
       body: JSON.stringify(body),
-    }));
+    }, Boolean(turn.format)));
     if (!response.ok) return response;
     let payload: Awaited<ReturnType<typeof readResponsesPayload>>;
     try { payload = await readResponsesPayload(response); }
@@ -153,12 +153,11 @@ export async function sendLmStudioZoomDiagramTurn(
     if (calls.length === 0 || incomplete) {
       text = responsesMessage(payload);
       const reasoning = responsesReasoning(payload) || payload.streamedReasoning;
-      const atLimit = incomplete || (!text.trim() && turn.options.num_predict !== undefined &&
-        (payload.usage?.output_tokens ?? 0) >= turn.options.num_predict);
+      const atLimit = responsesAtLimit(payload, text, turn.options.num_predict);
       // Never promote reasoning or truncated JSON to a final answer.
       if (turn.store !== false && text.trim() && !atLimit) conversation.responseId = previousId;
       const last = { message: { content: text, ...(reasoning ? { thinking: reasoning } : {}) },
-        done: true, done_reason: atLimit ? 'length' : 'stop',
+        done: true, done_reason: atLimit ? 'length' : text.trim() ? 'stop' : 'no_verdict',
         prompt_eval_count: totalInput, eval_count: totalOutput, usage: { prompt_tokens: totalInput,
           completion_tokens: totalOutput, total_tokens: total || totalInput + totalOutput } };
       return new Response(JSON.stringify(last) + '\n', {

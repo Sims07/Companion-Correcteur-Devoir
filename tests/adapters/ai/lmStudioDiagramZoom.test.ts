@@ -136,7 +136,7 @@ describe('LM Studio on-demand smart zoom (Responses API)', () => {
     const conversation: ZoomConversation = {};
     const response = await sendLmStudioZoomDiagramTurn(endpoint, '', conversation, turn, originals, {}, fetchMock, () => {});
     expect(JSON.parse(await response.text())).toMatchObject({
-      message: { content: '', thinking: '{"ok":true}' }, done_reason: 'stop',
+      message: { content: '', thinking: '{"ok":true}' }, done_reason: 'no_verdict',
     });
     expect(conversation.responseId).toBeUndefined();
   });
