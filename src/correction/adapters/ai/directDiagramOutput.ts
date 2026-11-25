@@ -254,7 +254,11 @@ export function parseDirectDiagramOutput(raw: string, criteria: RubricCriterion[
     const item = entries[c.id];
     if (!record(item)) fail('invalid-shape');
     if (!['low', 'medium', 'high'].includes(String(item.confidence))) fail('invalid-confidence');
-    if (typeof item.questionForTeacher !== 'string') fail('invalid-shape');
+    // Some models use explicit null for an absent optional teacher question.
+    // Preserve the strict contract for every other type (including missing fields).
+    if (item.questionForTeacher !== null && typeof item.questionForTeacher !== 'string') {
+      throw new Error(`Sortie schéma invalide [diagram-output:invalid-shape] : ${c.id}.questionForTeacher attend une chaîne ou null.`);
+    }
     const subs = getRubricSubcriteria(c);
     const contradictions: string[] = [];
     let subcriteria;
@@ -277,7 +281,7 @@ export function parseDirectDiagramOutput(raw: string, criteria: RubricCriterion[
     if (entireCriterion?.reason) contradictions.push(entireCriterion.reason);
     return {
       criterionId: c.id, evidence: evidence(item.evidence), confidence: contradictions.length ? 'low' : item.confidence,
-      rationale: '', questionForTeacher: [item.questionForTeacher, ...contradictions].filter(Boolean).join(' '),
+      rationale: '', questionForTeacher: [item.questionForTeacher ?? '', ...contradictions].filter(Boolean).join(' '),
       points: subcriteria ? sumGradeScores(subcriteria.map(s => s.points)) : entireCriterion!.points,
       ...(subcriteria ? { subcriteria } : {}),
     };
