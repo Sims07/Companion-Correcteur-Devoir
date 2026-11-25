@@ -4,9 +4,24 @@ import '../../shared/ui/networkInspector.css';
 import { isOllamaInferenceRequest } from '../../shared/domain/ollamaTimings.ts';
 import { extractOllamaMessage, extractOllamaThinking } from '../../shared/domain/ollamaThinkingStream.ts';
 import { extractOpenAiCompletion, isLmStudioChat, isOpenAiCompletionRequest, isOpenAiResponsesRequest } from '../../shared/domain/openAiCompletionStream.ts';
+import type { ResponsesOutcome } from '../../shared/domain/responsesOutput.ts';
 import { modelTokenRate } from '../../shared/domain/modelTokenRate.ts';
 
 type Filter = 'all' | 'pending' | 'error' | 'success';
+
+const responsesOutcomeLabel: Record<ResponsesOutcome, string> = {
+  'json-valid': 'JSON final valide',
+  'json-invalid': 'JSON final invalide',
+  answer: 'Texte final reçu',
+  'no-verdict': 'Aucun verdict produit',
+  length: 'Limite de tokens atteinte',
+  interrupted: 'Streaming interrompu',
+  zoom: 'Inspection par zoom en cours',
+  tool: 'Appel d’outil reçu',
+  failed: 'Échec de la génération',
+  incomplete: 'Génération incomplète',
+  inconsistent: 'Texte du flux et résultat terminal incohérents',
+};
 
 function formatTime(value: string): string {
   return new Date(value).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
@@ -105,6 +120,10 @@ export function NetworkInspector({ initialFilter = 'all', hasRunningCorrections 
     ? selected.messageBody ?? extractOllamaMessage(selected.responseBody)
     : completionSelected && selected ? selected.messageBody ?? legacyCompletion?.message ?? '' : '';
   const thinkingRequested = selected ? requestedThinking(selected.requestBody) : null;
+  const responsesSelected = Boolean(selected && isOpenAiResponsesRequest(selected.url));
+  const responses = selected?.responsesDiagnostics;
+  const usage = selected?.tokenUsage;
+  const thinkingReceived = Boolean(selectedThinking || (usage?.reasoningTokens ?? 0) > 0);
   const longRubricThinking = selected?.intent === 'Vérifier et clarifier le barème'
     && selected.state === 'pending' && selected.status !== null
     && Boolean(selectedThinking) && !selectedMessage && (liveDuration(selected) ?? 0) >= 300_000;
@@ -134,9 +153,19 @@ export function NetworkInspector({ initialFilter = 'all', hasRunningCorrections 
           <div className="network-selected-heading"><div><span className="network-method">{selected.method}</span><strong>{selected.url}</strong></div><span>{formatTime(selected.startedAt)} · {formatDuration(visibleDuration(selected))} · {modelDurationLabel(selected)}</span></div>
           <section className="network-intent-detail" aria-label="Intention de la requête"><h3>Intention</h3><p>{selected.intent || 'Intention non renseignée'}</p>{selected.context && <small>{selected.context}</small>}{waitingForServer(selected) && <p className="network-waiting-hint" role="status">En attente du serveur (modèle en cours de chargement ?)</p>}
              {completionSelected && thinkingRequested && <p className="network-stream-hint">Raisonnement demandé : <strong>{thinkingRequested.enabled ? 'activé' : 'désactivé'}</strong> ({thinkingRequested.detail}). Ce paramètre peut être ignoré par le serveur ou le modèle.</p>}
-             {completionSelected && thinkingRequested?.enabled === false && selectedThinking && <p className="network-waiting-hint" role="status">Le fournisseur transmet du raisonnement malgré la désactivation demandée.</p>}
-             {completionSelected && selected.finishReason && <p className="network-stream-hint">Fin de génération : {selected.finishReason}{selected.finishReason === 'length' ? ' · limite de tokens atteinte, réponse possiblement tronquée' : ''}</p>}
-             {completionSelected && selected.state === 'success' && !selectedMessage.trim() && <p className="network-waiting-hint" role="status">La requête HTTP s’est terminée sans texte de réponse finale exploitable. Aucune note ne doit être déduite de ce résultat.</p>}
+             {completionSelected && thinkingRequested?.enabled === false && thinkingReceived && <p className="network-waiting-hint" role="status">Le fournisseur transmet du raisonnement malgré la désactivation demandée.</p>}
+             {completionSelected && !responsesSelected && selected.finishReason && <p className="network-stream-hint">Fin de génération : {selected.finishReason}{selected.finishReason === 'length' ? ' · limite de tokens atteinte, réponse possiblement tronquée' : ''}</p>}
+             {completionSelected && !responses && selected.state === 'success' && !selectedMessage.trim() && <p className="network-waiting-hint" role="status">La requête HTTP s’est terminée sans texte de réponse finale exploitable. Aucune note ne doit être déduite de ce résultat.</p>}
+             {responsesSelected && <div className="network-token-metrics" aria-label="Génération Responses">
+               <p>Budget de génération <strong>{selected.generationBudget ?? 'Non renseigné'}</strong></p>
+               {responses && <>
+                 <p role="status"><strong>{responsesOutcomeLabel[responses.outcome]}</strong></p>
+                 {responses.providerStatus && <p>Statut fournisseur <strong>{responses.providerStatus}</strong>{responses.incompleteReason && ` · ${responses.incompleteReason}`}</p>}
+                 <p>Thinking reçu <strong>{thinkingReceived ? 'Oui' : 'Non observé'}</strong></p>
+                 <p>Tokens générés <strong>{usage?.completionTokens ?? 'Non communiqué'}</strong> · Tokens de raisonnement <strong>{usage?.reasoningTokens ?? 'Non communiqué'}</strong></p>
+                 {usage?.reasoningTokens !== undefined && <p>Tokens de sortie hors raisonnement <strong>{usage.completionTokens - usage.reasoningTokens}</strong></p>}
+               </>}
+             </div>}
              {selected.state === 'pending' && selected.status !== null && <p className="network-stream-hint" role="status">{[selectedThinking && `Thinking reçu : ${selected.thinkingCharacters ?? selectedThinking.length} caractères`, selectedMessage && `Message reçu : ${selected.messageCharacters ?? selectedMessage.length} caractères`].filter(Boolean).join(' · ') || (selected.responseBody ? 'Flux de réponse reçu · traitement en cours' : 'Réponse HTTP reçue · en attente des premiers fragments')}</p>}
             {longRubricThinking && <p className="network-waiting-hint" role="status">Raisonnement prolongé : plus de cinq minutes sans réponse JSON. Le modèle consomme du temps et des tokens en Thinking ; la vérification du barème n’aboutira qu’après réception du JSON complet. Vous pouvez arrêter cette vérification depuis le barème sans perdre les validations existantes.</p>}
              {isOllamaInferenceRequest(selected.url) && selected.state !== 'pending' && <div className="network-native-timing" aria-label="Durées de la requête">

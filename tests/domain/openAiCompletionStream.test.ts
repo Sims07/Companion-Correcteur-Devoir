@@ -61,8 +61,34 @@ describe('OpenAI Chat Completions SSE diagnostic decoding', () => {
     parser.finish();
     expect(parser.message).toBe('{"ok":true}');
     expect(parser.thinking).toBe('réflexion');
-    expect(parser.finishReason).toBe('stop');
+    expect(parser.responsesDiagnostics).toEqual({ outcome: 'answer', providerStatus: 'completed' });
+    expect(parser.finishReason).toBeUndefined();
     expect(parser.usage).toEqual({ promptTokens: 50, completionTokens: 30 });
+  });
+
+  it.each([
+    ['{"ok":true}', 'json-valid'],
+    ['{"ok":', 'json-invalid'],
+    ['', 'no-verdict'],
+  ])('diagnoses Responses verdict %s with separate provider status and token breakdown', (text, outcome) => {
+    const parser = new OpenAiCompletionStream(false, { expectsJson: true, budget: 10 });
+    parser.append(JSON.stringify({ status: 'completed', output_text: text, usage: {
+      output_tokens: 9, output_tokens_details: { reasoning_tokens: 7 },
+    } }));
+    parser.finish();
+    expect(parser.responsesDiagnostics).toEqual({ outcome, providerStatus: 'completed' });
+    expect(parser.usage).toEqual({ completionTokens: 9, reasoningTokens: 7 });
+  });
+
+  it('distinguishes an interrupted stream from an exhausted budget', () => {
+    const interrupted = new OpenAiCompletionStream(true, { expectsJson: true });
+    interrupted.append('data: {"type":"response.output_text.delta","delta":"{}"}\n\n');
+    interrupted.finish();
+    expect(interrupted.responsesDiagnostics).toEqual({ outcome: 'interrupted' });
+    const limited = new OpenAiCompletionStream(true, { expectsJson: true });
+    limited.append('data: {"type":"response.incomplete","response":{"incomplete_details":{"reason":"max_output_tokens"}}}\n\n');
+    limited.finish();
+    expect(limited.responsesDiagnostics).toEqual({ outcome: 'length', providerStatus: 'incomplete', incompleteReason: 'max_output_tokens' });
   });
 
   it('decodes non-streaming JSON and older SSE histories', () => {

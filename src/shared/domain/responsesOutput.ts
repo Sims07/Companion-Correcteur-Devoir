@@ -1,3 +1,5 @@
+import { parseModelJson } from './modelJson.ts';
+
 type TextPart = { type?: string; text?: string };
 type Message = { type: 'message'; content?: TextPart[] };
 export type ResponsesOutputItem =
@@ -11,7 +13,8 @@ export interface ResponsesPayload {
   output_text?: string;
   status?: string;
   incomplete_details?: { reason?: string } | null;
-  usage?: { input_tokens?: number; output_tokens?: number; total_tokens?: number };
+  usage?: { input_tokens?: number; output_tokens?: number; total_tokens?: number;
+    output_tokens_details?: { reasoning_tokens?: number } | null };
 }
 
 type ResponsesEvent = {
@@ -38,6 +41,41 @@ export function responsesReasoning(payload: ResponsesPayload): string {
     .flatMap(item => [...(item.content ?? []), ...(item.summary ?? [])])
     .filter(part => part?.type === 'reasoning_text' || part?.type === 'summary_text')
     .map(part => part.text ?? '').join('');
+}
+
+export type ResponsesOutcome = 'json-valid' | 'json-invalid' | 'answer' | 'no-verdict' | 'length' |
+  'interrupted' | 'zoom' | 'tool' | 'failed' | 'incomplete' | 'inconsistent';
+
+export interface ResponsesDiagnostics {
+  outcome: ResponsesOutcome;
+  providerStatus?: string;
+  incompleteReason?: string;
+}
+
+export function isTokenCount(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
+}
+
+export function responsesAtLimit(payload: ResponsesPayload, text: string, budget?: number): boolean {
+  return payload.incomplete_details?.reason === 'max_output_tokens' || (!text.trim() &&
+    isTokenCount(budget) && budget > 0 && isTokenCount(payload.usage?.output_tokens) &&
+    payload.usage.output_tokens >= budget);
+}
+
+export function responsesOutcome(payload: ResponsesPayload, text: string, expectsJson: boolean, budget?: number): ResponsesOutcome {
+  if (payload.status === 'failed' || payload.status === 'cancelled') return 'failed';
+  if (responsesAtLimit(payload, text, budget)) return 'length';
+  if (payload.status && payload.status !== 'completed') return 'incomplete';
+  const calls = payload.output?.filter(item => item?.type === 'function_call') ?? [];
+  if (calls.length) return calls.some(item => item.name === 'inspect_region') ? 'zoom' : 'tool';
+  if (!text.trim()) return 'no-verdict';
+  if (!expectsJson) return 'answer';
+  try {
+    parseModelJson(text);
+    return 'json-valid';
+  } catch {
+    return 'json-invalid';
+  }
 }
 
 /** Reconcile only the answer channel. Tool calls always come from terminal output. */

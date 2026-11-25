@@ -1,8 +1,8 @@
 import { OllamaThinkingStream } from './ollamaThinkingStream.ts';
-import { ResponsesOutput, responsesMessage, responsesReasoning, type ResponsesPayload } from './responsesOutput.ts';
+import { ResponsesOutput, isTokenCount, responsesMessage, responsesOutcome, responsesReasoning, type ResponsesDiagnostics, type ResponsesPayload } from './responsesOutput.ts';
 import { ServerSentEvents } from './serverSentEvents.ts';
 
-export type OpenAiTokenUsage = { promptTokens?: number; completionTokens: number };
+export type OpenAiTokenUsage = { promptTokens?: number; completionTokens: number; reasoningTokens?: number };
 
 /**
  * Decode native OpenAI Chat Completions responses for LOCAL diagnostics.
@@ -18,9 +18,13 @@ export class OpenAiCompletionStream {
   private jsonBuffer = '';
   private finalReason: string | undefined;
   private finalUsage: OpenAiTokenUsage | undefined;
+  private responsesResult?: ResponsesDiagnostics;
+  private invalidFrame = false;
   private static readonly MAX_PENDING = 256_000;
 
-  constructor(private readonly streaming: boolean) {}
+  constructor(private readonly streaming: boolean, private readonly responsesOptions?: {
+    expectsJson: boolean; budget?: number;
+  }) {}
 
   append(chunk: string): void {
     if (!this.streaming) {
@@ -38,6 +42,9 @@ export class OpenAiCompletionStream {
       this.jsonBuffer = '';
     }
     this.collector.finish();
+    if (this.responsesOptions && !this.responsesResult) {
+      this.responsesResult = { outcome: this.responses.error || this.invalidFrame || !this.streaming ? 'failed' : 'interrupted' };
+    }
   }
 
   private get responsesMessage(): string | undefined {
@@ -53,11 +60,12 @@ export class OpenAiCompletionStream {
   get messageCharacters(): number { return this.responsesMessage?.length ?? this.collector.messageCharacters; }
   get thinkingCharacters(): number { return this.collector.thinkingCharacters; }
   get finishReason(): string | undefined { return this.finalReason; }
+  get responsesDiagnostics(): ResponsesDiagnostics | undefined { return this.responsesResult; }
   get usage(): OpenAiTokenUsage | undefined { return this.finalUsage; }
 
   private consumePayload(raw: string): void {
     let payload: unknown;
-    try { payload = JSON.parse(raw); } catch { return; }
+    try { payload = JSON.parse(raw); } catch { this.invalidFrame = true; return; }
     if (!payload || typeof payload !== 'object') return;
     const event = payload as {
       type?: string;
@@ -87,7 +95,7 @@ export class OpenAiCompletionStream {
       if (this.responses.terminal) this.consumeResponses(this.responses.terminal);
       return;
     }
-    if (Array.isArray((payload as ResponsesPayload).output)) {
+    if ((!this.streaming && this.responsesOptions) || Array.isArray((payload as ResponsesPayload).output)) {
       this.consumeResponses(payload as ResponsesPayload);
       return;
     }
@@ -117,20 +125,27 @@ export class OpenAiCompletionStream {
   }
   private consumeResponses(payload: ResponsesPayload): void {
     const status = payload.status;
+    const incompleteReason = payload.incomplete_details?.reason;
+    const diagnostic = {
+      ...(typeof status === 'string' ? { providerStatus: status } : {}),
+      ...(typeof incompleteReason === 'string' ? { incompleteReason } : {}),
+    };
     try {
-      this.reconciledMessage = responsesMessage(this.responses.reconcile(payload)) || this.responses.streamedText;
+      const text = responsesMessage(this.responses.reconcile(payload));
+      this.reconciledMessage = text || this.responses.streamedText;
+      this.responsesResult = { ...diagnostic, outcome: this.responses.error || this.invalidFrame
+        ? 'failed' : responsesOutcome(payload, text, this.responsesOptions?.expectsJson ?? false, this.responsesOptions?.budget) };
     } catch {
       this.reconciledMessage = this.responses.streamedText;
+      this.responsesResult = { ...diagnostic, outcome: 'inconsistent' };
     }
-    if (status === 'completed') this.finalReason = 'stop';
-    if (status === 'failed') this.finalReason = 'failed';
-    if (status === 'incomplete') this.finalReason = payload.incomplete_details?.reason === 'max_output_tokens'
-      ? 'length' : payload.incomplete_details?.reason ?? 'incomplete';
     const usage = payload.usage;
-    if (usage && typeof usage.output_tokens === 'number' && Number.isSafeInteger(usage.output_tokens) && usage.output_tokens >= 0) {
-      const promptTokens = usage.input_tokens;
+    if (isTokenCount(usage?.output_tokens)) {
+      const prompt = usage.input_tokens;
+      const reasoning = usage.output_tokens_details?.reasoning_tokens;
       this.finalUsage = { completionTokens: usage.output_tokens,
-        ...(typeof promptTokens === 'number' && Number.isSafeInteger(promptTokens) && promptTokens >= 0 ? { promptTokens } : {}) };
+        ...(isTokenCount(prompt) ? { promptTokens: prompt } : {}),
+        ...(isTokenCount(reasoning) && reasoning <= usage.output_tokens ? { reasoningTokens: reasoning } : {}) };
     }
     // Terminal events repeat deltas. Use their full output only if no
     // fragments of that channel were received (some servers omit deltas).

@@ -149,7 +149,7 @@ describe('network inspector fetch integration', () => {
     clearNetworkHistory();
     const restore = installNetworkInspector();
     const response = await window.fetch('https://macmini.local/v1/responses', {
-      method: 'POST', body: JSON.stringify({ stream: true }),
+      method: 'POST', body: JSON.stringify({ stream: true, max_output_tokens: 20, access_token: 'secret' }),
     });
     const emit = (event: unknown) => controller.enqueue(new TextEncoder().encode('data: ' + JSON.stringify(event) + '\n\n'));
     emit({ type: 'response.reasoning_text.delta', delta: 'Observation' });
@@ -159,13 +159,15 @@ describe('network inspector fetch integration', () => {
     emit({ type: 'response.output_text.delta', delta: 'OK' });
     await vi.waitFor(() => expect(loadNetworkHistory()[0]).toMatchObject({ state: 'pending', messageBody: 'OK' }));
     emit({ type: 'response.completed', response: { status: 'completed', output: [], output_text: 'OK',
-      usage: { input_tokens: 20, output_tokens: 10 } } });
+      usage: { input_tokens: 20, output_tokens: 10, output_tokens_details: { reasoning_tokens: 8 } } } });
     controller.close();
     expect(await response.text()).toContain('response.completed');
     await vi.waitFor(() => expect(loadNetworkHistory()[0]).toMatchObject({
-      state: 'success', thinkingBody: 'Observation', messageBody: 'OK', finishReason: 'stop',
-      tokenUsage: { promptTokens: 20, completionTokens: 10 },
+      state: 'success', status: 200, thinkingBody: 'Observation', messageBody: 'OK', generationBudget: 20,
+      responsesDiagnostics: { outcome: 'answer', providerStatus: 'completed' },
+      tokenUsage: { promptTokens: 20, completionTokens: 10, reasoningTokens: 8 },
     }));
+    expect(JSON.parse(loadNetworkHistory()[0].requestBody)).toMatchObject({ max_output_tokens: 20, access_token: '[masqué]' });
     restore();
   });
 
