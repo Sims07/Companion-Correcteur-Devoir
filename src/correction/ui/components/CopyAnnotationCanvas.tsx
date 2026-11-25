@@ -1,6 +1,7 @@
 import type { MouseEvent, ReactNode } from 'react';
 import { placementFromPageClick, type CopyAnnotationPlacement } from '../../domain/copyAnnotationFeature.ts';
 import './CopyAnnotationCanvas.css';
+import './CopyAnnotationHandwriting.css';
 
 export interface CopyAnnotationView {
   id: string;
@@ -34,11 +35,19 @@ export function CopyAnnotationCanvas({
     {annotations.map((annotation) => <button type="button"
       key={annotation.id}
       className={annotation.suggested ? 'copy-inline-annotation is-suggested' : 'copy-inline-annotation'}
+      data-horizontal={annotation.x > 500 ? 'left' : 'right'}
+      data-vertical={annotation.y > 500 ? 'above' : 'below'}
       title={annotation.message}
       aria-label={`Annotation ${annotation.number} : ${annotation.message}`}
       style={{ left: `${annotation.x / 10}%`, top: `${annotation.y / 10}%` }}
-      onClick={() => { if (onAnnotationClick) onAnnotationClick(annotation.id); else document.getElementById(`copy-annotation-${annotation.id}`)?.focus(); }}
-    >{annotation.number}</button>)}
+      onClick={() => {
+        if (onAnnotationClick) onAnnotationClick(annotation.id);
+        else document.getElementById(`copy-annotation-${annotation.id}`)?.focus();
+      }}
+    >
+      <span className="copy-inline-annotation-number" aria-hidden="true">{annotation.number}</span>
+      <span className="copy-inline-annotation-message" aria-hidden="true">{annotation.message}</span>
+    </button>)}
     {onPlace && <button type="button"
       className="copy-annotation-placement-target"
       aria-label={`Placer l’annotation sur la page ${pageNumber}`}

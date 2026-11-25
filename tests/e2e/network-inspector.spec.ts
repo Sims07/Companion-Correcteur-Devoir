@@ -155,3 +155,35 @@ test('Debug exposes live HTTP requests and their response details', async ({ pag
   await page.getByRole('button', { name: 'Response' }).click();
   await expect(page.getByText(/"observed": true/)).toBeVisible();
 });
+
+test('HTTP 200 and a reasoning-only Responses result have separate diagnostics', async ({ page }) => {
+  await page.route('**/v1/responses', route => route.fulfill({
+    status: 200,
+    contentType: 'text/event-stream',
+    body: [
+      { type: 'response.reasoning_text.delta', delta: 'Analyse' },
+      { type: 'response.completed', response: { output: [], usage: {
+        output_tokens: 18, output_tokens_details: { reasoning_tokens: 18 },
+      } } },
+    ].map(event => 'data: ' + JSON.stringify(event) + '\n\n').join(''),
+  }));
+  await page.goto('/');
+  await page.evaluate(async () => {
+    const response = await fetch('/v1/responses', {
+      method: 'POST',
+      body: JSON.stringify({ stream: true, max_output_tokens: 20, reasoning: { effort: 'none' } }),
+    });
+    await response.text();
+  });
+  await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('button', { name: 'Suivi & diagnostic' }).click();
+  await page.getByRole('navigation', { name: 'Détails du suivi' }).getByRole('button', { name: 'Inspecteur réseau' }).click();
+  const row = page.getByRole('listitem').filter({ hasText: '/v1/responses' });
+  await expect(row).toContainText('200');
+  await row.click();
+  const diagnostics = page.getByLabel('Génération Responses');
+  await expect(diagnostics).toContainText('Aucun verdict produit');
+  await expect(diagnostics).toContainText('Statut fournisseur completed');
+  await expect(diagnostics).toContainText('Budget de génération 20');
+  await expect(diagnostics).toContainText('Tokens de raisonnement 18');
+  await expect(diagnostics).toContainText('Tokens de sortie hors raisonnement 0');
+});

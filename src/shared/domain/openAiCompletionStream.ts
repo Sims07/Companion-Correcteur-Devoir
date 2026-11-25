@@ -1,15 +1,8 @@
 import { OllamaThinkingStream } from './ollamaThinkingStream.ts';
+import { ResponsesOutput, isTokenCount, responsesMessage, responsesOutcome, responsesReasoning, type ResponsesDiagnostics, type ResponsesPayload } from './responsesOutput.ts';
+import { ServerSentEvents } from './serverSentEvents.ts';
 
-export type OpenAiTokenUsage = { promptTokens?: number; completionTokens: number };
-
-type ResponsesDiagnosticPayload = {
-  status?: string;
-  incomplete_details?: { reason?: string } | null;
-  output_text?: string;
-  output?: Array<{ type?: string; content?: Array<{ type?: string; text?: string }>;
-    summary?: Array<{ type?: string; text?: string }> }>;
-  usage?: { input_tokens?: number; output_tokens?: number };
-};
+export type OpenAiTokenUsage = { promptTokens?: number; completionTokens: number; reasoningTokens?: number };
 
 /**
  * Decode native OpenAI Chat Completions responses for LOCAL diagnostics.
@@ -18,75 +11,65 @@ type ResponsesDiagnosticPayload = {
  */
 export class OpenAiCompletionStream {
   private readonly collector = new OllamaThinkingStream();
-  private lineBuffer = '';
-  private dataLines: string[] = [];
+  private readonly events = new ServerSentEvents(data => this.consumePayload(data));
+  private readonly responses = new ResponsesOutput();
+  private reconciledMessage?: string;
+  private hasStreamedMessage = false;
   private jsonBuffer = '';
   private finalReason: string | undefined;
   private finalUsage: OpenAiTokenUsage | undefined;
+  private responsesResult?: ResponsesDiagnostics;
+  private invalidFrame = false;
   private static readonly MAX_PENDING = 256_000;
 
-  constructor(private readonly streaming: boolean) {}
+  constructor(private readonly streaming: boolean, private readonly responsesOptions?: {
+    expectsJson: boolean; budget?: number;
+  }) {}
 
   append(chunk: string): void {
     if (!this.streaming) {
       this.jsonBuffer = (this.jsonBuffer + chunk).slice(0, OpenAiCompletionStream.MAX_PENDING);
       return;
     }
-    this.lineBuffer += chunk;
-    let newline = this.lineBuffer.indexOf('\n');
-    while (newline !== -1) {
-      this.consumeLine(this.lineBuffer.slice(0, newline));
-      this.lineBuffer = this.lineBuffer.slice(newline + 1);
-      newline = this.lineBuffer.indexOf('\n');
-    }
-    if (this.lineBuffer.length > OpenAiCompletionStream.MAX_PENDING) this.lineBuffer = '';
+    this.events.append(chunk);
   }
 
   finish(): void {
     if (this.streaming) {
-      if (this.lineBuffer) this.consumeLine(this.lineBuffer);
-      this.flushEvent();
-      this.lineBuffer = '';
+      this.events.finish();
     } else {
       this.consumePayload(this.jsonBuffer);
       this.jsonBuffer = '';
     }
     this.collector.finish();
-  }
-
-  get message(): string { return this.collector.message; }
-  get thinking(): string { return this.collector.text; }
-  get messageCharacters(): number { return this.collector.messageCharacters; }
-  get thinkingCharacters(): number { return this.collector.thinkingCharacters; }
-  get finishReason(): string | undefined { return this.finalReason; }
-  get usage(): OpenAiTokenUsage | undefined { return this.finalUsage; }
-
-  private consumeLine(raw: string): void {
-    const line = raw.endsWith('\r') ? raw.slice(0, -1) : raw;
-    if (line === '') {
-      this.flushEvent();
-    } else if (line.startsWith('data:')) {
-      this.dataLines.push(line.slice(5).replace(/^ /, ''));
-      // Never keep an unbounded unfinished SSE event in memory.
-      if (this.dataLines.join('').length > OpenAiCompletionStream.MAX_PENDING) this.dataLines = [];
+    if (this.responsesOptions && !this.responsesResult) {
+      this.responsesResult = { outcome: this.responses.error || this.invalidFrame || !this.streaming ? 'failed' : 'interrupted' };
     }
   }
 
-  private flushEvent(): void {
-    if (this.dataLines.length === 0) return;
-    const payload = this.dataLines.join('\n');
-    this.dataLines = [];
-    if (payload.trim() !== '[DONE]') this.consumePayload(payload);
+  private get responsesMessage(): string | undefined {
+    return this.reconciledMessage ?? (this.hasStreamedMessage ? this.responses.streamedText : undefined);
   }
+  get message(): string {
+    const answer = this.responsesMessage;
+    if (answer === undefined) return this.collector.message;
+    const suffix = '\n… message tronqué dans l’inspecteur';
+    return answer.length > 20_000 ? answer.slice(0, 20_000 - suffix.length) + suffix : answer;
+  }
+  get thinking(): string { return this.collector.text; }
+  get messageCharacters(): number { return this.responsesMessage?.length ?? this.collector.messageCharacters; }
+  get thinkingCharacters(): number { return this.collector.thinkingCharacters; }
+  get finishReason(): string | undefined { return this.finalReason; }
+  get responsesDiagnostics(): ResponsesDiagnostics | undefined { return this.responsesResult; }
+  get usage(): OpenAiTokenUsage | undefined { return this.finalUsage; }
 
   private consumePayload(raw: string): void {
     let payload: unknown;
-    try { payload = JSON.parse(raw); } catch { return; }
+    try { payload = JSON.parse(raw); } catch { this.invalidFrame = true; return; }
     if (!payload || typeof payload !== 'object') return;
     const event = payload as {
       type?: string;
       delta?: string;
-      response?: ResponsesDiagnosticPayload;
       content?: string;
       result?: { stats?: { input_tokens?: number; total_output_tokens?: number } };
       choices?: Array<{
@@ -96,18 +79,24 @@ export class OpenAiCompletionStream {
       }>;
       usage?: { prompt_tokens?: unknown; completion_tokens?: unknown };
     };
-    if (event.type === 'response.output_text.delta' || event.type === 'response.reasoning_text.delta' ||
+    this.responses.consume(event);
+    if (event.type === 'response.output_text.delta' || event.type === 'response.output_text.done' ||
+        event.type === 'response.output_item.done') {
+      // Use the accumulated text only when publishing a preview or reconciling the terminal event.
+      this.hasStreamedMessage = true;
+      return;
+    }
+    if (event.type === 'response.reasoning_text.delta' ||
         event.type === 'response.reasoning_summary_text.delta') {
-      const key = event.type === 'response.output_text.delta' ? 'content' : 'thinking';
-      if (typeof event.delta === 'string') this.collector.append(JSON.stringify({ message: { [key]: event.delta } }) + '\n');
+      if (typeof event.delta === 'string') this.collector.append(JSON.stringify({ message: { thinking: event.delta } }) + '\n');
       return;
     }
     if (event.type === 'response.completed' || event.type === 'response.incomplete' || event.type === 'response.failed') {
-      if (event.response) this.consumeResponses(event.response, event.type);
+      if (this.responses.terminal) this.consumeResponses(this.responses.terminal);
       return;
     }
-    if (Array.isArray((payload as ResponsesDiagnosticPayload).output)) {
-      this.consumeResponses(payload as ResponsesDiagnosticPayload);
+    if ((!this.streaming && this.responsesOptions) || Array.isArray((payload as ResponsesPayload).output)) {
+      this.consumeResponses(payload as ResponsesPayload);
       return;
     }
     // LM Studio may send the final usage in an SSE frame without choices.
@@ -134,32 +123,35 @@ export class OpenAiCompletionStream {
     const thinking = typeof rawThinking === 'string' ? rawThinking : '';
     if (message || thinking) this.collector.append(JSON.stringify({ message: { content: message, thinking } }) + '\n');
   }
-  private consumeResponses(payload: ResponsesDiagnosticPayload, eventType?: string): void {
-    const status = payload.status ?? eventType?.slice('response.'.length);
-    if (status === 'completed') this.finalReason = 'stop';
-    if (status === 'failed') this.finalReason = 'failed';
-    if (status === 'incomplete') this.finalReason = payload.incomplete_details?.reason === 'max_output_tokens'
-      ? 'length' : payload.incomplete_details?.reason ?? 'incomplete';
+  private consumeResponses(payload: ResponsesPayload): void {
+    const status = payload.status;
+    const incompleteReason = payload.incomplete_details?.reason;
+    const diagnostic = {
+      ...(typeof status === 'string' ? { providerStatus: status } : {}),
+      ...(typeof incompleteReason === 'string' ? { incompleteReason } : {}),
+    };
+    try {
+      const text = responsesMessage(this.responses.reconcile(payload));
+      this.reconciledMessage = text || this.responses.streamedText;
+      this.responsesResult = { ...diagnostic, outcome: this.responses.error || this.invalidFrame
+        ? 'failed' : responsesOutcome(payload, text, this.responsesOptions?.expectsJson ?? false, this.responsesOptions?.budget) };
+    } catch {
+      this.reconciledMessage = this.responses.streamedText;
+      this.responsesResult = { ...diagnostic, outcome: 'inconsistent' };
+    }
     const usage = payload.usage;
-    if (usage && typeof usage.output_tokens === 'number' && Number.isSafeInteger(usage.output_tokens) && usage.output_tokens >= 0) {
-      const promptTokens = usage.input_tokens;
+    if (isTokenCount(usage?.output_tokens)) {
+      const prompt = usage.input_tokens;
+      const reasoning = usage.output_tokens_details?.reasoning_tokens;
       this.finalUsage = { completionTokens: usage.output_tokens,
-        ...(typeof promptTokens === 'number' && Number.isSafeInteger(promptTokens) && promptTokens >= 0 ? { promptTokens } : {}) };
+        ...(isTokenCount(prompt) ? { promptTokens: prompt } : {}),
+        ...(isTokenCount(reasoning) && reasoning <= usage.output_tokens ? { reasoningTokens: reasoning } : {}) };
     }
     // Terminal events repeat deltas. Use their full output only if no
     // fragments of that channel were received (some servers omit deltas).
-    const output = payload.output ?? [];
-    const message = payload.output_text?.trim() ? payload.output_text : output.filter(item => item.type === 'message')
-      .flatMap(item => item.content ?? []).filter(part => part.type === 'output_text' || part.type === 'text')
-      .map(part => part.text ?? '').join('');
-    const thinking = output.filter(item => item.type === 'reasoning')
-      .flatMap(item => [...(item.content ?? []), ...(item.summary ?? [])])
-      .filter(part => part.type === 'reasoning_text' || part.type === 'summary_text')
-      .map(part => part.text ?? '').join('');
-    this.collector.append(JSON.stringify({ message: {
-      content: this.collector.messageCharacters ? '' : message,
-      thinking: this.collector.thinkingCharacters ? '' : thinking,
-    } }) + '\n');
+    if (!this.collector.thinkingCharacters) {
+      this.collector.append(JSON.stringify({ message: { thinking: responsesReasoning(payload) } }) + '\n');
+    }
   }
 }
 

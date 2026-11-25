@@ -95,6 +95,7 @@ import { describeAiConnectionFailure } from '../../shared/domain/aiConnectionDia
 import { biologyRadarObservations, loadBiologyRadarHistory, mergeBiologyRadarHistory, saveBiologyRadarHistory } from '../../evaluation/domain/biologyTeacherRadar.ts';
 import type { DiagramThinkSetting, EvaluationVisionGateway } from '../../evaluation/ports/evaluationVision.ts';
 import { ScientificDiagramProtocolPanel, downloadScientificDiagramJson, type DiagramProtocolRequest } from '../../evaluation/ui/components/ScientificDiagramProtocolPanel.tsx';
+import { ResponsesCompatibilityPanel } from '../../evaluation/ui/components/ResponsesCompatibilityPanel.tsx';
 import { ZoomWitnessPanel } from '../../evaluation/ui/components/ZoomWitnessPanel.tsx';
 import { ScientificDiagramLabHistory } from '../../evaluation/ui/components/ScientificDiagramLabHistory.tsx';
 import type { RadarMissingTestRequest } from '../../evaluation/domain/diagramLabRadarLaunch.ts';
@@ -4971,6 +4972,9 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
         <button type="button" hidden={evaluationJourney !== 'custom' || (!modelEvaluationResults.length && evaluationWorkspaceStep !== 'results')} className={evaluationWorkspaceStep === 'results' ? 'is-active' : ''} aria-current={evaluationWorkspaceStep === 'results' ? 'page' : undefined} onClick={() => setEvaluationWorkspaceStep('results')}><strong>Résultats</strong></button>
         <button type="button" className={campaignsOpen ? 'is-active' : ''} aria-current={campaignsOpen ? 'page' : undefined} onClick={() => showCampaigns({})}><strong>Campagnes</strong></button>
       </nav>}
+      <ResponsesCompatibilityPanel profiles={aiModelProfiles} evaluationOpen={interfaceMode === 'diagnostic'} busy={busy || pilotBusy || radarAutoBusy}
+        current={{ endpoint, apiCompatible, apiKey, analysisModel, gradingOutputTokens, analysisTemperature, analysisTopP }}
+        visible={interfaceMode === 'diagnostic' && evaluationJourney === 'diagrams' && diagramLabView === 'protocols' && evaluationWorkspaceStep === 'configuration'} />
       {interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration' && service.generateCopyAnnotations && <CopyAnnotationLab
         state={annotationLab.state} result={annotationLabResult} onGenerate={startCopyAnnotationLab} onStop={annotationLab.cancel}
       />}
@@ -6387,7 +6391,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
            <div className="questions-field"><span className="field-label">Points à vérifier avant de communiquer la note</span>{teacherQuestions.trim() ? <ul className="teacher-questions-list">{teacherQuestions.split('\n').map((line) => line.trim()).filter(Boolean).map((line, index) => <li key={index}>{line}</li>)}</ul> : <p className="no-teacher-questions">Aucune question générale. Les questions liées à un critère restent affichées sur celui-ci.</p>}</div>
            <details className="review-export"><summary>Exporter le récapitulatif (JSON)</summary><p>Conservez ou réutilisez les résultats de cette correction au format JSON.</p><button type="button" className="secondary-button" onClick={() => { const payload = { rubric, question, summary: proposal?.summary ?? '', criteria: review, questionsForTeacher: teacherQuestions.split('\n').map((line) => line.trim()).filter(Boolean), total: reviewedTotal, exportedAt: new Date().toISOString() }; const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })); const link = document.createElement('a'); link.href = url; link.download = 'proposition-correction.json'; link.click(); URL.revokeObjectURL(url); setReviewMessage('Récapitulatif JSON exporté.'); }}><CopyActionIcon name="download" />{isFinalized ? 'Télécharger la correction enregistrée' : 'Télécharger le récapitulatif provisoire'}</button></details>
          </details>
-         
+
           <div className="copy-review-validation-bar" aria-live="polite"><div><span>{unassessedCount > 0 ? 'Note partielle' : isFinalized ? 'Note validée' : 'Note proposée'}</span><strong>{reviewedTotal.toLocaleString('fr-FR')} / {validation.maximumPoints.toLocaleString('fr-FR')}</strong><small>{isFinalized ? 'Correction enregistrée' : teacherReviewStatus(unassessedCount, flaggedCriteriaIds.size)}</small></div><div className="copy-review-final-actions">{copyAnnotationsEnabled && service.exportCopyAnnotationPdf && !isAnalyzing && images.length > 0 && proposal && unassessedCount === 0 && criterionProgress.isComplete && <CopyAnnotationPdfPanel
                 createPdf={service.exportCopyAnnotationPdf}
                 key={`${activeAssignmentId}-${currentCopyId}`}

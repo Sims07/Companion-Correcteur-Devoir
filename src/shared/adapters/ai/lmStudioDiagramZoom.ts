@@ -1,4 +1,6 @@
 import { responsesEndpoint } from '../../domain/lmStudioTransport.ts';
+import { ResponsesOutput, responsesAtLimit, responsesMessage, responsesReasoning, type ResponsesOutputItem, type ResponsesPayload } from '../../domain/responsesOutput.ts';
+import { ServerSentEvents } from '../../domain/serverSentEvents.ts';
 import type { ImageInput } from '../../domain/imageInput.ts';
 import { cropOriginalDiagram, validateZoomRegion, type ZoomRegion, type ZoomEvidence } from '../image/cropOriginalDiagram.ts';
 import { copyNetworkRequestMetadata } from '../../ports/networkRequestMetadata.ts';
@@ -6,6 +8,7 @@ import { copyNetworkRequestMetadata } from '../../ports/networkRequestMetadata.t
 export interface ZoomDiagramTurn {
   model: string;
   store?: boolean;
+  stream?: boolean;
   criterionLabel?: string;
   messages: { content: string; images?: string[] }[];
   think: boolean | string;
@@ -34,62 +37,28 @@ const TOOL = {
   },
 } as const;
 
-type ApiOutput =
-  | { type: 'function_call'; name?: string; call_id?: string; arguments?: string }
-  | { type: 'message'; content?: Array<{ type?: string; text?: string }> }
-  | { type: 'reasoning'; content?: Array<{ type?: string; text?: string }>; summary?: Array<{ type?: string; text?: string }> };
-interface ApiResponse {
-  id?: string;
-  output?: ApiOutput[];
-  output_text?: string;
-  status?: string;
-  incomplete_details?: { reason?: string } | null;
-  usage?: { input_tokens?: number; output_tokens?: number; total_tokens?: number };
-}
-
-/**
- * The Responses terminal SSE event contains the authoritative output items,
- * including complete function arguments, response ID and usage. Never grade
- * intermediate deltas or execute an unfinished tool call.
- */
-async function readResponsesPayload(response: Response): Promise<ApiResponse> {
+async function readResponsesPayload(response: Response): Promise<ResponsesPayload & { streamedReasoning?: string }> {
   if (!/text\/event-stream/i.test(response.headers.get('content-type') ?? '')) {
-    return await response.json() as ApiResponse;
+    return await response.json() as ResponsesPayload;
   }
   if (!response.body) throw new Error('Flux LM Studio Responses absent.');
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
-  let buffer = '';
-  let terminal: ApiResponse | undefined;
-  const consume = (frame: string) => {
-    const data = frame.split(/\r?\n/).filter(line => line.startsWith('data:'))
-      .map(line => line.slice(5).trimStart()).join('\n');
-    if (!data || data.trim() === '[DONE]') return;
-    const event = JSON.parse(data) as { type?: string; response?: ApiResponse; message?: string; error?: { message?: string } };
-    if (event.type === 'error' || event.type === 'response.failed') {
-      throw new Error(event.error?.message ?? event.message ?? 'LM Studio Responses : génération échouée.');
-    }
-    if (event.type === 'response.completed' || event.type === 'response.incomplete') {
-      if (!event.response) throw new Error('Événement terminal Responses sans résultat.');
-      terminal = { ...event.response, status: event.response.status ??
-        (event.type === 'response.incomplete' ? 'incomplete' : 'completed') };
-    }
-  };
-  const append = (chunk: string) => {
-    const frames = (buffer + chunk).split(/\r?\n\r?\n/);
-    buffer = frames.pop() ?? '';
-    for (const frame of frames) consume(frame);
-  };
+  const output = new ResponsesOutput();
+  const events = new ServerSentEvents(data => {
+    output.consume(JSON.parse(data));
+    if (output.error) throw new Error(output.error);
+  }, () => { throw new Error('Événement SSE LM Studio Responses trop volumineux.'); });
   try {
     while (true) {
       const { value, done } = await reader.read();
       if (done) break;
-      append(decoder.decode(value, { stream: true }));
+      events.append(decoder.decode(value, { stream: true }));
     }
-    append(decoder.decode());
-    if (buffer.trim()) consume(buffer);
-    if (!terminal) throw new Error('Flux LM Studio Responses interrompu avant la réponse finale.');
-    return terminal;
+    events.append(decoder.decode());
+    events.finish();
+    if (!output.terminal) throw new Error('Flux LM Studio Responses interrompu avant la réponse finale.');
+    return { ...output.reconcile(output.terminal), streamedReasoning: output.streamedReasoning };
   } catch (error) {
     void reader.cancel().catch(() => {});
     throw error;
@@ -138,7 +107,7 @@ export async function sendLmStudioZoomDiagramTurn(
   for (let turnIndex = 0; turnIndex < 5; turnIndex++) {
     signal?.throwIfAborted();
     const body = {
-      model: turn.model, stream: true, store: turn.store ?? true,
+      model: turn.model, stream: turn.stream ?? true, store: turn.store ?? true,
       ...(previousId ? { previous_response_id: previousId } : {}),
       input,
       ...(enableZoom && inspections < 2 ? { tools: [TOOL], tool_choice: 'auto' } : {}),
@@ -157,23 +126,23 @@ export async function sendLmStudioZoomDiagramTurn(
       method: 'POST', headers: { 'Content-Type': 'application/json',
         ...(apiKey.trim() ? { Authorization: 'Bearer ' + apiKey.trim() } : {}) },
       body: JSON.stringify(body),
-    }));
+    }, Boolean(turn.format)));
     if (!response.ok) return response;
-    let payload: ApiResponse;
+    let payload: Awaited<ReturnType<typeof readResponsesPayload>>;
     try { payload = await readResponsesPayload(response); }
     catch (error) {
       if (signal?.aborted) throw signal.reason;
       if (error instanceof SyntaxError) throw new Error('Réponse LM Studio Responses illisible.');
       throw error;
     }
-    if ((turn.store !== false && !payload.id?.startsWith('resp_')) || !Array.isArray(payload.output)) {
+    if ((turn.store !== false && !payload.id?.startsWith('resp_')) || (!Array.isArray(payload.output) && !payload.output_text?.trim() && payload.status !== 'incomplete')) {
       throw new Error('LM Studio n’a pas retourné de réponse Responses exploitable.');
     }
     previousId = payload.id;
     totalInput += payload.usage?.input_tokens ?? 0;
     totalOutput += payload.usage?.output_tokens ?? 0;
     total += payload.usage?.total_tokens ?? 0;
-    const calls = payload.output.filter((item): item is Extract<ApiOutput, { type: 'function_call' }> => item.type === 'function_call');
+    const calls = (payload.output ?? []).filter((item): item is Extract<ResponsesOutputItem, { type: 'function_call' }> => item.type === 'function_call');
     if (turn.store === false && calls.length) throw new Error('Réponse inattendue : le modèle a demandé un outil.');
     const incomplete = payload.status === 'incomplete';
     if (payload.status && payload.status !== 'completed' && !incomplete) {
@@ -183,24 +152,19 @@ export async function sendLmStudioZoomDiagramTurn(
       throw new Error('LM Studio Responses : génération incomplète (' + (payload.incomplete_details?.reason ?? 'cause inconnue') + ').');
     }
     if (calls.length === 0 || incomplete) {
-      const messageText = payload.output.filter((item): item is Extract<ApiOutput, { type: 'message' }> => item.type === 'message')
-        .flatMap(item => item.content ?? []).filter(item => item.type === 'output_text' || item.type === 'text')
-        .map(item => item.text ?? '').join('');
-      text = payload.output_text?.trim() ? payload.output_text : messageText;
-      const reasoning = payload.output.filter((item): item is Extract<ApiOutput, { type: 'reasoning' }> => item.type === 'reasoning')
-        .flatMap(item => [...(item.content ?? []), ...(item.summary ?? [])])
-        .filter(item => item.type === 'reasoning_text' || item.type === 'summary_text')
-        .map(item => item.text ?? '').join('');
-      const atLimit = incomplete || (!text.trim() && turn.options.num_predict !== undefined &&
-        (payload.usage?.output_tokens ?? 0) >= turn.options.num_predict);
+      text = responsesMessage(payload);
+      const reasoning = responsesReasoning(payload) || payload.streamedReasoning;
+      const atLimit = responsesAtLimit(payload, text, turn.options.num_predict);
       // Never promote reasoning or truncated JSON to a final answer.
       if (turn.store !== false && text.trim() && !atLimit) conversation.responseId = previousId;
       const last = { message: { content: text, ...(reasoning ? { thinking: reasoning } : {}) },
-        done: true, done_reason: atLimit ? 'length' : 'stop',
+        done: true, done_reason: atLimit ? 'length' : text.trim() ? 'stop' : 'no_verdict',
+        provider_status: payload.status, reported_output_tokens: payload.usage?.output_tokens,
+        reasoning_tokens: payload.usage?.output_tokens_details?.reasoning_tokens,
         prompt_eval_count: totalInput, eval_count: totalOutput, usage: { prompt_tokens: totalInput,
           completion_tokens: totalOutput, total_tokens: total || totalInput + totalOutput } };
       return new Response(JSON.stringify(last) + '\n', {
-        status: 200, headers: { 'Content-Type': 'application/x-ndjson' },
+        status: response.status, headers: { 'Content-Type': 'application/x-ndjson' },
       });
     }
     const next: unknown[] = [];

@@ -109,10 +109,19 @@ test('teacher can opt in, place, move and hide a synthetic remark without any LL
     return job?.copyAnnotations?.find((item) => item.criterionId === 'membrane')?.placement?.pageNumber;
   })).toBe(1);
 
+  const marker = page.getByRole('button', { name: 'Annotation 1 : Préciser la membrane.' });
+  const message = marker.locator('.copy-inline-annotation-message');
+  await expect(message).toBeVisible();
+  await expect(message).toHaveText('Préciser la membrane.');
+  await expect(message).toHaveCSS('font-family', /Bradley Hand/);
+  await expect(marker).toHaveAttribute('data-horizontal', 'right');
   const firstX = await page.locator('.copy-inline-annotation').evaluate((node) => (node as HTMLElement).style.left);
   await annotations.getByRole('button', { name: 'Déplacer sur la copie' }).click();
   await target.click({ position: { x: 200, y: 120 } });
   await expect.poll(() => page.locator('.copy-inline-annotation').evaluate((node) => (node as HTMLElement).style.left)).not.toBe(firstX);
+  await expect(marker).toHaveAttribute('data-horizontal', 'left');
+  await expect(marker).toHaveAttribute('data-vertical', 'above');
+  await expect(message).toBeVisible();
 
   await annotations.getByRole('button', { name: 'Ajouter' }).click();
   await target.click({ position: { x: 50, y: 50 } });
@@ -127,7 +136,7 @@ test('teacher can opt in, place, move and hide a synthetic remark without any LL
   await expect(annotations).toHaveCount(0);
   await toggle.check();
   await expect(page.locator('.copy-inline-annotation')).toHaveCount(2);
-  await page.getByRole('button', { name: 'Annotation 2 : Très bon dessin !' }).click();
+  await page.getByRole('button', { name: 'Annotation 2 : Très bon dessin !' }).getByText('Très bon dessin !', { exact: true }).click();
   await expect(annotations.getByRole('listitem').filter({ hasText: 'Très bon dessin !' })).toBeFocused();
   await annotations.getByRole('listitem').filter({ hasText: 'Très bon dessin !' }).getByRole('button', { name: 'Supprimer' }).click();
   await expect(page.locator('.copy-inline-annotation')).toHaveCount(1);
