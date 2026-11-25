@@ -78,6 +78,8 @@ export interface BackgroundCorrectionJob {
   totalCriteria: number;
   /** Set only while a specific rubric criterion is actually being evaluated. */
   activeCriterionId?: string | null;
+  /** A queued retry of one missing criterion, using the saved rubric. */
+  retryDiagramCriterionId?: string;
   transcription: string | null;
   /** Page numbers represented by the saved transcription, for safe cache reuse after visual routing. */
   transcriptionPageNumbers?: number[];

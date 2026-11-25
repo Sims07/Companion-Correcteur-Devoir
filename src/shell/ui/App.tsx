@@ -454,6 +454,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     markCompleted: async () => undefined,
     remove: async () => undefined,
     retry: async () => undefined,
+    retryDiagramCriterion: async () => undefined,
     setAutomatic: async () => undefined,
   };
   const [assignmentProfiles, setAssignmentProfiles] = useState<AssignmentProfile[]>(readAssignmentProfiles);
@@ -807,6 +808,8 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
 
   const [selectedSeriesPreviewId, setSelectedSeriesPreviewId] = useState<string | null>(null);
   const [currentBackgroundJobId, setCurrentBackgroundJobId] = useState<string | null>(null);
+  const [retryingDiagramCriterion, setRetryingDiagramCriterion] = useState<{ jobId: string; criterionId: string } | null>(null);
+  const retryDiagramCriterionAction = useRef(createAsyncActionGuard());
   const [backgroundCopyLabel, setBackgroundCopyLabel] = useState('');
   const [seriesPickerVersion, setSeriesPickerVersion] = useState(0);
   const [isPreparingSeriesCopies, setIsPreparingSeriesCopies] = useState(false);
@@ -1132,6 +1135,9 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
   const copyNavigation = getCopyNavigation(activeAssignmentId, currentCopyId, backgroundJobs, archivedCorrectionsForActiveAssignment, currentDraftNavigationItem);
   const activeBackgroundJob = backgroundJobs.find((job) => job.id === currentBackgroundJobId) ?? null;
   const previousActiveCopyRef = useRef<{ id: string; label: string; identityKey: string } | null>(null);
+  const canRetryDiagramCriteria = Boolean(activeBackgroundJob?.gradingFlow === 'scientific-diagram-direct'
+    && ['failed', 'needs-review', 'reviewing'].includes(activeBackgroundJob.status)
+    && rubricEvaluationSignature(activeBackgroundJob.rubric) === rubricEvaluationSignature(rubric));
   const activeIdentityKey = JSON.stringify(activeBackgroundJob?.studentIdentity ?? null);
   useEffect(() => {
     const previous = previousActiveCopyRef.current;
@@ -1166,7 +1172,9 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
       setOriginalImages(structuredClone(ready.originalImages));
       setScientificDiagramAnalysis(ready.scientificDiagramAnalysis ?? null);
       setPageClassifications(ready.scientificPageClassifications ?? null);
-      setReviewMessage('Correction prête. Examinez les propositions signalées avant validation.');
+      setReviewMessage(ready.proposal.scoreIncomplete
+        ? 'Correction partielle. Relancez les critères qui restent à évaluer.'
+        : 'Correction prête. Examinez les propositions signalées avant validation.');
     };
     if (newlyAvailableReviewJob.imagesDeferred) {
       void loadFullQueuedJob(newlyAvailableReviewJob.id).then((full) => {
@@ -1177,6 +1185,24 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     }
     return () => { active = false; };
   }, [newlyAvailableReviewJob, isFinalized, teacherStep]);
+
+  // A targeted retry publishes its result through the same queue even if the
+  // teacher navigates away from this view while the model is running.
+  useEffect(() => {
+    const result = activeBackgroundJob?.proposal;
+    if (!activeBackgroundJob || activeBackgroundJob.gradingFlow !== 'scientific-diagram-direct'
+      || !proposal?.scoreIncomplete || !result || isFinalized
+      || !['ready', 'needs-review', 'reviewing'].includes(activeBackgroundJob.status)) return;
+    const newCriteria = toReviewedCriteria(result).filter(criterion => proposal.criteria.every(previous =>
+      previous.criterionId !== criterion.criterionId
+      || (previous.assessmentStatus === 'not-evaluated' && criterion.assessmentStatus !== 'not-evaluated')));
+    if (!newCriteria.length) return;
+    setProposal(structuredClone(result));
+    setReview(current => [...current.filter(item => !newCriteria.some(criterion => criterion.criterionId === item.criterionId)), ...newCriteria]);
+    setReviewMessage(result.scoreIncomplete
+      ? 'Critère évalué. D’autres critères restent à reprendre.'
+      : 'Tous les critères ont été évalués. Vérifiez la proposition avant de la valider.');
+  }, [activeBackgroundJob, proposal, isFinalized]);
 
   const compactReview = teacherStep === 'review' && !showAiSettings && activeBackgroundJob?.status !== 'processing';
   const reviewPosition = copyNavigation.currentPosition ?? (copyNavigation.totalCopies > 0 ? 1 : 0);
@@ -4273,6 +4299,32 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     }
   }
 
+  async function retryMissingDiagramCriterion(jobId: string, criterionId: string) {
+    await retryDiagramCriterionAction.current(async () => {
+      setRetryingDiagramCriterion({ jobId, criterionId });
+      setError('');
+      setReviewMessage('Relance du critère demandée.');
+      try {
+        await annotationWrite.current;
+        await backgroundService.saveReviewDraft(jobId, review, teacherQuestions, copyAnnotations);
+        await backgroundService.retryDiagramCriterion(jobId, criterionId, {
+          endpoint, apiCompatible, apiKey, visionModel, analysisModel,
+          ...teacherThinking, criterionByCriterion, correctionMethod,
+        });
+        const updated = await loadFullQueuedJob(jobId);
+        if (currentCopyIdRef.current === jobId && updated?.error) {
+          setReviewMessage(updated.error);
+        }
+      } catch (cause) {
+        if (currentCopyIdRef.current === jobId) {
+          setError(cause instanceof Error ? cause.message : 'Impossible de relancer ce critère.');
+        }
+      } finally {
+        setRetryingDiagramCriterion(null);
+      }
+    });
+  }
+
   async function startSeriesCorrections() {
     if (isStartingSeriesCorrectionsRef.current) return;
     if (diagramIssue) { setError(diagramIssue); return; }
@@ -4323,7 +4375,8 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
       setReviewMessage('Cette copie n’est plus disponible. Actualisez le suivi avant de poursuivre.');
       return;
     }
-    const canReview = Boolean(next.proposal) && ['ready', 'needs-review', 'reviewing'].includes(next.status);
+    const canReview = Boolean(next.proposal) && (['ready', 'needs-review', 'reviewing'].includes(next.status)
+      || (next.status === 'failed' && next.gradingFlow === 'scientific-diagram-direct'));
 
     // Publish the refreshed queue and selected copy together after all async work.
     setBackgroundJobs(await loadQueueOverviews(activeAssignmentId));
@@ -4355,11 +4408,12 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     setReview(canReview && next.proposal ? structuredClone(next.reviewDraft ?? toReviewedCriteria(next.proposal)) : []);
     setTeacherQuestions(canReview && next.proposal ? next.teacherQuestionsDraft ?? next.proposal.questionsForTeacher.join('\\n') : '');
     setShowOnlyFlagged(true);
-    setReviewMessage(canReview ? 'Correction prête. Examinez les propositions signalées avant validation.'
+    setReviewMessage(canReview ? next.proposal?.scoreIncomplete ? 'Correction partielle. Relancez les critères qui restent à évaluer.'
+      : 'Correction prête. Examinez les propositions signalées avant validation.'
       : next.status === 'pending' ? 'Cette copie attend sa correction. Aucune note n’a encore été attribuée.'
       : next.status === 'processing' ? 'La lecture et l’évaluation de cette copie sont en cours.'
       : 'Cette copie nécessite une vérification ou une relance. Les éléments déjà traités sont conservés.');
-    setError(next.status === 'failed' ? '' : next.error ?? '');
+    setError(next.status === 'failed' || (canReview && next.proposal?.scoreIncomplete) ? '' : next.error ?? '');
     setCurrentCorrectionId(null);
     setIsFinalized(false);
     setTeacherStep(canReview || ['processing', 'pending', 'failed'].includes(next.status) ? 'review' : 'copy');
@@ -6180,7 +6234,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
         />
         {reviewMessage && <p className="copy-review-navigation-message" role="status">{reviewMessage}</p>}
       </section>}
-      {(proposal || isAnalyzing || review.length > 0 || Boolean(pageClassifications?.some((page) => page.kind !== 'text')) || (analysisStage === 'grading' && teacherStep === 'review')) && !(currentBackgroundJobId && activeBackgroundJob?.status === 'processing') && interfaceMode === 'teacher' && teacherStep === 'review' && <section className="review-section" onKeyDown={(event) => {
+      {(proposal || canRetryDiagramCriteria || isAnalyzing || review.length > 0 || Boolean(pageClassifications?.some((page) => page.kind !== 'text')) || (analysisStage === 'grading' && teacherStep === 'review')) && !(currentBackgroundJobId && activeBackgroundJob?.status === 'processing') && activeBackgroundJob?.status !== 'pending' && interfaceMode === 'teacher' && teacherStep === 'review' && <section className="review-section" onKeyDown={(event) => {
         if ((event.metaKey || event.ctrlKey) && event.key === 'Enter' && !(event.target instanceof HTMLElement && event.target.closest('.copy-annotation-panel, .copy-annotation-export-dialog'))) {
           event.preventDefault();
           if (!isAnalyzing && !isFinalized && unassessedCount === 0 && review.length === rubric.criteria.length) void finalizeReview(true);
@@ -6306,6 +6360,20 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
         </div>}
         {(isAnalyzing ? rubric.criteria : orderedReviewCriteria.filter((criterion) => !shouldFocusExceptions || flaggedCriteriaIds.has(criterion.id))).map((criterion, criterionIndex) => {
           const item = review.find((entry) => entry.criterionId === criterion.id);
+          if (!item && canRetryDiagramCriteria && activeBackgroundJob
+            && !activeBackgroundJob.partialCriteria.some(saved => saved.criterionId === criterion.id
+              && saved.assessmentStatus !== 'not-evaluated')) {
+            const retrying = retryingDiagramCriterion?.jobId === activeBackgroundJob.id;
+            const retryingThisCriterion = retrying && retryingDiagramCriterion.criterionId === criterion.id;
+            return <article className="panel review-card" key={criterion.id} aria-label={criterion.title}>
+              <div className="review-card-heading"><div><h3>{criterion.title}</h3><p>Maximum : {criterion.maxPoints} points</p></div>
+                <span className="review-result-status needs-review">Sans note</span></div>
+              <p role="status">{retryingThisCriterion ? 'Préparation de la relance…' : 'L’IA n’a pas fourni de résultat exploitable pour ce critère.'}</p>
+              <button type="button" className="secondary-button" disabled={retrying}
+                aria-label={`Relancer le critère ${criterion.title}`}
+                onClick={() => { void retryMissingDiagramCriterion(activeBackgroundJob.id, criterion.id); }}>Relancer ce critère</button>
+            </article>;
+          }
           if (!item) {
             const status = criterionStatuses[criterion.id];
             const active = isAnalyzing && activeCriterionId === criterion.id;
@@ -6417,10 +6485,11 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
         {isFinalized && <div className="panel finalized-next-actions"><div><span className="eyebrow">COPIE ARCHIVÉE</span><h3>Correction enregistrée</h3><p>Vous pouvez la consulter plus tard ou passer à la copie d’un autre étudiant sans perdre ce résultat.</p></div><div><button type="button" className="primary-button" disabled={Boolean(regradingCorrectionId)} onClick={() => { const correction = archivedCorrections.find((item) => item.id === currentCorrectionId); if (correction) void regradeArchivedCorrection(correction); }}>Recorriger la copie</button><button type="button" className="secondary-button" onClick={() => startNextCopy()}><CopyActionIcon name="next" />Corriger une autre copie</button><button type="button" className="secondary-button" onClick={() => { setCopyOverviewFilter('completed'); setCopyOverviewFilterTouched(true); setTeacherStep('overview'); setShowAiSettings(false); }}><CopyActionIcon name="open" />Voir les copies corrigées</button></div></div>}
          <details className="review-extra-tools"><summary>Questions générales et export de la correction</summary>
            <div className="questions-field"><span className="field-label">Points à vérifier avant de communiquer la note</span>{teacherQuestions.trim() ? <ul className="teacher-questions-list">{teacherQuestions.split('\n').map((line) => line.trim()).filter(Boolean).map((line, index) => <li key={index}>{line}</li>)}</ul> : <p className="no-teacher-questions">Aucune question générale. Les questions liées à un critère restent affichées sur celui-ci.</p>}</div>
-           <details className="review-export"><summary>Exporter le récapitulatif (JSON)</summary><p>Conservez ou réutilisez les résultats de cette correction au format JSON.</p><button type="button" className="secondary-button" onClick={() => { const payload = { rubric, question, summary: proposal?.summary ?? '', criteria: review, questionsForTeacher: teacherQuestions.split('\n').map((line) => line.trim()).filter(Boolean), total: reviewedTotal, exportedAt: new Date().toISOString() }; const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })); const link = document.createElement('a'); link.href = url; link.download = 'proposition-correction.json'; link.click(); URL.revokeObjectURL(url); setReviewMessage('Récapitulatif JSON exporté.'); }}><CopyActionIcon name="download" />{isFinalized ? 'Télécharger la correction enregistrée' : 'Télécharger le récapitulatif provisoire'}</button></details>
+           <details className="review-export"><summary>Exporter le récapitulatif (JSON)</summary><p>Conservez ou réutilisez les résultats de cette correction au format JSON.</p><button type="button" className="secondary-button" onClick={() => { const payload = { rubric, question, summary: proposal?.summary ?? '', criteria: review, questionsForTeacher: teacherQuestions.split('\n').map((line) => line.trim()).filter(Boolean), total: unassessedCount === 0 && criterionProgress.isComplete ? reviewedTotal : null, exportedAt: new Date().toISOString() }; const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })); const link = document.createElement('a'); link.href = url; link.download = 'proposition-correction.json'; link.click(); URL.revokeObjectURL(url); setReviewMessage('Récapitulatif JSON exporté.'); }}><CopyActionIcon name="download" />{isFinalized ? 'Télécharger la correction enregistrée' : 'Télécharger le récapitulatif provisoire'}</button></details>
          </details>
 
-          <div className="copy-review-validation-bar" aria-live="polite"><div><span>{unassessedCount > 0 ? 'Note partielle' : isFinalized ? 'Note validée' : 'Note proposée'}</span><strong>{reviewedTotal.toLocaleString('fr-FR')} / {validation.maximumPoints.toLocaleString('fr-FR')}</strong><small>{isFinalized ? 'Correction enregistrée' : teacherReviewStatus(unassessedCount, flaggedCriteriaIds.size)}</small></div><div className="copy-review-final-actions">{copyAnnotationsEnabled && service.exportCopyAnnotationPdf && !isAnalyzing && images.length > 0 && proposal && unassessedCount === 0 && criterionProgress.isComplete && <CopyAnnotationPdfPanel
+          <div className="copy-review-validation-bar" aria-live="polite"><div><span>{unassessedCount > 0 || !criterionProgress.isComplete ? 'Note partielle' : isFinalized ? 'Note validée' : 'Note proposée'}</span><strong>{criterionProgress.completedCount > unassessedCount
+            ? reviewedTotal.toLocaleString('fr-FR') + ' / ' + validation.maximumPoints.toLocaleString('fr-FR') : 'Aucune note'}</strong><small>{isFinalized ? 'Correction enregistrée' : teacherReviewStatus(unassessedCount, flaggedCriteriaIds.size)}</small></div><div className="copy-review-final-actions">{copyAnnotationsEnabled && service.exportCopyAnnotationPdf && !isAnalyzing && images.length > 0 && proposal && unassessedCount === 0 && criterionProgress.isComplete && <CopyAnnotationPdfPanel
                 createPdf={service.exportCopyAnnotationPdf}
                 key={`${activeAssignmentId}-${currentCopyId}`}
                 copy={{ assignmentTitle, studentLabel, images, annotations: copyAnnotations, score: reviewedTotal,

@@ -151,6 +151,7 @@ export function getNewlyAvailableReviewJob(
     job.assignmentId === assignmentId &&
     job.id === selectedJobId &&
     Boolean(job.proposal) &&
-    (job.status === 'ready' || job.status === 'reviewing' || job.status === 'needs-review')
+    (job.status === 'ready' || job.status === 'reviewing' || job.status === 'needs-review'
+      || (job.status === 'failed' && job.gradingFlow === 'scientific-diagram-direct' && job.proposal?.scoreIncomplete))
   ) ?? null;
 }

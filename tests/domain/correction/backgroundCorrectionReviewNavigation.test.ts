@@ -33,6 +33,9 @@ describe('actualisation de la correction ouverte en fin de traitement', () => {
     expect(getNewlyAvailableReviewJob('biology', 'another-copy', false, [readyJob])).toBeNull();
     expect(getNewlyAvailableReviewJob('biology', null, false, [readyJob])).toBeNull();
     expect(getNewlyAvailableReviewJob('biology', 'copy-current', false, [{ ...readyJob, status: 'failed' }])).toBeNull();
+    const interruptedDiagram = { ...readyJob, status: 'failed' as const, gradingFlow: 'scientific-diagram-direct' as const,
+      proposal: { ...proposal, scoreIncomplete: true } };
+    expect(getNewlyAvailableReviewJob('biology', 'copy-current', false, [interruptedDiagram])).toBe(interruptedDiagram);
   });
 });
 

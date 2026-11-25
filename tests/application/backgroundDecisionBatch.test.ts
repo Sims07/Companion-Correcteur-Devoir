@@ -106,8 +106,8 @@ describe('background correction: native decision batching', () => {
     const rubric = { ...job.rubric, criteria: criteria.map(c => ({ ...c, analysisMode: 'scientific-diagram' as const })) };
     await service.enqueue({ ...job, gradingFlow: 'scientific-diagram-direct', rubric }, settings);
     await service.processPending({ ...settings, criterionByCriterion: true }, job.assignmentId);
-    expect(jobs.get(job.id)).toMatchObject({ status: 'failed', completedCriteria: 1,
-      partialCriteria: [{ criterionId: 'c1' }], error: 'Limite atteinte pour c2' });
+    expect(jobs.get(job.id)).toMatchObject({ status: 'needs-review', completedCriteria: 1,
+      partialCriteria: [{ criterionId: 'c1' }], proposal: { scoreIncomplete: true } });
   });
 
   it.each([
