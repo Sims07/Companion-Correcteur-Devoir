@@ -1,3 +1,4 @@
+import { placeAnnotationsAfterRotation, restoreCopyAnnotations } from '../domain/copyAnnotationFeature.ts';
 import { parseGradingProposal } from '../domain/grading.ts';
 import { gradeDiagramImages } from '../ports/gradeDiagramImages.ts';
 import { directDiagramAssignmentIssue } from '../domain/directDiagramAssignment.ts';
@@ -709,10 +710,16 @@ export function createBackgroundCorrectionService(
       if (job.status === 'processing' && !paused) throw new Error('Attendez la fin du traitement avant de réorienter cette copie.');
       if (job.status === 'completed') throw new Error('Une copie archivée ne peut plus être réorientée.');
       if (!images.length || images.length !== job.originalImages.length) throw new Error('La rotation doit conserver toutes les pages de la copie.');
+      const copyAnnotations = images.reduce((notes, _image, index) => {
+        const rotation = ((rotationAngles[index] ?? 0) - (job.rotationAngles?.[index] ?? 0) + 360) % 360;
+        return rotation === 90 || rotation === 180 || rotation === 270
+          ? placeAnnotationsAfterRotation(notes, index + 1, rotation) : notes;
+      }, restoreCopyAnnotations(job.copyAnnotations, job.reviewDraft ?? []));
       const updated: BackgroundCorrectionJob = {
         ...job,
         images: structuredClone(images),
         rotationAngles: { ...rotationAngles },
+        copyAnnotations,
         scientificPageClassifications: undefined,
         scientificDiagramAnalysis: null,
         transcription: null,

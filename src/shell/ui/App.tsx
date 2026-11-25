@@ -1601,13 +1601,19 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
   async function rotateCopyPage(pageIndex: number, clockwiseDegrees: 90 | 180 | 270) {
     const original = originalImages[pageIndex] ?? images[pageIndex];
     if (!original || isAnalyzing) return;
+    if (!isFinalized && activeBackgroundJob && clockwiseDegrees !== 180) {
+      if (await rotateQueuedCopyPage(activeBackgroundJob, pageIndex, clockwiseDegrees)) {
+        await loadNextQueuedCopy(activeBackgroundJob.id);
+      }
+      return;
+    }
     try {
       const nextAngle = accumulateClockwiseRotation(manualRotationAngles[pageIndex] ?? 0, clockwiseDegrees);
       const rotated = nextAngle === 0 ? original : await service.rotateImage(original, nextAngle as 90 | 180 | 270);
       const workingImage = annotationInkColor !== 'none' && annotationInkColorApplied
         ? await service.eraseTeacherAnnotationColor(rotated, annotationInkColor)
         : rotated;
-      persistCopyAnnotations(placeAnnotationsAfterRotation(copyAnnotations, pageIndex + 1, clockwiseDegrees));
+      setCopyAnnotations((current) => placeAnnotationsAfterRotation(current, pageIndex + 1, clockwiseDegrees));
       setImages((current) => current.map((entry, index) => index === pageIndex ? workingImage : entry));
       setManualRotationAngles((current) => ({ ...current, [pageIndex]: nextAngle }));
       setAnnotationInkColorPreview(null);
@@ -1858,6 +1864,9 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
               textImages = images.map((image, index) => acceptedAutomaticRotations[index] ?? image);
               setImages((current) => current.map((image, index) => acceptedAutomaticRotations[index] ?? image));
               const acceptedRotationAngles = Object.fromEntries(Object.keys(acceptedAutomaticRotations).map((key) => [Number(key), pendingSuggestions.find((item) => item.index === Number(key))?.degrees ?? 0]));
+              setCopyAnnotations((current) => pendingSuggestions.reduce((notes, suggestion) =>
+                acceptedAutomaticRotations[suggestion.index]
+                  ? placeAnnotationsAfterRotation(notes, suggestion.index + 1, suggestion.degrees) : notes, current));
               annotationRotationAngles = { ...annotationRotationAngles, ...acceptedRotationAngles };
               setManualRotationAngles((current) => ({ ...current, ...acceptedRotationAngles }));
               setReviewMessage('Rotation automatique appliquée après un second contrôle confirmant une orientation droite.');
@@ -3943,11 +3952,12 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
 
   async function rotateQueuedCopyPage(job: BackgroundCorrectionJob, pageIndex: number, clockwiseDegrees: 90 | 270) {
     const currentStatus = backgroundJobs.find((entry) => entry.id === job.id)?.status ?? job.status;
-    if (currentStatus === 'completed' || isPreparingSeriesCopies || rotatingQueuedPage !== null) return;
+    if (currentStatus === 'completed' || isPreparingSeriesCopies || rotatingQueuedPage !== null) return false;
     const rotationKey = `${job.id}:${pageIndex}`;
     let pausedForRotation = false;
     setRotatingQueuedPage(rotationKey);
     try {
+      await annotationWrite.current;
       const source = job.imagesDeferred ? await loadFullQueuedJob(job.id) : job;
       if (!source) throw new Error('Cette copie n’est plus disponible sur cet appareil.');
       const original = source.originalImages[pageIndex] ?? source.images[pageIndex];
@@ -3978,8 +3988,10 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
         for (const page of updated.images) thumbnails.push(await createQueuedCopyThumbnail(page));
         setDetailThumbnails((current) => ({ ...current, [job.id]: thumbnails }));
       }
+      return true;
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'La rotation de cette page a échoué.');
+      return false;
     } finally {
       if (pausedForRotation) backgroundService.resume(activeAssignmentId);
       setRotatingQueuedPage(null);
