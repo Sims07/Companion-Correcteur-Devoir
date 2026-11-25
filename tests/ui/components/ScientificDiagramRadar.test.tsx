@@ -1,12 +1,15 @@
 // @vitest-environment jsdom
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { DiagramLabArchiveEntry, DiagramLabProtocol } from '../../../src/evaluation/domain/diagramLabHistory.ts';
 import { DIAGRAM_SENSITIVITY_CASES } from '../../../src/evaluation/domain/scientificDiagramSensitivity.ts';
 import { SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET } from '../../../src/evaluation/domain/scientificDiagramFixtures.ts';
 import { buildDiagramLabRadar, observedRadarScore, RADAR_PRESETS, rankDiagramLabRadar } from '../../../src/evaluation/domain/diagramLabRadar.ts';
 import { ScientificDiagramRadar, restoredWeights } from '../../../src/evaluation/ui/components/ScientificDiagramRadar.tsx';
+
+import { EvaluationRadarHome } from '../../../src/evaluation/ui/components/EvaluationRadarHome.tsx';
+import { defaultAiModelConfiguration } from '../../../src/shared/domain/aiModelProfiles.ts';
 
 function sample(protocol: Exclude<DiagramLabProtocol, 'personal'>, repetitions: number): DiagramLabArchiveEntry {
   const fixture = protocol === 'reference' || protocol === 'arrows';
@@ -105,5 +108,49 @@ describe('ScientificDiagramRadar score-first summary', () => {
     );
     expect(primary.textContent).not.toContain('Indice partiel');
     expect(host!.querySelector('.diagram-radar-score-coverage')?.textContent).toContain('9 / 9');
+  });
+
+  it('relaunches a complete scientific radar as a new campaign for the selected profile', async () => {
+    window.localStorage.clear();
+    host = document.createElement('div');
+    document.body.appendChild(host);
+    root = createRoot(host);
+    const entries = reports(3);
+    const runScience = vi.fn();
+    const profiles = ['profile-q', 'profile-other'].map(id => ({
+      id, name: id, mode: 'single' as const, updatedAt: '2026-11-22T08:00:00Z',
+      configuration: { ...defaultAiModelConfiguration, visionModel: 'qwen:4b',
+        analysisModel: 'qwen:4b', correctionMethod: 'generative' as const },
+    }));
+    const props = { entries, profiles, history: [], model: 'profile-q',
+      choose: vi.fn(), manage: vi.fn(), details: vi.fn(), campaigns: vi.fn(),
+      busy: false, runScience, runBiology: vi.fn() };
+    const render = async (busy: boolean) => {
+      await act(async () => root?.render(<EvaluationRadarHome {...props} busy={busy} />));
+    };
+    const article = () => host!.querySelector('article[aria-label="Schémas scientifiques"]')!;
+    const relaunch = () => Array.from(article().querySelectorAll('button'))
+      .find(button => button.textContent?.trim() === 'Relancer l’évaluation')!;
+    await render(false);
+    expect(article().textContent).toContain('Note globale · 9/9 axes');
+    expect(relaunch()).toBeDefined();
+    expect(relaunch().disabled).toBe(false);
+    await act(async () => relaunch().click());
+    expect(runScience).toHaveBeenCalledTimes(1);
+    const request = runScience.mock.calls[0]![0];
+    expect(request).toMatchObject({ profileId: 'profile-q', modelId: 'qwen:4b',
+      trial: { id: expect.any(String), method: 'pixel-v1' } });
+    expect(request.steps.map((step: { protocol: string }) => step.protocol))
+      .toEqual(['reference', 'arrows', 'semantic', 'graph']);
+    expect(request.steps[0].repetitions).toBe(3);
+    expect(article().textContent).toContain('Note globale · 9/9 axes');
+    await render(true);
+    expect(relaunch().disabled).toBe(true);
+    await act(async () => relaunch().click());
+    expect(runScience).toHaveBeenCalledTimes(1);
+    await render(false);
+    await act(async () => relaunch().click());
+    expect(runScience.mock.calls[1]![0].trial.id).not.toBe(request.trial.id);
+    expect(entries).toHaveLength(4);
   });
 });
