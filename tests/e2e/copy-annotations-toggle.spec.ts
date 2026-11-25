@@ -157,6 +157,7 @@ test('teacher can opt in, place, move and hide a synthetic remark without any LL
 test('generates reviewable suggestions, survives tab navigation and supports cancellation and retry', async ({ page }) => {
   let calls = 0;
   let release = () => {};
+  const deductionId = 'deduction-%5B%22membrane%22%2Cnull%5D';
   await page.route('http://127.0.0.1:11434/api/chat', async (route) => {
     if (route.request().method() === 'OPTIONS') {
       await route.fulfill({ status: 204, headers: { 'access-control-allow-origin': '*', 'access-control-allow-headers': 'content-type' } });
@@ -168,7 +169,7 @@ test('generates reviewable suggestions, survives tab navigation and supports can
     await route.fulfill({
       status: current === 2 ? 500 : 200, headers: { 'access-control-allow-origin': '*' },
       json: { message: { content: JSON.stringify({ annotations: [
-        { message: 'Présente la membrane.', criterionId: 'membrane', placement: { pageNumber: 1, x: 550, y: 320 }, locationConfidence: 'low' },
+        { message: 'Présente la membrane.', criterionId: 'membrane', tone: 'improvement', deductionId, placement: { pageNumber: 1, x: 550, y: 320 }, locationConfidence: 'low' },
       ] }) } },
     }).catch(() => undefined);
   });
@@ -197,6 +198,26 @@ test('generates reviewable suggestions, survives tab navigation and supports can
   await expect(page.locator('.copy-inline-annotation')).toHaveCount(0);
   await panel.getByRole('button', { name: 'Valider', exact: true }).click();
   await expect(panel.getByText('Suggestion IA à valider', { exact: false })).toHaveCount(0);
+  await expect(page.locator('.review-card-result strong')).toHaveText('1 / 2');
+});
+
+test('keeps a missed deduction visible when the local model returns no annotations', async ({ page }) => {
+  await page.route('http://127.0.0.1:11434/api/chat', async (route) => {
+    await route.fulfill({
+      headers: { 'access-control-allow-origin': '*', 'access-control-allow-headers': 'content-type' },
+      ...(route.request().method() === 'OPTIONS'
+        ? { status: 204 }
+        : { json: { message: { content: '{"annotations":[]}' } } }),
+    });
+  });
+  await openAnnotationReview(page);
+  await page.getByRole('switch', { name: 'Annotations' }).check();
+  const panel = page.getByRole('region', { name: 'Annotations de la copie' });
+  await panel.getByRole('button', { name: 'Générer', exact: true }).click();
+  const note = panel.getByRole('listitem').filter({ hasText: 'Membrane : Préciser la membrane.' });
+  await expect(note).toContainText('À améliorer');
+  await expect(note).toContainText('Sans emplacement');
+  await expect(page.locator('.copy-inline-annotation')).toHaveCount(0);
   await expect(page.locator('.review-card-result strong')).toHaveText('1 / 2');
 });
 
