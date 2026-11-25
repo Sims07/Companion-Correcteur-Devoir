@@ -1,16 +1,12 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { openActiveAssignment } from './helpers/teacher-workspace';
 
-test('teacher can opt in, place, move and hide a synthetic remark without any LLM call', async ({ page }) => {
-  const requests: string[] = [];
-  page.on('request', (request) => {
-    if (/\/api\/chat|\/v1\/chat|\/v1\/completions/.test(request.url())) requests.push(request.url());
-  });
-
+async function openAnnotationReview(page: Page) {
   await page.goto('/');
   await openActiveAssignment(page);
   await page.evaluate(async () => {
     localStorage.setItem('companion-correcteur:auto-background-correction:v1', 'false');
+    localStorage.setItem('companion-correcteur:ollama-configuration:v1', JSON.stringify({ endpoint: 'http://127.0.0.1:11434', visionModel: 'vision', generativeModel: 'analysis' }));
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
       const request = indexedDB.open('companion-correcteur-devoir', 7);
       request.onsuccess = () => resolve(request.result);
@@ -25,7 +21,7 @@ test('teacher can opt in, place, move and hide a synthetic remark without any LL
     localStorage.setItem('companion-correcteur:active-assignment:v1', 'assignment-default');
     const criterion = { criterionId: 'membrane', points: 1, rationale: 'Description partielle.', evidence: 'Membrane visible.', confidence: 'high', annotationSuggestion: 'Préciser la membrane.', pageNumber: 1 };
     const proposal = { summary: '', criteria: [criterion], questionsForTeacher: [], finalScore: 1 };
-    const image = { base64: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jxioAAAAASUVORK5CYII=', mimeType: 'image/png', fileName: 'page.png' };
+    const image = { base64: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC', mimeType: 'image/png', fileName: 'page.png' };
     const transaction = db.transaction('background-corrections', 'readwrite');
     transaction.objectStore('background-corrections').put({
       id: 'annotation-teacher-copy',
@@ -70,6 +66,15 @@ test('teacher can opt in, place, move and hide a synthetic remark without any LL
   const card = page.locator('.copy-overview-grid .correction-series-card').filter({ hasText: 'Copie à annoter' });
   await card.getByRole('button', { name: 'Vérifier la copie' }).click();
 
+}
+
+test('teacher can opt in, place, move and hide a synthetic remark without any LLM call', async ({ page }) => {
+  const requests: string[] = [];
+  page.on('request', (request) => {
+    if (/\/api\/chat|\/v1\/chat|\/v1\/completions/.test(request.url())) requests.push(request.url());
+  });
+
+  await openAnnotationReview(page);
   const toggle = page.getByRole('checkbox', { name: 'Annoter la copie' });
   const criterion = page.locator('.review-card').filter({ has: page.getByRole('heading', { name: 'Membrane' }) });
   await expect(toggle).not.toBeChecked();
@@ -112,7 +117,7 @@ test('teacher can opt in, place, move and hide a synthetic remark without any LL
   await expect(annotations.getByRole('combobox', { name: 'Critère associé' })).toHaveValue('');
   await annotations.getByRole('button', { name: 'Enregistrer' }).click();
   await expect(page.locator('.copy-inline-annotation')).toHaveCount(2);
-  await expect(criterion.getByText('1 / 2', { exact: true })).toBeVisible();
+  await expect(criterion.locator('.review-card-result strong')).toHaveText('1 / 2');
 
   await toggle.uncheck();
   await expect(page.locator('.copy-inline-annotation')).toHaveCount(0);
@@ -122,4 +127,50 @@ test('teacher can opt in, place, move and hide a synthetic remark without any LL
   await annotations.getByRole('listitem').filter({ hasText: 'Très bon dessin !' }).getByRole('button', { name: 'Supprimer' }).click();
   await expect(page.locator('.copy-inline-annotation')).toHaveCount(1);
   expect(requests.slice(requestsBeforeAnnotations)).toEqual([]);
+});
+
+test('generates reviewable suggestions, survives tab navigation and supports cancellation and retry', async ({ page }) => {
+  let calls = 0;
+  let release = () => {};
+  await page.route('http://127.0.0.1:11434/api/chat', async (route) => {
+    if (route.request().method() === 'OPTIONS') {
+      await route.fulfill({ status: 204, headers: { 'access-control-allow-origin': '*', 'access-control-allow-headers': 'content-type' } });
+      return;
+    }
+    calls += 1;
+    const current = calls;
+    if (current !== 2) await new Promise<void>((resolve) => { release = resolve; });
+    await route.fulfill({
+      status: current === 2 ? 500 : 200, headers: { 'access-control-allow-origin': '*' },
+      json: { message: { content: JSON.stringify({ annotations: [
+        { message: 'Présente la membrane.', criterionId: 'membrane', placement: { pageNumber: 1, x: 550, y: 320 }, locationConfidence: 'low' },
+      ] }) } },
+    }).catch(() => undefined);
+  });
+  await openAnnotationReview(page);
+  await page.getByRole('checkbox', { name: 'Annoter la copie' }).check();
+  const panel = page.getByRole('region', { name: 'Annotations de la copie' });
+  const generate = panel.getByRole('button', { name: 'Générer les annotations' });
+  await generate.click();
+  await expect.poll(() => calls).toBe(1);
+  await expect(generate).toBeDisabled();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await page.getByRole('button', { name: 'Correction', exact: true }).click();
+  await expect(panel.getByRole('status')).toContainText('Attente du modèle local');
+  await panel.getByRole('button', { name: 'Arrêter' }).click();
+  release();
+  await expect(panel.getByRole('status')).toHaveText('Génération interrompue.');
+  await expect(panel.getByText('Annotations (0)')).toBeVisible();
+
+  await generate.click();
+  await expect(panel.getByRole('alert')).toContainText('HTTP 500');
+  await panel.getByRole('button', { name: 'Réessayer' }).click();
+  await expect.poll(() => calls).toBe(3);
+  release();
+  await expect(panel.getByText('1. Présente la membrane.')).toBeVisible();
+  await expect(panel.getByText('Sans emplacement · Suggestion IA à valider', { exact: false })).toBeVisible();
+  await expect(page.locator('.copy-inline-annotation')).toHaveCount(0);
+  await panel.getByRole('button', { name: 'Valider', exact: true }).click();
+  await expect(panel.getByText('Suggestion IA à valider', { exact: false })).toHaveCount(0);
+  await expect(page.locator('.review-card-result strong')).toHaveText('1 / 2');
 });

@@ -83,8 +83,8 @@ export interface BackgroundCorrectionJob {
   transcriptionPageNumbers?: number[];
   partialCriteria: CriterionProposal[];
   proposal: GradingProposal | null;
-  /** Teacher edits kept when an unarchived foreground copy is moved to the queue. */
   copyAnnotations?: CopyAnnotation[];
+  /** Teacher edits kept when an unarchived foreground copy is moved to the queue. */
   reviewDraft?: ReviewedCriterion[];
   teacherQuestionsDraft?: string;
   error: string | null;

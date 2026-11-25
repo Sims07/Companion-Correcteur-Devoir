@@ -21,6 +21,7 @@ import { createBackgroundCorrectionService } from './correction/application/back
 import { createCorrectionWorkspaceService } from './correction/application/correctionWorkspaceService.ts';
 import { createScientificDiagramAnalysisService } from './correction/application/scientificDiagramAnalysisService.ts';
 import { createOpenAiScientificDiagramAnalyzer } from './correction/adapters/ai/openAiScientificDiagramAnalyzer.ts';
+import { generateCopyAnnotations } from './correction/adapters/ai/generateCopyAnnotations.ts';
 import { checkOllamaReady, createOllamaProvider, importRubricImageWithOllama, listOllamaModels, prewarmOllamaModel, unloadOllamaModel } from './correction/adapters/ai/ollamaProvider.ts';
 import { detectOllamaDiagramThinkSetting } from './evaluation/adapters/ai/ollamaThinkingCapabilities.ts';
 import { extractBlindVisualGraph } from './evaluation/adapters/ai/blindDiagramGraphClient.ts';
@@ -53,7 +54,7 @@ const scientificDiagramAnalysisService = createScientificDiagramAnalysisService(
 const backgroundCorrectionService = createBackgroundCorrectionService(new IndexedDbBackgroundCorrectionRepository(), { checkReady: (settings, signal) => checkOllamaReady(settings, currentFetch, signal), prewarmModel: (settings, model, signal) => prewarmOllamaModel(settings, model, currentFetch, signal), unloadModel: unloadOllamaModel, listModels: (endpoint, signal) => listOllamaModels(endpoint, currentFetch, signal), createProvider: createOllamaProvider, importRubricImage: (images, settings, onProgress, signal) => importRubricImageWithOllama(images, settings, currentFetch, onProgress, signal) }, scientificDiagramAnalysisService);
 installLocalMemoryFetchBridge(localCorrectionRepository);
 const correctionWorkspaceService = createCorrectionWorkspaceService(
-  { prepareQuestionContracts, discoverCompatibleModels: (endpoint, token, signal) => discoverCompatibleModels(endpoint, token, currentFetch, signal), checkReady: (settings, signal) => checkOllamaReady(settings, currentFetch, signal), prewarmModel: (settings, model, signal) => prewarmOllamaModel(settings, model, currentFetch, signal), listModels: (endpoint, signal) => listOllamaModels(endpoint, currentFetch, signal), createProvider: createOllamaProvider, importRubricImage: (images, settings, onProgress, signal) => importRubricImageWithOllama(images, settings, currentFetch, onProgress, signal) },
+  { generateCopyAnnotations, prepareQuestionContracts, discoverCompatibleModels: (endpoint, token, signal) => discoverCompatibleModels(endpoint, token, currentFetch, signal), checkReady: (settings, signal) => checkOllamaReady(settings, currentFetch, signal), prewarmModel: (settings, model, signal) => prewarmOllamaModel(settings, model, currentFetch, signal), listModels: (endpoint, signal) => listOllamaModels(endpoint, currentFetch, signal), createProvider: createOllamaProvider, importRubricImage: (images, settings, onProgress, signal) => importRubricImageWithOllama(images, settings, currentFetch, onProgress, signal) },
   { prepareFiles: prepareLocalFiles, rotateImage: rotateLocalImage, eraseTeacherAnnotationColor, importRubric: importRubricFile },
 );
 

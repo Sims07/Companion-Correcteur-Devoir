@@ -28,6 +28,10 @@ import { ReviewAttentionSummary } from '../../correction/ui/components/ReviewAtt
 import { TeacherReviewAlert } from '../../correction/ui/components/TeacherReviewAlert.tsx';
 import { ReviewCriterionEvidence } from '../../correction/ui/components/ReviewCriterionEvidence.tsx';
 import { CopyAnnotationCanvas } from '../../correction/ui/components/CopyAnnotationCanvas.tsx';
+import { CopyAnnotationGenerationControls } from '../../correction/ui/components/CopyAnnotationGenerationControls.tsx';
+import { useCopyAnnotationGeneration } from '../../correction/ui/components/useCopyAnnotationGeneration.ts';
+import { annotationEndpointIsLocal, appendNewCopyAnnotations } from '../../correction/domain/copyAnnotationSuggestions.ts';
+import { CopyAnnotationLab, prepareCopyAnnotationLabFixture } from '../../correction/ui/components/CopyAnnotationLab.tsx';
 import { CopyAnnotationPanel, type CopyAnnotationEdit } from '../../correction/ui/components/CopyAnnotationPanel.tsx';
 import { COPY_ANNOTATIONS_SETTING_KEY, parseCopyAnnotationsEnabled, copyAnnotationMessage, restoreCopyAnnotations, placeAnnotationsAfterRotation, placeAnnotationsAfterPageRemoval, MAX_COPY_ANNOTATION_LENGTH, type CopyAnnotation, type CopyAnnotationPlacement } from '../../correction/domain/copyAnnotationFeature.ts';
 import { reviewExplanationContent } from '../../correction/domain/reviewOptionalSections.ts';
@@ -1022,6 +1026,15 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     catch { return false; }
   });
   const [copyAnnotations, setCopyAnnotations] = useState<CopyAnnotation[]>([]);
+  const annotationGeneration = useCopyAnnotationGeneration(images);
+  const annotationLab = useCopyAnnotationGeneration('copy-annotation-lab');
+  const [annotationLabResult, setAnnotationLabResult] = useState<{ preview: string; annotations: CopyAnnotation[] } | null>(null);
+  const annotationModelSettings = { endpoint, model: visionModel.trim() || generativeModel.trim(), apiCompatible, apiKey, omitReasoningParameter };
+  const annotationGenerationIssue = !annotationEndpointIsLocal(endpoint)
+    ? 'Configurez une adresse IA sur cet ordinateur ou sur votre réseau privé.'
+    : !annotationModelSettings.model ? 'Sélectionnez un modèle de vision génératif dans les réglages IA.' : '';
+  const latestAnnotationContext = useRef({ copyAnnotations, persistCopyAnnotations });
+  latestAnnotationContext.current = { copyAnnotations, persistCopyAnnotations };
   const [copyAnnotationEdit, setCopyAnnotationEdit] = useState<CopyAnnotationEdit | null>(null);
   const annotationWrite = useRef<Promise<void>>(Promise.resolve());
   useEffect(() => {
@@ -3454,10 +3467,11 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
   }
 
   function persistCopyAnnotations(next: CopyAnnotation[]) {
+    latestAnnotationContext.current.copyAnnotations = next;
     setCopyAnnotations(next);
-    const jobId = currentBackgroundJobId;
-    const correctionId = currentCorrectionId;
-    if (!jobId && !(isFinalized && correctionId)) return;
+    const jobId = isFinalized ? null : currentBackgroundJobId;
+    const correctionId = isFinalized ? currentCorrectionId : null;
+    if (!jobId && !correctionId) return;
     annotationWrite.current = annotationWrite.current.then(async () => {
       if (jobId) {
         await backgroundService.saveReviewDraft(jobId, review, teacherQuestions, next);
@@ -3471,6 +3485,44 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
       }
     }).catch((cause) => {
       setError(cause instanceof Error ? `Impossible de sauvegarder les annotations : ${cause.message}` : 'Impossible de sauvegarder les annotations.');
+    });
+  }
+
+  function startCopyAnnotationGeneration() {
+    const generateCopyAnnotations = service.generateCopyAnnotations;
+    if (!generateCopyAnnotations) return;
+    const criteria = review.flatMap((item) => {
+      const criterion = rubric.criteria.find((entry) => entry.id === item.criterionId);
+      if (!criterion || item.assessmentStatus === 'not-evaluated') return [];
+      return [{
+        criterionId: item.criterionId, title: criterion.title, points: item.teacherPoints,
+        maxPoints: criterion.maxPoints, evidence: item.evidence, rationale: item.rationale,
+        remark: copyAnnotationMessage(item), pageNumber: item.pageNumber,
+      }];
+    });
+    void annotationGeneration.start(
+      (signal, onPhase) => generateCopyAnnotations(images, criteria, annotationModelSettings, signal, onPhase),
+      (suggestions) => {
+        const latest = latestAnnotationContext.current;
+        const next = appendNewCopyAnnotations(latest.copyAnnotations, suggestions);
+        const added = next.length - latest.copyAnnotations.length;
+        if (added) latest.persistCopyAnnotations(next);
+        return added;
+      },
+    );
+  }
+
+  function startCopyAnnotationLab() {
+    const generateCopyAnnotations = service.generateCopyAnnotations;
+    if (!generateCopyAnnotations) return;
+    let preview = '';
+    void annotationLab.start((signal, onPhase) => {
+      const fixture = prepareCopyAnnotationLabFixture();
+      preview = fixture.preview;
+      return generateCopyAnnotations(fixture.images, fixture.criteria, annotationModelSettings, signal, onPhase);
+    }, (annotations) => {
+      setAnnotationLabResult({ preview, annotations });
+      return annotations.length;
     });
   }
 
@@ -3514,6 +3566,10 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
 
   async function finalizeReview(advanceToNextCopy = false) {
     await finalizeReviewAction.current(async () => {
+    if (annotationGeneration.state.status === 'running') {
+      setReviewMessage('Attendez la fin de la génération des annotations ou arrêtez-la avant de valider la correction.');
+      return;
+    }
     if (!proposal) {
       setReviewMessage('Aucune proposition à archiver. Lancez d’abord l’analyse de la copie.');
       return;
@@ -4901,6 +4957,9 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
         <button type="button" hidden={evaluationJourney !== 'custom' || (!modelEvaluationResults.length && evaluationWorkspaceStep !== 'results')} className={evaluationWorkspaceStep === 'results' ? 'is-active' : ''} aria-current={evaluationWorkspaceStep === 'results' ? 'page' : undefined} onClick={() => setEvaluationWorkspaceStep('results')}><strong>Résultats</strong></button>
         <button type="button" className={campaignsOpen ? 'is-active' : ''} aria-current={campaignsOpen ? 'page' : undefined} onClick={() => showCampaigns({})}><strong>Campagnes</strong></button>
       </nav>}
+      {interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration' && service.generateCopyAnnotations && <CopyAnnotationLab
+        state={annotationLab.state} result={annotationLabResult} onGenerate={startCopyAnnotationLab} onStop={annotationLab.cancel}
+      />}
       {interfaceMode === 'diagnostic' && evaluationActivity && !showingBiologyRunMonitor && <section className={`evaluation-activity-banner is-${evaluationActivity.status}`}
         role="status" aria-live="polite" aria-label="Dernière expérience lancée">
         <div className="evaluation-activity-main">
@@ -6097,6 +6156,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
                 onChange={(event) => {
                   setCopyAnnotationsEnabled(event.target.checked);
                   setCopyAnnotationEdit(null);
+                  if (!event.target.checked) annotationGeneration.cancel();
                 }}
               >Annoter la copie</Checkbox><small>{copyAnnotationsEnabled ? 'Activé · annotations locales' : 'Désactivé · copie sans annotations ajoutées'}</small></div>
               {copyAnnotationsEnabled && <CopyAnnotationPanel
@@ -6107,7 +6167,13 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
                   selecting: images.length > 0, saveOnPlacement: false,
                 })}
                 onDelete={(id) => { persistCopyAnnotations(copyAnnotations.filter((entry) => entry.id !== id)); setCopyAnnotationEdit(null); }}
-                disabled={isAnalyzing} readOnly={false}
+                disabled={isAnalyzing}
+                generation={<>
+                  <CopyAnnotationGenerationControls state={annotationGeneration.state}
+                    disabled={!service.generateCopyAnnotations || Boolean(annotationGenerationIssue) || !images.length || !proposal || isAnalyzing || unassessedCount > 0 || !criterionProgress.isComplete}
+                    onGenerate={startCopyAnnotationGeneration} onStop={annotationGeneration.cancel} />
+                  {annotationGenerationIssue && <small>{annotationGenerationIssue}</small>}
+                </>}
               />}
             </div>
             <div className="review-source-pages" aria-label="Pages originales de la copie">

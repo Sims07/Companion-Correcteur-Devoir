@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { MAX_COPY_ANNOTATION_LENGTH, type CopyAnnotation } from '../../domain/copyAnnotationFeature.ts';
 
 export interface CopyAnnotationEdit {
@@ -7,7 +8,7 @@ export interface CopyAnnotationEdit {
 }
 
 export function CopyAnnotationPanel({
-  annotations, criteria, edit, onEdit, onAdd, onSelect, onSave, onDelete, disabled, readOnly,
+  annotations, criteria, edit, onEdit, onAdd, onSelect, onSave, onDelete, disabled, generation,
 }: {
   annotations: CopyAnnotation[];
   criteria: readonly { id: string; title: string }[];
@@ -18,16 +19,17 @@ export function CopyAnnotationPanel({
   onSave: (annotation: CopyAnnotation) => void;
   onDelete: (id: string) => void;
   disabled: boolean;
-  readOnly: boolean;
+  generation?: ReactNode;
 }) {
   return <section className="copy-annotation-panel" aria-label="Annotations de la copie">
     <div className="copy-annotation-actions">
       <strong>Annotations ({annotations.length})</strong>
-      {!readOnly && <button type="button" className="secondary-button" disabled={disabled} onClick={onAdd}>Ajouter</button>}
+      <button type="button" className="secondary-button" disabled={disabled} onClick={onAdd}>Ajouter</button>
     </div>
+    {generation}
     {edit?.selecting && <div className="copy-annotation-actions">
       <p className="copy-annotation-placement-help" role="status">Sélectionnez un emplacement sur une page.</p>
-      <button type="button" className="text-button" onClick={() => onEdit({ ...edit, selecting: false, saveOnPlacement: false })}>Sans emplacement</button>
+      <button type="button" className="text-button" onClick={() => onEdit({ annotation: { ...edit.annotation, placement: undefined }, selecting: false, saveOnPlacement: false })}>Sans emplacement</button>
       <button type="button" className="text-button" onClick={() => onEdit(null)}>Annuler</button>
     </div>}
     {edit && !edit.selecting && <form className="copy-annotation-editor" onSubmit={(event) => {
@@ -56,7 +58,7 @@ export function CopyAnnotationPanel({
           annotation.placement ? `Page ${annotation.placement.pageNumber}` : 'Sans emplacement',
           annotation.status === 'suggested' ? 'Suggestion IA à valider' : undefined,
         ].filter(Boolean).join(' · ')}</small>
-        {!readOnly && <div className="copy-annotation-actions">
+        <div className="copy-annotation-actions">
           {annotation.status === 'suggested' && <button type="button" className="secondary-button" disabled={disabled}
             onClick={() => onSave({ ...annotation, status: 'accepted' })}>Valider</button>}
           <button type="button" className="text-button" disabled={disabled}
@@ -66,7 +68,7 @@ export function CopyAnnotationPanel({
             {annotation.placement ? 'Déplacer sur la copie' : 'Placer sur la copie'}
           </button>
           <button type="button" className="text-button" disabled={disabled} onClick={() => onDelete(annotation.id)}>Supprimer</button>
-        </div>}
+        </div>
       </li>)}
     </ol>}
   </section>;
