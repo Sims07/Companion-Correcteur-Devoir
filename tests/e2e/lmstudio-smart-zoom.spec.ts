@@ -21,10 +21,13 @@ test('teacher enables local smart zoom and the configuration survives reload', a
   await expect(toggle).toBeVisible();
   await expect(toggle).not.toBeChecked();
   await toggle.check();
+  await panel.getByLabel('Zooms maximum par critère').selectOption('8');
+  await expect.poll(() => page.evaluate(key => JSON.parse(localStorage.getItem(key) ?? '{}').smartZoomBudget, key)).toBe(8);
   await expect.poll(() => page.evaluate(key => JSON.parse(localStorage.getItem(key) ?? '{}').smartZoom, key)).toBe(true);
   await page.reload();
   await openActiveAssignment(page);
   await page.getByRole('button', { name: /Réglages IA|Configurer l’IA/ }).click();
+  await expect(page.locator('#teacher-ai-settings-panel').getByLabel('Zooms maximum par critère')).toHaveValue('8');
   await expect(page.locator('#teacher-ai-settings-panel')
     .getByRole('checkbox', { name: /Zoom intelligent sur demande/ })).toBeChecked();
 });

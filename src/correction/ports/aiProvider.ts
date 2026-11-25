@@ -120,6 +120,7 @@ export interface OllamaSettings {
   omitReasoningParameter?: boolean;
   /** Enable the on-demand original-image zoom tool for native LM Studio diagram correction. */
   smartZoom?: boolean;
+  smartZoomBudget?: number;
   /** Native LM Studio Chat context. Absent lets the server decide. */
   contextLength?: number;
   /** Optional bearer token, never included in diagnostic metadata. */

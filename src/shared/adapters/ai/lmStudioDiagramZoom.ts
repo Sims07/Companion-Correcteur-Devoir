@@ -1,3 +1,4 @@
+import { DEFAULT_ZOOM_BUDGET, parseZoomBudget } from '../../domain/smartZoomBudget.ts';
 import { responsesEndpoint } from '../../domain/lmStudioTransport.ts';
 import { ResponsesOutput, responsesAtLimit, responsesMessage, responsesReasoning, type ResponsesOutputItem, type ResponsesPayload } from '../../domain/responsesOutput.ts';
 import { ServerSentEvents } from '../../domain/serverSentEvents.ts';
@@ -20,10 +21,6 @@ export interface ZoomDiagramTurn {
 export interface ZoomTrace { criterion: string; region: ZoomRegion; cropWidth: number; cropHeight: number; status: 'inspected' | 'rejected'; }
 export interface ZoomConversation { responseId?: string; zoomHistory?: ZoomTrace[]; zoomAttempts?: Record<string, number>; zoomRejections?: Record<string, number> }
 
-export const DEFAULT_ZOOM_BUDGET = 6;
-export function parseZoomBudget(value: unknown): number | undefined {
-  return typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 10 ? value : undefined;
-}
 const MAX_REJECTIONS = 3;
 const CONCLUDE = 'Termine maintenant à partir des observations disponibles, sans appeler d’outil. Produis la réponse finale demandée et signale les incertitudes sans inventer de preuve.';
 

@@ -1,3 +1,4 @@
+import { DEFAULT_ZOOM_BUDGET } from '../../domain/smartZoomBudget.ts';
 import './AiModelRoleFields.css';
 import { useState } from 'react';
 import type { AiModelOption, AnalysisReasoningEffort } from '../../domain/aiModelProfiles.ts';
@@ -21,6 +22,8 @@ interface Props {
   responses?: boolean;
   smartZoom?: boolean;
   onSmartZoom?: (enabled: boolean) => void;
+  smartZoomBudget?: number;
+  onSmartZoomBudget?: (budget: number) => void;
   contextLength?: number;
   onContextLength?: (length: number | undefined) => void;
   onReasoning: (mode: ReasoningMode) => void;
@@ -116,10 +119,18 @@ export function AiModelRoleFields(props: Props) {
       {apiCompatible && (props.nativeChat || props.responses) && !decision && <label className="analysis-thinking-option" htmlFor={prefix + '-smart-zoom'}>
         <input id={prefix + '-smart-zoom'} type="checkbox" checked={props.smartZoom === true} disabled={disabled}
           onChange={event => props.onSmartZoom?.(event.target.checked)} />
-        <span><strong>Zoom intelligent sur demande (2 par critère maximum)</strong>
+        <span><strong>Zoom intelligent sur demande</strong>
           <small>Pour les schémas, le modèle peut examiner une zone de la photo originale quand il hésite. Le test de cadrage du laboratoire permet de vérifier les appels de zoom.</small>
         </span>
       </label>}
+      {apiCompatible && (props.nativeChat || props.responses) && !decision && props.smartZoom && <div className="evaluation-config-field">
+        <label className="field-label" htmlFor={prefix + '-zoom-budget'}>Zooms maximum par critère</label>
+        <DesignSystemSelect id={prefix + '-zoom-budget'} value={String(props.smartZoomBudget ?? DEFAULT_ZOOM_BUDGET)} disabled={disabled}
+          onChange={event => props.onSmartZoomBudget?.(Number(event.target.value))}>
+          {Array.from({ length: 10 }, (_, i) => i + 1).map(n => <option key={n} value={n}>{n}{n === DEFAULT_ZOOM_BUDGET ? ' (recommandé)' : ''}</option>)}
+        </DesignSystemSelect>
+        <p className="hint">Les recadrages invalides ou répétés disposent d’un budget distinct. Un dernier tour sans outil permet au modèle de conclure.</p>
+      </div>}
       <details className="ai-model-advanced"><summary>Réglages avancés de génération</summary>
       {apiCompatible && props.nativeChat && <div className="evaluation-config-field">
         <label className="field-label" htmlFor={`${prefix}-context-length`}>Contexte LM Studio Chat (tokens, facultatif)</label>

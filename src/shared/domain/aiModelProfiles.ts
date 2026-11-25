@@ -1,3 +1,4 @@
+import { parseZoomBudget } from './smartZoomBudget.ts';
 import { DEFAULT_CORRECTION_METHOD, parseCorrectionMethod, type CorrectionMethod } from './correctionMethod.ts';
 
 export type AiModelStrategy = 'single' | 'compare' | 'arbitrate';
@@ -68,8 +69,9 @@ export interface AiModelConfiguration {
   /** Only sent on LM Studio /api/v1/chat; undefined = server default. */
   contextLength?: number;
   criterionByCriterion: boolean;
-  /** Allow a vision LLM to request up to two local high-resolution crops per rubric criterion. */
+  /** Allow a vision LLM to request local high-resolution crops per rubric criterion. */
   smartZoom?: boolean;
+  smartZoomBudget?: number;
   /** Copy assessment policy, independent of the diagnostic comparison strategy. */
   correctionMethod: CorrectionMethod;
 }
@@ -120,6 +122,7 @@ export function parseAiModelConfiguration(raw: string | null): AiModelConfigurat
       ...(parseModelContextLength(candidate.contextLength) !== undefined ? { contextLength: parseModelContextLength(candidate.contextLength) } : {}),
       criterionByCriterion: candidate.criterionByCriterion !== false,
       ...(typeof candidate.smartZoom === 'boolean' ? { smartZoom: candidate.smartZoom } : {}),
+      ...(parseZoomBudget(candidate.smartZoomBudget) !== undefined ? { smartZoomBudget: parseZoomBudget(candidate.smartZoomBudget) } : {}),
       correctionMethod: parseCorrectionMethod(candidate.correctionMethod),
     };
   } catch { return { ...defaultAiModelConfiguration }; }
@@ -150,7 +153,10 @@ export function parseAiModelProfiles(raw: string | null): AiModelProfile[] {
         delete rest.analysisTemperature;
         delete rest.analysisTopP;
         delete rest.analysisTopK;
+        delete rest.smartZoomBudget;
         const configuration: AiModelConfiguration = { ...defaultAiModelConfiguration, ...rest, ...analysisSamplingSettings(legacyConfiguration), gradingOutputTokens: parseGradingOutputTokens(legacyConfiguration.gradingOutputTokens), analysisReasoningEffort: parseAnalysisReasoningEffort(legacyConfiguration.analysisReasoningEffort), correctionMethod: parseCorrectionMethod(legacyConfiguration.correctionMethod) };
+        const zoomBudget = parseZoomBudget(legacyConfiguration.smartZoomBudget);
+        if (zoomBudget !== undefined) configuration.smartZoomBudget = zoomBudget;
         // Do not add a new field when migrating legacy saved profiles: deleting
         // another profile must not rewrite otherwise untouched configuration JSON.
         if (legacyConfiguration.omitReasoningParameter === undefined) delete configuration.omitReasoningParameter;
