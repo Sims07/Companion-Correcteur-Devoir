@@ -4164,10 +4164,36 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
         const issue = directDiagramAssignmentIssue(profile.rubric, { endpoint, analysisModel, correctionMethod });
         if (issue) throw new Error(issue);
       }
-      // Reuse a pending attempt instead of generating duplicates on repeated clicks.
+      // A previous attempt is reusable only if it was made with the current
+      // assignment. A changed criterion (even with the same id and points)
+      // must trigger a new grading pass, not reopen an outdated proposal.
       const jobs = await backgroundService.listJobSummaries(profile.id);
-      const existing = jobs.find((job) => job.regradeOfCorrectionId === correction.id && job.status !== 'completed');
-      if (existing && existing.status !== 'failed') {
+      const existingSummary = jobs.find((job) => job.regradeOfCorrectionId === correction.id && job.status !== 'completed');
+      const existing = existingSummary ? await loadFullQueuedJob(existingSummary.id) : null;
+      const currentQuestion = buildAssignmentContext({
+        title: profile.title, description: profile.description ?? '',
+        educationLevel: profile.educationLevel ?? '', question: profile.question,
+      });
+      if (existing && existing.status !== 'failed' && existing.status !== 'completed') {
+        const sameRubric = rubricEvaluationSignature(existing.rubric) === rubricEvaluationSignature(profile.rubric);
+        if (!sameRubric || existing.question !== currentQuestion) {
+          if (existing.status === 'processing') {
+            throw new Error('Cette copie est encore en cours de correction avec l’ancien barème. Arrêtez le traitement avant de la recorriger.');
+          }
+          await annotationWrite.current;
+          await backgroundService.retry(existing.id, {
+            endpoint, apiCompatible, apiKey, visionModel, analysisModel,
+            ...teacherThinking, criterionByCriterion, correctionMethod, autoBackgroundCorrection,
+            transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty,
+            transcriptionPenaltyParameter, transcriptionFrequencyPenalty,
+          }, scientific ? 'scientific-diagram-direct' : undefined, {
+            rubric: profile.rubric, question: currentQuestion,
+          });
+          restoreCurrentAssignmentSettings();
+          await loadNextQueuedCopy(existing.id);
+          setCopyOverviewNotice('Correction relancée avec le barème actuel. La correction validée précédente est conservée.');
+          return;
+        }
         restoreCurrentAssignmentSettings();
         await loadNextQueuedCopy(existing.id);
         setReviewMessage(existing.status === 'ready'
@@ -4182,15 +4208,12 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
       const now = new Date().toISOString();
       const job = createRegradingJob(archived, {
         id: profile.id,
-        question: buildAssignmentContext({
-          title: profile.title, description: profile.description ?? '',
-          educationLevel: profile.educationLevel ?? '', question: profile.question,
-        }),
+        question: currentQuestion,
         rubric: profile.rubric,
         correctionMode: profile.correctionMode,
         isScientificDiagram: scientific,
       }, {
-        id: existing?.id ?? `queued-copy-${crypto.randomUUID()}`,
+        id: existing?.status === 'failed' ? existing.id : `queued-copy-${crypto.randomUUID()}`,
         now, visionModel, analysisModel, thinking: analysisThinking, correctionMethod,
       });
       const settings = {
@@ -4227,19 +4250,24 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     setError('');
     try {
       const currentAssignment = assignmentProfiles.find((profile) => profile.id === activeAssignmentId);
+      if (!currentAssignment) throw new Error('Le barème actuel du devoir est introuvable.');
+      const currentValidation = validateRubric(currentAssignment.rubric);
+      if (!currentValidation.valid) throw new Error(currentValidation.errors.join(' '));
+      await annotationWrite.current;
       await backgroundService.retry(jobId, {
         endpoint, apiCompatible, apiKey, visionModel, analysisModel,
         ...teacherThinking, criterionByCriterion, correctionMethod, autoBackgroundCorrection,
         transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty,
         transcriptionPenaltyParameter, transcriptionFrequencyPenalty,
-      }, isScientificDiagramAssignment ? 'scientific-diagram-direct' : undefined,
-      currentAssignment ? {
+      }, currentAssignment.kind === 'scientific-diagram' ? 'scientific-diagram-direct' : undefined,
+      {
         rubric: currentAssignment.rubric,
         question: buildAssignmentContext({
           title: currentAssignment.title, description: currentAssignment.description ?? '',
           educationLevel: currentAssignment.educationLevel ?? '', question: currentAssignment.question,
         }),
-      } : undefined);
+      });
+      if (currentBackgroundJobId === jobId) await loadNextQueuedCopy(jobId);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Impossible de relancer la correction.');
     }
