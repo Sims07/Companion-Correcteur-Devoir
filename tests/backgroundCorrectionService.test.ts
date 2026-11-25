@@ -979,6 +979,12 @@ describe('background correction service', () => {
       transcription: 'Ancienne lecture',
       partialCriteria: [{ criterionId: 'c1', points: 1, evidence: 'Ancienne preuve', rationale: '', confidence: 'high' }],
       proposal: { summary: 'Ancienne note', criteria: [], questionsForTeacher: [], finalScore: 1 },
+      reviewDraft: [{ criterionId: 'c1', points: 1, evidence: 'Ancienne preuve', rationale: '', confidence: 'high', teacherPoints: 1, teacherComment: 'Ancien commentaire', decision: 'accepted' }],
+      teacherQuestionsDraft: 'Ancienne question',
+      copyAnnotations: [
+        { id: 'old', message: 'Ancienne suggestion', criterionId: 'c1', status: 'suggested' },
+        { id: 'manual', message: 'Annotation libre', status: 'accepted' },
+      ],
     });
     const currentRubric = { title: 'Barème modifié', criteria: [
       { id: 'updated', title: 'Nouveau critère', description: '', maxPoints: 6 },
@@ -995,8 +1001,36 @@ describe('background correction service', () => {
     expect(result?.completedCriteria).toBe(1);
     expect(result?.partialCriteria.map((entry) => entry.criterionId)).toEqual(['updated']);
     expect(result?.proposal?.finalScore).toBe(6);
+    expect(result?.reviewDraft).toBeUndefined();
+    expect(result?.teacherQuestionsDraft).toBeUndefined();
+    expect(result?.copyAnnotations).toEqual([{ id: 'manual', message: 'Annotation libre', status: 'accepted' }]);
     expect(f.requests[0].transcription).toBeUndefined();
     expect(JSON.parse(f.requests[0].rubric).criteria.map((entry: { id: string }) => entry.id)).toEqual(['updated']);
+  });
+
+  it('refreshes an idle pending copy with the current rubric before starting it', async () => {
+    const f = fixture();
+    const currentRubric = { title: 'Barème actualisé', criteria: [
+      { id: 'new', title: 'Nouveau critère', description: '', maxPoints: 3 },
+    ] };
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    await service.retry('copy-1', {
+      endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'analysis:4b',
+    }, undefined, { rubric: currentRubric, question: 'Nouvelle consigne' });
+    expect(f.jobs.get('copy-1')?.rubric).toEqual(currentRubric);
+    expect(f.jobs.get('copy-1')?.proposal?.finalScore).toBe(3);
+    expect(f.jobs.get('copy-1')?.status).toBe('ready');
+  });
+
+  it('does not replace a processing copy with a different rubric', async () => {
+    const f = fixture();
+    f.jobs.set('copy-1', { ...f.job, status: 'processing' });
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    await expect(service.retry('copy-1', {
+      endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'analysis:4b',
+    }, undefined, { rubric: { ...f.job.rubric, title: 'Modifié' }, question: f.job.question })).rejects.toThrow('Arrêtez');
+    expect(f.jobs.get('copy-1')?.rubric).toEqual(f.job.rubric);
+    expect(f.createProvider).not.toHaveBeenCalled();
   });
 
   it('does not reuse a cached transcription when the same image is imported as a new copy', async () => {

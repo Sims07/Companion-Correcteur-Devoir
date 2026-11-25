@@ -781,7 +781,13 @@ export function createBackgroundCorrectionService(
     },
     async retry(jobId, settings, gradingFlow, overrides) {
       const job = await readStoredJob(jobId);
-      if (!job || !['failed', 'needs-review', 'reviewing', 'ready'].includes(job.status)) return;
+      if (!job) return;
+      // A queued attempt can be refreshed before its first run, but never
+      // overwrite a snapshot the worker may already have picked up.
+      if (overrides && (job.status === 'processing' || (job.status === 'pending' && activeLoop))) {
+        throw new Error('Arrêtez les corrections en cours avant de relancer cette copie avec le barème actuel.');
+      }
+      if (!['failed', 'needs-review', 'reviewing', 'ready'].includes(job.status) && !(overrides && job.status === 'pending')) return;
       if ((gradingFlow ?? job.gradingFlow) === 'scientific-diagram-direct') {
         const issue = directDiagramAssignmentIssue(overrides?.rubric ?? job.rubric, {
           endpoint: settings.endpoint, analysisModel: settings.analysisModel ?? job.analysisModel,
@@ -805,6 +811,11 @@ export function createBackgroundCorrectionService(
         completedPages: 0,
         completedCriteria: 0,
         proposal: null,
+        // Old teacher decisions and suggestions must not mask the fresh result.
+        reviewDraft: undefined,
+        teacherQuestionsDraft: undefined,
+        copyAnnotations: restoreCopyAnnotations(job.copyAnnotations, job.reviewDraft ?? [])
+          .filter((annotation) => annotation.status === 'accepted' && !annotation.criterionId),
         status: 'pending',
         phase: 'preparation',
         activeCriterionId: null,

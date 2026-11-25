@@ -186,7 +186,7 @@ describe('UI design system', () => {
     expect(copyIntakeComponent).toContain('id="teacher-copy-intake-files"');
     expect(copyIntakeComponent).toContain('Plusieurs fichiers pour une copie');
     expect(appComponent).toContain('retryQueuedCorrection(job.id)');
-    expect(appComponent).toContain("isScientificDiagramAssignment ? 'scientific-diagram-direct' : undefined");
+    expect(appComponent).toContain("currentAssignment.kind === 'scientific-diagram' ? 'scientific-diagram-direct' : undefined");
     expect(appComponent).toContain('Mettre cette copie en file d’attente');
     expect(appComponent).toContain('Copies du devoir');
     expect(appComponent).toContain('COPIES À SUIVRE');

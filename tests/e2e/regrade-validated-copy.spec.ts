@@ -1,8 +1,10 @@
 import { expect, test } from '@playwright/test';
 
-test('a validated copy can be regraded from saved pages with the edited assignment rubric', async ({ page }) => {
+for (const staleAttempt of [false, true]) {
+test(`a validated copy uses the edited rubric (${staleAttempt ? 'existing stale attempt' : 'first attempt'})`, async ({ page }) => {
+  await page.route('https://ai.example/**', (route) => route.abort());
   await page.goto('/');
-  await page.evaluate(async () => {
+  await page.evaluate(async (staleAttempt) => {
     const request = indexedDB.open('companion-correcteur-devoir', 7);
     const database = await new Promise<IDBDatabase>((resolve, reject) => {
       request.onsuccess = () => resolve(request.result);
@@ -33,7 +35,7 @@ test('a validated copy can be regraded from saved pages with the edited assignme
       criterionId: 'old-criterion', points: 3, teacherPoints: 3, teacherComment: '',
       decision: 'accepted', confidence: 'high', evidence: 'Ancienne preuve', rationale: '',
     };
-    const transaction = database.transaction('local-corrections', 'readwrite');
+    const transaction = database.transaction(['local-corrections', 'background-corrections'], 'readwrite');
     transaction.objectStore('local-corrections').put({
       id: 'validated-copy', label: 'Copie déjà validée',
       rubricTitle: 'Barème initial', rubricFingerprint: 'initial-4-points',
@@ -52,6 +54,21 @@ test('a validated copy can be regraded from saved pages with the edited assignme
         correctionMode: 'integrated', maximumPoints: 4,
       },
     });
+    if (staleAttempt) {
+      transaction.objectStore('background-corrections').put({
+        id: 'stale-attempt', assignmentId: 'assignment-default', regradeOfCorrectionId: 'validated-copy',
+        label: 'Tentative précédente', rubric: historicalRubric, question: 'Consigne initiale',
+        correctionMode: 'integrated', images: [image], originalImages: [image], subjectImages: [],
+        detectTeacherAnnotations: false, annotationInkColor: 'none', annotationInkColorApplied: true,
+        visionModel: 'vision-model', analysisModel: 'analysis-model', thinking: false,
+        createdAt: '2026-11-01T11:00:00.000Z', updatedAt: '2026-11-01T11:00:00.000Z',
+        status: 'ready', phase: 'complete', completedPages: 1, completedCriteria: 1, totalCriteria: 1,
+        transcription: 'Ancienne lecture', partialCriteria: [criterion],
+        proposal: { summary: 'Ancienne proposition', criteria: [criterion], finalScore: 3, questionsForTeacher: [] },
+        reviewDraft: [criterion], teacherQuestionsDraft: 'Ancienne question',
+        error: null, imageFingerprint: null,
+      });
+    }
     await new Promise<void>((resolve, reject) => {
       transaction.oncomplete = () => resolve();
       transaction.onerror = () => reject(transaction.error);
@@ -73,7 +90,7 @@ test('a validated copy can be regraded from saved pages with the edited assignme
       endpoint: 'https://ai.example', apiCompatible: true,
       apiKey: 'test-token', visionModel: 'vision-model', analysisModel: 'analysis-model',
     }));
-  });
+  }, staleAttempt);
 
   await page.reload();
   await page.getByRole('button', { name: /Reprendre le devoir/ }).click();
@@ -131,6 +148,7 @@ test('a validated copy can be regraded from saved pages with the edited assignme
       currentRubric: attempt?.rubric.title ?? null,
       criterionId: attempt?.rubric.criteria[0]?.id ?? null,
       pages: attempt?.images.length ?? 0,
+      attemptCount: jobs.filter((job) => job.regradeOfCorrectionId === 'validated-copy').length,
       archivedRubric: historical.snapshot.rubric.title,
       previousScore: historical.snapshot.proposal.finalScore,
     };
@@ -138,7 +156,9 @@ test('a validated copy can be regraded from saved pages with the edited assignme
     currentRubric: 'Barème actualisé corrigé',
     criterionId: 'new-criterion',
     pages: 1,
+    attemptCount: 1,
     archivedRubric: 'Barème initial',
     previousScore: 3,
   });
 });
+}
