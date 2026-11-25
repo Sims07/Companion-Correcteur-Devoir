@@ -75,19 +75,22 @@ test('teacher can opt in, place, move and hide a synthetic remark without any LL
   });
 
   await openAnnotationReview(page);
-  const toggle = page.getByRole('checkbox', { name: 'Annoter la copie' });
+  const toggle = page.getByRole('switch', { name: 'Annotations' });
   const criterion = page.locator('.review-card').filter({ has: page.getByRole('heading', { name: 'Membrane' }) });
   await expect(toggle).not.toBeChecked();
   const requestsBeforeAnnotations = requests.length;
   const annotations = page.getByRole('region', { name: 'Annotations de la copie' });
   await expect(criterion.getByRole('button', { name: 'Annoter la copie' })).toHaveCount(0);
   await toggle.check();
+  await expect(annotations.getByRole('button', { name: 'Annotations (0)' })).toHaveAttribute('aria-expanded', 'false');
   await criterion.getByRole('button', { name: 'Annoter la copie' }).click();
   await expect(annotations.getByRole('textbox', { name: 'Remarque' })).toHaveValue('Préciser la membrane.');
   await annotations.getByRole('button', { name: 'Placer sur la copie' }).click();
   await page.addStyleTag({ content: '.copy-annotation-canvas .zoomable-image-trigger, .copy-annotation-canvas img { width: 300px !important; height: 200px !important; }' });
   const target = page.getByRole('button', { name: 'Placer l’annotation sur la page 1' });
   await target.click({ position: { x: 140, y: 80 } });
+  await expect(annotations.getByRole('button', { name: 'Annotations (1)' })).toHaveAttribute('aria-expanded', 'false');
+  await annotations.getByRole('button', { name: 'Annotations (1)' }).click();
   await expect(annotations.getByText('1. Préciser la membrane.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Annotation 1 : Préciser la membrane.' })).toBeVisible();
 
@@ -124,6 +127,8 @@ test('teacher can opt in, place, move and hide a synthetic remark without any LL
   await expect(annotations).toHaveCount(0);
   await toggle.check();
   await expect(page.locator('.copy-inline-annotation')).toHaveCount(2);
+  await page.getByRole('button', { name: 'Annotation 2 : Très bon dessin !' }).click();
+  await expect(annotations.getByRole('listitem').filter({ hasText: 'Très bon dessin !' })).toBeFocused();
   await annotations.getByRole('listitem').filter({ hasText: 'Très bon dessin !' }).getByRole('button', { name: 'Supprimer' }).click();
   await expect(page.locator('.copy-inline-annotation')).toHaveCount(1);
   expect(requests.slice(requestsBeforeAnnotations)).toEqual([]);
@@ -148,7 +153,7 @@ test('generates reviewable suggestions, survives tab navigation and supports can
     }).catch(() => undefined);
   });
   await openAnnotationReview(page);
-  await page.getByRole('checkbox', { name: 'Annoter la copie' }).check();
+  await page.getByRole('switch', { name: 'Annotations' }).check();
   const panel = page.getByRole('region', { name: 'Annotations de la copie' });
   const generate = panel.getByRole('button', { name: 'Générer les annotations' });
   await generate.click();
@@ -177,13 +182,14 @@ test('generates reviewable suggestions, survives tab navigation and supports can
 
 test('downloads an annotated copy with a teacher appreciation as a PDF', async ({ page }) => {
   await openAnnotationReview(page);
-  await page.getByRole('checkbox', { name: 'Annoter la copie' }).check();
+  await page.getByRole('switch', { name: 'Annotations' }).check();
   const annotations = page.getByRole('region', { name: 'Annotations de la copie' });
   await annotations.getByRole('button', { name: 'Ajouter' }).click();
   await annotations.getByRole('button', { name: 'Sans emplacement' }).click();
   await annotations.getByRole('textbox', { name: 'Remarque' }).fill('Bonne observation.');
   await annotations.getByRole('button', { name: 'Enregistrer' }).click();
-  await page.getByText('Exporter la copie annotée', { exact: true }).click();
+  await expect(page.locator('.review-source-pane').getByText('Exporter la copie annotée', { exact: true })).toHaveCount(0);
+  await page.locator('.review-main-column').getByText('Exporter la copie annotée', { exact: true }).click();
   await page.getByRole('textbox', { name: 'Appréciation générale' }).fill('Appréciation de test.');
   const downloadEvent = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Télécharger le PDF' }).click();

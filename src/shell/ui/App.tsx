@@ -1037,12 +1037,13 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
   const latestAnnotationContext = useRef({ copyAnnotations, persistCopyAnnotations });
   latestAnnotationContext.current = { copyAnnotations, persistCopyAnnotations };
   const [copyAnnotationEdit, setCopyAnnotationEdit] = useState<CopyAnnotationEdit | null>(null);
+  const [copyAnnotationListOpen, setCopyAnnotationListOpen] = useState(false);
   const annotationWrite = useRef<Promise<void>>(Promise.resolve());
   useEffect(() => {
     try { window.localStorage.setItem(COPY_ANNOTATIONS_SETTING_KEY, String(copyAnnotationsEnabled)); }
     catch { /* Available for the current session even if storage is full. */ }
   }, [copyAnnotationsEnabled]);
-  useEffect(() => { setCopyAnnotationEdit(null); }, [activeAssignmentId, currentBackgroundJobId, currentCorrectionId, images]);
+  useEffect(() => { setCopyAnnotationEdit(null); setCopyAnnotationListOpen(false); }, [activeAssignmentId, currentBackgroundJobId, currentCorrectionId, images]);
   const [showOnlyFlagged, setShowOnlyFlagged] = useState(true);
   const [focusedEvidencePage, setFocusedEvidencePage] = useState<number | null>(null);
   const [teacherQuestions, setTeacherQuestions] = useState('');
@@ -3516,7 +3517,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
         const latest = latestAnnotationContext.current;
         const next = appendNewCopyAnnotations(latest.copyAnnotations, suggestions);
         const added = next.length - latest.copyAnnotations.length;
-        if (added) latest.persistCopyAnnotations(next);
+        if (added) { latest.persistCopyAnnotations(next); setCopyAnnotationListOpen(true); }
         return added;
       },
     );
@@ -6163,38 +6164,33 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
         {teacherAnnotations?.trim() && <details className="review-annotations-details"><summary>✎ {teacherAnnotations.split('\n').filter((line) => line.trim()).length} annotations repérées</summary><pre>{teacherAnnotations}</pre></details>}
         <div className="review-workspace">
           <aside className="review-source-pane" aria-labelledby="review-source-pane-title">
-            <div className="review-source-heading"><h3 id="review-source-pane-title">Copie de l’étudiant</h3><p>Pages de la copie · rotation modifiable si nécessaire.</p>
-              <div className="copy-annotation-preference"><Checkbox
-                id="copy-annotation-toggle" checked={copyAnnotationsEnabled}
-                onChange={(event) => {
-                  setCopyAnnotationsEnabled(event.target.checked);
-                  setCopyAnnotationEdit(null);
-                  if (!event.target.checked) annotationGeneration.cancel();
-                }}
-              >Annoter la copie</Checkbox><small>{copyAnnotationsEnabled ? 'Activé · annotations locales' : 'Désactivé · copie sans annotations ajoutées'}</small></div>
-              {copyAnnotationsEnabled && <CopyAnnotationPanel
-                annotations={copyAnnotations} criteria={rubric.criteria} edit={copyAnnotationEdit}
-                onEdit={setCopyAnnotationEdit} onSelect={selectCopyAnnotation} onSave={saveCopyAnnotation}
-                onAdd={() => selectCopyAnnotation({
-                  annotation: { id: crypto.randomUUID(), message: '', status: 'accepted' },
-                  selecting: images.length > 0, saveOnPlacement: false,
-                })}
-                onDelete={(id) => { persistCopyAnnotations(copyAnnotations.filter((entry) => entry.id !== id)); setCopyAnnotationEdit(null); }}
-                disabled={isAnalyzing}
-                generation={<>
-                  <CopyAnnotationGenerationControls state={annotationGeneration.state}
-                    disabled={!service.generateCopyAnnotations || Boolean(annotationGenerationIssue) || !images.length || !proposal || isAnalyzing || unassessedCount > 0 || !criterionProgress.isComplete}
-                    onGenerate={startCopyAnnotationGeneration} onStop={annotationGeneration.cancel} />
-                  {annotationGenerationIssue && <small>{annotationGenerationIssue}</small>}
-                </>}
-              />}
-              {copyAnnotationsEnabled && service.exportCopyAnnotationPdf && !isAnalyzing && images.length > 0 && proposal && unassessedCount === 0 && criterionProgress.isComplete && <CopyAnnotationPdfPanel
-                createPdf={service.exportCopyAnnotationPdf}
-                key={`${activeAssignmentId}-${currentCopyId}`}
-                copy={{ assignmentTitle, studentLabel, images, annotations: copyAnnotations, score: reviewedTotal,
-                  maximum: validation.maximumPoints, finalized: isFinalized }}
-              />}
-            </div>
+            <div className="review-source-heading"><h3 id="review-source-pane-title">Copie de l’étudiant</h3><p>{images.length} page(s)</p></div>
+            <CopyAnnotationPanel
+              enabled={copyAnnotationsEnabled} listOpen={copyAnnotationListOpen} onListOpen={setCopyAnnotationListOpen}
+              toggle={<label className="copy-annotation-switch">
+                <input id="copy-annotation-toggle" type="checkbox" role="switch" checked={copyAnnotationsEnabled}
+                  onChange={(event) => {
+                    setCopyAnnotationsEnabled(event.target.checked);
+                    setCopyAnnotationEdit(null);
+                    setCopyAnnotationListOpen(false);
+                    if (!event.target.checked) annotationGeneration.cancel();
+                  }} />
+                <span className="copy-annotation-switch-track" aria-hidden="true" />
+                <span>Annotations</span>
+              </label>}
+              annotations={copyAnnotations} criteria={rubric.criteria} edit={copyAnnotationEdit}
+              onEdit={setCopyAnnotationEdit} onSelect={selectCopyAnnotation} onSave={saveCopyAnnotation}
+              onAdd={() => selectCopyAnnotation({
+                annotation: { id: crypto.randomUUID(), message: '', status: 'accepted' },
+                selecting: images.length > 0, saveOnPlacement: false,
+              })}
+              onDelete={(id) => { persistCopyAnnotations(copyAnnotations.filter((entry) => entry.id !== id)); setCopyAnnotationEdit(null); }}
+              disabled={isAnalyzing}
+              generation={<CopyAnnotationGenerationControls state={annotationGeneration.state}
+                disabled={!service.generateCopyAnnotations || Boolean(annotationGenerationIssue) || !images.length || !proposal || isAnalyzing || unassessedCount > 0 || !criterionProgress.isComplete}
+                onGenerate={startCopyAnnotationGeneration} onStop={annotationGeneration.cancel} />}
+              generationIssue={annotationGenerationIssue}
+            />
             <div className="review-source-pages" aria-label="Pages originales de la copie">
               {images.length > 0 ? images.map((image, index) => {
                 const pageNumber = index + 1;
@@ -6212,6 +6208,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
                   <div className="evidence-image-stage">
                     {copyAnnotationsEnabled ? <CopyAnnotationCanvas
                       pageNumber={pageNumber} annotations={pageAnnotations}
+                       onAnnotationClick={(id) => { setCopyAnnotationListOpen(true); requestAnimationFrame(() => document.getElementById(`copy-annotation-${id}`)?.focus()); }}
                       onPlace={!isAnalyzing && copyAnnotationEdit?.selecting ? placeCopyAnnotation : undefined}
                     >{preview}</CopyAnnotationCanvas> : preview}
                     {isScientificDiagramAssignment && <Button variant="secondary" className="diagram-review-enlarge" aria-label={`Agrandir la page ${pageNumber} du schéma`} onClick={() => setCopyViewerPage(index)}>Agrandir · Zoom</Button>}
@@ -6390,7 +6387,13 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
            <div className="questions-field"><span className="field-label">Points à vérifier avant de communiquer la note</span>{teacherQuestions.trim() ? <ul className="teacher-questions-list">{teacherQuestions.split('\n').map((line) => line.trim()).filter(Boolean).map((line, index) => <li key={index}>{line}</li>)}</ul> : <p className="no-teacher-questions">Aucune question générale. Les questions liées à un critère restent affichées sur celui-ci.</p>}</div>
            <details className="review-export"><summary>Exporter le récapitulatif (JSON)</summary><p>Conservez ou réutilisez les résultats de cette correction au format JSON.</p><button type="button" className="secondary-button" onClick={() => { const payload = { rubric, question, summary: proposal?.summary ?? '', criteria: review, questionsForTeacher: teacherQuestions.split('\n').map((line) => line.trim()).filter(Boolean), total: reviewedTotal, exportedAt: new Date().toISOString() }; const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })); const link = document.createElement('a'); link.href = url; link.download = 'proposition-correction.json'; link.click(); URL.revokeObjectURL(url); setReviewMessage('Récapitulatif JSON exporté.'); }}><CopyActionIcon name="download" />{isFinalized ? 'Télécharger la correction enregistrée' : 'Télécharger le récapitulatif provisoire'}</button></details>
          </details>
-         <div className="copy-review-validation-bar" aria-live="polite"><div><span>{unassessedCount > 0 ? 'Note partielle' : isFinalized ? 'Note validée' : 'Note proposée'}</span><strong>{reviewedTotal.toLocaleString('fr-FR')} / {validation.maximumPoints.toLocaleString('fr-FR')}</strong><small>{isFinalized ? 'Correction enregistrée' : teacherReviewStatus(unassessedCount, flaggedCriteriaIds.size)}</small></div><button type="button" className="primary-button" aria-keyshortcuts="Control+Enter Meta+Enter" disabled={isAnalyzing || isFinalized || unassessedCount > 0 || review.length !== rubric.criteria.length} onClick={() => void finalizeReview(true)}>{isFinalized ? 'Correction validée' : 'Valider et passer à la suivante'}</button></div>
+         {copyAnnotationsEnabled && service.exportCopyAnnotationPdf && !isAnalyzing && images.length > 0 && proposal && unassessedCount === 0 && criterionProgress.isComplete && <CopyAnnotationPdfPanel
+                createPdf={service.exportCopyAnnotationPdf}
+                key={`${activeAssignmentId}-${currentCopyId}`}
+                copy={{ assignmentTitle, studentLabel, images, annotations: copyAnnotations, score: reviewedTotal,
+                  maximum: validation.maximumPoints, finalized: isFinalized }}
+              />}
+          <div className="copy-review-validation-bar" aria-live="polite"><div><span>{unassessedCount > 0 ? 'Note partielle' : isFinalized ? 'Note validée' : 'Note proposée'}</span><strong>{reviewedTotal.toLocaleString('fr-FR')} / {validation.maximumPoints.toLocaleString('fr-FR')}</strong><small>{isFinalized ? 'Correction enregistrée' : teacherReviewStatus(unassessedCount, flaggedCriteriaIds.size)}</small></div><button type="button" className="primary-button" aria-keyshortcuts="Control+Enter Meta+Enter" disabled={isAnalyzing || isFinalized || unassessedCount > 0 || review.length !== rubric.criteria.length} onClick={() => void finalizeReview(true)}>{isFinalized ? 'Correction validée' : 'Valider et passer à la suivante'}</button></div>
           </div>
         </div>
       </section>}

@@ -9,6 +9,7 @@ export interface CopyAnnotationEdit {
 
 export function CopyAnnotationPanel({
   annotations, criteria, edit, onEdit, onAdd, onSelect, onSave, onDelete, disabled, generation,
+  enabled, toggle, listOpen, onListOpen, generationIssue,
 }: {
   annotations: CopyAnnotation[];
   criteria: readonly { id: string; title: string }[];
@@ -20,13 +21,28 @@ export function CopyAnnotationPanel({
   onDelete: (id: string) => void;
   disabled: boolean;
   generation?: ReactNode;
+  enabled: boolean;
+  toggle: ReactNode;
+  listOpen: boolean;
+  onListOpen: (open: boolean) => void;
+  generationIssue?: string;
 }) {
-  return <section className="copy-annotation-panel" aria-label="Annotations de la copie">
-    <div className="copy-annotation-actions">
-      <strong>Annotations ({annotations.length})</strong>
-      <button type="button" className="secondary-button" disabled={disabled} onClick={onAdd}>Ajouter</button>
+  return <section className="copy-annotation-panel copy-annotation-workspace" aria-label={enabled ? "Annotations de la copie" : undefined}>
+    <div className="copy-annotation-toolbar">
+      {toggle}
+      {enabled && <>
+        <div className="copy-annotation-toolbar-actions">
+          <button type="button" className="secondary-button" disabled={disabled} onClick={onAdd}><span aria-hidden="true">＋</span> Ajouter</button>
+          {generation}
+          <button type="button" className="secondary-button copy-annotation-list-toggle" aria-expanded={listOpen && !edit} aria-controls="copy-annotation-list" onClick={() => onListOpen(!listOpen)}>
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg>
+            <span>Annotations ({annotations.length})</span>
+          </button>
+        </div>
+      </>}
     </div>
-    {generation}
+    {enabled && <>
+    {generationIssue && <small className="copy-annotation-generation-issue">{generationIssue}</small>}
     {edit?.selecting && <div className="copy-annotation-actions">
       <p className="copy-annotation-placement-help" role="status">Sélectionnez un emplacement sur une page.</p>
       <button type="button" className="text-button" onClick={() => onEdit({ annotation: { ...edit.annotation, placement: undefined }, selecting: false, saveOnPlacement: false })}>Sans emplacement</button>
@@ -51,7 +67,8 @@ export function CopyAnnotationPanel({
         <button type="button" className="text-button" onClick={() => onEdit(null)}>Annuler</button>
       </div>
     </form>}
-    {annotations.length > 0 && <ol className="copy-annotation-list">
+    <div id="copy-annotation-list" hidden={!listOpen || Boolean(edit)}>
+    {annotations.length === 0 ? <p className="copy-annotation-empty">Aucune annotation. Ajoutez une remarque ou générez des suggestions.</p> : <ol className="copy-annotation-list">
       {annotations.map((annotation, index) => <li key={annotation.id} id={`copy-annotation-${annotation.id}`} tabIndex={-1}>
         <div><strong>{index + 1}. {annotation.message}</strong></div>
         <small>{[criteria.find((criterion) => criterion.id === annotation.criterionId)?.title,
@@ -71,5 +88,7 @@ export function CopyAnnotationPanel({
         </div>
       </li>)}
     </ol>}
+    </div>
+    </>}
   </section>;
 }

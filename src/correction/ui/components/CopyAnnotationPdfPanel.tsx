@@ -29,7 +29,7 @@ export function CopyAnnotationPdfPanel({ copy, createPdf }: { copy: Omit<CopyAnn
     }
   }
 
-  return <details className="copy-annotation-panel">
+  return <details className="copy-annotation-panel copy-annotation-export">
     <summary>Exporter la copie annotée</summary>
     <label className="copy-annotation-editor">
       Appréciation générale
