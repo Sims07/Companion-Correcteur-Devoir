@@ -3509,7 +3509,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
       return [{
         criterionId: item.criterionId, title: criterion.title, points: item.teacherPoints,
         maxPoints: criterion.maxPoints, evidence: item.evidence, rationale: item.rationale,
-        remark: copyAnnotationMessage(item), pageNumber: item.pageNumber,
+        remark: copyAnnotationMessage(item), pageNumber: item.pageNumber, subcriteria: item.subcriteria,
       }];
     });
     void annotationGeneration.start(
