@@ -78,10 +78,12 @@ test('laboratory displays the same crop that is delivered to the model', async (
     expect(body.stream).toBe(true);
     if (body.previous_response_id) sentCrop = body.input[1].content[1].image_url;
     const result = body.previous_response_id
-      ? { id: 'resp_end', output: [], output_text: '0000' }
+      ? { id: 'resp_end', output: [] }
       : { id: 'resp_start', output: [{ type: 'function_call', name: 'inspect_region', call_id: 'one',
           arguments: JSON.stringify({ page: 1, x: 0.64, y: 0.46, width: 0.12, height: 0.08 }) }] };
-    await route.fulfill({ contentType: 'text/event-stream', body: 'data: ' +
+    const fragment = body.previous_response_id
+      ? 'data: ' + JSON.stringify({ type: 'response.output_text.done', text: '0000' }) + '\n\n' : '';
+    await route.fulfill({ contentType: 'text/event-stream', body: fragment + 'data: ' +
       JSON.stringify({ type: 'response.completed', response: result }) + '\n\n' });
   });
   await page.goto('/');
@@ -91,6 +93,7 @@ test('laboratory displays the same crop that is delivered to the model', async (
   await page.getByText('Vérifier le zoom du modèle', { exact: true }).click();
   await page.getByRole('button', { name: 'Tester le cadrage' }).click();
   await expect(page.getByText(/1 zoom\(s\) obtenu/)).toBeVisible();
+  await expect(page.getByText(/Réponse du modèle : 0000/)).toBeVisible();
   await expect(page.getByText(/cible couverte à 100 %/)).toBeVisible();
   expect(sentCrop).toMatch(/^data:image\/png;base64,/);
   await expect(page.getByAltText('Recadrage réel 1')).toHaveAttribute('src', sentCrop);

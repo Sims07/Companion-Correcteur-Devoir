@@ -258,6 +258,23 @@ describe('LM Studio on-demand smart zoom (Responses API)', () => {
     }));
   });
 
+  it('grades from SSE answer fragments when the completed payload omits the text', async () => {
+    const rubric = { ...SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC,
+      criteria: SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC.criteria.slice(0, 1).map(c => ({ ...c, subcriteria: [], maxPoints: 1 })) };
+    const id = rubric.criteria[0].id;
+    const answer = JSON.stringify({ criteria: { [id]: { points: 1, evidence: 'Titre présent', confidence: 'high', questionForTeacher: null } } });
+    const fetchMock: typeof fetch = async () => new Response([
+      { type: 'response.reasoning_text.delta', delta: 'Je cherche le titre.' },
+      { type: 'response.output_text.delta', delta: answer.slice(0, 13) },
+      { type: 'response.output_text.delta', delta: answer.slice(13) },
+      { type: 'response.completed', response: { id: 'resp_grade', output: [] } },
+    ].map(event => 'data: ' + JSON.stringify(event) + '\n\n').join(''), { headers: { 'Content-Type': 'text/event-stream' } });
+    const provider = createOllamaProvider({ endpoint, apiCompatible: true, correctionMethod: 'generative',
+      analysisModel: 'gemma-26b', smartZoom: true }, fetchMock);
+    const grade = await gradeDiagramImages(provider, { rubric, question: 'Observer le dessin', images: originals }, true);
+    expect(grade.criteria[0]).toMatchObject({ points: 1 });
+  });
+
   it('preserves a full photo only in the first criterion request and continues with the same response ID', async () => {
     const rubric = { ...SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC,
       criteria: SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC.criteria.slice(0, 2).map(c => ({ ...c, subcriteria: [], maxPoints: 1 })) };
