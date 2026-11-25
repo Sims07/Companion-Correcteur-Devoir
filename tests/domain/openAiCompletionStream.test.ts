@@ -46,6 +46,25 @@ describe('OpenAI Chat Completions SSE diagnostic decoding', () => {
     expect(result).toEqual({ message: '', thinking: 'Thinking only', finishReason: 'length' });
   });
 
+  it('separates live Responses deltas and avoids duplicating terminal snapshots', () => {
+    const parser = new OpenAiCompletionStream(true);
+    const frame = (event: unknown) => 'data: ' + JSON.stringify(event) + '\r\n\r\n';
+    const thinking = frame({ type: 'response.reasoning_text.delta', delta: 'réflexion' });
+    for (let i = 0; i < thinking.length; i += 5) parser.append(thinking.slice(i, i + 5));
+    expect(parser.thinking).toBe('réflexion');
+    expect(parser.message).toBe('');
+    parser.append(frame({ type: 'response.output_text.delta', delta: '{"ok":true}' }));
+    parser.append(frame({ type: 'response.completed', response: { status: 'completed', output: [
+      { type: 'reasoning', content: [{ type: 'reasoning_text', text: 'réflexion' }] },
+      { type: 'message', content: [{ type: 'output_text', text: '{"ok":true}' }] },
+    ], usage: { input_tokens: 50, output_tokens: 30 } } }));
+    parser.finish();
+    expect(parser.message).toBe('{"ok":true}');
+    expect(parser.thinking).toBe('réflexion');
+    expect(parser.finishReason).toBe('stop');
+    expect(parser.usage).toEqual({ promptTokens: 50, completionTokens: 30 });
+  });
+
   it('decodes non-streaming JSON and older SSE histories', () => {
     const json = JSON.stringify({ choices: [{ message: { content: 'Correction finale', reasoning_content: 'Internal analysis' }, finish_reason: 'stop' }] });
     expect(extractOpenAiCompletion(json)).toEqual({ message: 'Correction finale', thinking: 'Internal analysis', finishReason: 'stop' });

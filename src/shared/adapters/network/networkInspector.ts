@@ -1,7 +1,7 @@
 import { getNetworkRequestMetadata } from '../../ports/networkRequestMetadata.ts';
 import { isOllamaInferenceRequest, readOllamaNativeTimings, type OllamaNativeTimings } from '../../domain/ollamaTimings.ts';
 import { OllamaThinkingStream } from '../../domain/ollamaThinkingStream.ts';
-import { isLmStudioChat, isOpenAiCompletionRequest, OpenAiCompletionStream, type OpenAiTokenUsage } from '../../domain/openAiCompletionStream.ts';
+import { isLmStudioChat, isOpenAiCompletionRequest, isOpenAiResponsesRequest, OpenAiCompletionStream, type OpenAiTokenUsage } from '../../domain/openAiCompletionStream.ts';
 
 export type NetworkRequestState = 'pending' | 'success' | 'error';
 
@@ -248,8 +248,8 @@ export function installNetworkInspector(): () => void {
           let publishedThinking = false;
           let publishedMessage = false;
           const ollama = isOllamaInferenceRequest(url) ? new OllamaThinkingStream() : null;
-          const completion = isOpenAiCompletionRequest(url) || isLmStudioChat(url)
-            ? new OpenAiCompletionStream(/text\/event-stream/i.test(response.headers.get('content-type') ?? '') || /"stream"\s*:\s*true/.test(record.requestBody))
+          const completion = isOpenAiCompletionRequest(url) || isOpenAiResponsesRequest(url) || isLmStudioChat(url)
+            ? new OpenAiCompletionStream(/text\/event-stream/i.test(response.headers.get('content-type') ?? '') || (!/application\/json/i.test(response.headers.get('content-type') ?? '') && /"stream"\s*:\s*true/.test(record.requestBody)))
             : null;
           const message = () => ollama?.message ?? completion?.message ?? '';
           const reasoning = () => ollama?.text ?? completion?.thinking ?? '';

@@ -46,6 +46,57 @@ interface ApiResponse {
   usage?: { input_tokens?: number; output_tokens?: number; total_tokens?: number };
 }
 
+/**
+ * The Responses terminal SSE event contains the authoritative output items,
+ * including complete function arguments, response ID and usage. Never grade
+ * intermediate deltas or execute an unfinished tool call.
+ */
+async function readResponsesPayload(response: Response): Promise<ApiResponse> {
+  if (!/text\/event-stream/i.test(response.headers.get('content-type') ?? '')) {
+    return await response.json() as ApiResponse;
+  }
+  if (!response.body) throw new Error('Flux LM Studio Responses absent.');
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let terminal: ApiResponse | undefined;
+  const consume = (frame: string) => {
+    const data = frame.split(/\r?\n/).filter(line => line.startsWith('data:'))
+      .map(line => line.slice(5).trimStart()).join('\n');
+    if (!data || data.trim() === '[DONE]') return;
+    const event = JSON.parse(data) as { type?: string; response?: ApiResponse; message?: string; error?: { message?: string } };
+    if (event.type === 'error' || event.type === 'response.failed') {
+      throw new Error(event.error?.message ?? event.message ?? 'LM Studio Responses : génération échouée.');
+    }
+    if (event.type === 'response.completed' || event.type === 'response.incomplete') {
+      if (!event.response) throw new Error('Événement terminal Responses sans résultat.');
+      terminal = { ...event.response, status: event.response.status ??
+        (event.type === 'response.incomplete' ? 'incomplete' : 'completed') };
+    }
+  };
+  const append = (chunk: string) => {
+    const frames = (buffer + chunk).split(/\r?\n\r?\n/);
+    buffer = frames.pop() ?? '';
+    for (const frame of frames) consume(frame);
+  };
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      append(decoder.decode(value, { stream: true }));
+    }
+    append(decoder.decode());
+    if (buffer.trim()) consume(buffer);
+    if (!terminal) throw new Error('Flux LM Studio Responses interrompu avant la réponse finale.');
+    return terminal;
+  } catch (error) {
+    void reader.cancel().catch(() => {});
+    throw error;
+  } finally {
+    reader.releaseLock();
+  }
+}
+
 /** LM Studio supports text-only function_call_output but some builds reject multimodal
  * function outputs. We therefore return a text tool result AND a separate user input_image. */
 export async function sendLmStudioZoomDiagramTurn(
@@ -86,7 +137,7 @@ export async function sendLmStudioZoomDiagramTurn(
   for (let turnIndex = 0; turnIndex < 5; turnIndex++) {
     signal?.throwIfAborted();
     const body = {
-      model: turn.model, stream: false, store: true,
+      model: turn.model, stream: true, store: true,
       ...(previousId ? { previous_response_id: previousId } : {}),
       input,
       ...(enableZoom && inspections < 2 ? { tools: [TOOL], tool_choice: 'auto' } : {}),
@@ -108,8 +159,12 @@ export async function sendLmStudioZoomDiagramTurn(
     }));
     if (!response.ok) return response;
     let payload: ApiResponse;
-    try { payload = await response.json() as ApiResponse; }
-    catch { throw new Error('Réponse LM Studio Responses illisible.'); }
+    try { payload = await readResponsesPayload(response); }
+    catch (error) {
+      if (signal?.aborted) throw signal.reason;
+      if (error instanceof SyntaxError) throw new Error('Réponse LM Studio Responses illisible.');
+      throw error;
+    }
     if (!payload.id || !payload.id.startsWith('resp_') || !Array.isArray(payload.output)) {
       throw new Error('LM Studio n’a pas retourné de réponse Responses exploitable.');
     }

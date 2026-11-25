@@ -3,7 +3,7 @@ import { clearNetworkHistory, getNetworkInspectorStatus, loadNetworkHistory, net
 import '../../shared/ui/networkInspector.css';
 import { isOllamaInferenceRequest } from '../../shared/domain/ollamaTimings.ts';
 import { extractOllamaMessage, extractOllamaThinking } from '../../shared/domain/ollamaThinkingStream.ts';
-import { extractOpenAiCompletion, isLmStudioChat, isOpenAiCompletionRequest } from '../../shared/domain/openAiCompletionStream.ts';
+import { extractOpenAiCompletion, isLmStudioChat, isOpenAiCompletionRequest, isOpenAiResponsesRequest } from '../../shared/domain/openAiCompletionStream.ts';
 import { modelTokenRate } from '../../shared/domain/modelTokenRate.ts';
 
 type Filter = 'all' | 'pending' | 'error' | 'success';
@@ -29,6 +29,9 @@ function requestedThinking(requestBody: string): { enabled: boolean; detail: str
     if (!parsed || typeof parsed !== 'object') return null;
     const body = parsed as { think?: unknown; reasoning?: unknown; reasoning_effort?: unknown; chat_template_kwargs?: { enable_thinking?: unknown } };
     if (typeof body.reasoning === 'string') return { enabled: body.reasoning !== 'off', detail: `reasoning: ${body.reasoning}` };
+    if (body.reasoning && typeof body.reasoning === 'object' && 'effort' in body.reasoning && typeof body.reasoning.effort === 'string') {
+      return { enabled: body.reasoning.effort !== 'none', detail: `reasoning.effort: ${body.reasoning.effort}` };
+    }
     if (typeof body.reasoning_effort === 'string') {
       return { enabled: body.reasoning_effort !== 'none', detail: `reasoning_effort: ${body.reasoning_effort}` };
     }
@@ -92,7 +95,7 @@ export function NetworkInspector({ initialFilter = 'all', hasRunningCorrections 
   };
   const selectedTokenRate = selected ? modelTokenRate(selected) : null;
   const ollamaSelected = Boolean(selected && isOllamaInferenceRequest(selected.url));
-  const completionSelected = Boolean(selected && (isOpenAiCompletionRequest(selected.url) || isLmStudioChat(selected.url)));
+  const completionSelected = Boolean(selected && (isOpenAiCompletionRequest(selected.url) || isOpenAiResponsesRequest(selected.url) || isLmStudioChat(selected.url)));
   const legacyCompletion = useMemo(() => completionSelected && selected
     ? extractOpenAiCompletion(selected.responseBody) : null, [completionSelected, selected?.responseBody]);
   const selectedThinking = ollamaSelected && selected
