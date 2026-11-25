@@ -21,6 +21,7 @@ it('sends every page in a single request to Ollama and returns reviewable sugges
   expect(payload.messages[0].content).toContain('"points":1');
   expect(payload.messages[0].content).toContain('Déductions obligatoires');
   expect(payload.messages[0].content).toContain(requiredCopyAnnotationDeductions(criteria)[0].deductionId);
+  expect(payload.messages[0].content).toContain('"tone":"improvement","deductionId":');
   expect(payload.messages[0].content).toContain('tone:"positive"');
   expect(payload.messages[0].content).toContain('tone:"improvement"');
   expect(payload.messages[0].content).toContain('Pour chaque page, planifie ensemble les positions');
