@@ -94,7 +94,9 @@ test('laboratory displays the same crop that is delivered to the model', async (
   await openCustomTests(page);
   await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: 'Schémas scientifiques' }).click();
   await page.getByText('Vérifier le zoom du modèle', { exact: true }).click();
+  await page.getByLabel('Budget de zoom du test').selectOption('4');
   await page.getByRole('button', { name: 'Tester le cadrage' }).click();
+  await expect(page.getByRole('table', { name: 'Comparaison des budgets de zoom' }).getByText('1/4')).toBeVisible();
   await expect(page.getByText(/1 zoom\(s\) obtenu/)).toBeVisible();
   await expect(page.getByText(/Réponse du modèle : 0000/)).toBeVisible();
   await expect(page.getByText(/cible couverte à 100 %/)).toBeVisible();
@@ -102,7 +104,10 @@ test('laboratory displays the same crop that is delivered to the model', async (
   await expect(page.getByAltText('Recadrage réel 1')).toHaveAttribute('src', sentCrop);
   const launch = page.getByRole('button', { name: 'Tester le cadrage' });
   mode = 'no-call';
+  await page.getByLabel('Budget de zoom du test').selectOption('2');
   await launch.click();
+  await expect(page.getByRole('table', { name: 'Comparaison des budgets de zoom' }).getByText('0/2')).toBeVisible();
+  await expect(page.getByRole('table', { name: 'Comparaison des budgets de zoom' }).getByText('1/4')).toBeVisible();
   await expect(page.getByText(/Aucun appel de zoom/)).toBeVisible();
   await expect(page.getByAltText('Recadrage réel 1')).toHaveCount(0);
   mode = 'truncated';

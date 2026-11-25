@@ -4,7 +4,7 @@ import { ResponsesOutput, responsesAtLimit, responsesMessage, responsesReasoning
 import { ServerSentEvents } from '../../domain/serverSentEvents.ts';
 import type { ImageInput } from '../../domain/imageInput.ts';
 import { cropOriginalDiagram, validateZoomRegion, type ZoomRegion, type ZoomEvidence } from '../image/cropOriginalDiagram.ts';
-import { copyNetworkRequestMetadata } from '../../ports/networkRequestMetadata.ts';
+import { copyNetworkRequestMetadata, type SmartZoomRequestDiagnostics } from '../../ports/networkRequestMetadata.ts';
 
 export interface ZoomDiagramTurn {
   model: string;
@@ -123,6 +123,10 @@ export async function sendLmStudioZoomDiagramTurn(
       concluding = true;
       input.push({ role: 'user', content: [{ type: 'input_text', text: CONCLUDE }] });
     }
+    const zoomDiagnostics: SmartZoomRequestDiagnostics | undefined = enableZoom ? {
+      used: inspections, budget, rejected, rejectionBudget: MAX_REJECTIONS,
+      phase: recovered ? 'recovery' : toolsAllowed ? 'exploration' : inspections >= budget ? 'budget' : 'rejections',
+    } : undefined;
     const body = {
       model: turn.model, stream: turn.stream ?? true, store: turn.store ?? true,
       ...(previousId ? { previous_response_id: previousId } : {}),
@@ -143,7 +147,7 @@ export async function sendLmStudioZoomDiagramTurn(
       method: 'POST', headers: { 'Content-Type': 'application/json',
         ...(apiKey.trim() ? { Authorization: 'Bearer ' + apiKey.trim() } : {}) },
       body: JSON.stringify(body),
-    }, Boolean(turn.format)));
+    }, Boolean(turn.format), zoomDiagnostics));
     if (!response.ok) return response;
     let payload: Awaited<ReturnType<typeof readResponsesPayload>>;
     try { payload = await readResponsesPayload(response); }

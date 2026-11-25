@@ -5961,7 +5961,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
             setBiologyRadarOpen(false);
           }} /></div>}
       <ZoomWitnessPanel profiles={aiModelProfiles} busy={busy || pilotBusy || radarAutoBusy}
-        current={{ endpoint, apiCompatible, apiKey, analysisModel, analysisThinking, analysisReasoningEffort, omitReasoningParameter, gradingOutputTokens, analysisTemperature, analysisTopP }}
+        current={{ endpoint, apiCompatible, apiKey, analysisModel, analysisThinking, analysisReasoningEffort, omitReasoningParameter, gradingOutputTokens, analysisTemperature, analysisTopP, smartZoomBudget }}
         visible={interfaceMode === 'diagnostic' && evaluationJourney === 'diagrams' && diagramLabView === 'protocols' && evaluationWorkspaceStep === 'configuration'} />
       {interfaceMode === 'diagnostic' && evaluationJourney === 'diagrams' && diagramLabView !== 'protocols' && evaluationWorkspaceStep === 'configuration' &&
         <ScientificDiagramLabHistory repository={diagramArchive} revision={diagramHistoryRevision} archiveError={diagramHistoryError}
