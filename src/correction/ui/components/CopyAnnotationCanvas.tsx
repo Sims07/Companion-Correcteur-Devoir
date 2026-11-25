@@ -1,5 +1,5 @@
 import type { MouseEvent, ReactNode } from 'react';
-import { placementFromPageClick, type CopyAnnotationPlacement } from '../../domain/copyAnnotationFeature.ts';
+import { placementFromPageClick, copyAnnotationToneLabel, type CopyAnnotationTone, type CopyAnnotationPlacement } from '../../domain/copyAnnotationFeature.ts';
 import './CopyAnnotationCanvas.css';
 import './CopyAnnotationHandwriting.css';
 
@@ -10,6 +10,7 @@ export interface CopyAnnotationView {
   x: number;
   y: number;
   suggested?: boolean;
+  tone?: CopyAnnotationTone;
 }
 
 export function CopyAnnotationCanvas({
@@ -35,10 +36,11 @@ export function CopyAnnotationCanvas({
     {annotations.map((annotation) => <button type="button"
       key={annotation.id}
       className={annotation.suggested ? 'copy-inline-annotation is-suggested' : 'copy-inline-annotation'}
+      data-tone={annotation.tone}
       data-horizontal={annotation.x > 500 ? 'left' : 'right'}
       data-vertical={annotation.y > 500 ? 'above' : 'below'}
       title={annotation.message}
-      aria-label={`Annotation ${annotation.number} : ${annotation.message}`}
+      aria-label={`Annotation ${annotation.number} : ${annotation.tone ? copyAnnotationToneLabel(annotation.tone) + " · " : ""}${annotation.message}`}
       style={{ left: `${annotation.x / 10}%`, top: `${annotation.y / 10}%` }}
       onClick={() => {
         if (onAnnotationClick) onAnnotationClick(annotation.id);
@@ -46,7 +48,7 @@ export function CopyAnnotationCanvas({
       }}
     >
       <span className="copy-inline-annotation-number" aria-hidden="true">{annotation.number}</span>
-      <span className="copy-inline-annotation-message" aria-hidden="true">{annotation.message}</span>
+      <span className="copy-inline-annotation-message" aria-hidden="true">{annotation.tone === 'positive' && <span className="copy-inline-annotation-symbol">✓ </span>}{annotation.tone === 'improvement' && <span className="copy-inline-annotation-symbol">! </span>}{annotation.message}</span>
     </button>)}
     {onPlace && <button type="button"
       className="copy-annotation-placement-target"

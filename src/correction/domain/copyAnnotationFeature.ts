@@ -42,9 +42,16 @@ export function isCopyAnnotationPlacement(value: unknown): value is CopyAnnotati
     && Number.isInteger(placement.y) && (placement.y as number) >= 0 && (placement.y as number) <= 1000;
 }
 
+export type CopyAnnotationTone = 'positive' | 'improvement';
+
+export function copyAnnotationToneLabel(tone: unknown): string {
+  return tone === 'positive' ? 'Réussite' : tone === 'improvement' ? 'À améliorer' : 'Non qualifiée';
+}
+
 export interface CopyAnnotation {
   id: string;
   message: string;
+  tone?: CopyAnnotationTone;
   criterionId?: string;
   placement?: CopyAnnotationPlacement;
   status: 'accepted' | 'suggested';

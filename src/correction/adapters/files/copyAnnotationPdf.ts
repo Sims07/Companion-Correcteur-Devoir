@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf';
 import type { CopyAnnotationPdfInput } from '../../ports/correctionWorkspace.ts';
-import { isCopyAnnotationPlacement } from '../../domain/copyAnnotationFeature.ts';
+import { isCopyAnnotationPlacement, copyAnnotationToneLabel } from '../../domain/copyAnnotationFeature.ts';
 
 export function createCopyAnnotationPdf(input: CopyAnnotationPdfInput): Blob {
   const pdf = new jsPDF({ unit: 'mm', format: 'a4', compress: true });
@@ -49,7 +49,7 @@ export function createCopyAnnotationPdf(input: CopyAnnotationPdfInput): Blob {
   }
   if (notes.length) {
     section('Annotations');
-    for (const note of notes) paragraph(`${note.number}. ${note.placement ? `Page ${note.placement.pageNumber} · ` : ''}${note.message}`);
+    for (const note of notes) paragraph(`${note.number}. ${note.tone ? copyAnnotationToneLabel(note.tone) + ' · ' : ''}${note.placement ? `Page ${note.placement.pageNumber} · ` : ''}${note.message}`);
   }
 
   input.images.forEach((image, index) => {
@@ -73,12 +73,15 @@ export function createCopyAnnotationPdf(input: CopyAnnotationPdfInput): Blob {
       const x = left + imageWidth * point.x / 1000;
       const pinY = imageTop + imageHeight * point.y / 1000;
       pdf.setFillColor(255, 255, 255);
-      pdf.setDrawColor(150, 26, 37);
-      pdf.setTextColor(150, 26, 37);
+      const color: [number, number, number] = note.tone === 'positive' ? [39, 118, 75]
+        : note.tone === 'improvement' ? [179, 49, 54] : [75, 85, 99];
+      pdf.setDrawColor(...color);
+      pdf.setTextColor(...color);
       pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(8);
       pdf.circle(x, pinY, 2.5, 'FD');
       pdf.text(String(note.number), x, pinY, { align: 'center', baseline: 'middle' });
+      if (note.tone) pdf.text(note.tone === 'positive' ? '+' : '!', x + (point.x > 500 ? -4 : 4), pinY, { align: 'center', baseline: 'middle' });
     }
   });
   return pdf.output('blob');

@@ -46,7 +46,8 @@ export function parseCopyAnnotationSuggestions(raw: string, criteria: readonly C
     const placement = value.locationConfidence === 'high'
       && isCopyAnnotationPlacement(value.placement) && value.placement.pageNumber <= pages
       ? { pageNumber: value.placement.pageNumber, x: value.placement.x, y: value.placement.y } : undefined;
-    suggestions.push({ id: crypto.randomUUID(), message, criterionId, placement, status: 'suggested' });
+    const tone = value.tone === 'positive' || value.tone === 'improvement' ? value.tone : undefined;
+    suggestions.push({ id: crypto.randomUUID(), message, criterionId, placement, status: 'suggested', ...(tone ? { tone } : {}) });
   }
   if (result.annotations.length && !suggestions.length) throw new Error('Les remarques renvoyées par le modèle local sont illisibles.');
   return suggestions;

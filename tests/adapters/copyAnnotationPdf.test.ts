@@ -10,7 +10,7 @@ it('exports the score, appreciation, every image page and only accepted remarks'
     appreciation: 'Très bon dessin !', images: [image, image],
     annotations: [
       { id: 'one', message: 'Souligne le titre.', status: 'accepted', placement: { pageNumber: 2, x: 300, y: 700 } },
-      { id: 'two', message: 'Excellente légende.', status: 'accepted' },
+      { id: 'two', message: 'Excellente légende.', tone: 'positive', status: 'accepted' },
       { id: 'three', message: 'Suggestion privée.', status: 'suggested', placement: { pageNumber: 1, x: 500, y: 500 } },
     ],
   });
@@ -24,7 +24,7 @@ it('exports the score, appreciation, every image page and only accepted remarks'
     expect(await text(1)).toContain('Note validée : 1,67 / 2');
     expect(await text(1)).toContain('Très bon dessin !');
     expect(await text(1)).toContain('Page 2 · Souligne le titre.');
-    expect(await text(1)).toContain('Excellente légende.');
+    expect(await text(1)).toContain('Réussite · Excellente légende.');
     expect(await text(1)).not.toContain('Suggestion privée.');
     expect((await text(2)).trim()).toBe('Copie · page 1 / 2');
     expect((await text(3)).trim()).toBe('Copie · page 2 / 2  1');

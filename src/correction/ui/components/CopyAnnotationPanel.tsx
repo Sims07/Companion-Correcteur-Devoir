@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { MAX_COPY_ANNOTATION_LENGTH, type CopyAnnotation } from '../../domain/copyAnnotationFeature.ts';
+import { MAX_COPY_ANNOTATION_LENGTH, copyAnnotationToneLabel, type CopyAnnotation } from '../../domain/copyAnnotationFeature.ts';
 
 export interface CopyAnnotationEdit {
   annotation: CopyAnnotation;
@@ -54,6 +54,14 @@ export function CopyAnnotationPanel({
     }}>
       <label>Remarque<textarea autoFocus required maxLength={MAX_COPY_ANNOTATION_LENGTH} rows={2} value={edit.annotation.message}
         onChange={(event) => onEdit({ ...edit, annotation: { ...edit.annotation, message: event.target.value } })} /></label>
+      <label>Type de remarque <select value={edit.annotation.tone ?? ''} onChange={(event) => {
+        const tone = event.target.value;
+        onEdit({ ...edit, annotation: { ...edit.annotation, tone: tone === 'positive' || tone === 'improvement' ? tone : undefined } });
+      }}>
+        <option value="">Non qualifiée</option>
+        <option value="positive">✓ Réussite</option>
+        <option value="improvement">! À améliorer</option>
+      </select></label>
       <label>Critère associé <select value={edit.annotation.criterionId ?? ''} onChange={(event) => onEdit({
         ...edit, annotation: { ...edit.annotation, criterionId: event.target.value || undefined },
       })}>
@@ -71,7 +79,7 @@ export function CopyAnnotationPanel({
     {annotations.length === 0 ? <p className="copy-annotation-empty">Aucune annotation. Ajoutez une remarque ou générez des suggestions.</p> : <ol className="copy-annotation-list">
       {annotations.map((annotation, index) => <li key={annotation.id} id={`copy-annotation-${annotation.id}`} tabIndex={-1}>
         <div><strong>{index + 1}. {annotation.message}</strong></div>
-        <small>{[criteria.find((criterion) => criterion.id === annotation.criterionId)?.title,
+        <small>{[copyAnnotationToneLabel(annotation.tone), criteria.find((criterion) => criterion.id === annotation.criterionId)?.title,
           annotation.placement ? `Page ${annotation.placement.pageNumber}` : 'Sans emplacement',
           annotation.status === 'suggested' ? 'Suggestion IA à valider' : undefined,
         ].filter(Boolean).join(' · ')}</small>
