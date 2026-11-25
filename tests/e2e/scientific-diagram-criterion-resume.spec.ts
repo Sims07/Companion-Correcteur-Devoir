@@ -82,6 +82,7 @@ test('reopens a partial diagram and retries only the ungraded criterion', async 
   const validate = page.getByRole('button', { name: 'Valider et passer à la suivante' });
   await expect(validate).toBeDisabled();
   await expect(page.getByText('Note partielle · analyse incomplète')).toBeVisible();
+  await expect(page.locator('.copy-review-validation-bar')).toContainText('1 critère(s) sans note');
   const retry = page.getByRole('button', { name: 'Relancer le critère Légendes' });
   await retry.click();
   try {

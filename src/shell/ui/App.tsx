@@ -1120,6 +1120,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     : null;
   const criterionProgress = useMemo(() => summarizeCriterionProgress(rubric.criteria, review.map((item) => ({ criterionId: item.criterionId, points: item.teacherPoints }))), [rubric.criteria, review]);
   const reviewedTotal = criterionProgress.provisionalPoints;
+  const missingReviewCount = criterionProgress.totalCount - criterionProgress.completedCount;
   const unassessedCount = review.filter((item) => item.assessmentStatus === 'not-evaluated').length;
   const currentCopyId = currentBackgroundJobId ?? currentCorrectionId ?? (images.length > 0 ? 'current-copy' : null);
   const currentCopyIdRef = useRef(currentCopyId);
@@ -6489,7 +6490,9 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
          </details>
 
           <div className="copy-review-validation-bar" aria-live="polite"><div><span>{unassessedCount > 0 || !criterionProgress.isComplete ? 'Note partielle' : isFinalized ? 'Note validée' : 'Note proposée'}</span><strong>{criterionProgress.completedCount > unassessedCount
-            ? reviewedTotal.toLocaleString('fr-FR') + ' / ' + validation.maximumPoints.toLocaleString('fr-FR') : 'Aucune note'}</strong><small>{isFinalized ? 'Correction enregistrée' : teacherReviewStatus(unassessedCount, flaggedCriteriaIds.size)}</small></div><div className="copy-review-final-actions">{copyAnnotationsEnabled && service.exportCopyAnnotationPdf && !isAnalyzing && images.length > 0 && proposal && unassessedCount === 0 && criterionProgress.isComplete && <CopyAnnotationPdfPanel
+            ? reviewedTotal.toLocaleString('fr-FR') + ' / ' + validation.maximumPoints.toLocaleString('fr-FR') : 'Aucune note'}</strong><small>{isFinalized ? 'Correction enregistrée'
+              : missingReviewCount > 0 ? `${missingReviewCount} critère(s) sans note`
+              : teacherReviewStatus(unassessedCount, flaggedCriteriaIds.size)}</small></div><div className="copy-review-final-actions">{copyAnnotationsEnabled && service.exportCopyAnnotationPdf && !isAnalyzing && images.length > 0 && proposal && unassessedCount === 0 && criterionProgress.isComplete && <CopyAnnotationPdfPanel
                 createPdf={service.exportCopyAnnotationPdf}
                 key={`${activeAssignmentId}-${currentCopyId}`}
                 copy={{ assignmentTitle, studentLabel, images, annotations: copyAnnotations, score: reviewedTotal,
