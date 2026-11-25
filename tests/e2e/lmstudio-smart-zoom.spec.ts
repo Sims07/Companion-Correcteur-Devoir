@@ -112,13 +112,13 @@ test('laboratory displays the same crop that is delivered to the model', async (
   await expect(page.getByAltText('Recadrage réel 1')).toHaveCount(0);
   mode = 'truncated';
   await launch.click();
-  await expect(page.getByText('Limite de génération atteinte pendant le test de zoom.')).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Test du zoom' }).getByRole('status')).toHaveText('Limite de génération atteinte pendant le test de zoom.');
   mode = 'reasoning';
   await launch.click();
-  await expect(page.getByText('LM Studio Responses n’a renvoyé aucune réponse finale pour le test de zoom.')).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Test du zoom' }).getByRole('status')).toHaveText('LM Studio Responses n’a renvoyé aucune réponse finale pour le test de zoom.');
   mode = 'error';
   await launch.click();
-  await expect(page.getByText(/LM Studio a répondu HTTP 503/)).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Test du zoom' }).getByRole('status')).toHaveText(/LM Studio a répondu HTTP 503/);
   mode = 'wait';
   const pending = page.waitForRequest('**/v1/responses');
   await launch.click();
