@@ -81,7 +81,7 @@ export function createCopyAnnotationPdf(input: CopyAnnotationPdfInput): Blob {
       pdf.setFontSize(8);
       pdf.circle(x, pinY, 2.5, 'FD');
       pdf.text(String(note.number), x, pinY, { align: 'center', baseline: 'middle' });
-      if (note.tone) pdf.text(note.tone === 'positive' ? '+' : '!', x + (point.x > 500 ? -4 : 4), pinY, { align: 'center', baseline: 'middle' });
+      if (note.tone === 'positive' || note.tone === 'improvement') pdf.text(note.tone === 'positive' ? '+' : '!', x + (point.x > 500 ? -4 : 4), pinY, { align: 'center', baseline: 'middle' });
     }
   });
   return pdf.output('blob');
