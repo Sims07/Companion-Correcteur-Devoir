@@ -196,7 +196,8 @@ export function EvaluationRadarHome({
   }), [selectedScienceEntries, selectedHistory, weights]);
   const score = (value: number | null | undefined) =>
     value == null ? '—' : value.toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' / 100';
-  const chosenSciencePlan = explicitMethod.diagrams || !enabled('diagrams', 'pixel-v1') ? fullPlan : plan;
+  const scienceComplete = sci?.measured === 9;
+  const chosenSciencePlan = scienceComplete || explicitMethod.diagrams || !enabled('diagrams', 'pixel-v1') ? fullPlan : plan;
   const canLaunchScience = (request: typeof fullPlan) =>
     Boolean(request && profiles.some(p => p.id === request.profileId));
   function launchChosen(domain: RadarDomain) {
@@ -461,13 +462,13 @@ export function EvaluationRadarHome({
                 )}
               {!scientific && profileControls}
               <div className="radar-home-actions">
-                {(scientific ? (explicitMethod.diagrams || (count < total && (Boolean(plan) || nonVisualDecision))) : true) && (
+                {(scientific ? (scienceComplete || explicitMethod.diagrams || (count < total && (Boolean(plan) || nonVisualDecision))) : true) && (
                   <Button
                     disabled={
                       busy || !(scientific ? activeScienceMethod && canLaunchScience(chosenSciencePlan) : profile && activeBioMethod)
                     }
                     onClick={() => {
-                      if (explicitMethod[domain] || (scientific && !enabled('diagrams', 'pixel-v1'))) launchChosen(domain);
+                      if (explicitMethod[domain] || (scientific && (scienceComplete || !enabled('diagrams', 'pixel-v1')))) launchChosen(domain);
                       else if (scientific && plan && activeScienceMethod) runScience({ ...plan, trial: {
                         id: crypto.randomUUID(), method: activeScienceMethod, weights,
                       } });
@@ -486,7 +487,7 @@ export function EvaluationRadarHome({
                         );
                     }}
                   >
-                    {explicitMethod[domain] ? 'Évaluer · ' + (scientific ? activeScienceMethod ? scienceMethods[activeScienceMethod].label : 'méthode exclue' : activeBioMethod ? biologyMethodLabels[activeBioMethod] : 'méthode exclue') : !scientific && activeBio?.measured === total
+                    {scientific && scienceComplete ? 'Relancer l’évaluation' : explicitMethod[domain] ? 'Évaluer · ' + (scientific ? activeScienceMethod ? scienceMethods[activeScienceMethod].label : 'méthode exclue' : activeBioMethod ? biologyMethodLabels[activeBioMethod] : 'méthode exclue') : !scientific && activeBio?.measured === total
                       ? 'Relancer l’évaluation'
                       : scientific && plan?.steps.length === 1 && plan.steps[0]?.protocol === 'graph' && plan.steps[0]?.zoom
                         ? 'Seconde lecture ciblée'
