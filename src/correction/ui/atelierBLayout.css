@@ -289,7 +289,7 @@
 .teacher-flow-shell .review-source-heading h3 { font-family: inherit; font-size: 13px; font-weight: 750; }
 .teacher-flow-shell .review-source-heading p { font-size: 10px; }
 .teacher-flow-shell .review-source-pages .live-copy-page img {
-  width: 100%;
+  width: auto;
   max-height: 63vh;
   object-fit: contain;
   background: #e9ecef;

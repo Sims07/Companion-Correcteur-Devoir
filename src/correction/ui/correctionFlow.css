@@ -960,13 +960,24 @@
 
 /* Focused grading workspace: keep the student's source visible while reviewing evidence and points. */
 .review-workspace { display: grid; grid-template-columns: minmax(250px, .78fr) minmax(0, 1.35fr); align-items: start; gap: 18px; margin-top: 18px; }
-.review-source-pane { position: sticky; top: 14px; display: grid; gap: 14px; min-width: 0; max-height: calc(100vh - 28px); overflow: auto; padding: 16px; border: 1px solid var(--flow-border); border-radius: 14px; background: var(--flow-surface-soft); scrollbar-gutter: stable; }
+.review-source-pane { position: sticky; top: 14px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; min-width: 0; max-height: calc(100vh - 28px); overflow: auto; padding: 16px; border: 1px solid var(--flow-border); border-radius: 14px; background: var(--flow-surface-soft); scrollbar-gutter: stable; }
 .review-source-heading { display: grid; gap: 5px; }
 .review-source-heading h3 { margin: 0; color: var(--flow-text); font-size: 15px; }
 .review-source-heading p { margin: 0; color: var(--flow-muted); font-size: 12px; line-height: 1.5; }
-.review-source-pages { display: grid; gap: 12px; min-width: 0; }
-.review-source-pages .live-copy-page { margin: 0; padding: 8px; border: 1px solid var(--flow-border); border-radius: 10px; background: #fff; }
-.review-source-pages .live-copy-page img { display: block; width: 100%; max-height: 42vh; object-fit: contain; background: #f5f5f2; }
+.review-source-pages { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; min-width: 0; }
+.review-source-pages .live-copy-page { min-width: 0; margin: 0; padding: 8px; border: 1px solid var(--flow-border); border-radius: 10px; background: #fff; }
+.review-source-pages .live-copy-page img { display: block; width: auto; height: auto; max-width: 100%; max-height: 42vh; object-fit: contain; background: #f5f5f2; }
+/* The image and its annotation overlay must share the same fitted rectangle. */
+.review-source-pages .evidence-image-stage { min-width: 0; max-width: 100%; }
+.review-source-pages .evidence-image-stage > img,
+.review-source-pages .evidence-image-stage > .zoomable-image-trigger,
+.review-source-pages .evidence-image-stage > .copy-annotation-canvas { margin-inline: auto; }
+.review-source-pages .evidence-image-stage > .copy-annotation-canvas {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+}
+.review-source-pages .copy-annotation-canvas > .zoomable-image-trigger { width: auto; max-width: 100%; }
 .review-source-empty { margin: 0; padding: 14px; border: 1px dashed var(--flow-border); border-radius: 10px; color: var(--flow-muted); font-size: 12px; line-height: 1.5; }
 .review-transcription { overflow: hidden; border: 1px solid var(--flow-border); border-radius: 10px; background: #fff; }
 .review-transcription > summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px; cursor: pointer; list-style: none; }
