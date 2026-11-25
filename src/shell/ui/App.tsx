@@ -959,10 +959,20 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
   const [streamedOutput, setStreamedOutput] = useState('');
   const [connectionMessage, setConnectionMessage] = useState('');
   const [connectingAi, setConnectingAi] = useState(false);
-  function updateAiEndpoint(value: string) {
-    setEndpoint(value);
+  const aiConnectionRequest = useRef<AbortController | null>(null);
+  function resetAiConnectionResult() {
+    aiConnectionRequest.current?.abort();
     setDetectedModels([]);
     setConnectionMessage('');
+  }
+  function stopAiConnection() {
+    aiConnectionRequest.current?.abort();
+    setConnectionTone('info');
+    setConnectionMessage('Test de connexion annulé.');
+  }
+  function updateAiEndpoint(value: string) {
+    setEndpoint(value);
+    resetAiConnectionResult();
     setTranscription(null);
   }
   function updateAiTransport(transport: AiTransport) {
@@ -972,8 +982,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
   }
   function updateAiKey(value: string) {
     setApiKey(value);
-    setDetectedModels([]);
-    setConnectionMessage('');
+    resetAiConnectionResult();
   }
   function updateReasoning(mode: ReasoningMode) {
     setOmitReasoningParameter(mode === 'default');
@@ -1220,8 +1229,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     setSelectedAiModelProfileId(profile.id);
     setAiModelProfileMessage('Profil « ' + profile.name + ' » chargé.');
     setAiModelProfileTone('info');
-    setDetectedModels([]);
-    setConnectionMessage('');
+    resetAiConnectionResult();
     setTranscription(null);
   }
 
@@ -1248,8 +1256,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     setContextLength(undefined);
     setSmartZoom(false);
     setCriterionByCriterion(true);
-    setDetectedModels([]);
-    setConnectionMessage('');
+    resetAiConnectionResult();
   }
 
   const [radarProfileId, setRadarProfileId] = useState('');
@@ -1633,39 +1640,40 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     }
   }
 
-  async function connectOllama() {
-    if (connectingAi || busy || pilotBusy) return;
+  async function testAiConnection() {
+    if (aiConnectionRequest.current || busy || pilotBusy) return;
+    const controller = new AbortController();
+    const { signal } = controller;
+    aiConnectionRequest.current = controller;
     setConnectingAi(true);
     setBusy(true);
-    setError('');
     setConnectionTone('info');
-    setConnectionMessage('Test de connexion en cours… Vérification du serveur IA.');
+    setConnectionMessage('Test de connexion en cours… Lecture du catalogue du serveur IA.');
     try {
-      if (apiCompatible) {
-        const models = await service.discoverCompatibleModels?.(endpoint, apiKey);
-        setDetectedModels(models ?? []);
-        setConnectionTone(models?.length ? 'success' : 'warning');
-        if (!models) {
-          setConnectionMessage('Catalogue indisponible. Vous pouvez saisir l’identifiant du modèle manuellement.');
-        } else if (!models.length) {
-          setConnectionMessage('Serveur joignable. Aucun modèle proposé par le catalogue.');
-        } else {
-          setConnectionMessage(`Serveur joignable · ${models.length} identifiant(s) détecté(s).`);
-        }
+      const models = await awaitOrAbort(async () => apiCompatible
+        ? service.discoverCompatibleModels?.(endpoint, apiKey, signal)
+        : service.listModels(endpoint, signal), signal);
+      signal.throwIfAborted();
+      if (!models) {
+        setConnectionTone('warning');
+        setConnectionMessage('Catalogue indisponible. Vous pouvez saisir l’identifiant du modèle manuellement.');
         return;
       }
-      const models = await service.listModels(endpoint);
       setDetectedModels(models);
-      // Listing models must not assign an arbitrary family or replace the user's selection.
-      if (!secondAnalysisModel && models[1]) setSecondAnalysisModel(models[1].name);
-      if (!arbitratorModel && models[0]) setArbitratorModel(models[0].name);
+      if (!apiCompatible) {
+        if (!secondAnalysisModel && models[1]) setSecondAnalysisModel(models[1].name);
+        if (!arbitratorModel && models[0]) setArbitratorModel(models[0].name);
+      }
       setConnectionTone(models.length ? 'success' : 'warning');
-      setConnectionMessage(models.length ? `Connexion réussie · ${models.length} modèle(s) disponible(s). Choisissez votre modèle génératif et, si besoin, un modèle décisionnel.` : 'Connexion réussie, mais aucun modèle installé. Installez un modèle compatible avec les images et un modèle pour l’analyse.');
+      setConnectionMessage(models.length
+        ? `Connexion réussie · ${models.length} modèle(s) disponible(s). Choisissez un modèle dans la liste.`
+        : 'Serveur joignable. Le catalogue ne propose aucun modèle. Vous pouvez saisir un identifiant manuellement.');
     } catch (cause) {
-      setDetectedModels([]);
+      if (signal.aborted) return;
       setConnectionTone('error');
       setConnectionMessage(describeAiConnectionFailure(cause, endpoint, window.location.protocol));
     } finally {
+      aiConnectionRequest.current = null;
       setConnectingAi(false);
       setBusy(false);
     }
@@ -4802,7 +4810,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
           <div className="ai-profile-actions"><Button variant="secondary" onClick={saveAiModelProfile}>Enregistrer cette configuration</Button><Button variant="secondary" disabled={!selectedAiModelProfileId || busy || pilotBusy} onClick={() => setPendingAiProfileRemoval(aiModelProfiles.find((profile) => profile.id === selectedAiModelProfileId) ?? null)}>Supprimer cette configuration</Button><Button variant="secondary" disabled={busy || pilotBusy || aiModelProfiles.length === 0} onClick={() => setManagingAiProfiles(true)}>Gérer les configurations ({aiModelProfiles.length})</Button></div>
           {aiModelProfileMessage && <StatusNotice tone={aiModelProfileTone}>{aiModelProfileMessage}</StatusNotice>}
         </div>
-        <AiConnectionFields prefix="ai" endpoint={endpoint} apiCompatible={apiCompatible} apiKey={apiKey} connecting={connectingAi} disabled={busy || pilotBusy} onTransport={updateAiTransport} onEndpoint={updateAiEndpoint} onApiKey={updateAiKey} onConnect={() => void connectOllama()} />
+        <AiConnectionFields prefix="ai" endpoint={endpoint} apiCompatible={apiCompatible} apiKey={apiKey} connecting={connectingAi} disabled={busy || pilotBusy} onTransport={updateAiTransport} onEndpoint={updateAiEndpoint} onApiKey={updateAiKey} onConnect={() => void testAiConnection()} onCancel={stopAiConnection} />
         {connectionMessage && <StatusNotice tone={connectionTone}>{connectionMessage}</StatusNotice>}
         <AiModelRoleFields prefix="ai" models={detectedModels} generativeModel={generativeModel} decisionModel={decisionModel} method={correctionMethod} apiCompatible={apiCompatible} visionModel={visionModel} analysisThinking={analysisThinking} analysisReasoningEffort={analysisReasoningEffort} omitReasoningParameter={omitReasoningParameter} onReasoning={updateReasoning} nativeChat={aiTransport(apiCompatible, endpoint) === 'lmstudio-chat'} responses={aiTransport(apiCompatible, endpoint) === 'lmstudio-responses'} smartZoom={smartZoom} onSmartZoom={setSmartZoom} contextLength={contextLength} onContextLength={setContextLength} gradingOutputTokens={gradingOutputTokens} onGradingOutputTokens={setGradingOutputTokens} analysisTemperature={analysisTemperature} analysisTopP={analysisTopP} analysisTopK={analysisTopK} onAnalysisTemperature={setAnalysisTemperature} onAnalysisTopP={setAnalysisTopP} onAnalysisTopK={setAnalysisTopK} onGenerativeModel={changeGenerativeModel} onDecisionModel={setDecisionModel} onMethod={setCorrectionMethod} disabled={busy || pilotBusy} />
         <details className="ai-model-advanced"><summary>Options avancées de lecture et de correction</summary>
@@ -5061,7 +5069,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
           {aiModelProfileMessage && <StatusNotice tone={aiModelProfileTone}>{aiModelProfileMessage}</StatusNotice>}
         </div>
           <label className="field-label" htmlFor="ollama-endpoint">Adresse du serveur</label>
-          <input id="ollama-endpoint" value={endpoint} onChange={(event) => { setEndpoint(event.target.value); setDetectedModels([]); setConnectionMessage(''); setTranscription(null); }} placeholder="http://localhost:11434" />
+          <input id="ollama-endpoint" value={endpoint} disabled={connectingAi} onChange={(event) => updateAiEndpoint(event.target.value)} placeholder="http://localhost:11434" />
           <label className="field-label" htmlFor="ollama-vision-model">Modèle de lecture (vision)</label>
           {availableModels.length > 0 ? <DesignSystemSelect id="ollama-vision-model" value={visionModel} onChange={(event) => { setVisionModel(event.target.value); setTranscription(null); }}>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</DesignSystemSelect> : <input id="ollama-vision-model" value={visionModel} onChange={(event) => setVisionModel(event.target.value)} placeholder="ex. gemma3:4b, qwen2.5vl" />}
           <p className="hint">Ce modèle lit les images et transcrit la copie sans la corriger. Vous pouvez réutiliser la transcription pour relancer l’analyse sans relire la copie.</p>
@@ -5094,7 +5102,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
             <input id="ollama-analysis-thinking" type="checkbox" checked={analysisThinking} onChange={(event) => setAnalysisThinking(event.target.checked)} />
             <span><strong>Activer le mode thinking pour l’analyse</strong><small>Désactivé par défaut. Peut améliorer le raisonnement, mais allonger fortement le temps de correction et ne fonctionne pas avec tous les modèles.</small></span>
           </label>
-          <button type="button" className="secondary-button full-button" disabled={busy} onClick={() => void connectOllama()}>{busy ? 'Connexion…' : 'Tester la connexion et lister les modèles'}</button>
+          <button type="button" className="secondary-button full-button" disabled={busy} onClick={() => void testAiConnection()}>{connectingAi ? 'Connexion en cours…' : 'Tester la connexion et lister les modèles'}</button>{connectingAi && <button type="button" className="secondary-button" onClick={stopAiConnection}>Annuler le test de connexion</button>}
           {connectionMessage && <StatusNotice tone={connectionTone}>{connectionMessage}</StatusNotice>}
           <p className="hint">Le modèle de lecture doit accepter les images ; le modèle d’analyse peut être textuel. Si le navigateur bloque la connexion, configurez les origines CORS d’Ollama pour votre adresse locale.</p></article>
           <div className="debug-run-actions"><button type="button" className="primary-button" disabled={busy || !images.length || !gradingModelsReady || !validation.valid || !subjectReady || Boolean(diagramIssue)} onClick={() => { if (isScientificDiagramAssignment) void queueCurrentCopy(); else void gradeCopies(); }}>{busy ? 'Diagnostic local en cours…' : 'Lancer le diagnostic avancé'}</button>{busy && <button type="button" className="secondary-button" onClick={cancelModelEvaluation}>Annuler après l’appel en cours</button>}</div>
@@ -6314,7 +6322,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
           <div className="evaluation-config-fields">
             <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-profile-select">Charger un profil existant</label><DesignSystemSelect id="evaluation-profile-select" disabled={connectingAi} value={selectedAiModelProfileId} onChange={(event) => { const profile = aiModelProfiles.find((item) => item.id === event.target.value); if (profile) { setAiModelProfileName(profile.name); applyAiModelProfile(profile); } else { setSelectedAiModelProfileId(''); } }}><option value="">Nouvelle configuration / réglages courants</option>{aiModelProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name} · {profile.configuration.correctionMethod === 'visual-decision' ? 'vision + décisionnel direct' : profile.configuration.correctionMethod === 'decision' ? 'décisionnelle' : 'classique'}</option>)}</DesignSystemSelect></div>
             <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-profile-name">Nom de la configuration</label><input id="evaluation-profile-name" value={aiModelProfileName} onChange={(event) => setAiModelProfileName(event.target.value)} placeholder="Ex. Gemma rapide, Qwen raisonnement…" /></div>
-            <AiConnectionFields prefix="evaluation" endpoint={endpoint} apiCompatible={apiCompatible} apiKey={apiKey} connecting={connectingAi} disabled={busy || pilotBusy} onTransport={updateAiTransport} onEndpoint={updateAiEndpoint} onApiKey={updateAiKey} onConnect={() => void connectOllama()} />
+            <AiConnectionFields prefix="evaluation" endpoint={endpoint} apiCompatible={apiCompatible} apiKey={apiKey} connecting={connectingAi} disabled={busy || pilotBusy} onTransport={updateAiTransport} onEndpoint={updateAiEndpoint} onApiKey={updateAiKey} onConnect={() => void testAiConnection()} onCancel={stopAiConnection} />
             {connectionMessage && <StatusNotice tone={connectionTone}>{connectionMessage}</StatusNotice>}
             <AiModelRoleFields prefix="evaluation" models={detectedModels} generativeModel={generativeModel} decisionModel={decisionModel} method={correctionMethod} apiCompatible={apiCompatible} visionModel={visionModel} analysisThinking={analysisThinking} analysisReasoningEffort={analysisReasoningEffort} omitReasoningParameter={omitReasoningParameter} onReasoning={updateReasoning} nativeChat={aiTransport(apiCompatible, endpoint) === 'lmstudio-chat'} responses={aiTransport(apiCompatible, endpoint) === 'lmstudio-responses'} smartZoom={smartZoom} onSmartZoom={setSmartZoom} contextLength={contextLength} onContextLength={setContextLength} gradingOutputTokens={gradingOutputTokens} onGradingOutputTokens={setGradingOutputTokens} analysisTemperature={analysisTemperature} analysisTopP={analysisTopP} analysisTopK={analysisTopK} onAnalysisTemperature={setAnalysisTemperature} onAnalysisTopP={setAnalysisTopP} onAnalysisTopK={setAnalysisTopK} onGenerativeModel={changeGenerativeModel} onDecisionModel={setDecisionModel} onMethod={setCorrectionMethod} disabled={busy || pilotBusy} />
           </div>

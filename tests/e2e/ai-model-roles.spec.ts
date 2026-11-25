@@ -177,7 +177,7 @@ test('LM Studio detects Gemma before a model is selected and reports its declare
   await panel.getByLabel('Connexion IA').selectOption('lmstudio-chat');
   await expect(panel.getByLabel('Modèle génératif')).toBeEmpty();
   await panel.getByRole('button', { name: 'Tester la connexion et détecter les modèles' }).click();
-  await expect(panel.getByText(/1 identifiant\(s\) détecté/)).toBeVisible();
+  await expect(panel.getByText(/1 modèle\(s\) disponible\(s\)/)).toBeVisible();
   await panel.getByLabel('Modèle génératif').selectOption('google/gemma');
   await expect(panel.getByText(/vision prise en charge.*appels d’outils/)).toBeVisible();
   await panel.getByLabel('Raisonnement', { exact: true }).selectOption('on');

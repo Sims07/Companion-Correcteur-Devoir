@@ -10,15 +10,18 @@ describe('discoverCompatibleModels', () => {
       expect(init?.body).toBeUndefined();
       return Response.json({ models: [
         { key: 'embedding', type: 'embedding' },
-        { key: 'gemma', type: 'llm', display_name: 'Gemma', variants: ['gemma@q4'], capabilities: {
+        { key: 'd1', type: 'decision' },
+        { key: 'gemma', type: 'llm', display_name: 'Gemma', variants: ['gemma@q4'], loaded_instances: [{ id: 'gemma' }, { id: 'gemma-local' }], capabilities: {
           vision: true, trained_for_tool_use: true, reasoning: { allowed_options: ['on', 'off'] },
         } },
       ] });
     });
     const models = await discoverCompatibleModels('https://mac.example/proxy/v1/responses', ' token ', fetchMock);
     expect(models).toEqual([
+      { name: 'd1', vision: undefined, tools: undefined, reasoningOptions: undefined },
       { name: 'gemma', label: 'Gemma', vision: true, tools: true, reasoningOptions: ['on', 'off'] },
       { name: 'gemma@q4', vision: true, tools: true, reasoningOptions: ['on', 'off'] },
+      { name: 'gemma-local', vision: true, tools: true, reasoningOptions: ['on', 'off'] },
     ]);
     expect(fetchMock).toHaveBeenCalledOnce();
   });
@@ -39,4 +42,30 @@ describe('discoverCompatibleModels', () => {
     await expect(discoverCompatibleModels('https://mac.example/v1/responses', '', denied)).rejects.toThrow('HTTP 401');
     expect(denied).toHaveBeenCalledOnce();
   });
+});
+
+it('tries the compatible catalogue when the native request hangs behind the HTTPS proxy', async () => {
+  vi.useFakeTimers();
+  try {
+    const fetchMock = vi.fn<typeof fetch>(async url => String(url).includes('/api/')
+      ? new Promise<Response>(() => {})
+      : Response.json({ data: [{ id: 'gemma-local' }] }));
+    const assertion = expect(discoverCompatibleModels('https://macmini.example:8443/v1/responses', '', fetchMock))
+      .resolves.toEqual([{ name: 'gemma-local' }]);
+    await vi.advanceTimersByTimeAsync(3_000);
+    await assertion;
+    expect(fetchMock.mock.calls[0][1]?.signal?.aborted).toBe(true);
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      'https://macmini.example:8443/api/v1/models', 'https://macmini.example:8443/v1/models',
+    ]);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it('uses the sibling models route on a custom Chat Completions proxy', async () => {
+  const fetchMock = vi.fn<typeof fetch>(async () => Response.json({ data: [{ id: 'qwen' }] }));
+  await expect(discoverCompatibleModels('https://proxy.example/openai/chat/completions/', '', fetchMock))
+    .resolves.toEqual([{ name: 'qwen' }]);
+  expect(fetchMock.mock.calls[0][0]).toBe('https://proxy.example/openai/models');
 });

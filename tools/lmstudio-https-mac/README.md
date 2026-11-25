@@ -41,3 +41,25 @@ python3 -m unittest discover -s tests/python -p 'test_mac_https_keep_awake.py' -
 ```
 
 Les tests simulent macOS et `caffeinate` sans toucher aux réglages d'énergie.
+
+## Vérifier le catalogue à travers le proxy HTTPS
+
+Depuis le Mac client, interroger les deux routes sur l’adresse HTTPS utilisée
+dans le Compagnon. Remplacer `mac-mini.local` par le nom du Mac mini.
+
+```bash
+curl -i --max-time 5 https://mac-mini.local:8443/api/v1/models
+curl -i --max-time 5 https://mac-mini.local:8443/v1/models
+```
+
+Si LM Studio exige un jeton, ajouter `-H "Authorization: Bearer $LM_API_TOKEN"`
+aux commandes. Depuis le Mac mini, effectuer les mêmes requêtes avec
+`http://127.0.0.1:1234` pour comparer avec l’API servie directement.
+
+- Si LM Studio répond directement et que le même chemin échoue via HTTPS,
+  vérifier que Caddy transmet les requêtes `GET` de ce chemin à LM Studio
+  sans retirer le préfixe `/api/v1` ou `/v1`.
+- Si HTTPS renvoie le catalogue JSON et que seul le navigateur échoue,
+  vérifier le certificat, les autorisations réseau local et les en-têtes CORS.
+  Avec un jeton API, vérifier également la prérequête `OPTIONS` et
+  l’autorisation de l’en-tête `Authorization`.

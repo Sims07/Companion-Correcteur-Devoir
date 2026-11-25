@@ -46,3 +46,59 @@ test('teacher settings reports connection failure inline instead of a distant er
   await expect(panel.locator('.ds-status-notice--error')).toContainText('Impossible de joindre le serveur IA');
   await expect(panel.getByRole('button', { name: 'Tester la connexion et détecter les modèles' })).toBeEnabled();
 });
+
+test('LM Studio Responses lists models when the native catalogue hangs behind the HTTPS proxy', async ({ page }) => {
+  await page.goto('/');
+  const editor = await openModelEditor(page);
+  const origin = 'https://macmini.example:8443';
+  const requests: string[] = [];
+  let releaseNativeRequest!: () => void;
+  const nativeRequest = new Promise<void>(resolve => { releaseNativeRequest = resolve; });
+  await page.route(origin + '/**', async route => {
+    const path = new URL(route.request().url()).pathname;
+    requests.push(route.request().method() + ' ' + path);
+    if (path === '/api/v1/models') {
+      await nativeRequest;
+      await route.abort().catch(() => {});
+      return;
+    }
+    await route.fulfill({ json: { data: [{ id: 'gemma-local' }] }, headers: { 'access-control-allow-origin': '*' } });
+  });
+  await editor.getByLabel('Connexion IA').selectOption('lmstudio-chat');
+  await editor.getByLabel('URL de l’API IA').fill(origin + '/v1/responses');
+  await editor.getByLabel('Modèle génératif', { exact: true }).fill('modele-manuel');
+  try {
+    await editor.getByRole('button', { name: 'Tester la connexion et détecter les modèles' }).dblclick();
+    await expect(editor.getByRole('button', { name: 'Connexion en cours…' })).toBeDisabled();
+    await expect(editor.locator('.ds-status-notice--success')).toContainText('1 modèle(s) disponible(s)');
+    await expect(editor.locator('#evaluation-analysis-model option')).toContainText(['Choisir un modèle', 'modele-manuel', 'gemma-local']);
+    await expect(editor.locator('#evaluation-analysis-model')).toHaveValue('modele-manuel');
+    expect(requests).toEqual(['GET /api/v1/models', 'GET /v1/models']);
+  } finally {
+    releaseNativeRequest();
+  }
+});
+
+test('cancels catalogue discovery and keeps the configured model', async ({ page }) => {
+  await page.goto('/');
+  const editor = await openModelEditor(page);
+  let releaseResponse!: () => void;
+  const pendingResponse = new Promise<void>(resolve => { releaseResponse = resolve; });
+  await page.route('http://localhost:11434/api/tags', async route => {
+    await pendingResponse;
+    await route.fulfill({ json: { models: [{ name: 'reponse-tardive' }] }, headers: { 'access-control-allow-origin': '*' } })
+      .catch(() => {});
+  });
+  await editor.getByLabel('Modèle génératif', { exact: true }).fill('modele-manuel');
+  try {
+    const request = page.waitForRequest('http://localhost:11434/api/tags');
+    await editor.getByRole('button', { name: 'Tester la connexion et détecter les modèles' }).click();
+    await request;
+    await editor.getByRole('button', { name: 'Annuler le test de connexion' }).click();
+    await expect(editor.getByText('Test de connexion annulé.')).toBeVisible();
+    await expect(editor.getByRole('button', { name: 'Tester la connexion et détecter les modèles' })).toBeEnabled();
+    await expect(editor.locator('#evaluation-analysis-model')).toHaveValue('modele-manuel');
+  } finally {
+    releaseResponse();
+  }
+});
