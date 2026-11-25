@@ -8,6 +8,7 @@ import { copyNetworkRequestMetadata } from '../../ports/networkRequestMetadata.t
 export interface ZoomDiagramTurn {
   model: string;
   store?: boolean;
+  stream?: boolean;
   criterionLabel?: string;
   messages: { content: string; images?: string[] }[];
   think: boolean | string;
@@ -106,7 +107,7 @@ export async function sendLmStudioZoomDiagramTurn(
   for (let turnIndex = 0; turnIndex < 5; turnIndex++) {
     signal?.throwIfAborted();
     const body = {
-      model: turn.model, stream: true, store: turn.store ?? true,
+      model: turn.model, stream: turn.stream ?? true, store: turn.store ?? true,
       ...(previousId ? { previous_response_id: previousId } : {}),
       input,
       ...(enableZoom && inspections < 2 ? { tools: [TOOL], tool_choice: 'auto' } : {}),
@@ -158,10 +159,12 @@ export async function sendLmStudioZoomDiagramTurn(
       if (turn.store !== false && text.trim() && !atLimit) conversation.responseId = previousId;
       const last = { message: { content: text, ...(reasoning ? { thinking: reasoning } : {}) },
         done: true, done_reason: atLimit ? 'length' : text.trim() ? 'stop' : 'no_verdict',
+        provider_status: payload.status, reported_output_tokens: payload.usage?.output_tokens,
+        reasoning_tokens: payload.usage?.output_tokens_details?.reasoning_tokens,
         prompt_eval_count: totalInput, eval_count: totalOutput, usage: { prompt_tokens: totalInput,
           completion_tokens: totalOutput, total_tokens: total || totalInput + totalOutput } };
       return new Response(JSON.stringify(last) + '\n', {
-        status: 200, headers: { 'Content-Type': 'application/x-ndjson' },
+        status: response.status, headers: { 'Content-Type': 'application/x-ndjson' },
       });
     }
     const next: unknown[] = [];

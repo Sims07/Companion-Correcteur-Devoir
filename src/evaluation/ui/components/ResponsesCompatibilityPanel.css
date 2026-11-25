@@ -1,0 +1,40 @@
+.responses-compatibility-efforts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem 1rem;
+  margin: 1rem 0;
+}
+
+.responses-compatibility-efforts label {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+}
+
+.responses-compatibility-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+}
+
+.responses-compatibility-results {
+  overflow-x: auto;
+}
+
+.responses-compatibility-results table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .875rem;
+}
+
+.responses-compatibility-results caption,
+.responses-compatibility-results th,
+.responses-compatibility-results td {
+  padding: .5rem;
+  text-align: start;
+}
+
+.responses-compatibility-results th,
+.responses-compatibility-results td {
+  border-bottom: 1px solid var(--border, #dbe2ea);
+}

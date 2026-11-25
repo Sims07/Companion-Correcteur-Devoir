@@ -95,6 +95,7 @@ import { describeAiConnectionFailure } from '../../shared/domain/aiConnectionDia
 import { biologyRadarObservations, loadBiologyRadarHistory, mergeBiologyRadarHistory, saveBiologyRadarHistory } from '../../evaluation/domain/biologyTeacherRadar.ts';
 import type { DiagramThinkSetting, EvaluationVisionGateway } from '../../evaluation/ports/evaluationVision.ts';
 import { ScientificDiagramProtocolPanel, downloadScientificDiagramJson, type DiagramProtocolRequest } from '../../evaluation/ui/components/ScientificDiagramProtocolPanel.tsx';
+import { ResponsesCompatibilityPanel } from '../../evaluation/ui/components/ResponsesCompatibilityPanel.tsx';
 import { ZoomWitnessPanel } from '../../evaluation/ui/components/ZoomWitnessPanel.tsx';
 import { ScientificDiagramLabHistory } from '../../evaluation/ui/components/ScientificDiagramLabHistory.tsx';
 import type { RadarMissingTestRequest } from '../../evaluation/domain/diagramLabRadarLaunch.ts';
@@ -4970,6 +4971,9 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
         <button type="button" hidden={evaluationJourney !== 'custom' || (!modelEvaluationResults.length && evaluationWorkspaceStep !== 'results')} className={evaluationWorkspaceStep === 'results' ? 'is-active' : ''} aria-current={evaluationWorkspaceStep === 'results' ? 'page' : undefined} onClick={() => setEvaluationWorkspaceStep('results')}><strong>Résultats</strong></button>
         <button type="button" className={campaignsOpen ? 'is-active' : ''} aria-current={campaignsOpen ? 'page' : undefined} onClick={() => showCampaigns({})}><strong>Campagnes</strong></button>
       </nav>}
+      <ResponsesCompatibilityPanel profiles={aiModelProfiles} evaluationOpen={interfaceMode === 'diagnostic'} busy={busy || pilotBusy || radarAutoBusy}
+        current={{ endpoint, apiCompatible, apiKey, analysisModel, gradingOutputTokens, analysisTemperature, analysisTopP }}
+        visible={interfaceMode === 'diagnostic' && evaluationJourney === 'diagrams' && diagramLabView === 'protocols' && evaluationWorkspaceStep === 'configuration'} />
       {interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration' && service.generateCopyAnnotations && <CopyAnnotationLab
         state={annotationLab.state} result={annotationLabResult} onGenerate={startCopyAnnotationLab} onStop={annotationLab.cancel}
       />}
