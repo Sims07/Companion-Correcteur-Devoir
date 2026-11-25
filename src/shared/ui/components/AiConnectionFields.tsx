@@ -12,6 +12,7 @@ interface Props {
   onEndpoint: (value: string) => void;
   onApiKey: (value: string) => void;
   onConnect: () => void;
+  onCancel: () => void;
 }
 
 export function AiConnectionFields(props: Props) {
@@ -53,9 +54,10 @@ export function AiConnectionFields(props: Props) {
       </div>}
     </details>}
     <div className="evaluation-config-field">
-      <button type="button" className="secondary-button" disabled={disabled} aria-busy={connecting} onClick={props.onConnect}>
+      <button type="button" className="secondary-button" disabled={disabled || connecting} aria-busy={connecting} onClick={props.onConnect}>
         {connecting ? 'Connexion en cours…' : 'Tester la connexion et détecter les modèles'}
       </button>
+      {connecting && <button type="button" className="secondary-button" onClick={props.onCancel}>Annuler le test de connexion</button>}
     </div>
   </>;
 }

@@ -35,3 +35,13 @@ describe('Ollama model list connectivity', () => {
     await expect(listOllamaModels('http://localhost:11434', mock)).rejects.toThrow(/HTTP 403/);
   });
 });
+
+it('deduplicates Ollama identifiers and rejects responses without a catalogue', async () => {
+  const fetchMock = vi.fn<typeof fetch>()
+    .mockResolvedValueOnce(Response.json({ models: [{ name: 'gemma:4b' }, { model: 'gemma:4b' }, { model: 'qwen:4b' }] }))
+    .mockResolvedValueOnce(Response.json({ message: 'Proxy response' }));
+  await expect(listOllamaModels('http://localhost:11434', fetchMock)).resolves.toEqual([
+    { name: 'gemma:4b' }, { name: 'qwen:4b' },
+  ]);
+  await expect(listOllamaModels('http://localhost:11434', fetchMock)).rejects.toThrow('catalogue Ollama invalide');
+});
