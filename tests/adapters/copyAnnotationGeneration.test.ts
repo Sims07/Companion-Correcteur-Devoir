@@ -1,10 +1,11 @@
 import { expect, it, vi } from 'vitest';
+import { requiredCopyAnnotationDeductions } from '../../src/correction/domain/copyAnnotationSuggestions.ts';
 import { generateCopyAnnotations } from '../../src/correction/adapters/ai/generateCopyAnnotations.ts';
 
 const image = { mimeType: 'image/png', base64: 'synthetic' };
 const criteria = [{ criterionId: 'titre', title: 'Titre', points: 1, maxPoints: 2, evidence: 'Titre visible', rationale: 'À souligner' }];
 const base = { endpoint: 'http://127.0.0.1:11434', apiCompatible: false, apiKey: '', model: 'vision' };
-const content = '{"annotations":[{"message":"Souligne le titre.","criterionId":"titre"}]}';
+const content = JSON.stringify({ annotations: [{ message: 'Souligne le titre.', criterionId: 'titre', tone: 'improvement', deductionId: requiredCopyAnnotationDeductions(criteria)[0].deductionId }] });
 const phase = vi.fn();
 
 it('sends every page in a single request to Ollama and returns reviewable suggestions', async () => {
@@ -18,6 +19,8 @@ it('sends every page in a single request to Ollama and returns reviewable sugges
   const payload = JSON.parse(String(init?.body));
   expect(payload.messages[0].images).toEqual([image.base64, image.base64]);
   expect(payload.messages[0].content).toContain('"points":1');
+  expect(payload.messages[0].content).toContain('Déductions obligatoires');
+  expect(payload.messages[0].content).toContain(requiredCopyAnnotationDeductions(criteria)[0].deductionId);
   expect(payload.messages[0].content).toContain('tone:"positive"');
   expect(payload.messages[0].content).toContain('tone:"improvement"');
   expect(payload.messages[0].content).toContain('Pour chaque page, planifie ensemble les positions');
@@ -54,4 +57,18 @@ it('blocks public endpoints before uploading and rejects a truncated generation'
   controller.abort();
   await expect(generateCopyAnnotations([image], criteria, base, controller.signal, phase, fetcher)).rejects.toMatchObject({ name: 'AbortError' });
   expect(fetcher).toHaveBeenCalledOnce();
+});
+
+it('keeps each missed subcriterion as an unplaced improvement when the model returns only praise', async () => {
+  const detailed = [{ ...criteria[0], subcriteria: [
+    { subcriterionId: 'present', title: 'Présent', points: 1, maxPoints: 1, evidence: 'Titre présent' },
+    { subcriterionId: 'underlined', title: 'Souligné ou encadré', points: 0, maxPoints: 1, evidence: 'Titre non souligné' },
+  ] }];
+  const fetcher = vi.fn<typeof fetch>().mockResolvedValue(Response.json({ message: { content: '{"annotations":[{"message":"Beau dessin","tone":"positive"}]}' } }));
+  const notes = await generateCopyAnnotations([image], detailed, base, new AbortController().signal, phase, fetcher);
+  expect(notes[0]).toMatchObject({ criterionId: 'titre', tone: 'improvement', message: 'Titre — Souligné ou encadré : Titre non souligné', status: 'suggested' });
+  expect(notes[0].placement).toBeUndefined();
+  expect(notes[1].tone).toBe('positive');
+  const payload = JSON.parse(String(fetcher.mock.calls[0][1]?.body));
+  expect(payload.messages[0].content).toContain('Souligné ou encadré');
 });
