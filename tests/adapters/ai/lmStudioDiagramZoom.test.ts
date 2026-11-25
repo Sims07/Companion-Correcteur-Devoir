@@ -157,16 +157,16 @@ describe('LM Studio on-demand smart zoom (Responses API)', () => {
     }
   });
 
-  it('refuses a third crop even if a model requests more tool calls', async () => {
+  it('honors a configured two-crop ceiling and explicitly requests a verdict', async () => {
     vi.mocked(cropOriginalDiagram).mockClear();
     const calls: Record<string, any>[] = [];
     const fetchMock: typeof fetch = async (_url, init) => {
       calls.push(JSON.parse(String(init?.body)));
       return calls.length === 1
-        ? completion('resp_1', [toolCall('a'), toolCall('b'), toolCall('c')])
+        ? completion('resp_1', [toolCall('a'), toolCall('b', { ...region, x: 0.3 }), toolCall('c', { ...region, x: 0.4 })])
         : completion('resp_2', [{ type: 'message', content: [{ type: 'output_text', text: 'incertain' }] }]);
     };
-    await sendLmStudioZoomDiagramTurn(endpoint, '', {}, turn, originals, {}, fetchMock, () => {});
+    await sendLmStudioZoomDiagramTurn(endpoint, '', {}, { ...turn, zoomBudget: 2 }, originals, {}, fetchMock, () => {});
     expect(cropOriginalDiagram).toHaveBeenCalledTimes(2);
     expect(calls[1].tools).toBeUndefined();
     expect(calls[1].input.filter((item: {type: string}) => item.type === 'function_call_output')).toHaveLength(3);
@@ -187,7 +187,7 @@ describe('LM Studio on-demand smart zoom (Responses API)', () => {
     expect(calls[1].input[1].output).toContain('non autorisé');
   });
 
-  it('holds the two-zoom ceiling across repair calls but resets the budget for the next criterion', async () => {
+  it('holds the configured zoom ceiling across repair calls but resets the budget for the next criterion', async () => {
     vi.mocked(cropOriginalDiagram).mockClear();
     const calls: Record<string, any>[] = [];
     const response = (id: string) => completion(id, [{
@@ -196,11 +196,11 @@ describe('LM Studio on-demand smart zoom (Responses API)', () => {
     const fetchMock: typeof fetch = async (_url, init) => {
       const body = JSON.parse(String(init?.body));
       calls.push(body);
-      if (calls.length === 1) return completion('resp_tool', [toolCall('a'), toolCall('b')]);
+      if (calls.length === 1) return completion('resp_tool', [toolCall('a'), toolCall('b', { ...region, x: 0.3 })]);
       return response('resp_' + calls.length);
     };
     const conversation: { responseId?: string; zoomAttempts?: Record<string, number> } = {};
-    const first = { ...turn, criterionLabel: '1/2 · Légendes' };
+    const first = { ...turn, zoomBudget: 2, criterionLabel: '1/2 · Légendes' };
     await sendLmStudioZoomDiagramTurn(endpoint, '', conversation, first, originals, {}, fetchMock, () => {});
     expect(cropOriginalDiagram).toHaveBeenCalledTimes(2);
     expect(conversation.zoomAttempts?.['1/2 · Légendes']).toBe(2);
@@ -210,6 +210,30 @@ describe('LM Studio on-demand smart zoom (Responses API)', () => {
     await sendLmStudioZoomDiagramTurn(endpoint, '', conversation, { ...turn,
       criterionLabel: '2/2 · Titre' }, originals, {}, fetchMock, () => {});
     expect(calls[3].tools?.[0]?.name).toBe('inspect_region');
+  });
+
+  it('allows successive adjustments, rejects repeated regions separately and recovers a reasoning-only verdict', async () => {
+    vi.mocked(cropOriginalDiagram).mockClear();
+    const calls: Record<string, any>[] = [];
+    const conversation: ZoomConversation = {};
+    const fetchMock: typeof fetch = async (_url, init) => {
+      calls.push(JSON.parse(String(init?.body)));
+      const i = calls.length;
+      if (i === 1) return completion('resp_1', [toolCall('a')]);
+      if (i === 2) return completion('resp_2', [toolCall('duplicate')]);
+      if (i <= 5) return completion('resp_' + i, [toolCall('adjust_' + i, { ...region, width: 0.3 + i * 0.05 })]);
+      if (i === 6) return completion('resp_6', [{ type: 'reasoning', content: [{ type: 'reasoning_text', text: 'Je dois conclure' }] }]);
+      return completion('resp_final', [{ type: 'message', content: [{ type: 'output_text', text: '{"ok":true}' }] }]);
+    };
+    const result = await sendLmStudioZoomDiagramTurn(endpoint, '', conversation, turn, originals, {}, fetchMock, () => {});
+    expect((await result.json()).message.content).toBe('{"ok":true}');
+    expect(cropOriginalDiagram).toHaveBeenCalledTimes(4);
+    expect(conversation.zoomAttempts?.['Barème complet']).toBe(4);
+    expect(conversation.zoomRejections?.['Barème complet']).toBe(1);
+    expect(calls[5].tools).toBeDefined();
+    expect(calls[6].tools).toBeUndefined();
+    expect(calls[6].previous_response_id).toBe('resp_6');
+    expect(JSON.stringify(calls[6].input)).toContain('Termine maintenant');
   });
 
   it('propagates cancellation before contacting LM Studio', async () => {

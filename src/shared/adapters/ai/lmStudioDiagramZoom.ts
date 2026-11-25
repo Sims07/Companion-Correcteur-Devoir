@@ -10,6 +10,7 @@ export interface ZoomDiagramTurn {
   store?: boolean;
   stream?: boolean;
   criterionLabel?: string;
+  zoomBudget?: number;
   messages: { content: string; images?: string[] }[];
   think: boolean | string;
   omitReasoningParameter?: boolean;
@@ -17,7 +18,14 @@ export interface ZoomDiagramTurn {
   format?: unknown;
 }
 export interface ZoomTrace { criterion: string; region: ZoomRegion; cropWidth: number; cropHeight: number; status: 'inspected' | 'rejected'; }
-export interface ZoomConversation { responseId?: string; zoomHistory?: ZoomTrace[]; zoomAttempts?: Record<string, number> }
+export interface ZoomConversation { responseId?: string; zoomHistory?: ZoomTrace[]; zoomAttempts?: Record<string, number>; zoomRejections?: Record<string, number> }
+
+export const DEFAULT_ZOOM_BUDGET = 6;
+export function parseZoomBudget(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 10 ? value : undefined;
+}
+const MAX_REJECTIONS = 3;
+const CONCLUDE = 'Termine maintenant à partir des observations disponibles, sans appeler d’outil. Produis la réponse finale demandée et signale les incertitudes sans inventer de preuve.';
 
 const TOOL = {
   type: 'function',
@@ -85,11 +93,18 @@ export async function sendLmStudioZoomDiagramTurn(
   const criterion = turn.criterionLabel ?? 'Barème complet';
   conversation.zoomAttempts ??= {};
   const attempts = conversation.zoomAttempts;
+  const budget = parseZoomBudget(turn.zoomBudget) ?? DEFAULT_ZOOM_BUDGET;
+  conversation.zoomRejections ??= {};
+  const rejections = conversation.zoomRejections;
+  let rejected = rejections[criterion] ?? 0;
+  let concluding = false;
+  let recovered = false;
+  const reject = () => { rejected++; rejections[criterion] = rejected; };
   const firstImage = conversation.responseId
     ? [] : (turn.messages[0]?.images ?? []).map(image_url => ({ type: 'input_image', image_url }));
   const prompt = (turn.messages[0]?.content ?? '') +
     (turn.format ? '\nRéponds avec un JSON conforme à ce schéma :\n' + JSON.stringify(turn.format) : '') +
-    (enableZoom ? '\nTu peux appeler inspect_region pour vérifier au maximum deux détails ambigus de CE critère. ' +
+    (enableZoom ? `\nTu peux appeler inspect_region jusqu’à ${budget} fois pour CE critère. Ajuste ou élargis le cadre si nécessaire, mais ne redemande pas exactement la même zone. ` +
     'N’appelle pas cet outil lorsque tu peux déjà conclure. N’invente aucune connexion entre légende et structure. ' +
     'Si l’identification d’une structure biologique est incertaine, cadre la structure et les repères voisins utiles pour la distinguer, même sans légende. ' +
     'Si le zoom reste ambigu, indique que l’identification est incertaine. ' +
@@ -104,13 +119,18 @@ export async function sendLmStudioZoomDiagramTurn(
   let total = 0;
   let text = '';
 
-  for (let turnIndex = 0; turnIndex < 5; turnIndex++) {
+  for (let turnIndex = 0; turnIndex < budget + MAX_REJECTIONS + 2; turnIndex++) {
     signal?.throwIfAborted();
+    const toolsAllowed = enableZoom && !concluding && inspections < budget && rejected < MAX_REJECTIONS;
+    if (enableZoom && !toolsAllowed && !concluding) {
+      concluding = true;
+      input.push({ role: 'user', content: [{ type: 'input_text', text: CONCLUDE }] });
+    }
     const body = {
       model: turn.model, stream: turn.stream ?? true, store: turn.store ?? true,
       ...(previousId ? { previous_response_id: previousId } : {}),
       input,
-      ...(enableZoom && inspections < 2 ? { tools: [TOOL], tool_choice: 'auto' } : {}),
+      ...(toolsAllowed ? { tools: [TOOL], tool_choice: 'auto' } : {}),
       ...(turn.options.num_predict !== undefined ? { max_output_tokens: turn.options.num_predict } : {}),
       ...(turn.options.temperature !== undefined ? { temperature: turn.options.temperature } : {}),
       ...(turn.options.top_p !== undefined ? { top_p: turn.options.top_p } : {}),
@@ -120,7 +140,7 @@ export async function sendLmStudioZoomDiagramTurn(
           turn.think === true || turn.think === 'on' ? 'medium' : turn.think } } : {}),
     };
     // Never persist copies or crops in the network request inspector.
-    preview({ ...body, input: '[TEXT / IMAGE REDACTED]', tools: enableZoom && inspections < 2 ? ['inspect_region'] : [] });
+    preview({ ...body, input: '[TEXT / IMAGE REDACTED]', tools: toolsAllowed ? ['inspect_region'] : [] });
     const response = await fetchImpl(url, copyNetworkRequestMetadata(init, {
       ...init,
       method: 'POST', headers: { 'Content-Type': 'application/json',
@@ -155,6 +175,12 @@ export async function sendLmStudioZoomDiagramTurn(
       text = responsesMessage(payload);
       const reasoning = responsesReasoning(payload) || payload.streamedReasoning;
       const atLimit = responsesAtLimit(payload, text, turn.options.num_predict);
+      if (enableZoom && turn.store !== false && !atLimit && !text.trim() && !recovered && previousId?.startsWith('resp_')) {
+        recovered = true;
+        concluding = true;
+        input = [{ role: 'user', content: [{ type: 'input_text', text: CONCLUDE }] }];
+        continue;
+      }
       // Never promote reasoning or truncated JSON to a final answer.
       if (turn.store !== false && text.trim() && !atLimit) conversation.responseId = previousId;
       const last = { message: { content: text, ...(reasoning ? { thinking: reasoning } : {}) },
@@ -170,18 +196,23 @@ export async function sendLmStudioZoomDiagramTurn(
     const next: unknown[] = [];
     for (const call of calls) {
       if (!call.call_id) throw new Error('Appel de zoom sans identifiant.');
-      if (!enableZoom || call.name !== 'inspect_region' || inspections >= 2) {
+      if (!toolsAllowed || call.name !== 'inspect_region' || inspections >= budget || rejected >= MAX_REJECTIONS) {
         next.push({ type: 'function_call_output', call_id: call.call_id,
-          output: 'Outil non autorisé ou limite de deux inspections atteinte. Conclus sans zoom supplémentaire et signale toute incertitude.' });
+          output: 'Outil non autorisé ou budget d’inspection atteint. ' + CONCLUDE });
+        if (toolsAllowed && call.name !== 'inspect_region' && rejected < MAX_REJECTIONS) reject();
         continue;
       }
-      inspections++;
-      attempts[criterion] = inspections;
       try {
         const args = JSON.parse(call.arguments ?? '') as unknown;
         const region = validateZoomRegion(args, originalImages.length);
+        if (conversation.zoomHistory?.some(trace => trace.criterion === criterion && trace.status === 'inspected' &&
+          trace.region.page === region.page && (['x', 'y', 'width', 'height'] as const).every(key => Math.abs(trace.region[key] - region[key]) < 0.005))) {
+          throw new Error('Zone déjà inspectée : ajuste ou élargis le cadre');
+        }
         const evidence = await cropOriginalDiagram(originalImages[region.page - 1], region, signal);
         signal?.throwIfAborted();
+        inspections++;
+        attempts[criterion] = inspections;
         next.push({ type: 'function_call_output', call_id: call.call_id,
           output: 'La région demandée est jointe dans le message image suivant. Compare-la au dessin d’ensemble.' });
         next.push({ role: 'user', content: [
@@ -198,11 +229,18 @@ export async function sendLmStudioZoomDiagramTurn(
           cropHeight: evidence.cropHeight, status: 'inspected' } });
       } catch (error) {
         if (signal?.aborted) throw new DOMException('Zoom interrompu.', 'AbortError');
+        reject();
         next.push({ type: 'function_call_output', call_id: call.call_id,
           output: 'Recadrage impossible : ' + (error instanceof Error ? error.message : 'zone incorrecte') +
             '. Choisis une autre zone si le budget le permet, sinon signale le doute.' });
         preview({ smartZoom: { criterion, status: 'rejected' } });
       }
+    }
+    if (!toolsAllowed) {
+      if (recovered) throw new Error('LM Studio continue à demander des outils après le tour de conclusion.');
+      recovered = true;
+      concluding = true;
+      next.push({ role: 'user', content: [{ type: 'input_text', text: CONCLUDE }] });
     }
     input = next;
   }
