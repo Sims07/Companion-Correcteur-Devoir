@@ -69,7 +69,7 @@ export function AiModelRoleFields(props: Props) {
   const diagramUsesResponses = props.responses || (props.nativeChat && props.smartZoom);
   const mode: ReasoningMode = props.omitReasoningParameter && apiCompatible ? 'default'
     : props.analysisThinking ? apiCompatible ? props.analysisReasoningEffort ?? 'medium' : 'on'
-    : props.responses ? 'default' : 'off';
+    : 'off';
   const nativeOptions = props.nativeChat && !diagramUsesResponses ? selectedModel?.reasoningOptions : undefined;
   const efforts = (['low', 'medium', 'high'] as const).filter(effort =>
     !nativeOptions || nativeOptions.includes(effort) || mode === effort);
@@ -106,11 +106,11 @@ export function AiModelRoleFields(props: Props) {
       <DesignSystemSelect id={prefix + '-reasoning'} value={mode} disabled={disabled}
         onChange={event => props.onReasoning(event.target.value as ReasoningMode)}>
         {apiCompatible && <option value="default">Par défaut du modèle</option>}
-        {!props.responses && (!nativeOptions || nativeOptions.includes('off') || mode === 'off') && <option value="off">Désactivé</option>}
+        {(!nativeOptions || nativeOptions.includes('off') || mode === 'off') && <option value="off">Désactivé</option>}
         {(!apiCompatible || nativeOptions?.includes('on') || mode === 'on') && <option value="on">Activé</option>}
         {apiCompatible && efforts.map(effort => <option key={effort} value={effort}>{effortLabels[effort]}</option>)}
       </DesignSystemSelect>
-      {props.responses && <p className="hint">Pour désactiver le raisonnement des schémas via Responses, utilisez les réglages du modèle dans LM Studio.</p>}
+      {props.responses && <p className="hint">Le mode « Désactivé » transmet reasoning.effort = none à LM Studio Responses. « Par défaut du modèle » n’envoie pas de réglage.</p>}
       {props.nativeChat && props.smartZoom && mode === 'off' &&
         <p className="hint">Avec le zoom, les schémas suivent le réglage de raisonnement du modèle dans LM Studio.</p>}
       {apiCompatible && (props.nativeChat || props.responses) && !decision && <label className="analysis-thinking-option" htmlFor={prefix + '-smart-zoom'}>

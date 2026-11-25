@@ -66,13 +66,16 @@ describe('shared simple AI model controls', () => {
     expect(node.textContent).toContain('Ce modèle n’est pas reconnu comme compatible');
   });
 
-  it('restores the no-parameter choice for Instruct and shows the model default on Responses', () => {
+  it('restores the no-parameter choice for Instruct and exposes an explicit Thinking OFF on Responses', () => {
     const instruct = render({ apiCompatible: true, omitReasoningParameter: true, analysisThinking: true });
     expect(instruct.node.querySelector<HTMLSelectElement>('#evaluation-reasoning')?.value).toBe('default');
     const responses = render({ apiCompatible: true, responses: true, analysisThinking: false });
     const select = responses.node.querySelector<HTMLSelectElement>('#evaluation-reasoning')!;
-    expect(select.value).toBe('default');
-    expect(select.querySelector('option[value="off"]')).toBeNull();
+    expect(select.value).toBe('off');
+    expect(select.querySelector('option[value="off"]')?.textContent).toBe('Désactivé');
+    expect(responses.node.textContent).toContain('reasoning.effort = none');
+    act(() => { select.value = 'default'; select.dispatchEvent(new Event('change', { bubbles: true })); });
+    expect(responses.props.onReasoning).toHaveBeenCalledWith('default');
   });
 
   it('offers no imposed context threshold and supports a native Chat override', () => {
