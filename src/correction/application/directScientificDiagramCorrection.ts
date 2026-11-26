@@ -1,3 +1,4 @@
+import { createHybridDiagramShortcut } from './hybridDiagramShortcut.ts';
 import type { AiModelConfiguration } from '../../shared/domain/aiModelProfiles.ts';
 import type { GradingProposal } from '../domain/grading.ts';
 import { validateRubric } from '../domain/rubric.ts';
@@ -39,13 +40,17 @@ export async function correctScientificDiagramDirect(
     analysisTopK: configuration.analysisTopK,
     thinking: configuration.analysisThinking,
     ...(configuration.apiCompatible && configuration.analysisThinking ? { thinkingLevel: configuration.analysisReasoningEffort } : {}),
-    criterionByCriterion: configuration.criterionByCriterion,
+    criterionByCriterion: configuration.criterionByCriterion || configuration.hybridVisualLogprobs === true,
+    hybridVisualLogprobs: configuration.hybridVisualLogprobs,
+    omitReasoningParameter: configuration.omitReasoningParameter,
+    contextLength: configuration.contextLength,
     smartZoom: configuration.smartZoom,
     correctionMethod: 'generative' as const,
     diagnosticStrategy: 'single' as const,
   };
+  const shortcut = createHybridDiagramShortcut(settings, images, request.question);
   await gateway.checkReady({ ...settings, model: configuration.analysisModel });
   if (signal?.aborted) throw new DOMException('Traitement interrompu.', 'AbortError');
 
-  return gradeDiagramImages(gateway.createProvider(settings), request, configuration.criterionByCriterion, undefined, configuration.smartZoom === true);
+  return gradeDiagramImages(gateway.createProvider(settings), request, settings.criterionByCriterion, undefined, configuration.smartZoom === true, shortcut);
 }

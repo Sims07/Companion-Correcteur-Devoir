@@ -1,5 +1,6 @@
 import { placeAnnotationsAfterRotation, restoreCopyAnnotations } from '../domain/copyAnnotationFeature.ts';
 import { parseGradingProposal, toReviewedCriteria } from '../domain/grading.ts';
+import { createHybridDiagramShortcut } from './hybridDiagramShortcut.ts';
 import { gradeDiagramImages } from '../ports/gradeDiagramImages.ts';
 import { directDiagramAssignmentIssue } from '../domain/directDiagramAssignment.ts';
 import { sumGradeScores } from '../../shared/domain/scorePrecision.ts';
@@ -293,7 +294,7 @@ export function createBackgroundCorrectionService(
             // A scientific diagram assignment uses the same one-pass vision
             // engine as the laboratory, never OCR or double analysis.
             const split = Boolean(current.retryDiagramCriterionId) || jobSettings.criterionByCriterion === true
-              || current.partialCriteria.length > 0;
+              || current.partialCriteria.length > 0 || jobSettings.hybridVisualLogprobs === true;
             current = { ...current, phase: 'grading', criterionByCriterion: split,
               activeCriterionId: null, updatedAt: new Date().toISOString() };
             await persist(current);
@@ -307,6 +308,11 @@ export function createBackgroundCorrectionService(
             });
             if (issue) throw new Error(issue);
             const model = jobSettings.analysisModel ?? current.analysisModel;
+            const shortcut = createHybridDiagramShortcut({
+              ...jobSettings, analysisModel: model, correctionMethod: method,
+              // A teacher explicitly retrying a criterion requests a full analysis.
+              hybridVisualLogprobs: !current.retryDiagramCriterionId && jobSettings.hybridVisualLogprobs === true,
+            }, current.images, current.question);
             await withModelInactivityTimeout(requestAbortController, () =>
               workspace.checkReady({ ...jobSettings, model }));
             if (requestAbortController.signal.aborted) throw new DOMException('Traitement interrompu.', 'AbortError');
@@ -345,7 +351,7 @@ export function createBackgroundCorrectionService(
                   markActivity();
                   await updateProgress(null, []);
                 },
-              }, split, markActivity))
+              }, split, markActivity, jobSettings.smartZoom === true, shortcut))
               : null;
             signal.throwIfAborted();
             const partialCriteria = mergeCriteria(previous, assessment?.criteria ?? []);

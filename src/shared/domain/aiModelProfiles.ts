@@ -71,6 +71,8 @@ export interface AiModelConfiguration {
   criterionByCriterion: boolean;
   /** Allow a vision LLM to request up to two local high-resolution crops per rubric criterion. */
   smartZoom?: boolean;
+  /** Opt-in experimental shortcut for direct scientific diagram grading only. */
+  hybridVisualLogprobs?: boolean;
   /** Copy assessment policy, independent of the diagnostic comparison strategy. */
   correctionMethod: CorrectionMethod;
 }
@@ -120,6 +122,7 @@ export function parseAiModelConfiguration(raw: string | null): AiModelConfigurat
       omitReasoningParameter: candidate.omitReasoningParameter === true,
       ...(parseModelContextLength(candidate.contextLength) !== undefined ? { contextLength: parseModelContextLength(candidate.contextLength) } : {}),
       criterionByCriterion: candidate.criterionByCriterion !== false,
+      ...(candidate.hybridVisualLogprobs === true ? { hybridVisualLogprobs: true } : {}),
       ...(typeof candidate.smartZoom === 'boolean' ? { smartZoom: candidate.smartZoom } : {}),
       correctionMethod: parseCorrectionMethod(candidate.correctionMethod),
     };
@@ -132,7 +135,7 @@ function isConfiguration(value: unknown): value is AiModelConfiguration {
   if (candidate.generativeModel !== undefined && typeof candidate.generativeModel !== 'string') return false;
   if (candidate.decisionModel !== undefined && typeof candidate.decisionModel !== 'string') return false;
   return typeof candidate.endpoint === 'string' && (candidate.apiCompatible === undefined || typeof candidate.apiCompatible === 'boolean') && (candidate.apiKey === undefined || typeof candidate.apiKey === 'string') && typeof candidate.visionModel === 'string' && (candidate.transcriptionTokenLimit === undefined || typeof candidate.transcriptionTokenLimit === 'number') && (candidate.transcriptionPromptMode === undefined || candidate.transcriptionPromptMode === 'auto' || candidate.transcriptionPromptMode === 'ocr' || candidate.transcriptionPromptMode === 'general') && (candidate.transcriptionRepeatPenalty === undefined || typeof candidate.transcriptionRepeatPenalty === 'number') && (candidate.transcriptionPenaltyParameter === undefined || candidate.transcriptionPenaltyParameter === 'none' || candidate.transcriptionPenaltyParameter === 'frequency_penalty' || candidate.transcriptionPenaltyParameter === 'repeat_penalty') && (candidate.transcriptionFrequencyPenalty === undefined || typeof candidate.transcriptionFrequencyPenalty === 'number') && typeof candidate.analysisModel === 'string' &&
-    typeof candidate.secondAnalysisModel === 'string' && typeof candidate.arbitratorModel === 'string' && isStrategy(candidate.diagnosticStrategy) && typeof candidate.analysisThinking === 'boolean' && (candidate.analysisReasoningEffort === undefined || candidate.analysisReasoningEffort === 'on' || candidate.analysisReasoningEffort === 'low' || candidate.analysisReasoningEffort === 'medium' || candidate.analysisReasoningEffort === 'high') && (candidate.omitReasoningParameter === undefined || typeof candidate.omitReasoningParameter === 'boolean') && (candidate.contextLength === undefined || parseModelContextLength(candidate.contextLength) !== undefined) && (candidate.criterionByCriterion === undefined || typeof candidate.criterionByCriterion === 'boolean') && (candidate.smartZoom === undefined || typeof candidate.smartZoom === 'boolean') && (candidate.correctionMethod === undefined || candidate.correctionMethod === 'generative' || candidate.correctionMethod === 'decision' || candidate.correctionMethod === 'visual-decision');
+    typeof candidate.secondAnalysisModel === 'string' && typeof candidate.arbitratorModel === 'string' && isStrategy(candidate.diagnosticStrategy) && typeof candidate.analysisThinking === 'boolean' && (candidate.analysisReasoningEffort === undefined || candidate.analysisReasoningEffort === 'on' || candidate.analysisReasoningEffort === 'low' || candidate.analysisReasoningEffort === 'medium' || candidate.analysisReasoningEffort === 'high') && (candidate.omitReasoningParameter === undefined || typeof candidate.omitReasoningParameter === 'boolean') && (candidate.contextLength === undefined || parseModelContextLength(candidate.contextLength) !== undefined) && (candidate.criterionByCriterion === undefined || typeof candidate.criterionByCriterion === 'boolean') && (candidate.hybridVisualLogprobs === undefined || typeof candidate.hybridVisualLogprobs === 'boolean') && (candidate.smartZoom === undefined || typeof candidate.smartZoom === 'boolean') && (candidate.correctionMethod === undefined || candidate.correctionMethod === 'generative' || candidate.correctionMethod === 'decision' || candidate.correctionMethod === 'visual-decision');
 }
 
 export function parseAiModelProfiles(raw: string | null): AiModelProfile[] {

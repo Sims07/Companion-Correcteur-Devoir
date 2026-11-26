@@ -108,6 +108,7 @@ import { shouldRetryInvalidDiagramRecord } from '../../evaluation/domain/diagram
 import type { DiagramLabArchiveRepository } from '../../evaluation/ports/diagramLabArchiveRepository.ts';
 import { initialAssignmentRubric, type AssignmentKind } from '../../correction/domain/assignmentKind.ts';
 import { DiagramRubricQuickAccess } from '../../correction/ui/components/DiagramRubricQuickAccess.tsx';
+import { canUseHybridVisualLogprobs } from '../../correction/application/hybridDiagramShortcut.ts';
 import { correctScientificDiagramDirect, directDiagramAssignmentIssue } from '../../correction/application/directScientificDiagramCorrection.ts';
 import { SCIENTIFIC_DIAGRAM_PROTOCOL_ID, buildScientificDiagramProtocolReport, diagramMethodIssue, diagramMethodLabels, selectDiagramMethods, usesDirectDiagramVision, type DiagramMethod, type DiagramMethodSelection, type DiagramProtocolCount } from '../../evaluation/domain/scientificDiagramProtocol.ts';
 import { SCIENTIFIC_DIAGRAM_FIXTURE_CONTEXT, SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC, buildScientificDiagramFixtureReport, type ScientificDiagramFixtureId, type ScientificDiagramFixtureRun } from '../../evaluation/domain/scientificDiagramFixtures.ts';
@@ -527,12 +528,13 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
   const [analysisReasoningEffort, setAnalysisReasoningEffort] = useState<AnalysisReasoningEffort>(() => readAiModelConfiguration().analysisReasoningEffort ?? 'medium');
   const [omitReasoningParameter, setOmitReasoningParameter] = useState(() => readAiModelConfiguration().omitReasoningParameter === true);
   const [contextLength, setContextLength] = useState<number | undefined>(() => readAiModelConfiguration().contextLength);
+  const [hybridVisualLogprobs, setHybridVisualLogprobs] = useState(() => readAiModelConfiguration().hybridVisualLogprobs === true);
   const [smartZoom, setSmartZoom] = useState(() => readAiModelConfiguration().smartZoom === true);
   const [gradingOutputTokens, setGradingOutputTokens] = useState(() => readAiModelConfiguration().gradingOutputTokens);
   const [analysisTemperature, setAnalysisTemperature] = useState(() => readAiModelConfiguration().analysisTemperature);
   const [analysisTopP, setAnalysisTopP] = useState(() => readAiModelConfiguration().analysisTopP);
   const [analysisTopK, setAnalysisTopK] = useState(() => readAiModelConfiguration().analysisTopK);
-  const teacherThinking = { gradingOutputTokens, omitReasoningParameter, contextLength, smartZoom, thinking: analysisThinking, analysisTemperature, analysisTopP, analysisTopK, ...(apiCompatible && analysisThinking ? { thinkingLevel: analysisReasoningEffort } : {}) };
+  const teacherThinking = { hybridVisualLogprobs, gradingOutputTokens, omitReasoningParameter, contextLength, smartZoom, thinking: analysisThinking, analysisTemperature, analysisTopP, analysisTopK, ...(apiCompatible && analysisThinking ? { thinkingLevel: analysisReasoningEffort } : {}) };
   const [criterionByCriterion, setCriterionByCriterion] = useState(() => readAiModelConfiguration().criterionByCriterion);
   const [aiModelProfiles, setAiModelProfiles] = useState<AiModelProfile[]>(readAiModelProfiles);
   const [aiModelProfileName, setAiModelProfileName] = useState('');
@@ -1245,10 +1247,10 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
   ];
 
   useEffect(() => {
-    const configuration: AiModelConfiguration = { generativeModel, decisionModel, endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, analysisReasoningEffort, omitReasoningParameter, contextLength, gradingOutputTokens, analysisTemperature, analysisTopP, analysisTopK, criterionByCriterion, smartZoom, correctionMethod };
+    const configuration: AiModelConfiguration = { generativeModel, decisionModel, endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, analysisReasoningEffort, omitReasoningParameter, contextLength, gradingOutputTokens, analysisTemperature, analysisTopP, analysisTopK, criterionByCriterion, smartZoom, hybridVisualLogprobs, correctionMethod };
     try { window.localStorage.setItem(aiModelConfigurationKey, JSON.stringify(configuration)); }
     catch { /* The current settings remain usable for this session if storage is unavailable. */ }
-  }, [generativeModel, decisionModel, endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, analysisReasoningEffort, omitReasoningParameter, contextLength, gradingOutputTokens, analysisTemperature, analysisTopP, analysisTopK, criterionByCriterion, smartZoom, correctionMethod]);
+  }, [generativeModel, decisionModel, endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, analysisReasoningEffort, omitReasoningParameter, contextLength, gradingOutputTokens, analysisTemperature, analysisTopP, analysisTopK, criterionByCriterion, smartZoom, hybridVisualLogprobs, correctionMethod]);
 
   function applyAiModelProfile(profile: AiModelProfile) {
     setEndpoint(profile.configuration.endpoint);
@@ -1276,6 +1278,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     setOmitReasoningParameter(profile.configuration.omitReasoningParameter === true);
     setContextLength(profile.configuration.contextLength);
     setSmartZoom(profile.configuration.smartZoom === true);
+    setHybridVisualLogprobs(profile.configuration.hybridVisualLogprobs === true);
     setCriterionByCriterion(profile.configuration.criterionByCriterion);
     setSelectedAiModelProfileId(profile.id);
     setAiModelProfileMessage('Profil « ' + profile.name + ' » chargé.');
@@ -1306,6 +1309,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     setOmitReasoningParameter(false);
     setContextLength(undefined);
     setSmartZoom(false);
+    setHybridVisualLogprobs(false);
     setCriterionByCriterion(true);
     resetAiConnectionResult();
   }
@@ -1338,7 +1342,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
   function saveAiModelProfile() {
     const name = aiModelProfileName.trim();
     if (!name) { setAiModelProfileTone('warning'); setAiModelProfileMessage('Donnez un nom à cette configuration avant de l’enregistrer.'); return; }
-    const configuration: AiModelConfiguration = { generativeModel, decisionModel, endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, analysisReasoningEffort, omitReasoningParameter, contextLength, gradingOutputTokens, analysisTemperature, analysisTopP, analysisTopK, criterionByCriterion, smartZoom, correctionMethod };
+    const configuration: AiModelConfiguration = { generativeModel, decisionModel, endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, analysisReasoningEffort, omitReasoningParameter, contextLength, gradingOutputTokens, analysisTemperature, analysisTopP, analysisTopK, criterionByCriterion, smartZoom, hybridVisualLogprobs, correctionMethod };
     const profile: AiModelProfile = {
       id: selectedAiModelProfileId || 'ai-profile-' + Date.now(),
       name,
@@ -1972,7 +1976,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
           configuration: {
             ...defaultAiModelConfiguration,
             endpoint, apiCompatible, apiKey, visionModel, analysisModel,
-            analysisThinking, analysisReasoningEffort, omitReasoningParameter, contextLength, gradingOutputTokens, analysisTemperature, analysisTopP, analysisTopK, criterionByCriterion, smartZoom, correctionMethod,
+            analysisThinking, analysisReasoningEffort, omitReasoningParameter, contextLength, gradingOutputTokens, analysisTemperature, analysisTopP, analysisTopK, criterionByCriterion, smartZoom, hybridVisualLogprobs, correctionMethod,
           },
           signal: abortController.signal,
           onDiagnosticResult: captureDiagramDiagnostic,
@@ -5043,6 +5047,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
           <input id="ai-transcription-frequency-penalty" type="number" min="0" max="2" step="0.05" value={transcriptionFrequencyPenalty} onChange={(event) => { setTranscriptionFrequencyPenalty(Math.min(2, Math.max(0, Number(event.target.value) || 0))); setTranscription(null); }} />
           <p className="hint">Cette pénalité est différente de repeat_penalty. Pour une transcription fidèle, la valeur neutre 0 est recommandée ; n’augmentez-la que si vous avez validé son effet avec votre fournisseur.</p>
         </>}
+        <label className="analysis-thinking-option" htmlFor="ai-hybrid-logprobs"><input id="ai-hybrid-logprobs" type="checkbox" checked={hybridVisualLogprobs} disabled={busy || pilotBusy || (!hybridVisualLogprobs && !canUseHybridVisualLogprobs({ endpoint, apiCompatible, analysisModel, correctionMethod }))} onChange={event => setHybridVisualLogprobs(event.target.checked)} /><span><strong>Correction hybride par logprobs (expérimental)</strong><small>Schémas scientifiques uniquement · Responses local. Les critères entièrement satisfaits sont proposés pour confirmation du professeur ; les autres passent en analyse générative avec justification et zoom si activé. Désactivé par défaut.</small></span></label>
         <label className="analysis-thinking-option" htmlFor="ai-criterion-by-criterion"><input id="ai-criterion-by-criterion" type="checkbox" checked={criterionByCriterion} disabled={correctionMethod !== 'generative'} onChange={(event) => setCriterionByCriterion(event.target.checked)} /><span><strong>Analyser critère par critère</strong><small>Un appel séquentiel par critère, avec affichage progressif. Désactivez cette option pour envoyer tout le barème dans un seul appel et comparer les deux approches.</small></span></label>
         </details>
         <div className="settings-actions"><button type="button" className="primary-button" onClick={() => setShowAiSettings(false)}>Terminé, revenir au devoir</button></div>
@@ -6590,6 +6595,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
             {diagnosticStrategy !== 'single' && <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-second-model">Second modèle d’analyse</label>{availableModels.length ? <DesignSystemSelect id="evaluation-second-model" value={secondAnalysisModel} onChange={(event) => setSecondAnalysisModel(event.target.value)}><option value="">Choisir un modèle</option>{availableModels.map((model) => <option key={model} value={model}>{model}</option>)}</DesignSystemSelect> : <input id="evaluation-second-model" value={secondAnalysisModel} onChange={(event) => setSecondAnalysisModel(event.target.value)} placeholder="Nom du second modèle" />}</div>}
             {diagnosticStrategy === 'arbitrate' && <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-arbitrator-model">Modèle arbitre</label>{availableModels.length ? <DesignSystemSelect id="evaluation-arbitrator-model" value={arbitratorModel} onChange={(event) => setArbitratorModel(event.target.value)}><option value="">Choisir un arbitre</option>{availableModels.map((model) => <option key={model} value={model}>{model}</option>)}</DesignSystemSelect> : <input id="evaluation-arbitrator-model" value={arbitratorModel} onChange={(event) => setArbitratorModel(event.target.value)} placeholder="Nom du modèle arbitre" />}</div>}
           </div>
+          <label className="analysis-thinking-option" htmlFor="evaluation-hybrid-logprobs"><input id="evaluation-hybrid-logprobs" type="checkbox" checked={hybridVisualLogprobs} disabled={busy || pilotBusy || (!hybridVisualLogprobs && !canUseHybridVisualLogprobs({ endpoint, apiCompatible, analysisModel, correctionMethod }))} onChange={event => setHybridVisualLogprobs(event.target.checked)} /><span><strong>Correction hybride par logprobs (expérimental)</strong><small>Schémas scientifiques uniquement · Responses local. Les critères entièrement satisfaits sont proposés pour confirmation du professeur ; les autres passent en analyse générative avec justification et zoom si activé. Désactivé par défaut.</small></span></label>
           <label className="analysis-thinking-option evaluation-thinking-option" htmlFor="evaluation-criterion-by-criterion"><input id="evaluation-criterion-by-criterion" type="checkbox" checked={criterionByCriterion} disabled={correctionMethod !== 'generative'} onChange={(event) => setCriterionByCriterion(event.target.checked)} /><span><strong>Analyser critère par critère</strong><small>Un appel par critère, séquentiellement. Désactivez pour comparer avec une requête globale.</small></span></label>
           </details>
           <div className="evaluation-config-actions"><Button variant="primary" disabled={busy || pilotBusy} onClick={saveAiModelProfile}>Enregistrer la configuration</Button></div>

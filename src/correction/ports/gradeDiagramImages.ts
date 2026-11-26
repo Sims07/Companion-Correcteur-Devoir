@@ -1,6 +1,7 @@
 import type { DiagnosticModelResult, GradingProvider, ImageInput } from './aiProvider.ts';
 import { parseGradingProposal, type GradingProposal } from '../domain/grading.ts';
-import type { Rubric } from '../domain/rubric.ts';
+import { sumGradeScores } from '../../shared/domain/scorePrecision.ts';
+import type { Rubric, RubricCriterion } from '../domain/rubric.ts';
 
 export interface DiagramImageGradingInput {
   images: ImageInput[];
@@ -12,10 +13,15 @@ export interface DiagramImageGradingInput {
   onDiagnosticResult?: (result: DiagnosticModelResult) => void;
 }
 
+/** An experimental shortcut may supply a provisional teacher-review proposal for one criterion.
+ * Null deliberately delegates to the unchanged generative engine. */
+export type DiagramCriterionShortcut = (criterion: RubricCriterion, signal?: AbortSignal, onActivity?: () => void) => Promise<GradingProposal | null>;
+
 export async function gradeDiagramImages(provider: GradingProvider,
   request: DiagramImageGradingInput,
-  split: boolean, onActivity?: () => void, allowSmartZoom = false): Promise<GradingProposal> {
+  split: boolean, onActivity?: () => void, allowSmartZoom = false, shortcut?: DiagramCriterionShortcut): Promise<GradingProposal> {
   const { rubric, signal } = request;
+  split = split || Boolean(shortcut);
   const groups = split ? rubric.criteria.map(criterion => [criterion]) : [rubric.criteria];
   const diagramConversation = {};
   const proposals: GradingProposal[] = [];
@@ -28,6 +34,11 @@ export async function gradeDiagramImages(provider: GradingProvider,
     signal?.throwIfAborted();
     let proposal: GradingProposal;
     try {
+      const fast = shortcut ? await shortcut(criteria[0]!, signal, onActivity) : null;
+      signal?.throwIfAborted();
+      if (fast) {
+        proposal = fast;
+      } else {
       const raw = await provider.generate({
         question: request.question.trim() || 'Évalue uniquement les caractéristiques observables du dessin selon le barème fourni.',
         rubric: JSON.stringify(part),
@@ -39,6 +50,7 @@ export async function gradeDiagramImages(provider: GradingProvider,
       }, onActivity, undefined, undefined, request.onDiagnosticResult, undefined, undefined, undefined, signal);
       signal?.throwIfAborted();
       proposal = parseGradingProposal(raw, part);
+      }
     } catch (cause) {
       signal?.throwIfAborted();
       if (!split || !request.onCriterionFailure) throw cause;
@@ -60,5 +72,9 @@ export async function gradeDiagramImages(provider: GradingProvider,
     questionsForTeacher: proposals.flatMap(proposal => proposal.questionsForTeacher),
   };
   const proposal = parseGradingProposal(JSON.stringify(result), assessedRubric);
-  return partial ? { ...proposal, scoreIncomplete: true } : proposal;
+  const resultWithScope = partial ? { ...proposal, scoreIncomplete: true } : proposal;
+  return shortcut && resultWithScope.scoreIncomplete ? {
+    ...resultWithScope,
+    finalScore: sumGradeScores(resultWithScope.criteria.filter(criterion => criterion.assessmentStatus !== 'not-evaluated').map(criterion => criterion.points)),
+  } : resultWithScope;
 }
