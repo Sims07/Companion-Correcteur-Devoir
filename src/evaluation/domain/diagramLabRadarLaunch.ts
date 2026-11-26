@@ -1,5 +1,5 @@
 import { isLogprobRadarMethod } from './logprobRadar.ts';
-import { canUseHybridVisualLogprobs } from '../../correction/ports/hybridDiagramShortcut.ts';
+import { canUseHybridVisualLogprobs } from '../../shared/domain/hybridVisualLogprobs.ts';
 import { canTryVisualDecision } from '../../shared/domain/decisionModelCapabilities.ts';
 import { supportsLocalSystemOne } from '../../shared/domain/lmStudioTransport.ts';
 import { BLIND_GRAPH_PROMPT_VARIANTS, type BlindGraphPromptVariant } from './scientificDiagramBlindGraph.ts';

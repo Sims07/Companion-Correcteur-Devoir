@@ -1,4 +1,4 @@
-import { canUseHybridVisualLogprobs } from '../../correction/ports/hybridDiagramShortcut.ts';
+import { canUseHybridVisualLogprobs } from '../../shared/domain/hybridVisualLogprobs.ts';
 import { isLogprobRadarMethod, type LogprobRadarMethod } from './logprobRadar.ts';
 import { canTryVisualDecision } from '../../shared/domain/decisionModelCapabilities.ts';
 import { supportsLocalSystemOne } from '../../shared/domain/lmStudioTransport.ts';

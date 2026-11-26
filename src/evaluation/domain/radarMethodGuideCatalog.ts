@@ -9,6 +9,7 @@ import {
 export type MethodGuideIllustration =
   | 'small-tips' | 'long-shafts' | 'direct-graph' | 'guided' | 'graph-first'
   | 'relations-v2' | 'vision-analysis' | 'direct-grading' | 'thinking-grading' | 'systemone-grading'
+  | 'logprob-grading' | 'hybrid-grading' | 'hybrid-zoom-grading'
   | 'question-contracts' | 'standard-rubric' | 'historical-pilot' | 'direct-correction';
 
 export interface MethodGuidePresentation {
@@ -92,22 +93,22 @@ export const SCIENCE_METHOD_PRESENTATION: Record<ScienceMethod, MethodGuidePrese
   },
   'direct-image-logprobs': {
     title: 'Image → logprobs seuls',
-    summary: 'Décisions fermées indépendantes des notes.',
-    illustration: 'direct-grading',
+    summary: 'Décisions fermées mesurées indépendamment de toute attribution de points.',
+    illustration: 'logprob-grading',
     visualFocus: 'Décision visuelle expérimentale',
     visualCaption: 'Les propositions non confirmées restent distinctes des points attribués.',
   },
   'direct-image-hybrid': {
     title: 'Image → hybride logprobs + génératif',
-    summary: 'Même moteur hybride que la correction enseignant.',
-    illustration: 'direct-grading',
+    summary: 'Le moteur hybride de correction enseignant réserve la génération aux critères à approfondir.',
+    illustration: 'hybrid-grading',
     visualFocus: 'Décision visuelle expérimentale',
     visualCaption: 'Les propositions non confirmées restent distinctes des points attribués.',
   },
   'direct-image-hybrid-zoom': {
     title: 'Image → hybride logprobs + génératif + zoom',
-    summary: 'Même moteur hybride que la correction enseignant.',
-    illustration: 'direct-grading',
+    summary: 'Le moteur hybride de correction enseignant réserve la génération aux critères à approfondir.',
+    illustration: 'hybrid-zoom-grading',
     visualFocus: 'Décision visuelle expérimentale',
     visualCaption: 'Les propositions non confirmées restent distinctes des points attribués.',
   },
