@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createHybridDiagramShortcut } from '../../src/correction/application/hybridDiagramShortcut.ts';
+import { createHybridDiagramShortcut as createShortcut } from '../../src/correction/ports/hybridDiagramShortcut.ts';
+import { probeVisualLogprobs } from '../../src/shared/adapters/ai/visualLogprobTransport.ts';
+import type { ImageInput } from '../../src/shared/domain/imageInput.ts';
+function createHybridDiagramShortcut(settings: OllamaSettings, images: ImageInput[], question: string, fetchImpl?: typeof fetch) {
+  return createShortcut(settings, images, question, (config, photos, target, context, signal) =>
+    probeVisualLogprobs(config, photos, target, context, signal, fetchImpl));
+}
 import { gradeDiagramImages } from '../../src/correction/ports/gradeDiagramImages.ts';
 import { parseAiModelConfiguration, defaultAiModelConfiguration, parseAiModelProfiles } from '../../src/shared/domain/aiModelProfiles.ts';
 import type { Rubric } from '../../src/correction/domain/rubric.ts';

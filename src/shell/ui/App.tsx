@@ -108,7 +108,7 @@ import { shouldRetryInvalidDiagramRecord } from '../../evaluation/domain/diagram
 import type { DiagramLabArchiveRepository } from '../../evaluation/ports/diagramLabArchiveRepository.ts';
 import { initialAssignmentRubric, type AssignmentKind } from '../../correction/domain/assignmentKind.ts';
 import { DiagramRubricQuickAccess } from '../../correction/ui/components/DiagramRubricQuickAccess.tsx';
-import { canUseHybridVisualLogprobs } from '../../correction/application/hybridDiagramShortcut.ts';
+import { canUseHybridVisualLogprobs } from '../../correction/ports/hybridDiagramShortcut.ts';
 import { correctScientificDiagramDirect, directDiagramAssignmentIssue } from '../../correction/application/directScientificDiagramCorrection.ts';
 import { SCIENTIFIC_DIAGRAM_PROTOCOL_ID, buildScientificDiagramProtocolReport, diagramMethodIssue, diagramMethodLabels, selectDiagramMethods, usesDirectDiagramVision, type DiagramMethod, type DiagramMethodSelection, type DiagramProtocolCount } from '../../evaluation/domain/scientificDiagramProtocol.ts';
 import { SCIENTIFIC_DIAGRAM_FIXTURE_CONTEXT, SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC, buildScientificDiagramFixtureReport, type ScientificDiagramFixtureId, type ScientificDiagramFixtureRun } from '../../evaluation/domain/scientificDiagramFixtures.ts';

@@ -13,6 +13,7 @@ export function createCorrectionWorkspaceService(
   files: LocalFileGateway,
 ): CorrectionWorkspaceService {
   return {
+    ...(ollama.probeVisualLogprobs ? { probeVisualLogprobs: ollama.probeVisualLogprobs.bind(ollama) } : {}),
     ...(ollama.generateCopyAnnotations ? { generateCopyAnnotations: ollama.generateCopyAnnotations.bind(ollama) } : {}),
     ...(files.exportCopyAnnotationPdf ? { exportCopyAnnotationPdf: files.exportCopyAnnotationPdf.bind(files) } : {}),
     ...(ollama.prepareQuestionContracts ? { prepareQuestionContracts: ollama.prepareQuestionContracts.bind(ollama) } : {}),

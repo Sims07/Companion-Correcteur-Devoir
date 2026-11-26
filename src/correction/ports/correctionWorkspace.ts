@@ -1,3 +1,4 @@
+import type { VisualLogprobProbe } from '../../shared/ports/visualLogprobProbe.ts';
 import type { CopyAnnotation } from '../domain/copyAnnotationFeature.ts';
 import type { CopyAnnotationCriterion } from '../domain/copyAnnotationSuggestions.ts';
 import type { ContractPreparation, ContractSources } from '../domain/contractPreparation.ts';
@@ -60,6 +61,7 @@ export interface ImportedRubric {
 
 /** Outbound ports required by the correction workspace. */
 export interface OllamaGateway {
+  probeVisualLogprobs?: VisualLogprobProbe;
   generateCopyAnnotations?(images: readonly ImageInput[], criteria: readonly CopyAnnotationCriterion[],
     settings: CopyAnnotationModelSettings, signal: AbortSignal,
     onPhase: (phase: CopyAnnotationGenerationPhase) => void): Promise<CopyAnnotation[]>;

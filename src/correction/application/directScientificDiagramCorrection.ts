@@ -1,4 +1,4 @@
-import { createHybridDiagramShortcut } from './hybridDiagramShortcut.ts';
+import { createHybridDiagramShortcut } from '../ports/hybridDiagramShortcut.ts';
 import type { AiModelConfiguration } from '../../shared/domain/aiModelProfiles.ts';
 import type { GradingProposal } from '../domain/grading.ts';
 import { validateRubric } from '../domain/rubric.ts';
@@ -11,7 +11,7 @@ export interface DirectScientificDiagramRequest extends DiagramImageGradingInput
 }
 
 export async function correctScientificDiagramDirect(
-  gateway: Pick<CorrectionWorkspaceService, 'checkReady' | 'createProvider'>,
+  gateway: Pick<CorrectionWorkspaceService, 'checkReady' | 'createProvider' | 'probeVisualLogprobs'>,
   request: DirectScientificDiagramRequest,
 ): Promise<GradingProposal> {
   const { images, rubric, configuration, signal } = request;
@@ -48,7 +48,7 @@ export async function correctScientificDiagramDirect(
     correctionMethod: 'generative' as const,
     diagnosticStrategy: 'single' as const,
   };
-  const shortcut = createHybridDiagramShortcut(settings, images, request.question);
+  const shortcut = createHybridDiagramShortcut(settings, images, request.question, gateway.probeVisualLogprobs?.bind(gateway));
   await gateway.checkReady({ ...settings, model: configuration.analysisModel });
   if (signal?.aborted) throw new DOMException('Traitement interrompu.', 'AbortError');
 

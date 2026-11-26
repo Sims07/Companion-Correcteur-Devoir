@@ -1,13 +1,11 @@
-import { currentFetch } from '../../adapters/ai/currentFetch.ts';
+import { currentFetch } from './currentFetch.ts';
 import { responsesEndpoint, supportsLocalSystemOne } from '../../domain/lmStudioTransport.ts';
-import type { AiModelConfiguration } from '../../domain/aiModelProfiles.ts';
+import type { LogprobSettings } from '../../ports/visualLogprobProbe.ts';
+export type { LogprobSettings } from '../../ports/visualLogprobProbe.ts';
 import type { ImageInput } from '../../domain/imageInput.ts';
 import { annotateNetworkRequest } from '../../ports/networkRequestMetadata.ts';
 import { decodeVisualLogprobs, logprobQuestion, unavailableLogprobDecision,
   type LogprobTarget } from '../../domain/visualLogprobDecision.ts';
-
-export type LogprobSettings = Pick<AiModelConfiguration, 'endpoint' | 'apiCompatible' |
-  'apiKey' | 'analysisModel' | 'correctionMethod' | 'omitReasoningParameter'>;
 
 /** Only a configured local Responses route. No automatic cloud or chat fallback. */
 export function localLogprobEndpoint(config: LogprobSettings): string | undefined {

@@ -1,6 +1,6 @@
 import { placeAnnotationsAfterRotation, restoreCopyAnnotations } from '../domain/copyAnnotationFeature.ts';
 import { parseGradingProposal, toReviewedCriteria } from '../domain/grading.ts';
-import { createHybridDiagramShortcut } from './hybridDiagramShortcut.ts';
+import { createHybridDiagramShortcut } from '../ports/hybridDiagramShortcut.ts';
 import { gradeDiagramImages } from '../ports/gradeDiagramImages.ts';
 import { directDiagramAssignmentIssue } from '../domain/directDiagramAssignment.ts';
 import { sumGradeScores } from '../../shared/domain/scorePrecision.ts';
@@ -312,7 +312,7 @@ export function createBackgroundCorrectionService(
               ...jobSettings, analysisModel: model, correctionMethod: method,
               // A teacher explicitly retrying a criterion requests a full analysis.
               hybridVisualLogprobs: !current.retryDiagramCriterionId && jobSettings.hybridVisualLogprobs === true,
-            }, current.images, current.question);
+            }, current.images, current.question, workspace.probeVisualLogprobs?.bind(workspace));
             await withModelInactivityTimeout(requestAbortController, () =>
               workspace.checkReady({ ...jobSettings, model }));
             if (requestAbortController.signal.aborted) throw new DOMException('Traitement interrompu.', 'AbortError');

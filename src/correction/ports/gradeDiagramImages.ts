@@ -39,17 +39,17 @@ export async function gradeDiagramImages(provider: GradingProvider,
       if (fast) {
         proposal = fast;
       } else {
-      const raw = await provider.generate({
-        question: request.question.trim() || 'Évalue uniquement les caractéristiques observables du dessin selon le barème fourni.',
-        rubric: JSON.stringify(part),
-        images: request.images,
-        directGenerativeVision: true,
-        retryDiagramGenerationLimit: true,
-        ...(split || allowSmartZoom ? { diagramConversation } : {}),
-        ...(split ? { diagramCriterionLabel: (index + 1) + '/' + groups.length + ' · ' + title } : {}),
-      }, onActivity, undefined, undefined, request.onDiagnosticResult, undefined, undefined, undefined, signal);
-      signal?.throwIfAborted();
-      proposal = parseGradingProposal(raw, part);
+        const raw = await provider.generate({
+          question: request.question.trim() || 'Évalue uniquement les caractéristiques observables du dessin selon le barème fourni.',
+          rubric: JSON.stringify(part),
+          images: request.images,
+          directGenerativeVision: true,
+          retryDiagramGenerationLimit: true,
+          ...(split || allowSmartZoom ? { diagramConversation } : {}),
+          ...(split ? { diagramCriterionLabel: (index + 1) + '/' + groups.length + ' · ' + title } : {}),
+        }, onActivity, undefined, undefined, request.onDiagnosticResult, undefined, undefined, undefined, signal);
+        signal?.throwIfAborted();
+        proposal = parseGradingProposal(raw, part);
       }
     } catch (cause) {
       signal?.throwIfAborted();
