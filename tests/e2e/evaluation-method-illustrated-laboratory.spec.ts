@@ -13,7 +13,7 @@ test('method laboratory displays a full-width illustrated panel for every strate
   const lab = page.getByRole('region', { name: 'Laboratoire des méthodes' });
   const tabs = lab.getByRole('tablist', { name: 'Méthodes expliquées' }).getByRole('tab');
   const panel = lab.getByRole('tabpanel');
-  await expect(tabs).toHaveCount(10);
+  await expect(tabs).toHaveCount(13);
   await expect(panel).toHaveAttribute('data-selected-method', 'image-direct-v1');
   await expect(panel.getByRole('img', { name: /Schéma scientifique et barème fournis directement/ })).toBeVisible();
   await expect(panel.getByRole('heading', { name: 'Principe scientifique' })).toBeVisible();
@@ -39,7 +39,19 @@ test('method laboratory displays a full-width illustrated panel for every strate
   await lab.locator('[data-method-id="direct-image-systemone"]').click();
   await expect(panel.locator('[data-illustration="systemone-grading"]')).toBeVisible();
 
+  for (const [method, illustration] of [
+    ['direct-image-logprobs', 'logprob-grading'],
+    ['direct-image-hybrid', 'hybrid-grading'],
+    ['direct-image-hybrid-zoom', 'hybrid-zoom-grading'],
+  ]) {
+    await lab.locator('[data-method-id="' + method + '"]').click();
+    await expect(panel).toHaveAttribute('data-selected-method', method);
+    await expect(panel.locator('[data-illustration="' + illustration + '"]')).toBeVisible();
+    await expect(panel.getByRole('heading', { name: 'Principe scientifique' })).toBeVisible();
+  }
+
   await page.setViewportSize({ width: 390, height: 844 });
+  await expect(panel.locator('[data-illustration="hybrid-zoom-grading"]')).toBeVisible();
   await expect(panel).toBeVisible();
   const mobileLayout = await page.evaluate(() => ({
     viewport: document.documentElement.clientWidth,
