@@ -1,55 +1,8 @@
 import { currentFetch } from '../../shared/adapters/ai/currentFetch.ts';
-import { responsesEndpoint, supportsLocalSystemOne } from '../../shared/domain/lmStudioTransport.ts';
-import type { AiModelConfiguration } from '../../shared/domain/aiModelProfiles.ts';
 import type { ImageInput } from '../../shared/domain/imageInput.ts';
-import { annotateNetworkRequest } from '../../shared/ports/networkRequestMetadata.ts';
-import { decodeVisualLogprobs, logprobQuestion, unavailableLogprobDecision,
-  type LogprobTarget, type LogprobPilotRow } from '../domain/visualLogprobDecision.ts';
-
-export type LogprobSettings = Pick<AiModelConfiguration, 'endpoint' | 'apiCompatible' |
-  'apiKey' | 'analysisModel' | 'correctionMethod' | 'omitReasoningParameter'>;
-
-/** Only a configured local Responses route. No automatic cloud or chat fallback. */
-export function localLogprobEndpoint(config: LogprobSettings): string | undefined {
-  if (!config.apiCompatible || config.correctionMethod !== 'generative' || !config.analysisModel.trim()) return undefined;
-  const endpoint = responsesEndpoint(config.endpoint);
-  return endpoint && supportsLocalSystemOne({ apiCompatible: true, endpoint }) ? endpoint : undefined;
-}
-
-export async function probeVisualLogprobs(settings: LogprobSettings, images: readonly ImageInput[],
-  target: LogprobTarget, context: string, signal: AbortSignal, fetchImpl: typeof fetch = currentFetch) {
-  const endpoint = localLogprobEndpoint(settings);
-  if (!endpoint) throw new Error('Choisissez un profil génératif avec serveur Responses local.');
-  if (!images.length || images.some(image => !/^image\/(?:jpeg|png|webp)$/.test(image.mimeType) || !image.base64))
-    throw new Error('Image raster préparée requise.');
-  signal.throwIfAborted();
-  const payload = {
-    model: settings.analysisModel,
-    stream: false, store: false,
-    // A single output token is intentional; a valid terminal letter at the
-    // output limit is admissible, unlike truncated free-form JSON.
-    max_output_tokens: 1,
-    temperature: 1, top_p: 1,
-    include: ['message.output_text.logprobs'], top_logprobs: 20,
-    ...(!settings.omitReasoningParameter ? { reasoning: { effort: 'none' } } : {}),
-    input: [{ role: 'user', content: [
-      ...images.map(image => ({ type: 'input_image', image_url: 'data:' + image.mimeType + ';base64,' + image.base64 })),
-      { type: 'input_text', text: logprobQuestion(target, context) },
-    ] }],
-  };
-  const response = await fetchImpl(endpoint, annotateNetworkRequest({
-    method: 'POST', signal, redirect: 'error', credentials: 'omit',
-    headers: { 'Content-Type': 'application/json', ...(settings.apiKey ? { Authorization: 'Bearer ' + settings.apiKey } : {}) },
-    body: JSON.stringify(payload),
-  }, 'Laboratoire · décision visuelle logprobs', target.key));
-  if (!response.ok) {
-    void response.body?.cancel().catch(() => {});
-    return unavailableLogprobDecision('HTTP ' + response.status + ' — requête logprobs refusée');
-  }
-  const raw: unknown = await response.json();
-  signal.throwIfAborted();
-  return decodeVisualLogprobs(raw);
-}
+import { unavailableLogprobDecision, type LogprobTarget, type LogprobPilotRow } from '../domain/visualLogprobDecision.ts';
+import { localLogprobEndpoint, probeVisualLogprobs, type LogprobSettings } from '../../shared/adapters/ai/visualLogprobTransport.ts';
+export { localLogprobEndpoint, probeVisualLogprobs, type LogprobSettings } from '../../shared/adapters/ai/visualLogprobTransport.ts';
 
 export interface LogprobPilotCase {
   id: string;
