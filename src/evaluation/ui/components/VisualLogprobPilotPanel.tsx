@@ -18,11 +18,11 @@ const targets = SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC.criteria.flatMap(criterion =>
   })));
 const suites = { pointers: ['D', 'E'], all: ['A', 'B', 'C', 'D', 'E'] } as const;
 
-export function VisualLogprobPilotPanel({ profiles, busy, prepareCase, onBusyChange }: {
+export function VisualLogprobPilotPanel({ profiles, busy, prepareCase, onRunChange }: {
   profiles: readonly AiModelProfile[];
   busy: boolean;
   prepareCase: (id: ScientificDiagramFixtureId) => Promise<ImageInput[]>;
-  onBusyChange: (running: boolean) => void;
+  onRunChange: (controller: AbortController, running: boolean) => void;
 }) {
   const available = profiles.filter(profile => localLogprobEndpoint(profile.configuration));
   const [id, setId] = useState('');
@@ -42,7 +42,7 @@ export function VisualLogprobPilotPanel({ profiles, busy, prepareCase, onBusyCha
     const run = new AbortController();
     controller.current = run;
     setRunning(true);
-    onBusyChange(true);
+    onRunChange(run, true);
     setRows([]);
     const caseIds = suites[suite];
     setReport({ model: selected.configuration.analysisModel, cases: caseIds, planned });
@@ -67,7 +67,7 @@ export function VisualLogprobPilotPanel({ profiles, busy, prepareCase, onBusyCha
     } finally {
       controller.current = null;
       setRunning(false);
-      onBusyChange(false);
+      onRunChange(run, false);
     }
   }
 

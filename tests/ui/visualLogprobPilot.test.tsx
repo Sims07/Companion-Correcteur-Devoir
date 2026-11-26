@@ -9,7 +9,7 @@ const profile: AiModelProfile = { id: 'generic', name: 'Autre modèle', mode: 's
 describe('visual logprob pilot UI', () => {
   it('offers a generic local model with D/E and A/B/C/D/E suites', () => {
     const html = renderToStaticMarkup(<VisualLogprobPilotPanel profiles={[profile]} busy={false}
-      prepareCase={async () => []} onBusyChange={() => {}} />);
+      prepareCase={async () => []} onRunChange={() => {}} />);
     expect(html).toContain('any-vlm');
     expect(html).toContain('D/E');
     expect(html).toContain('A/B/C/D/E');
@@ -18,7 +18,7 @@ describe('visual logprob pilot UI', () => {
   it('refuses public endpoints', () => {
     const html = renderToStaticMarkup(<VisualLogprobPilotPanel profiles={[{ ...profile,
       configuration: { ...profile.configuration, endpoint: 'https://example.com/v1/responses' } }]} busy={false}
-      prepareCase={async () => []} onBusyChange={() => {}} />);
+      prepareCase={async () => []} onRunChange={() => {}} />);
     expect(html).toContain('Sélectionnez un profil génératif');
     expect(html).not.toContain('any-vlm');
   });

@@ -158,6 +158,7 @@ export interface ScientificDiagramProtocolPanelProps {
   onAutoRequestConsumed?: (id: number) => void;
   onOpenRadar?: () => void;
   onAutoBusyChange?: (busy: boolean) => void;
+  onLogprobRunChange?: (controller: AbortController, running: boolean) => void;
   onAutoStepChange?: (request: RadarMissingTestRequest, stepIndex: number) => void;
   onAutoEvaluationFinished?: (request: RadarMissingTestRequest, steps: readonly { protocol: RadarTestStep['protocol']; complete: boolean }[]) => Promise<string>;
   onAutoWasStopped?: () => boolean;
@@ -167,9 +168,10 @@ export function ScientificDiagramProtocolPanel({
   selectedProfiles, busy: externalBusy, progress, onPrepareImages, onRun, onRunFixtures, onStop, onManageProfiles,
   report, fixtureReport, sensitivityReport, blindGraphReport,
   onClearReport, onClearFixtureReport, onClearSensitivityReport, onClearBlindGraphReport,
-  onRunSensitivity, onRunBlindGraph, autoRequest, onAutoRequestConsumed, onOpenRadar, onAutoBusyChange, onAutoStepChange, onAutoEvaluationFinished, onAutoWasStopped,
+  onRunSensitivity, onRunBlindGraph, autoRequest, onAutoRequestConsumed, onOpenRadar, onAutoBusyChange, onLogprobRunChange, onAutoStepChange, onAutoEvaluationFinished, onAutoWasStopped,
 }: ScientificDiagramProtocolPanelProps) {
   const [logprobBusy, setLogprobBusy] = useState(false);
+  const logprobController = useRef<AbortController | null>(null);
   const busy = externalBusy || logprobBusy;
   const [rubric, setRubric] = useState<Rubric>(() => structuredClone(SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC));
   const [context, setContext] = useState('');
@@ -192,6 +194,7 @@ export function ScientificDiagramProtocolPanel({
   const autoClaimed = useRef<number | null>(null);
   const autoStopRequested = useRef(false);
   function stopProtocol() {
+    if (logprobController.current) { logprobController.current.abort(); return; }
     autoStopRequested.current = true;
     onStop();
   }
@@ -1088,7 +1091,11 @@ export function ScientificDiagramProtocolPanel({
     <VisualLogprobPilotPanel profiles={selectedProfiles}
       busy={externalBusy || fixtureLoading || sensitivityLoading || blindGraphLoading || uploading || autoSequenceRunning}
       prepareCase={async id => onPrepareImages([await prepareBundledDiagramFile(id)])}
-      onBusyChange={setLogprobBusy} />
+      onRunChange={(controller, running) => {
+        logprobController.current = running ? controller : null;
+        setLogprobBusy(running);
+        onLogprobRunChange?.(controller, running);
+      }} />
     <ControlledVisualTrial profiles={selectedProfiles} busy={busy} />
   </section>;
 }
