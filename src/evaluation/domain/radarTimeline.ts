@@ -1,3 +1,4 @@
+import { isLogprobRadarMethod } from './logprobRadar.ts';
 import { diagramMethodLabels, type DiagramMethod, type DiagramMethodSelection } from './scientificDiagramProtocol.ts';
 import { blindVisualObservationPrompt } from './scientificDiagramBlindGraph.ts';
 import { diagramSensitivityContext } from './scientificDiagramSensitivity.ts';
@@ -52,6 +53,7 @@ export interface TimelinePoint {
   comparisonBasis?: string;
   caseCounts?: Record<string, number>;
   batteryEngines?: Array<{ protocol: string; engine: string }>;
+  logprobRouting?: RadarRoutingSummary;
   reconstructed?: boolean;
 }
 
@@ -90,6 +92,44 @@ export function recordedRadarBatteryEngines(group: readonly DiagramLabArchiveEnt
         ? [diagramMethodLabels[run.method as DiagramMethod] ?? run.method] : []))];
     return engines.length ? [{ protocol: entry.title, engine: engines.join(' / ') }] : [];
   });
+}
+
+export interface RadarRoutingSummary {
+  runs: number;
+  probes: number;
+  fastCriteria: number;
+  generativeCriteria: number | null;
+  totalCriteria: number;
+  reviewTargets: number | null;
+}
+/** Only summarize the completed evidence actually used by the radar.
+ * Independent graph runs never count as hybrid grading. */
+export function summarizeRadarRouting(group: readonly DiagramLabArchiveEntry[], model: string,
+  evidenceIds: readonly string[]): RadarRoutingSummary | undefined {
+  const ids = new Set(evidenceIds);
+  let runs = 0, probes = 0, fastCriteria = 0, totalCriteria = 0, reviewTargets = 0;
+  let hasHybrid = false;
+  for (const entry of group) {
+    const report = entry.report;
+    if (!ids.has(entry.id) || report.format === 'companion-scientific-diagram-blind-graph-report' ||
+      report.format === 'companion-scientific-diagram-protocol') continue;
+    for (const testCase of report.cases) for (const run of testCase.experiments) {
+      const routing = run.logprobRouting;
+      if (run.model !== model || run.status !== 'success' || !routing || routing.unavailable ||
+        !isLogprobRadarMethod(run.method) || (entry.trial && entry.trial.method !== run.method)) continue;
+      runs++;
+      probes += routing.probes;
+      fastCriteria += routing.fastCriteria;
+      totalCriteria += routing.totalCriteria;
+      if (run.method !== 'direct-image-logprobs') {
+        hasHybrid = true;
+        reviewTargets += run.observations.filter(observation => observation.teacherReviewRequested).length;
+      }
+    }
+  }
+  return runs ? { runs, probes, fastCriteria, totalCriteria,
+    generativeCriteria: hasHybrid ? totalCriteria - fastCriteria : null,
+    reviewTargets: hasHybrid ? reviewTargets : null } : undefined;
 }
 
 export function sciencePoints(group: DiagramLabArchiveEntry[], weights: RadarWeights): TimelinePoint[] {
@@ -132,6 +172,7 @@ export function sciencePoints(group: DiagramLabArchiveEntry[], weights: RadarWei
       blindVisualObservationPrompt(scienceMethods[trial.method].graphVariant)] : undefined,
     revision: latest.revision, prompts: [...candidate.methods, ...prompts],
     batteryEngines: recordedRadarBatteryEngines(group, candidate.id),
+    logprobRouting: summarizeRadarRouting(group, candidate.id, candidate.axes.coverage.evidence.map(item => item.reportId)),
     score: observedRadarScore(candidate, trial?.weights ?? weights),
     axes: Object.fromEntries(RADAR_AXES.map(axis => [axis.label, candidate.axes[axis.id].value])),
   }));

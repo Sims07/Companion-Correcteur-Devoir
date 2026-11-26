@@ -1,3 +1,4 @@
+import { RadarRoutingMetrics } from './RadarRoutingMetrics.tsx';
 import type { TimelinePoint } from '../../domain/radarTimeline.ts';
 
 const format = (value: number | null) => value === null ? '—' :
@@ -35,6 +36,7 @@ export function MethodRadarGallery({ points, selectedId, onSelect }: {
           onClick={() => onSelect(point)}>
           <strong>{point.label}</strong>
           <span>{format(point.score)} / 100 · {isComplete ? 'Complet' : 'Partiel'} · {measured.length}/{axes.length} axes</span>
+          {point.logprobRouting && <RadarRoutingMetrics metrics={point.logprobRouting}/>}
           <svg viewBox="0 0 220 196" role="img"
             aria-label={'Radar de la méthode ' + point.label + ' : ' + measured.length + '/' + axes.length + ' axes mesurés'}>
             {[25,50,75,100].map(percent => <polygon key={percent} className="lab-gallery-ring"
