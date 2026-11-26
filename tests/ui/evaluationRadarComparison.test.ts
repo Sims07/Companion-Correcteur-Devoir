@@ -281,7 +281,7 @@ it('starts every remaining scientific method sequentially as separate four-batte
   expect(new Set(requests.map(request => request.trial.id)).size).toBe(8);
   expect(requests.map(request => request.trial.method)).toEqual(
     Object.keys((await import('../../src/evaluation/domain/radarTimeline.ts')).scienceMethods)
-      .filter(method => method !== 'direct-image-systemone' && method !== 'vision-then-analysis'));
+      .filter(method => method !== 'direct-image-systemone' && method !== 'vision-then-analysis' && !['direct-image-logprobs','direct-image-hybrid','direct-image-hybrid-zoom'].includes(method)));
   for (const request of requests) {
     expect(request.steps.map(step => step.protocol)).toEqual(['reference','arrows','semantic','graph']);
     expect(request.profileId).toBe('alpha:4b');
@@ -362,7 +362,7 @@ it('keeps four successive scientific methods as four independently selectable ra
 });
 
 
-it('audits all nine active scientific methods and schedules only pending method trials from one button', async () => {
+it('audits all twelve active scientific methods and schedules only pending method trials from one button', async () => {
   const node = document.createElement('div');
   document.body.append(node);
   const root = createRoot(node);
@@ -376,9 +376,9 @@ it('audits all nine active scientific methods and schedules only pending method 
   const analyse = [...node.querySelectorAll<HTMLButtonElement>('button')].find(button =>
     button.textContent?.trim() === 'Analyse des méthodes')!;
   await act(async () => analyse.click());
-  const audit = node.querySelector('section[aria-label="État des 9 méthodes scientifiques"]')!;
+  const audit = node.querySelector('section[aria-label="État des 12 méthodes scientifiques"]')!;
   expect(audit).toBeTruthy();
-  expect(audit.querySelectorAll('tbody tr')).toHaveLength(9);
+  expect(audit.querySelectorAll('tbody tr')).toHaveLength(12);
   expect(audit.textContent).toContain('Non testé');
   expect(audit.textContent).toContain('/9');
   const launch = [...node.querySelectorAll<HTMLButtonElement>('button')].find(button =>

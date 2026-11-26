@@ -1,10 +1,6 @@
 import type { ImageInput } from '../../shared/domain/imageInput.ts';
-import type { Rubric } from '../../correction/domain/rubric.ts';
-import { getRubricSubcriteria } from '../../correction/domain/rubric.ts';
-import type { GradingProposal } from '../../correction/domain/grading.ts';
-import type { GradingProvider, OllamaSettings } from '../../correction/ports/aiProvider.ts';
-import { gradeDiagramImages, type DiagramImageGradingInput } from '../../correction/ports/gradeDiagramImages.ts';
-import { createHybridDiagramShortcut, canUseHybridVisualLogprobs } from '../../correction/ports/hybridDiagramShortcut.ts';
+import { getRubricSubcriteria, gradeDiagramImages, createHybridDiagramShortcut, type Rubric, type GradingProposal, type GradingProvider, type OllamaSettings, type DiagramImageGradingInput } from '../../correction/api/index.ts';
+import { canUseHybridVisualLogprobs } from '../../shared/domain/hybridVisualLogprobs.ts';
 import type { VisualLogprobProbe } from '../../shared/ports/visualLogprobProbe.ts';
 import type { LogprobRadarMethod, LogprobRadarTrace } from '../domain/logprobRadar.ts';
 
