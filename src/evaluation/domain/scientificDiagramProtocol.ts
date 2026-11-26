@@ -85,7 +85,7 @@ export function diagramMethodIssue(profile: AiModelProfile, selection: DiagramMe
   return selection === 'direct-image-generative'
     ? 'Le parcours génératif direct exige une configuration générative et un modèle acceptant les images : ' + profile.name
     : selection === 'direct-image-systemone'
-      ? 'Le parcours System One image exige un modèle Ollama décisionnel compatible avec les images (pas TEV1) : ' + profile.name
+      ? 'Le parcours System One image exige un modèle décisionnel local compatible avec les images (pas TEV1) : ' + profile.name
       : 'Aucun parcours de schéma disponible pour la configuration : ' + profile.name;
 }
 
