@@ -16,6 +16,9 @@ export const scienceMethods = {
   'graph-first-v2': { label: 'Image → relations légendes/structures → correction · v2', graphVariant: 'baseline', promptMode: 'standard' },
   'vision-then-analysis': { label: 'Vision puis analyse — 2 étapes', graphVariant: 'baseline', promptMode: 'standard' },
   'direct-image-generative-thinking': { label: 'Image → modèle génératif — Think ON', graphVariant: 'baseline', promptMode: 'standard' },
+  'direct-image-logprobs': { label: 'Image → logprobs seuls · expérimental', graphVariant: 'baseline', promptMode: 'standard' },
+  'direct-image-hybrid': { label: 'Image → hybride logprobs + génératif · expérimental', graphVariant: 'baseline', promptMode: 'standard' },
+  'direct-image-hybrid-zoom': { label: 'Image → hybride logprobs + génératif + zoom · expérimental', graphVariant: 'baseline', promptMode: 'standard' },
   'direct-image-systemone': { label: 'Image → décisionnel System One — sans OCR', graphVariant: 'baseline', promptMode: 'standard' },
 } as const;
 export type ScienceMethod = keyof typeof scienceMethods;

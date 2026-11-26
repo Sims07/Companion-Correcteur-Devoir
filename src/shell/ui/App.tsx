@@ -108,6 +108,8 @@ import { shouldRetryInvalidDiagramRecord } from '../../evaluation/domain/diagram
 import type { DiagramLabArchiveRepository } from '../../evaluation/ports/diagramLabArchiveRepository.ts';
 import { initialAssignmentRubric, type AssignmentKind } from '../../correction/domain/assignmentKind.ts';
 import { DiagramRubricQuickAccess } from '../../correction/ui/components/DiagramRubricQuickAccess.tsx';
+import { evaluateLogprobRadar } from '../../evaluation/application/evaluateLogprobRadar.ts';
+import { isLogprobRadarMethod, type LogprobRadarTrace } from '../../evaluation/domain/logprobRadar.ts';
 import { canUseHybridVisualLogprobs } from '../../correction/ports/hybridDiagramShortcut.ts';
 import { correctScientificDiagramDirect, directDiagramAssignmentIssue } from '../../correction/application/directScientificDiagramCorrection.ts';
 import { SCIENTIFIC_DIAGRAM_PROTOCOL_ID, buildScientificDiagramProtocolReport, diagramMethodIssue, diagramMethodLabels, selectDiagramMethods, usesDirectDiagramVision, type DiagramMethod, type DiagramMethodSelection, type DiagramProtocolCount } from '../../evaluation/domain/scientificDiagramProtocol.ts';
@@ -2243,7 +2245,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
             && canTryVisualDecision(profile.configuration))
     );
     const directGenerativeProfiles = (_profile: AiModelProfile) => runStage === 'integrated'
-      && (diagramMethod === 'graph-first-v1' || diagramMethod === 'graph-first-v2' || diagramMethod === 'direct-image-generative' || diagramMethod === 'direct-image-generative-thinking');
+      && (diagramMethod === 'graph-first-v1' || diagramMethod === 'graph-first-v2' || diagramMethod === 'direct-image-generative' || diagramMethod === 'direct-image-generative-thinking' || isLogprobRadarMethod(diagramMethod));
     // Only the diagram lab can override a saved visual-decision profile to test
     // its two-step System One text baseline. The teacher route is unchanged.
     const effectiveMethod = (profile: AiModelProfile) =>
@@ -2257,6 +2259,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     setBusy(true);
     setIsAnalyzing(true);
     const graphEvidence = new Map<string, DiagramGraphEvidence>();
+    const logprobTraces = new Map<string, LogprobRadarTrace>();
     const outputs = await runModelEvaluation({
       stages: [...measuredStages],
       stagesForConfiguration: (configuration) => {
@@ -2344,7 +2347,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
         let analysisStartedAt: number | null = null;
         const measuredRuns: DiagnosticModelResult[] = [];
         let streamedOutput = '';
-        const provider = service.createProvider({
+        const providerSettings = {
           endpoint: configuration.endpoint,
           apiCompatible: configuration.apiCompatible,
           omitReasoningParameter: configuration.omitReasoningParameter,
@@ -2359,10 +2362,11 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
           thinking: configuration.thinking,
           ...(configuration.thinkingLevel ? { thinkingLevel: configuration.thinkingLevel } : {}),
           criterionByCriterion: configuration.criterionByCriterion,
-          smartZoom: configuration.smartZoom,
+          smartZoom: isLogprobRadarMethod(diagramMethod) ? diagramMethod === 'direct-image-hybrid-zoom' : configuration.smartZoom,
           correctionMethod: configuration.correctionMethod,
-          diagnosticStrategy: 'single',
-        });
+          diagnosticStrategy: 'single' as const,
+        };
+        const provider = service.createProvider(providerSettings);
         setStreamedOutput('');
         let sequentialProposal: GradingProposal | undefined;
         try {
@@ -2401,7 +2405,20 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
           }
           const gradingContext = buildAssignmentContext({ title: runTitle, description: runDescription, educationLevel: runLevel, question: gradingQuestion });
           const directDiagram = diagramMethod === 'direct-image-generative' || diagramMethod === 'direct-image-generative-thinking';
-          if (configuration.directGenerativeVision && directDiagram && configuration.criterionByCriterion) {
+          if (isLogprobRadarMethod(diagramMethod)) {
+            const trace: LogprobRadarTrace = { decisions: {}, fastCriteria: [], totalCriteria: runRubric.criteria.length, probes: 0, unavailable: false };
+            logprobTraces.set(configuration.id, trace);
+            analysisStartedAt = startedAt;
+            onStage('analysis');
+            setEvaluationStage('grading');
+            setAnalysisStage('grading');
+            sequentialProposal = await awaitOrAbort(() => evaluateLogprobRadar(diagramMethod, providerSettings, provider, {
+              question: gradingContext, images: runImages, rubric: runRubric, signal: abortController.signal,
+              onCriterion: (index, title) => setEvaluationCriterion((index + 1) + '/' + runRubric.criteria.length + ' · ' + title),
+              onDiagnosticResult: result => { if (!abortController.signal.aborted) measuredRuns.push(result); },
+            }, service.probeVisualLogprobs?.bind(service), trace), abortController.signal);
+            raw = sequentialProposal ? JSON.stringify(sequentialProposal) : '';
+          } else if (configuration.directGenerativeVision && directDiagram && configuration.criterionByCriterion) {
             sequentialProposal = await awaitOrAbort(() => gradeDiagramImages(provider, {
               question: gradingContext,
               images: structuredClone(runImages),
@@ -2479,7 +2496,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
         if (runStage === 'vision' && analysisStartedAt === null) readingMs = Math.max(0, analysisFinishedAt - startedAt);
         const analysisMs = analysisStartedAt === null ? 0 : Math.max(0, analysisFinishedAt - analysisStartedAt);
         setEvaluationStage('parsing');
-        const { score, proposal: parsedProposal } = sequentialProposal
+        const { score, proposal: parsedProposal } = diagramMethod === 'direct-image-logprobs' ? { score: null, proposal: null } : sequentialProposal
           ? { score: sequentialProposal.scoreIncomplete ? null : sequentialProposal.finalScore, proposal: sequentialProposal }
           : readEvaluationGradingResult(
               runStage, raw, runRubric,
@@ -2503,6 +2520,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
       if (firstReadableResult?.value?.transcription) setTranscription(firstReadableResult.value.transcription);
     }
     const results = outputs.map((output) => ({
+      ...(logprobTraces.has(output.configuration.id) ? { logprobRadar: logprobTraces.get(output.configuration.id) } : {}),
       ...(graphEvidence.has(output.configuration.id) ? {graphEvidence: graphEvidence.get(output.configuration.id)} : {}),
       profileId: output.configuration.id,
       profileName: output.configuration.name,
@@ -2529,6 +2547,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     // Render results immediately; IndexedDB writes must never block navigation.
     if (results.length > 0 && !options) setEvaluationWorkspaceStep('results');
     const savedRecord: ModelEvaluationRecord = {
+      ...(isLogprobRadarMethod(diagramMethod) ? { logprobRadarMethod: diagramMethod } : {}),
       ...(diagramMethod === 'graph-first-v1' || diagramMethod === 'graph-first-v2'
         ? {graphFirst: true, graphVersion: diagramMethod === 'graph-first-v2' ? 'v2' as const : 'v1' as const} : {}),
       id: 'evaluation-' + Date.now() + (options ? '-' + options.pilotCase.id + '-' + runStage + (options.contractVariant ? '-' + options.contractVariant : '') : ''),

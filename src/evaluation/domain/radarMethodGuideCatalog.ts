@@ -90,6 +90,27 @@ export const SCIENCE_METHOD_PRESENTATION: Record<ScienceMethod, MethodGuidePrese
     visualFocus: 'Raisonnement demandé au modèle',
     visualCaption: 'Mêmes images et critères que Think OFF, mais avec le mode Think explicitement activé.',
   },
+  'direct-image-logprobs': {
+    title: 'Image → logprobs seuls',
+    summary: 'Décisions fermées indépendantes des notes.',
+    illustration: 'direct-grading',
+    visualFocus: 'Décision visuelle expérimentale',
+    visualCaption: 'Les propositions non confirmées restent distinctes des points attribués.',
+  },
+  'direct-image-hybrid': {
+    title: 'Image → hybride logprobs + génératif',
+    summary: 'Même moteur hybride que la correction enseignant.',
+    illustration: 'direct-grading',
+    visualFocus: 'Décision visuelle expérimentale',
+    visualCaption: 'Les propositions non confirmées restent distinctes des points attribués.',
+  },
+  'direct-image-hybrid-zoom': {
+    title: 'Image → hybride logprobs + génératif + zoom',
+    summary: 'Même moteur hybride que la correction enseignant.',
+    illustration: 'direct-grading',
+    visualFocus: 'Décision visuelle expérimentale',
+    visualCaption: 'Les propositions non confirmées restent distinctes des points attribués.',
+  },
   'direct-image-systemone': {
     title: 'Image → décisionnel System One',
     summary: 'Un modèle décisionnel visuel reçoit directement la photo.',
@@ -126,7 +147,7 @@ export const BIOLOGY_METHOD_PRESENTATION: Record<BiologyMethodId, MethodGuidePre
 const scienceOrder: readonly ScienceMethod[] =
   ['image-direct-v1', 'pixel-v1', 'leaders-v1', 'direct-v1', 'guided-v1', 'graph-first-v1',
     'graph-first-v2', 'vision-then-analysis', 'direct-image-generative-thinking',
-    'direct-image-systemone'];
+    'direct-image-systemone', 'direct-image-logprobs', 'direct-image-hybrid', 'direct-image-hybrid-zoom'];
 
 /** Includes excluded methods and strategies with no archived score. */
 export function radarMethodGuideEntries(domain: RadarMethodDomain): MethodGuideEntry[] {

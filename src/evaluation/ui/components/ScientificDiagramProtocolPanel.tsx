@@ -543,6 +543,9 @@ export function ScientificDiagramProtocolPanel({
         <option value="direct-image-generative-thinking">Image → modèle génératif — Think ON (Ollama compatible)</option>
         <option value="compare-thinking">Comparer génératif direct : Think OFF / ON (modèle compatible)</option>
         <option value="direct-image-systemone">Image → décisionnel System One — sans OCR</option>
+              <option value="direct-image-logprobs">Image → logprobs seuls · expérimental</option>
+              <option value="direct-image-hybrid">Image → hybride logprobs + génératif · expérimental</option>
+              <option value="direct-image-hybrid-zoom">Image → hybride logprobs + génératif + zoom · expérimental</option>
       </DesignSystemSelect>
       <details className="diagram-lab-explanation"><summary>Compatibilité et limites des méthodes</summary><p className="pilot-evaluation-hint">Les méthodes sont choisies dans ce laboratoire uniquement. Le choix habituel « Comparer toutes les méthodes » n’active jamais Think. L’option OFF / ON fonctionne avec tout modèle génératif Vision sur Ollama local qui prend en charge Think : le serveur est interrogé sur les capacités du modèle avant l’essai. Les niveaux nommés sont respectés quand Ollama en indique un. 4 096 tokens maximum par appel Think et 1 passage par défaut. Pensez à « Arrêter » si l’essai est trop long. Le rapport distingue Thinking demandé et trace réellement émise, sans enregistrer le raisonnement. Les modèles génératifs multimodaux reçoivent directement les images. Les modèles décisionnels compatibles image utilisent System One direct. Vision puis analyse est conservée uniquement dans les anciens rapports, pas dans les nouveaux tests.</p></details>
     </div>)}
