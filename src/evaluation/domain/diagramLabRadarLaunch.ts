@@ -1,3 +1,5 @@
+import { isLogprobRadarMethod } from './logprobRadar.ts';
+import { canUseHybridVisualLogprobs } from '../../shared/domain/hybridVisualLogprobs.ts';
 import { canTryVisualDecision } from '../../shared/domain/decisionModelCapabilities.ts';
 import { supportsLocalSystemOne } from '../../shared/domain/lmStudioTransport.ts';
 import { BLIND_GRAPH_PROMPT_VARIANTS, type BlindGraphPromptVariant } from './scientificDiagramBlindGraph.ts';
@@ -51,6 +53,7 @@ export interface RadarMissingTestRequest {
 const ALL_METHODS: DiagramMethodSelection[] = [
   'graph-first-v1', 'direct-image-generative',
   'direct-image-generative-thinking', 'direct-image-systemone',
+  'direct-image-logprobs', 'direct-image-hybrid', 'direct-image-hybrid-zoom',
 ];
 
 /** Map a missing skill to the exact existing automatic test families.
@@ -251,6 +254,7 @@ export function resolveModelProfile(
   };
   const canGrade = (profile: RadarModelConfiguration) => {
     const cfg = profile.configuration;
+    if (isLogprobRadarMethod(selectedStrategy) || isLogprobRadarMethod(requestedMethod)) return cfg.analysisModel.trim() === candidate.id && canUseHybridVisualLogprobs({ ...cfg, endpoint: cfg.endpoint ?? '' });
     if (!needsGrading) return true;
     // An explicitly selected direct-image benchmark must never silently become
     // Vision → analysis when a profile has two distinct models configured.

@@ -13,6 +13,9 @@ const titles: Record<MethodGuideIllustration, string> = {
   'vision-analysis': 'Deux appels distincts : image vers modèle Vision, transcription vers analyse',
   'direct-grading': 'Image et barème directement envoyés au modèle génératif sans OCR préalable',
   'thinking-grading': 'Image et barème envoyés au modèle génératif avec le mode Think demandé',
+  'logprob-grading': 'Questions visuelles fermées par logprobs',
+  'hybrid-grading': 'Correction hybride visuelle',
+  'hybrid-zoom-grading': 'Correction hybride avec zoom',
   'systemone-grading': 'Image et barème directement envoyés au modèle visuel System One',
   'question-contracts': 'Correction d’une réponse à l’aide de trois attendus indépendants',
   'standard-rubric': 'Confrontation d’une réponse au barème standard et comparaison des critères',
@@ -235,8 +238,11 @@ function Pilot() {
   </>;
 }
 
-type RouteKind = 'relations-v2' | 'vision-analysis' | 'direct-grading' | 'thinking-grading' | 'systemone-grading';
+type RouteKind = 'logprob-grading' | 'hybrid-grading' | 'hybrid-zoom-grading' | 'relations-v2' | 'vision-analysis' | 'direct-grading' | 'thinking-grading' | 'systemone-grading';
 const routes: Record<RouteKind, { stages: string[]; note: string; badge: string }> = {
+  'logprob-grading': { stages: ['Image + barème', 'Logprobs A/B/C/D', 'Décisions'], note: 'Aucun point attribué automatiquement', badge: 'Logprobs' },
+  'hybrid-grading': { stages: ['Image + barème', 'Logprobs / LLM', 'À confirmer'], note: 'Doute ou déduction : analyse générative', badge: 'Hybride' },
+  'hybrid-zoom-grading': { stages: ['Image + barème', 'Logprobs / zoom', 'À confirmer'], note: 'Zoom disponible pour le chemin génératif', badge: 'Hybride + zoom' },
   'relations-v2': { stages: ['Image', 'Relations v2', 'Correction'], note: 'Étiquettes, cibles et inclusions vérifiées', badge: 'Graphe v2' },
   'vision-analysis': { stages: ['Image', 'Vision → texte', 'Analyse'], note: 'Le second modèle ne voit pas les pixels', badge: 'Deux appels' },
   'direct-grading': { stages: ['Image + barème', 'LLM Vision', 'Note'], note: 'Pas de graphe ni transcription préalable', badge: 'Think OFF' },

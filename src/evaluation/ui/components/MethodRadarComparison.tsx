@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { radarCriterionLeaders } from '../../domain/radarCriterionLeaders.ts';
 import { RADAR_AXES } from '../../domain/diagramLabRadar.ts';
+import { RadarRoutingMetrics } from './RadarRoutingMetrics.tsx';
 import type { TimelinePoint } from '../../domain/radarTimeline.ts';
 
 const shortLabels = new Map<string,string>([
@@ -51,6 +52,7 @@ export function MethodRadarComparison({sorted, axes, gallery}: {sorted:TimelineP
         }}>{(index ? alternatives : preferred).map(row => <option key={row.label}>{row.label}</option>)}</select>
         <strong>{number(p.score)} <small>/ 100</small></strong>
         <span>{isFull(p,axes) ? 'Dernier radar complet' : 'Dernier radar partiel'} · {axes.filter(a => p.axes[a] != null).length}/{axes.length} axes</span>
+        {p.logprobRouting && <RadarRoutingMetrics metrics={p.logprobRouting}/>}
         <time dateTime={p.date}>{new Date(p.date).toLocaleString('fr-FR',{dateStyle:'medium',timeStyle:'short'})}</time>
       </div>)}{!second && <p>Une seule méthode évaluée pour ce modèle.</p>}</div>
       <figure><svg viewBox="0 0 400 282" role="img" aria-label="Radars superposés des méthodes sur 100">

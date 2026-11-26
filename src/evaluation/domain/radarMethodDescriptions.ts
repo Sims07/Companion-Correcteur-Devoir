@@ -113,6 +113,27 @@ export const SCIENCE_METHOD_DESCRIPTIONS: Record<ScienceMethod, RadarMethodDescr
     limitations: 'Think peut ne pas être pris en charge, être ignoré ou allonger la durée ; il ne garantit pas une meilleure lecture.',
     radarScope: 'Un parcours distinct de Think OFF. « Comparer Think OFF / ON » déclenche les deux et ne représente pas une troisième méthode.',
   },
+  'direct-image-logprobs': {
+    principle: 'Questions visuelles fermées et probabilités des tokens, sans note automatique.',
+    steps: ['Observer chaque attendu du barème sur les pixels.', 'Mesurer les verdicts, conserver les abstentions.', 'Comparer aux références sans valider de note.'],
+    interest: 'Mesure le compromis entre justesse, couverture, arbitrages et temps applicatif.',
+    limitations: 'API Responses locale compatible requise. Probabilités non calibrées ; image répétée à chaque sonde.',
+    radarScope: 'A/B/C, D/E et S0–S5 sur le moteur choisi. Le graphe indépendant reste une extraction baseline.',
+  },
+  'direct-image-hybrid': {
+    principle: 'Décision visuelle rapide puis recours au moteur génératif pour les critères non entièrement positifs.',
+    steps: ['Observer chaque attendu du barème sur les pixels.', 'Réutiliser le moteur hybride de correction et distinguer ses deux chemins.', 'Comparer aux références sans valider de note.'],
+    interest: 'Mesure le compromis entre justesse, couverture, arbitrages et temps applicatif.',
+    limitations: 'API Responses locale compatible requise. Probabilités non calibrées ; image répétée à chaque sonde.',
+    radarScope: 'A/B/C, D/E et S0–S5 sur le moteur choisi. Le graphe indépendant reste une extraction baseline.',
+  },
+  'direct-image-hybrid-zoom': {
+    principle: 'Décision visuelle rapide puis recours au moteur génératif pour les critères non entièrement positifs.',
+    steps: ['Observer chaque attendu du barème sur les pixels.', 'Réutiliser le moteur hybride de correction et distinguer ses deux chemins.', 'Comparer aux références sans valider de note.'],
+    interest: 'Mesure le compromis entre justesse, couverture, arbitrages et temps applicatif.',
+    limitations: 'API Responses locale compatible requise. Probabilités non calibrées ; image répétée à chaque sonde.',
+    radarScope: 'A/B/C, D/E et S0–S5 sur le moteur choisi. Le graphe indépendant reste une extraction baseline. Zoom demandé au génératif uniquement.',
+  },
   'direct-image-systemone': {
     principle: 'Envoyer directement les pixels au modèle décisionnel visuel System One avec le barème, sans OCR ni génératif intermédiaire.',
     steps: [

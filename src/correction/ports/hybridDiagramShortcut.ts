@@ -4,18 +4,12 @@ import type { RubricCriterion } from '../domain/rubric.ts';
 import { getRubricSubcriteria } from '../domain/rubric.ts';
 import type { CriterionProposal, GradingProposal } from '../domain/grading.ts';
 import type { LogprobSettings, VisualLogprobProbe } from '../../shared/ports/visualLogprobProbe.ts';
-import { aiTransport, supportsLocalSystemOne, responsesEndpoint } from '../../shared/domain/lmStudioTransport.ts';
+import { canUseHybridVisualLogprobs } from '../../shared/domain/hybridVisualLogprobs.ts';
+export { canUseHybridVisualLogprobs } from '../../shared/domain/hybridVisualLogprobs.ts';
 import type { LogprobDecision } from '../../shared/domain/visualLogprobDecision.ts';
 
 /** A routing heuristic, NOT a calibrated probability of correctness. */
 export const experimentalPositiveThreshold = .95;
-export function canUseHybridVisualLogprobs(config: {
-  endpoint: string; apiCompatible?: boolean; analysisModel?: string; correctionMethod?: string;
-}): boolean {
-  return config.apiCompatible === true && aiTransport(true, config.endpoint) === 'lmstudio-responses' &&
-    Boolean(config.analysisModel?.trim()) && config.correctionMethod === 'generative' &&
-    Boolean(responsesEndpoint(config.endpoint)) && supportsLocalSystemOne(config);
-}
 
 function isStrongPositive(decision: LogprobDecision): boolean {
   return decision.status === 'resolved' && decision.verdict === 'present' &&

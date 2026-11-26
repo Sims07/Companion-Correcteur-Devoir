@@ -135,13 +135,13 @@ it('allows a user to reclassify a method and restores that local choice in a new
     });
     expect(guide.querySelector('[data-status-group="candidate"]')?.contains(tab('pixel-v1'))).toBe(true);
     expect(guide.querySelector('[role="status"]')?.textContent).toContain('enregistré');
-    expect(guide.querySelectorAll('[role="tab"]')).toHaveLength(10);
+    expect(guide.querySelectorAll('[role="tab"]')).toHaveLength(Object.keys(scienceMethods).length);
     expect(guide.querySelector('[role="tabpanel"]')?.getAttribute('data-selected-method')).toBe('pixel-v1');
     await act(async () => root.unmount());
     root = mount();
     await act(async () => root.render(createElement(RadarTimeline, { ...baseProps, domain: 'diagrams' })));
     expect(node.querySelector('[data-status-group="candidate"] [data-method-id="pixel-v1"]')).not.toBeNull();
-    expect(node.querySelectorAll('[role="tab"]')).toHaveLength(10);
+    expect(node.querySelectorAll('[role="tab"]')).toHaveLength(Object.keys(scienceMethods).length);
     const saved = window.localStorage.getItem('companion:radar-method-statuses:v1');
     expect(saved).toContain('"pixel-v1":"candidate"');
   } finally { await act(async () => root.unmount()); }

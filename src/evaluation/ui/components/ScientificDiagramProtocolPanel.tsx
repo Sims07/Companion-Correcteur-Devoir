@@ -543,6 +543,9 @@ export function ScientificDiagramProtocolPanel({
         <option value="direct-image-generative-thinking">Image → modèle génératif — Think ON (Ollama compatible)</option>
         <option value="compare-thinking">Comparer génératif direct : Think OFF / ON (modèle compatible)</option>
         <option value="direct-image-systemone">Image → décisionnel System One — sans OCR</option>
+              <option value="direct-image-logprobs">Image → logprobs seuls · expérimental</option>
+              <option value="direct-image-hybrid">Image → hybride logprobs + génératif · expérimental</option>
+              <option value="direct-image-hybrid-zoom">Image → hybride logprobs + génératif + zoom · expérimental</option>
       </DesignSystemSelect>
       <details className="diagram-lab-explanation"><summary>Compatibilité et limites des méthodes</summary><p className="pilot-evaluation-hint">Les méthodes sont choisies dans ce laboratoire uniquement. Le choix habituel « Comparer toutes les méthodes » n’active jamais Think. L’option OFF / ON fonctionne avec tout modèle génératif Vision sur Ollama local qui prend en charge Think : le serveur est interrogé sur les capacités du modèle avant l’essai. Les niveaux nommés sont respectés quand Ollama en indique un. 4 096 tokens maximum par appel Think et 1 passage par défaut. Pensez à « Arrêter » si l’essai est trop long. Le rapport distingue Thinking demandé et trace réellement émise, sans enregistrer le raisonnement. Les modèles génératifs multimodaux reçoivent directement les images. Les modèles décisionnels compatibles image utilisent System One direct. Vision puis analyse est conservée uniquement dans les anciens rapports, pas dans les nouveaux tests.</p></details>
     </div>)}
@@ -642,7 +645,7 @@ export function ScientificDiagramProtocolPanel({
       </div>
       {fixtureReport && <section id="evaluation-diagram-fixture-results" className="pilot-evaluation-report" aria-label="Résultats des schémas scientifiques">
         <div className="pilot-evaluation-report-head">
-          <div><h4>Comparaison aux notes de référence</h4><p>{busy || fixtureLoading ? 'Rapport partiel : les passages terminés sont déjà exportables. ' : ''}La note reste « Non noté » lorsque le modèle demande une revue. Les décisions System One sont mesurées séparément, même si la note finale reste indisponible.</p></div>
+          <div><h4>Comparaison aux notes de référence</h4><p>{busy || fixtureLoading ? 'Rapport partiel : les passages terminés sont déjà exportables. ' : ''}La note reste « Non noté » lorsqu’une revue est requise ou que le parcours mesure uniquement des décisions. System One et logprobs sont mesurés séparément des points attribués.</p></div>
           <div className="pilot-evaluation-report-actions">
             <Button variant="secondary" onClick={() => { void copyFixtureReport(); }}>Copier le rapport pour ChatGPT</Button>
             <Button variant="secondary" onClick={downloadFixtureReport}>Exporter le rapport JSON</Button>
@@ -664,6 +667,7 @@ export function ScientificDiagramProtocolPanel({
                 </details>] : [])}{experiments.map((experiment) => experiment.score === null ? 'Non noté' : experiment.score + '/10').join(' · ')}</td>
                 <td>
                   {experiments.map((experiment) => {
+                    if (experiment.logprobRouting?.unavailable) return 'Logprobs indisponibles — mesure non concluante';
                     if (experiment.status !== 'success') {
                       return experiment.failureCategory === 'model-unavailable' ? 'Modèle indisponible'
                         : experiment.failureCategory === 'connection' ? 'Connexion échouée'
@@ -673,10 +677,12 @@ export function ScientificDiagramProtocolPanel({
                         : experiment.failureCategory === 'timeout' ? 'Délai dépassé'
                         : 'Échec de traitement (cause à consulter dans le diagnostic)';
                     }
+                    if (experiment.method === 'direct-image-logprobs') return 'Décisions seules · sans note';
                     return experiment.scoreStatus === 'scored' ? 'Notée'
                       : experiment.scoreStatus === 'teacher-review-required' ? 'Arbitrage nécessaire'
                       : 'Réponse non notée';
                   }).join(' · ')}
+                  {experiments.filter(experiment => experiment.logprobRouting).map(experiment => <small key={'routing-' + experiment.repetition} className="diagram-protocol-diagnostic">{experiment.logprobRouting!.probes} sonde(s) logprobs{experiment.method !== 'direct-image-logprobs' && !experiment.logprobRouting!.unavailable && ' · ' + experiment.logprobRouting!.fastCriteria + '/' + experiment.logprobRouting!.totalCriteria + ' critères rapides'}</small>)}
                   {experiments.some((experiment) => experiment.status !== 'success' && experiment.diagnostics.analysisCalls > 0)
                     && <small className="diagram-protocol-diagnostic">
                       {experiments.filter((experiment) => experiment.status !== 'success' && experiment.diagnostics.analysisCalls > 0)
@@ -710,7 +716,7 @@ export function ScientificDiagramProtocolPanel({
                   + (experiment.diagnostics.generatedTokens !== null ? ' · ' + experiment.diagnostics.generatedTokens + ' tokens' : '')
                 )).join(' · ')}</td>
                 <td>{summary.stableResolvedTargets === null ? 'Non mesurée' : summary.stableResolvedTargets + '/' + summary.totalTargets}</td>
-                <td>{summary.meanDurationMs === null ? '—' : (summary.meanDurationMs / 1000).toFixed(1) + ' s'}</td>
+                <td>{summary.meanDurationMs !== null ? (summary.meanDurationMs / 1000).toFixed(1) + ' s (moteur)' : experiments.length > 0 && experiments.every(experiment => experiment.clientDurationMs !== null) ? (experiments.reduce((sum, experiment) => sum + (experiment.clientDurationMs ?? 0), 0) / experiments.length / 1000).toFixed(1) + ' s (application)' : '—'}</td>
               </tr>;
             }))}</tbody>
           </table>

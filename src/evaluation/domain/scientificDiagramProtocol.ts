@@ -1,3 +1,5 @@
+import { canUseHybridVisualLogprobs } from '../../shared/domain/hybridVisualLogprobs.ts';
+import { isLogprobRadarMethod, type LogprobRadarMethod } from './logprobRadar.ts';
 import { canTryVisualDecision } from '../../shared/domain/decisionModelCapabilities.ts';
 import { supportsLocalSystemOne } from '../../shared/domain/lmStudioTransport.ts';
 import { evaluationPromptReferences } from './evaluationPromptReferences.ts';
@@ -14,7 +16,7 @@ export type DiagramTeacherDecision = 'present' | 'absent' | 'partial';
 export type DiagramGold = Record<string, DiagramTeacherDecision>;
 export type DiagramProtocolRun = { repetition: number; record: ModelEvaluationRecord; /** Monotonic, client-observed full evaluation time. */ clientDurationMs?: number };
 export type DiagramProtocolCount = 1 | 3 | 5;
-export type DiagramMethod = 'graph-first-v1' | 'graph-first-v2' | 'vision-then-analysis' | 'direct-image-generative' | 'direct-image-generative-thinking' | 'direct-image-systemone';
+export type DiagramMethod = 'graph-first-v1' | 'graph-first-v2' | 'vision-then-analysis' | 'direct-image-generative' | 'direct-image-generative-thinking' | 'direct-image-systemone' | LogprobRadarMethod;
 export type DiagramMethodSelection = DiagramMethod | 'compare' | 'compare-thinking';
 
 export const diagramMethodLabels: Record<DiagramMethod, string> = {
@@ -24,6 +26,9 @@ export const diagramMethodLabels: Record<DiagramMethod, string> = {
   'direct-image-generative': 'Image → génératif direct',
   'direct-image-generative-thinking': 'Image → génératif direct (Think ON)',
   'direct-image-systemone': 'System One image directe',
+  'direct-image-logprobs': 'Image → logprobs seuls',
+  'direct-image-hybrid': 'Image → hybride logprobs + génératif',
+  'direct-image-hybrid-zoom': 'Image → hybride logprobs + génératif + zoom',
 };
 
 /** The scientific laboratory selects routes independently of the teacher workflow.
@@ -36,6 +41,7 @@ export function availableDiagramMethods(profile: AiModelProfile): DiagramMethod[
   // Vision → transcription → analyse discards the diagram geometry. Preserve
   // its identifier to read historical reports, but never schedule new runs.
   if (config.correctionMethod === 'generative') methods.push('direct-image-generative');
+  if (canUseHybridVisualLogprobs(config)) methods.push('direct-image-logprobs', 'direct-image-hybrid', 'direct-image-hybrid-zoom');
   if (supportsLocalSystemOne(config) && (config.correctionMethod === 'decision' || config.correctionMethod === 'visual-decision')
       && canTryVisualDecision(config)) methods.push('direct-image-systemone');
   return methods;
@@ -55,7 +61,7 @@ export function supportsDiagramThinking(profile: AiModelProfile): boolean {
 export function selectDiagramMethods(profile: AiModelProfile, selection: DiagramMethodSelection): DiagramMethod[] {
   const methods = availableDiagramMethods(profile);
   if (selection === 'graph-first-v1' || selection === 'graph-first-v2') return methods.includes('direct-image-generative') ? [selection] : [];
-  if (selection === 'compare') return methods;
+  if (selection === 'compare') return methods.filter(method => !isLogprobRadarMethod(method));
   if (selection === 'compare-thinking') return methods.includes('direct-image-generative') && supportsDiagramThinking(profile)
     ? ['direct-image-generative', 'direct-image-generative-thinking'] : [];
   if (selection === 'direct-image-generative-thinking') return supportsDiagramThinking(profile)
@@ -79,6 +85,7 @@ export function diagramMethodIssue(profile: AiModelProfile, selection: DiagramMe
       ? 'TEV1 ne prend pas en charge les images via System One. Pour un schéma scientifique, choisissez un modèle visuel compatible.'
       : 'Ce modèle ne peut pas recevoir directement le schéma via System One : ' + profile.name;
   }
+  if (isLogprobRadarMethod(selection)) return 'Cette méthode exige un modèle génératif multimodal avec Responses local et logprobs compatibles : ' + profile.name;
   if (selection === 'compare-thinking' || selection === 'direct-image-generative-thinking') {
     return 'Le test Think nécessite un modèle d’analyse génératif sur Ollama local (pas une API distante). Les capacités Think sont vérifiées auprès d’Ollama au lancement : ' + profile.name;
   }
@@ -149,9 +156,14 @@ export function diagramObservations(result: ModelEvaluationResultSnapshot, rubri
       && assessment.assessmentStatus !== 'not-evaluated' && Number.isFinite(assessment.points)
       && assessment.points >= 0 && assessment.points <= sub.maxPoints;
     let choice: VisualChoice = 'uncertain';
-    let decisionSource: 'native-image' | 'native-text' | 'scored-proposal' | 'none' = 'none';
+    let decisionSource: 'native-image' | 'native-text' | 'scored-proposal' | 'logprobs' | 'none' = 'none';
+    const logprob = result.logprobRadar?.decisions[key];
+    const measuredLogprob = logprob && (result.logprobRadar?.fastCriteria.includes(criterion.id) || !result.proposal);
     if (result.status === 'success') {
-      if (observed) {
+      if (measuredLogprob) {
+        choice = logprob.verdict === 'present' || logprob.verdict === 'absent' || logprob.verdict === 'partial' ? logprob.verdict : 'uncertain';
+        decisionSource = 'logprobs';
+      } else if (observed) {
         // The native decision is observable independently from score validity.
         // In particular, missing literal evidence must not erase TEV1 choices.
         choice = observed.choice;
@@ -172,7 +184,7 @@ export function diagramObservations(result: ModelEvaluationResultSnapshot, rubri
     return {
       key, criterion: criterion.title, title: sub.title, choice, decisionSource,
       probability: decisionSource === 'native-image' || decisionSource === 'native-text'
-        ? observed?.probability ?? null : null,
+        ? observed?.probability ?? null : decisionSource === 'logprobs' && logprob?.verdict ? logprob.probabilities[logprob.verdict] : null,
       maxPoints: sub.maxPoints,
       awardedPoints: validAssessment && assessment ? assessment.points : null,
       evidenceState,
@@ -270,11 +282,12 @@ export function buildScientificDiagramProtocolReport(
   const experiments = runs.flatMap(({ repetition, record, clientDurationMs }) => record.results.map((result) => ({
     repetition, profileId: result.profileId, profileName: result.profileName,
     model: record.configurations.find((entry) => entry.id === result.profileId)?.analysisModel ?? '',
-    method: record.graphFirst ? (record.graphVersion === 'v2' ? 'graph-first-v2' as const : 'graph-first-v1' as const) : result.directVisualDecision ? 'direct-image-systemone' as const
+    method: record.logprobRadarMethod ?? (record.graphFirst ? (record.graphVersion === 'v2' ? 'graph-first-v2' as const : 'graph-first-v1' as const) : result.directVisualDecision ? 'direct-image-systemone' as const
       : record.configurations.find((entry) => entry.id === result.profileId)?.directGenerativeVision
         ? (record.configurations.find((entry) => entry.id === result.profileId)?.thinking
           ? 'direct-image-generative-thinking' as const : 'direct-image-generative' as const)
-        : 'vision-then-analysis' as const,
+        : 'vision-then-analysis' as const),
+    ...(result.logprobRadar ? { logprobRouting: { probes: result.logprobRadar.probes, fastCriteria: result.logprobRadar.fastCriteria.length, totalCriteria: result.logprobRadar.totalCriteria, unavailable: result.logprobRadar.unavailable } } : {}),
     // The V2 graph may contain literal text copied from an arbitrary student's
     // uploaded drawing. Export it only for the bundled synthetic fixtures.
     ...(result.graphEvidence && (result.graphEvidence.version !== 'graph-first-v2' || observationOptions.syntheticFixtureEvidence)
@@ -303,14 +316,14 @@ export function buildScientificDiagramProtocolReport(
     // Chat Completions replies have no native timing fields. Never relabel this
     // as a provider-native measurement.
     clientDurationMs: Number.isFinite(clientDurationMs) && clientDurationMs! >= 0 ? clientDurationMs! : null,
-    providerDurationMs: record.graphFirst ? null : sumReportedProviderDurationForRuns(result.diagnosticRuns ?? []),
+    providerDurationMs: record.graphFirst || record.logprobRadarMethod ? null : sumReportedProviderDurationForRuns(result.diagnosticRuns ?? []),
     readingMs: result.readingMs, analysisMs: result.analysisMs,
     tokens: result.tokens, score: result.score,
     ...(result.diagnosticRuns?.length ? { prompts: evaluationPromptReferences(result.diagnosticRuns) } : {}),
     diagnostics: diagramAnalysisDiagnostics(result),
     scoreStatus: result.status !== 'success' ? 'execution-failed' as const
       : result.score !== null ? 'scored' as const
-      : result.proposal ? 'teacher-review-required' as const : 'invalid-or-incomplete-proposal' as const,
+      : result.proposal || result.logprobRadar ? 'teacher-review-required' as const : 'invalid-or-incomplete-proposal' as const,
     observations: diagramObservations(result, rubric, observationOptions),
   })));
   const profiles = [...new Map(experiments.map((experiment) => [
