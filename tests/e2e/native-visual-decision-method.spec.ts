@@ -3,14 +3,18 @@ import { expect, test } from '@playwright/test';
 
 const profilesKey = 'companion-correcteur:ollama-profiles:v1';
 
-test('third method persists and sends diagram + all typed questions to Clef through exactly one native System One request', async ({ page }) => {
+for (const bionic of [false, true]) {
+test('one native diagram request via ' + (bionic ? 'LM Studio Bionic' : 'Ollama'), async ({ page }) => {
+  const model = bionic ? 'instance-visuelle' : 'clef-flash';
   const requests: Array<{ url: string; payload: Record<string, unknown> }> = [];
-  await page.route('http://localhost:11434/**', async (route) => {
+  await page.route(bionic ? 'http://localhost:1234/**' : 'http://localhost:11434/**', async (route) => {
     const request = route.request();
     const url = new URL(request.url());
     const headers = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*',
       'access-control-allow-methods': 'POST,GET,OPTIONS', 'content-type': 'application/json' };
     if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers });
+    if (url.pathname === '/api/v1/models') return route.fulfill({ status: 200, headers, body: JSON.stringify({ models: [{ key: model, type: 'decision', capabilities: { vision: true } }] }) });
+    if (url.pathname === '/v1/models') return route.fulfill({ status: 200, headers, body: JSON.stringify({ data: [{ id: 'clef-flash' }] }) });
     if (url.pathname === '/api/tags') return route.fulfill({ status: 200, headers, body: JSON.stringify({
       models: [{ name: 'clef-flash', model: 'clef-flash' }],
     }) });
@@ -36,9 +40,10 @@ test('third method persists and sends diagram + all typed questions to Clef thro
   await page.getByRole('button', { name: 'Gérer les configurations' }).click();
   await page.getByRole('dialog', { name: 'Gérer les configurations IA' })
     .getByRole('button', { name: 'Modifier les réglages courants' }).click();
+  if (bionic) await page.getByLabel('Connexion IA').selectOption('lmstudio-chat');
   await page.locator('#evaluation-profile-name').fill('Clef Vision + Décision');
   await page.getByText('Méthode de correction et modèle décisionnel', { exact: true }).click();
-  await page.locator('#evaluation-decision-model').fill('clef-flash');
+  await page.locator('#evaluation-decision-model').fill(model);
   await page.locator('#evaluation-correction-method').selectOption('decision');
   await page.getByText('Options de décision sur image', { exact: true }).click();
   await page.getByLabel('Envoyer directement les images au décisionnel').check();
@@ -63,8 +68,9 @@ test('third method persists and sends diagram + all typed questions to Clef thro
   expect(requests.filter((request) => request.url === '/v1/systemone')).toHaveLength(1);
   expect(requests.filter((request) => request.url === '/api/chat')).toHaveLength(0);
   const body = requests.find((request) => request.url === '/v1/systemone')!.payload;
-  expect(body.model).toBe('clef-flash');
+  expect(body.model).toBe(model);
   expect(body.images).toHaveLength(1);
+  if (bionic) expect((body.images as string[])[0]).toMatch(/^data:image\//);
   expect(Object.keys(body.questions as Record<string, unknown>).length).toBeGreaterThanOrEqual(19);
 
   await page.reload();
@@ -78,6 +84,8 @@ test('third method persists and sends diagram + all typed questions to Clef thro
   await page.getByText('Options de décision sur image', { exact: true }).click();
   await expect(page.getByLabel('Envoyer directement les images au décisionnel')).toBeChecked();
 });
+
+}
 
 test('TEV1 configured as direct image decision is blocked visibly before running the scientific diagram benchmark', async ({ page }) => {
   await page.goto('/');

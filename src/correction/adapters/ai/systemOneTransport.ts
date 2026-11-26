@@ -10,6 +10,8 @@ import type { SystemOneEnvelope, SystemOnePayload } from '../../domain/systemOne
  */
 export async function requestSystemOneDecision(input: {
   endpoint: string;
+  lmStudio?: boolean;
+  apiKey?: string;
   model: string;
   prepared: SystemOnePayload;
   images?: ImageInput[];
@@ -18,8 +20,9 @@ export async function requestSystemOneDecision(input: {
   onDiagnosticResult?: (result: DiagnosticModelResult) => void;
 }): Promise<SystemOneEnvelope> {
   const { endpoint, model, prepared, images, fetchImpl, signal, onDiagnosticResult } = input;
+  const url = (input.lmStudio ? endpoint.replace(/\/(?:api\/v1\/chat|v1\/responses)\/?$/, '') : endpoint) + '/v1/systemone';
   const payload = { model, state: prepared.state, questions: prepared.questions,
-    ...(images?.length ? { images: images.map((item) => item.base64) } : {}) };
+    ...(images?.length ? { images: images.map((item) => input.lmStudio ? `data:${item.mimeType};base64,${item.base64}` : item.base64) } : {}) };
   // The network request carries image bytes; diagnostic history must never do so.
   const safePayload = { ...payload, ...(images?.length ? { images: images.map(() => '[IMAGE_REDACTED]') } : {}) };
   const startedAt = Date.now();
@@ -32,9 +35,9 @@ export async function requestSystemOneDecision(input: {
       model,
       requestPayload: JSON.stringify(safePayload, null, 2),
       requestMetadata: {
-        provider: 'ollama', endpoint: endpoint + '/v1/systemone',
+        provider: input.lmStudio ? 'openai-compatible' : 'ollama', endpoint: url,
         stream: false, think: false, imageCount: images?.length ?? 0,
-        keepAlive: 'Ollama default',
+        keepAlive: input.lmStudio ? 'non applicable' : 'Ollama default',
         // This API does not accept generation controls or a stream token budget.
         options: { contextTokens: 0, generationTokenLimit: 0 },
       },
@@ -65,9 +68,10 @@ export async function requestSystemOneDecision(input: {
     if (encoder.encode(body).byteLength > 32 * 1024 * 1024) {
       throw new Error('La requête dépasse la limite locale de 32 Mio de l’API System One. Réduisez le nombre de pages ou la taille des images.');
     }
-    const response = await fetchImpl(endpoint + '/v1/systemone', annotateNetworkRequest({
+    const response = await fetchImpl(url, annotateNetworkRequest({
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      redirect: 'error',
+      headers: { 'Content-Type': 'application/json', ...(input.lmStudio && input.apiKey?.trim() ? { Authorization: 'Bearer ' + input.apiKey.trim() } : {}) },
       body,
       ...(signal ? { signal } : {}),
     }, 'Décider des attendus du barème', 'API System One · modèle ' + model));
@@ -75,8 +79,8 @@ export async function requestSystemOneDecision(input: {
     if (!response.ok) {
       const errorText = responseRaw.slice(0, 400);
       throw new Error(response.status === 404
-        ? 'API /v1/systemone indisponible (HTTP 404). Vérifiez la version d’Ollama et la prise en charge de System One.'
-        : 'Ollama System One a répondu HTTP ' + response.status + ' pour « ' + model + ' » : ' + errorText + '. Vérifiez que ce modèle prend en charge les décisions System One.');
+        ? 'API /v1/systemone indisponible (HTTP 404). Vérifiez le proxy HTTPS, la version du serveur et la prise en charge de System One.'
+        : 'System One a répondu HTTP ' + response.status + ' pour « ' + model + ' » : ' + errorText + '. Vérifiez que ce modèle prend en charge les décisions System One.');
     }
     const decoded: unknown = JSON.parse(responseRaw);
     if (!decoded || typeof decoded !== 'object' || !('answers' in decoded)) {

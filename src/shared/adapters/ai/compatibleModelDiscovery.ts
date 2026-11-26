@@ -40,6 +40,7 @@ export async function discoverCompatibleModels(
           if (typeof name !== 'string' || !name.trim()) continue;
           models.set(name, {
             name,
+            decision: model.type === 'decision',
             ...(name === model.key && typeof model.display_name === 'string' ? { label: model.display_name } : {}),
             vision: model.capabilities?.vision,
             tools: model.capabilities?.trained_for_tool_use,

@@ -6,6 +6,7 @@ export type AnalysisReasoningEffort = 'on' | 'low' | 'medium' | 'high';
 export interface AiModelOption {
   name: string;
   label?: string;
+  decision?: boolean;
   vision?: boolean;
   tools?: boolean;
   reasoningOptions?: string[];

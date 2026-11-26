@@ -25,3 +25,15 @@ export function endpointForTransport(endpoint: string, from: AiTransport, to: Ai
   const base = value.replace(/\/(?:api\/v1\/chat|v1\/chat\/completions|v1\/responses|v1)$/, '');
   return base + (to === 'lmstudio-chat' ? '/api/v1/chat' : to === 'lmstudio-responses' ? '/v1/responses' : '/v1/chat/completions');
 }
+
+/** Native decisions are offered on Ollama and explicitly configured local LM Studio routes. */
+export function supportsLocalSystemOne(config: { apiCompatible?: boolean; endpoint?: string }): boolean {
+  if (!config.apiCompatible) return true;
+  const endpoint = config.endpoint ?? '';
+  if (aiTransport(true, endpoint) === 'openai') return false;
+  try {
+    const url = new URL(endpoint);
+    const local = /^(?:localhost|\[::1\]|[a-z0-9-]+(?:\.[a-z0-9-]+)*\.local|127\.\d+\.\d+\.\d+|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(?:1[6-9]|2\d|3[01])\.\d+\.\d+)$/i.test(url.hostname);
+    return local && /^https?:$/.test(url.protocol) && !url.username && !url.password && !url.search && !url.hash;
+  } catch { return false; }
+}

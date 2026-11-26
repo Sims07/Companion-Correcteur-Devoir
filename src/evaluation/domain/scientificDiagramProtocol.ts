@@ -1,8 +1,10 @@
+import { canTryVisualDecision } from '../../shared/domain/decisionModelCapabilities.ts';
+import { supportsLocalSystemOne } from '../../shared/domain/lmStudioTransport.ts';
 import { evaluationPromptReferences } from './evaluationPromptReferences.ts';
 import { sumReportedProviderDurationForRuns } from './modelEvaluation.ts';
 import type { AiModelProfile } from '../../shared/domain/aiModelProfiles.ts';
 import type { ModelEvaluationRecord, ModelEvaluationResultSnapshot } from './modelEvaluation.ts';
-import { getRubricSubcriteria, type Rubric, isVisualDecisionModel } from '../../correction/api/index.ts';
+import { getRubricSubcriteria, type Rubric } from '../../correction/api/index.ts';
 import { extractSystemOneDecisions, type VisualChoice } from './visualDecisionEvaluation.ts';
 import { isSupportedPilotProfile, isLoopbackPilotEndpoint } from './pilotEvaluationProtocol.ts';
 
@@ -29,13 +31,13 @@ export const diagramMethodLabels: Record<DiagramMethod, string> = {
 export function availableDiagramMethods(profile: AiModelProfile): DiagramMethod[] {
   const config = profile.configuration;
   if (!isSupportedPilotProfile(profile) || !config.analysisModel.trim()) return [];
-  if (config.apiCompatible && config.correctionMethod !== 'generative') return [];
+  if (!supportsLocalSystemOne(config) && config.correctionMethod !== 'generative') return [];
   const methods: DiagramMethod[] = [];
   // Vision → transcription → analyse discards the diagram geometry. Preserve
   // its identifier to read historical reports, but never schedule new runs.
   if (config.correctionMethod === 'generative') methods.push('direct-image-generative');
-  if (!config.apiCompatible && (config.correctionMethod === 'decision' || config.correctionMethod === 'visual-decision')
-      && isVisualDecisionModel(config.analysisModel)) methods.push('direct-image-systemone');
+  if (supportsLocalSystemOne(config) && (config.correctionMethod === 'decision' || config.correctionMethod === 'visual-decision')
+      && canTryVisualDecision(config)) methods.push('direct-image-systemone');
   return methods;
 }
 
@@ -72,7 +74,7 @@ export function diagramMethodIssue(profile: AiModelProfile, selection: DiagramMe
   // Preserve the actionable incompatibility explanation if an obsolete or
   // misconfigured profile explicitly requests image-based System One.
   if (profile.configuration.correctionMethod === 'visual-decision'
-    && !isVisualDecisionModel(profile.configuration.analysisModel)) {
+    && !canTryVisualDecision(profile.configuration)) {
     return /^tev1(?::|$)/i.test(profile.configuration.analysisModel)
       ? 'TEV1 ne prend pas en charge les images via System One. Pour un schéma scientifique, choisissez un modèle visuel compatible.'
       : 'Ce modèle ne peut pas recevoir directement le schéma via System One : ' + profile.name;
@@ -83,7 +85,7 @@ export function diagramMethodIssue(profile: AiModelProfile, selection: DiagramMe
   return selection === 'direct-image-generative'
     ? 'Le parcours génératif direct exige une configuration générative et un modèle acceptant les images : ' + profile.name
     : selection === 'direct-image-systemone'
-      ? 'Le parcours System One image exige un modèle Ollama décisionnel compatible avec les images (pas TEV1) : ' + profile.name
+      ? 'Le parcours System One image exige un modèle décisionnel local compatible avec les images (pas TEV1) : ' + profile.name
       : 'Aucun parcours de schéma disponible pour la configuration : ' + profile.name;
 }
 
@@ -96,10 +98,10 @@ export function diagramProtocolProfileIssue(profile: AiModelProfile): string | n
   if (!isSupportedPilotProfile(profile)) return 'Adresse de serveur invalide : ' + profile.name;
   const config = profile.configuration;
   if (!config.analysisModel.trim()) return 'Modèle d’analyse manquant : ' + profile.name;
-  if ((config.correctionMethod === 'decision' || config.correctionMethod === 'visual-decision') && config.apiCompatible) {
+  if ((config.correctionMethod === 'decision' || config.correctionMethod === 'visual-decision') && !supportsLocalSystemOne(config)) {
     return 'System One ne passe pas par l’API Chat compatible OpenAI : ' + profile.name;
   }
-  if (config.correctionMethod === 'visual-decision' && !isVisualDecisionModel(config.analysisModel)) {
+  if (config.correctionMethod === 'visual-decision' && !canTryVisualDecision(config)) {
     return /^tev1(?::|$)/i.test(config.analysisModel)
       ? 'TEV1 ne prend pas en charge les images via System One. Choisissez un modèle décisionnel visuel ou un génératif multimodal.'
       : 'Décision directe sur image indisponible pour « ' + config.analysisModel + ' ». Choisissez un modèle compatible, par exemple Clef-Flash.';
@@ -112,10 +114,10 @@ export function diagramProtocolProfileIssue(profile: AiModelProfile): string | n
 }
 
 export function usesDirectDiagramVision(profile: AiModelProfile): boolean {
-  return !profile.configuration.apiCompatible
+  return supportsLocalSystemOne(profile.configuration)
     && (profile.configuration.correctionMethod === 'decision'
       || profile.configuration.correctionMethod === 'visual-decision')
-    && isVisualDecisionModel(profile.configuration.analysisModel);
+    && canTryVisualDecision(profile.configuration);
 }
 
 /** Reports from arbitrary copies must never expose model-authored evidence text.
