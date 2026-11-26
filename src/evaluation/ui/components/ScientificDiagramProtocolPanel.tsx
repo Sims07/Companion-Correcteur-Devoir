@@ -1,3 +1,4 @@
+import { VisualLogprobPilotPanel } from './VisualLogprobPilotPanel.tsx';
 import { ControlledVisualTrial } from './ControlledVisualTrial.tsx';
 import { LocalArrowExperiment } from './LocalArrowExperiment.tsx';
 import { downloadJson as downloadScientificDiagramJson } from '../../../shared/ui/downloadJson.ts';
@@ -163,11 +164,13 @@ export interface ScientificDiagramProtocolPanelProps {
 }
 
 export function ScientificDiagramProtocolPanel({
-  selectedProfiles, busy, progress, onPrepareImages, onRun, onRunFixtures, onStop, onManageProfiles,
+  selectedProfiles, busy: externalBusy, progress, onPrepareImages, onRun, onRunFixtures, onStop, onManageProfiles,
   report, fixtureReport, sensitivityReport, blindGraphReport,
   onClearReport, onClearFixtureReport, onClearSensitivityReport, onClearBlindGraphReport,
   onRunSensitivity, onRunBlindGraph, autoRequest, onAutoRequestConsumed, onOpenRadar, onAutoBusyChange, onAutoStepChange, onAutoEvaluationFinished, onAutoWasStopped,
 }: ScientificDiagramProtocolPanelProps) {
+  const [logprobBusy, setLogprobBusy] = useState(false);
+  const busy = externalBusy || logprobBusy;
   const [rubric, setRubric] = useState<Rubric>(() => structuredClone(SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC));
   const [context, setContext] = useState('');
   const [images, setImages] = useState<ImageInput[]>([]);
@@ -1082,6 +1085,10 @@ export function ScientificDiagramProtocolPanel({
       </details>
     </div>}
     </details>
+    <VisualLogprobPilotPanel profiles={selectedProfiles}
+      busy={externalBusy || fixtureLoading || sensitivityLoading || blindGraphLoading || uploading || autoSequenceRunning}
+      prepareCase={async id => onPrepareImages([await prepareBundledDiagramFile(id)])}
+      onBusyChange={setLogprobBusy} />
     <ControlledVisualTrial profiles={selectedProfiles} busy={busy} />
   </section>;
 }
