@@ -24,7 +24,7 @@ export type RadarGrouping = 'model' | 'profile' | 'method';
 export interface RadarModelConfiguration {
   id: string;
   name: string;
-  configuration: { visionModel: string; analysisModel: string; generativeModel?: string; correctionMethod?: string; apiCompatible?: boolean; analysisThinking?: boolean; analysisReasoningEffort?: AnalysisReasoningEffort; omitReasoningParameter?: boolean; analysisTemperature?: number; analysisTopP?: number; analysisTopK?: number };
+  configuration: { endpoint?: string; visionModel: string; analysisModel: string; generativeModel?: string; correctionMethod?: string; apiCompatible?: boolean; analysisThinking?: boolean; analysisReasoningEffort?: AnalysisReasoningEffort; omitReasoningParameter?: boolean; analysisTemperature?: number; analysisTopP?: number; analysisTopK?: number };
 }
 
 export const RADAR_PRESETS = {

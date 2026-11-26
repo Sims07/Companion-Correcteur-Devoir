@@ -1,3 +1,4 @@
+import { supportsLocalSystemOne } from '../../shared/domain/lmStudioTransport.ts';
 import { aiTransport, endpointForTransport, type AiTransport } from '../../shared/domain/lmStudioTransport.ts';
 import { CopyActionIcon } from '../../correction/ui/components/CopyActionIcon.tsx';
 import { extractDiagramGraphEvidence, extractDiagramGraphEvidenceV2, graphGradingContext } from '../../evaluation/application/diagramGraphEvidence.ts';
@@ -1823,7 +1824,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
       if (!validation.valid) throw new Error(validation.errors.join(' '));
       if (!images.length) throw new Error('Importez au moins une photo ou un PDF de la copie.');
       if (correctionMethod === 'visual-decision') {
-        if (apiCompatible) throw new Error('Vision + Décisionnel direct nécessite Ollama local et son API /v1/systemone.');
+        if (!supportsLocalSystemOne({ apiCompatible, endpoint })) throw new Error('Choisissez une adresse locale Ollama ou LM Studio pour la décision sur image.');
         if (!isVisualDecisionModel(analysisModel)) throw new Error(/^tev1(?::|$)/i.test(analysisModel)
           ? 'TEV1 ne prend pas en charge les photos via System One. Choisissez « Décisionnelle — Vision puis System One texte » ou un modèle visuel comme Clef-Flash.'
           : 'Le modèle d’analyse ne prend pas en charge l’entrée image System One. Sélectionnez un modèle compatible comme Clef-Flash.');

@@ -1,3 +1,4 @@
+import { supportsLocalSystemOne } from '../../shared/domain/lmStudioTransport.ts';
 import { evaluationPromptReferences } from './evaluationPromptReferences.ts';
 import { sumReportedProviderDurationForRuns } from './modelEvaluation.ts';
 import type { AiModelProfile } from '../../shared/domain/aiModelProfiles.ts';
@@ -29,12 +30,12 @@ export const diagramMethodLabels: Record<DiagramMethod, string> = {
 export function availableDiagramMethods(profile: AiModelProfile): DiagramMethod[] {
   const config = profile.configuration;
   if (!isSupportedPilotProfile(profile) || !config.analysisModel.trim()) return [];
-  if (config.apiCompatible && config.correctionMethod !== 'generative') return [];
+  if (!supportsLocalSystemOne(config) && config.correctionMethod !== 'generative') return [];
   const methods: DiagramMethod[] = [];
   // Vision → transcription → analyse discards the diagram geometry. Preserve
   // its identifier to read historical reports, but never schedule new runs.
   if (config.correctionMethod === 'generative') methods.push('direct-image-generative');
-  if (!config.apiCompatible && (config.correctionMethod === 'decision' || config.correctionMethod === 'visual-decision')
+  if (supportsLocalSystemOne(config) && (config.correctionMethod === 'decision' || config.correctionMethod === 'visual-decision')
       && isVisualDecisionModel(config.analysisModel)) methods.push('direct-image-systemone');
   return methods;
 }
@@ -96,7 +97,7 @@ export function diagramProtocolProfileIssue(profile: AiModelProfile): string | n
   if (!isSupportedPilotProfile(profile)) return 'Adresse de serveur invalide : ' + profile.name;
   const config = profile.configuration;
   if (!config.analysisModel.trim()) return 'Modèle d’analyse manquant : ' + profile.name;
-  if ((config.correctionMethod === 'decision' || config.correctionMethod === 'visual-decision') && config.apiCompatible) {
+  if ((config.correctionMethod === 'decision' || config.correctionMethod === 'visual-decision') && !supportsLocalSystemOne(config)) {
     return 'System One ne passe pas par l’API Chat compatible OpenAI : ' + profile.name;
   }
   if (config.correctionMethod === 'visual-decision' && !isVisualDecisionModel(config.analysisModel)) {
@@ -112,7 +113,7 @@ export function diagramProtocolProfileIssue(profile: AiModelProfile): string | n
 }
 
 export function usesDirectDiagramVision(profile: AiModelProfile): boolean {
-  return !profile.configuration.apiCompatible
+  return supportsLocalSystemOne(profile.configuration)
     && (profile.configuration.correctionMethod === 'decision'
       || profile.configuration.correctionMethod === 'visual-decision')
     && isVisualDecisionModel(profile.configuration.analysisModel);

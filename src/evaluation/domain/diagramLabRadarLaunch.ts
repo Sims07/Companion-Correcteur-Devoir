@@ -1,3 +1,4 @@
+import { supportsLocalSystemOne } from '../../shared/domain/lmStudioTransport.ts';
 import { BLIND_GRAPH_PROMPT_VARIANTS, type BlindGraphPromptVariant } from './scientificDiagramBlindGraph.ts';
 import { isNativeDecisionModel, isVisualDecisionModel } from '../../correction/api/index.ts';
 import type { DiagramMethodSelection } from './scientificDiagramProtocol.ts';
@@ -245,7 +246,7 @@ export function resolveModelProfile(
     const raw = cfg.visionModel.trim() || cfg.generativeModel?.trim() ||
       (cfg.correctionMethod === 'generative' ? cfg.analysisModel.trim() : '');
     // A native decision model does not own image-to-graph observations.
-    return !cfg.apiCompatible && isNativeDecisionModel(raw) ? '' : raw;
+    return supportsLocalSystemOne(cfg) && isNativeDecisionModel(raw) ? '' : raw;
   };
   const canGrade = (profile: RadarModelConfiguration) => {
     const cfg = profile.configuration;
@@ -260,11 +261,11 @@ export function resolveModelProfile(
     if (requestedMethod === 'direct-image-generative-thinking')
       return cfg.correctionMethod === 'generative' && !cfg.apiCompatible;
     if (requestedMethod === 'direct-image-systemone')
-      return !cfg.apiCompatible && (cfg.correctionMethod === 'decision' || cfg.correctionMethod === 'visual-decision') &&
+      return supportsLocalSystemOne(cfg) && (cfg.correctionMethod === 'decision' || cfg.correctionMethod === 'visual-decision') &&
         isVisualDecisionModel(cfg.analysisModel);
     // Never fall back to text transcription for a scientific image.
     if (cfg.correctionMethod === 'generative') return true;
-    return !cfg.apiCompatible &&
+    return supportsLocalSystemOne(cfg) &&
       (cfg.correctionMethod === 'decision' || cfg.correctionMethod === 'visual-decision') &&
       isVisualDecisionModel(cfg.analysisModel);
   };

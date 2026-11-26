@@ -32,6 +32,17 @@ describe('one-click decision model radar planning', () => {
     expect(plan?.steps.some((step) => step.protocol === 'graph')).toBe(false);
   });
 
+  it('offers a native image run for a Bionic GGUF model through the Mac HTTPS proxy', () => {
+    const model = 'local/clef-flash-9b@q8';
+    const profile = profiles(model)[0];
+    const configuration = { ...profile.configuration, apiCompatible: true, endpoint: 'https://mac-mini.local/proxy/v1/responses' };
+    const selected = candidate(model);
+    const plan = resolveModelProfile([{ ...profile, configuration }], 'model', selected, planRadarModelEvaluation(selected));
+    expect(plan?.steps.map(step => step.method)).toEqual(Array(3).fill('direct-image-systemone'));
+    configuration.endpoint = 'https://example.com/v1/responses';
+    expect(resolveModelProfile([{ ...profile, configuration }], 'model', selected, planRadarModelEvaluation(selected))).toBeNull();
+  });
+
   it('does not plan scientific grading for text-only TEV1 despite a separate Vision model', () => {
     const selected = candidate('tev1:4b');
     expect(resolveModelProfile(profiles('tev1:4b'), 'model', selected, planRadarModelEvaluation(selected)))

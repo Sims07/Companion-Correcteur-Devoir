@@ -18,10 +18,10 @@ describe('discoverCompatibleModels', () => {
     });
     const models = await discoverCompatibleModels('https://mac.example/proxy/v1/responses', ' token ', fetchMock);
     expect(models).toEqual([
-      { name: 'd1', vision: undefined, tools: undefined, reasoningOptions: undefined },
-      { name: 'gemma', label: 'Gemma', vision: true, tools: true, reasoningOptions: ['on', 'off'] },
-      { name: 'gemma@q4', vision: true, tools: true, reasoningOptions: ['on', 'off'] },
-      { name: 'gemma-local', vision: true, tools: true, reasoningOptions: ['on', 'off'] },
+      { name: 'd1', decision: true, vision: undefined, tools: undefined, reasoningOptions: undefined },
+      { name: 'gemma', decision: false, label: 'Gemma', vision: true, tools: true, reasoningOptions: ['on', 'off'] },
+      { name: 'gemma@q4', decision: false, vision: true, tools: true, reasoningOptions: ['on', 'off'] },
+      { name: 'gemma-local', decision: false, vision: true, tools: true, reasoningOptions: ['on', 'off'] },
     ]);
     expect(fetchMock).toHaveBeenCalledOnce();
   });

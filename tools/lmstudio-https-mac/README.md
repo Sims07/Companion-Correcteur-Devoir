@@ -63,3 +63,19 @@ aux commandes. Depuis le Mac mini, effectuer les mêmes requêtes avec
   vérifier le certificat, les autorisations réseau local et les en-têtes CORS.
   Avec un jeton API, vérifier également la prérequête `OPTIONS` et
   l’autorisation de l’en-tête `Authorization`.
+
+### Vérifier la décision native via HTTPS
+
+Charger un modèle décisionnel dans Bionic et remplacer MODEL_ID par son identifiant chargé.
+Cette requête synthétique vérifie le routage POST jusqu’au moteur avec une question fermée.
+
+```bash
+curl --fail-with-body --max-time 60 https://mac-mini.local:8443/v1/systemone \
+  -H 'Content-Type: application/json' \
+  -d '{"model":"MODEL_ID","state":"Le carré est rouge.","questions":{"couleur":{"type":"choice","instructions":"Quelle est la couleur du carré ?","criteria":{"rouge":"Rouge","bleu":"Bleu"}}}}'
+```
+
+Le champ `answers.couleur.choice` devrait contenir `rouge`. En cas d’échec,
+comparer avec la même requête sur `http://127.0.0.1:1234` depuis le Mac mini.
+Pour Safari, le proxy doit également accepter la prérequête OPTIONS et les
+en-têtes Content-Type et Authorization depuis l’origine du Compagnon.
