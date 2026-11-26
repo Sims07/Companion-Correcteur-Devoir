@@ -9,3 +9,12 @@ export function isNativeDecisionModel(model: string): boolean {
 export function isVisualDecisionModel(model: string): boolean {
   return /^(?:d1|d3|clef(?:-flash)?)(?=[:@.]|-(?:[0-9]+(?:\.[0-9]+)?b|q[0-9]+|gguf)(?:[-:@.]|$)|$)/i.test(model.trim().split('/').pop() ?? '');
 }
+
+/** A Bionic instance can have a user-defined alias. An explicit image profile
+ * may schedule it; the provider verifies its native catalogue before inference. */
+export function canTryVisualDecision(config: {
+  apiCompatible?: boolean; analysisModel?: string; correctionMethod?: string;
+}): boolean {
+  return isVisualDecisionModel(config.analysisModel ?? '') ||
+    (config.apiCompatible === true && config.correctionMethod === 'visual-decision');
+}

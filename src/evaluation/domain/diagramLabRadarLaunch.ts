@@ -1,6 +1,7 @@
+import { canTryVisualDecision } from '../../shared/domain/decisionModelCapabilities.ts';
 import { supportsLocalSystemOne } from '../../shared/domain/lmStudioTransport.ts';
 import { BLIND_GRAPH_PROMPT_VARIANTS, type BlindGraphPromptVariant } from './scientificDiagramBlindGraph.ts';
-import { isNativeDecisionModel, isVisualDecisionModel } from '../../correction/api/index.ts';
+import { isNativeDecisionModel } from '../../correction/api/index.ts';
 import type { DiagramMethodSelection } from './scientificDiagramProtocol.ts';
 import { buildDiagramLabRadar, diagnoseGraphRadarMeasurement, diagnoseUnmeasuredRadarAxis, RADAR_AXES, type RadarAxisId, type RadarCandidate, type RadarModelConfiguration, type RadarRankedCandidate, type RadarGrouping } from './diagramLabRadar.ts';
 import type { DiagramLabArchiveEntry } from './diagramLabHistory.ts';
@@ -262,12 +263,12 @@ export function resolveModelProfile(
       return cfg.correctionMethod === 'generative' && !cfg.apiCompatible;
     if (requestedMethod === 'direct-image-systemone')
       return supportsLocalSystemOne(cfg) && (cfg.correctionMethod === 'decision' || cfg.correctionMethod === 'visual-decision') &&
-        isVisualDecisionModel(cfg.analysisModel);
+        canTryVisualDecision(cfg);
     // Never fall back to text transcription for a scientific image.
     if (cfg.correctionMethod === 'generative') return true;
     return supportsLocalSystemOne(cfg) &&
       (cfg.correctionMethod === 'decision' || cfg.correctionMethod === 'visual-decision') &&
-      isVisualDecisionModel(cfg.analysisModel);
+      canTryVisualDecision(cfg);
   };
 
   // Prefer a single profile able to measure every missing axis. A decision LLM

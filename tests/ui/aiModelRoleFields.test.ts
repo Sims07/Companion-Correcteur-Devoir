@@ -36,7 +36,7 @@ describe('shared simple AI model controls', () => {
   it('shows a missing decision model and incompatible provider without silently changing family', () => {
     const { node, props } = render({ method: 'decision', decisionModel: '', apiCompatible: true });
     expect(node.textContent).toContain('Choisissez un modèle décisionnel');
-    expect(node.textContent).toContain('nécessite une connexion Ollama');
+    expect(node.textContent).toContain('nécessite Ollama ou LM Studio local');
     expect(props.onMethod).not.toHaveBeenCalled();
   });
 

@@ -97,7 +97,7 @@ export function AiModelRoleFields(props: Props) {
       {decision && apiCompatible && !props.nativeChat && !props.responses && <StatusNotice tone="warning">La correction décisionnelle nécessite Ollama ou LM Studio local (Chat natif ou Responses) avec System One. Le modèle génératif reste disponible pour une API compatible OpenAI.</StatusNotice>}
       {decision && <details className="ai-model-advanced"><summary>Options de décision sur image</summary>
         <label className="analysis-thinking-option" htmlFor={`${prefix}-direct-decision`}><input id={`${prefix}-direct-decision`} type="checkbox" checked={method === 'visual-decision'} disabled={disabled} onChange={event => props.onMethod(event.target.checked ? 'visual-decision' : 'decision')} /><span><strong>Envoyer directement les images au décisionnel</strong><small>Sans transcription, avec un modèle compatible : Clef/Clef-Flash ou D1/D3 expérimentaux. TEV1 utilise le texte.</small></span></label>
-        {method === 'visual-decision' && !isVisualDecisionModel(decisionModel) && <StatusNotice tone="warning">Ce modèle n’est pas reconnu comme compatible avec les images System One. Utilisez un modèle compatible ou désactivez cette option pour utiliser la transcription.</StatusNotice>}
+        {method === 'visual-decision' && !(props.models.find(model => model.name === decisionModel)?.vision ?? isVisualDecisionModel(decisionModel)) && <StatusNotice tone="warning">Ce modèle n’est pas reconnu comme compatible avec les images System One. Utilisez un modèle compatible ou désactivez cette option pour utiliser la transcription.</StatusNotice>}
       </details>}
     </div>
     </details>

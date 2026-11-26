@@ -1,3 +1,4 @@
+import { canTryVisualDecision } from '../../../shared/domain/decisionModelCapabilities.ts';
 import { supportsLocalSystemOne } from '../../../shared/domain/lmStudioTransport.ts';
 import { BiologyReaderComparison } from './BiologyReaderComparison.tsx';
 import { BiologyProfileControls, type BiologyProfileSelection } from './BiologyProfileControls.tsx';
@@ -15,7 +16,6 @@ import { downloadJson } from '../../../shared/ui/downloadJson.ts';
 import { Button } from '../../../shared/ui/design-system/index.ts';
 import { useMemo, useState } from 'react';
 import type { AiModelProfile } from '../../../shared/domain/aiModelProfiles.ts';
-import { isVisualDecisionModel } from '../../../correction/api/index.ts';
 import type { DiagramLabArchiveEntry } from '../../domain/diagramLabHistory.ts';
 import {
   diagnoseGraphRadarMeasurement,
@@ -139,7 +139,7 @@ export function EvaluationRadarHome({
   const nonVisualDecision = profiles.some((profile) =>
     profile.id === selected &&
     (profile.configuration.correctionMethod === 'decision' || profile.configuration.correctionMethod === 'visual-decision') &&
-    (!supportsLocalSystemOne(profile.configuration) || !isVisualDecisionModel(profile.configuration.analysisModel)));
+    (!supportsLocalSystemOne(profile.configuration) || !canTryVisualDecision(profile.configuration)));
   const [method, setMethod] = useState<ScienceMethod>('pixel-v1');
   const [bioMethod, setBioMethod] = useState<'standard' | 'contract'>('contract');
   const activeScienceMethod = ACTIVE_SCIENCE_METHOD_IDS.includes(method) && enabled('diagrams', method) ? method
