@@ -62,18 +62,20 @@ describe('local Responses logprob experiment', () => {
     expect(fetcher).toHaveBeenCalledTimes(1);
     expect(onRow).toHaveBeenCalledWith(expect.objectContaining({ verdict: null, status: 'unavailable' }));
   });
-  it('exports a numeric diagnostic and stops on HTTP 200 with inconsistent probability mass', async () => {
+  it('continues the research pilot on HTTP 200 with inconsistent probability mass, without valid verdicts', async () => {
     const invalid = { status: 'completed', output: [{ type: 'message', content: [{
       type: 'output_text', text: 'B', logprobs: [{ token: 'B', logprob: -.375,
         top_logprobs: [{ token: 'B', logprob: -.375 }, { token: 'A', logprob: Math.log(.32) }] }],
     }]}] };
-    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify(invalid)));
+    const fetcher = vi.fn<typeof fetch>().mockImplementation(async () => new Response(JSON.stringify(invalid)));
     const onRow = vi.fn();
-    await expect(runVisualLogprobPilot(settings, [{ id: 'X', images, context: '', gold: { x: 'present' } }],
-      [target, target], new AbortController().signal, onRow, fetcher)).rejects.toThrow('masse observée');
-    expect(fetcher).toHaveBeenCalledTimes(1);
+    await runVisualLogprobPilot(settings, [{ id: 'X', images, context: '', gold: { x: 'present' } }],
+      [target, target], new AbortController().signal, onRow, fetcher);
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(onRow).toHaveBeenCalledTimes(2);
     expect(onRow).toHaveBeenCalledWith(expect.objectContaining({ status: 'unavailable', sampled: 'absent',
-      verdict: null, reason: expect.stringContaining('tokens distincts') }));
+      verdict: null, reason: expect.stringContaining('tokens distincts'),
+      relativeObservation: expect.objectContaining({ leader: 'absent' }) }));
   });
   it('honors cancellation before any network call', async () => {
     const controller = new AbortController(); controller.abort();
