@@ -58,8 +58,8 @@ describe('generic visual logprob decisions', () => {
     expect(result.relativeObservation?.leader).toBe('absent');
     expect(result.relativeObservation?.scores.absent).toBeCloseTo(.6554366674, 8);
     expect(result.probabilities.absent).toBeNull();
-    const summary = summarizeLogprobRows([{ ...result, caseId: 'D', targetKey: 'x', expected: 'absent', durationMs: 1 }]);
-    expect(summary).toMatchObject({ correct: 0, resolved: 0, unavailable: 1, relativeOnly: 1, relativeCorrect: 1 });
+    const summary = summarizeLogprobRows([{ ...result, caseId: 'D', targetKey: 'x', expected: 'present', durationMs: 1 }]);
+    expect(summary).toMatchObject({ correct: 0, resolved: 0, unavailable: 1, relativeOnly: 1, relativeCorrect: 0 });
   });
   it('does not pick a relative leader on ties or turn missing alternatives into zero', () => {
     const result = decodeVisualLogprobs(response('A', .6, [candidate('B', .6)]));
