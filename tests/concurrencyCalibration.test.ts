@@ -1,4 +1,4 @@
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import { chooseCriterionLevel, concurrencyProfileKey, resolveCriterionLevel, type CalibrationSample } from '../src/shared/domain/concurrencyCalibration.ts';
 import { defaultAiModelConfiguration as config } from '../src/shared/domain/aiModelProfiles.ts';
 const series = (level: 1 | 2 | 4 | 8, durationMs: number): CalibrationSample[] => ['A','B','C'].map(caseId =>
@@ -24,4 +24,19 @@ it('isolates model, zoom and thinking settings and excludes credentials', () => 
 it('uses a distinct calibration for eight groups', () => {
   expect(concurrencyProfileKey(config,8)).not.toBe(concurrencyProfileKey(config,4));
   expect(chooseCriterionLevel([...series(1,100), ...series(8,40).map(s => ({...s, peak:8}))])).toBe(8);
+});
+
+
+it('ignores old shared-context calibration and uses only the independent-image version', () => {
+  const key = concurrencyProfileKey(config);
+  const old = key.replace(':v2:', ':v1:');
+  const entries = new Map([[old, '4']]);
+  vi.stubGlobal('localStorage', { getItem: (name: string) => entries.get(name) ?? null });
+  try {
+    expect(key).toContain(':v2:');
+    expect(resolveCriterionLevel({...config, criterionConcurrency:'auto'})).toBe(1);
+    entries.set(key, '4');
+    expect(resolveCriterionLevel({...config, criterionConcurrency:'auto'})).toBe(4);
+    expect(resolveCriterionLevel({...config, criterionConcurrency:2})).toBe(2);
+  } finally { vi.unstubAllGlobals(); }
 });
