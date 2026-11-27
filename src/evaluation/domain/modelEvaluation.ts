@@ -240,6 +240,8 @@ export interface ModelEvaluationResultSnapshot {
 }
 
 export interface ModelEvaluationRecord {
+  /** Four independent image-bearing criterion requests, bounded concurrency. */
+  diagramBatch?: true;
   logprobRadarMethod?: import('./logprobRadar.ts').LogprobRadarMethod;
   graphFirst?: boolean;
   /** The legacy graphFirst flag remains true for both generations. */
