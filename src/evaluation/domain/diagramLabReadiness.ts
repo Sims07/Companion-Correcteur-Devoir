@@ -11,8 +11,7 @@ export interface DiagramLabReadiness {
 }
 
 /** Completeness is per candidate, never inferred from global protocol counts. */
-export function summarizeDiagramLabReadiness(campaigns: number, candidates: readonly RadarCoverage[]): DiagramLabReadiness {
-  const totalAxes = RADAR_AXES.length;
+export function summarizeDiagramLabReadiness(campaigns: number, candidates: readonly RadarCoverage[], totalAxes: number = RADAR_AXES.length): DiagramLabReadiness {
   const measured = candidates.map(({ measured }) => Number.isFinite(measured)
     ? Math.min(totalAxes, Math.max(0, Math.trunc(measured))) : 0);
   return {

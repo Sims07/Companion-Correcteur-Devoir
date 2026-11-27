@@ -181,7 +181,7 @@ test('the dashboard launches scientific batteries on a configured Ollama LAN hos
   await expect(page.getByRole('status', { name: 'Dernière expérience lancée' }))
     .toContainText('Schémas scientifiques · qualité graphique A/B/C');
   const radarContext = page.getByRole('group', { name: 'Méthode et moteur du test radar' });
-  await expect(radarContext).toContainText('Stratégie choisie : Graphe · détecteur des petites pointes (#439)');
+  await expect(radarContext).toContainText('Stratégie choisie : Image → LLM → correction directe · référence');
   await expect(radarContext).toContainText('Batterie');
   await expect(radarContext).toContainText('Moteur utilisé :');
   // The former graph-only localhost check aborted before any Ollama request.
@@ -250,7 +250,7 @@ test('a missing radar axis leads directly to its automatic fixture battery on th
     .toHaveValue('radar-other');
 });
 
-test('evaluating a new model launches the four required batteries from one action', async ({ page }) => {
+test('evaluating a new model launches the two required batteries from one action', async ({ page }) => {
   await page.goto('/');
   await page.evaluate((configuration) => {
     localStorage.setItem('companion-correcteur:ollama-profiles:v1', JSON.stringify([{
@@ -267,7 +267,7 @@ test('evaluating a new model launches the four required batteries from one actio
   await page.getByRole('article', { name: 'Schémas scientifiques' }).getByRole('button', { name: 'Détail du radar' }).click();
   const radar = page.getByRole('region', { name: 'Radar des candidats scientifiques' });
   await radar.getByLabel('Choisir un LLM').selectOption('new-radar-model');
-  await expect(radar.getByText(/4 batteries de test à enchaîner automatiquement/)).toBeVisible();
+  await expect(radar.getByText(/2 batteries de test à enchaîner automatiquement/)).toBeVisible();
   await radar.getByRole('button', { name: 'Évaluer le modèle' }).click();
   await expect(nav.getByRole('button', { name: 'Tests' })).toHaveAttribute('aria-current', 'page');
   const running = page.getByRole('status', { name: 'Dernière expérience lancée' });
@@ -276,7 +276,7 @@ test('evaluating a new model launches the four required batteries from one actio
   await expect(page.getByRole('group', { name: 'Modèles sélectionnés pour les tests' })).toContainText('Nouveau modèle');
 });
 
-test('qwen-like 7/9 radar targets A/B/C x3 to fill graphics and stability in one battery', async ({ page }) => {
+test('partial observation radar targets A/B/C x3 to fill graphics and stability in one battery', async ({ page }) => {
   const model = 'vision:4b';
   const profile = {
     id: 'radar-prof', name: 'Vision à compléter', mode: 'single', updatedAt: '2026-11-11T14:40:00Z',
@@ -341,7 +341,7 @@ test('qwen-like 7/9 radar targets A/B/C x3 to fill graphics and stability in one
   await page.getByRole('article', { name: 'Schémas scientifiques' }).getByRole('button', { name: 'Détail du radar' }).click();
   const radar = page.getByRole('region', { name: 'Radar des candidats scientifiques' });
   await radar.getByLabel('Choisir un LLM').selectOption(profile.id);
-  await expect(radar.getByText(/2 caractéristique\(s\) à mesurer sur neuf/)).toBeVisible();
+  await expect(radar.getByText(/3 caractéristique\(s\) à mesurer sur sept/)).toBeVisible();
   await expect(radar.getByText(/1 batterie de test à enchaîner automatiquement · Qualité graphique A\/B\/C · 3 passages/)).toBeVisible();
   await radar.getByRole('button', { name: 'Compléter les axes manquants' }).click();
   await expect(nav.getByRole('button', { name: 'Tests' })).toHaveAttribute('aria-current', 'page');
