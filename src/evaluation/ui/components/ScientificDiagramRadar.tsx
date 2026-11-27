@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { DiagramLabArchiveEntry } from '../../domain/diagramLabHistory.ts';
-import { buildDiagramLabRadar, diagnoseGraphRadarMeasurement, diagnoseUnmeasuredRadarAxis, compareRadarCommonAxes, rankDiagramLabRadar, observedRadarScore, RADAR_AXES, RADAR_PRESETS, validRadarWeights,
+import { buildDiagramLabRadar, diagnoseGraphRadarMeasurement, diagnoseUnmeasuredRadarAxis, compareRadarCommonAxes, rankDiagramLabRadar, observedRadarScore, OBSERVATION_RADAR_AXES as RADAR_AXES, RADAR_PRESETS, validRadarWeights,
   type RadarAxisId, type RadarGrouping, type RadarModelConfiguration, type RadarRankedCandidate, type RadarWeights } from '../../domain/diagramLabRadar.ts';
 import { DesignSystemSelect } from '../../../shared/ui/components/DesignSystemSelect.tsx';
 import { resolveModelProfile, planMissingRadarAxis, planRadarModelEvaluation, radarPlanDescription, type RadarMissingTestRequest } from '../../domain/diagramLabRadarLaunch.ts';
@@ -54,9 +54,9 @@ export function RadarPlot({ candidates, onAxis, colors }: {
   colors?: Record<string, string>;
 }) {
   return <svg viewBox="0 0 700 570" className="diagram-radar-svg" role="img"
-      aria-label={'Comparaison radar sur neuf caractéristiques pour ' + candidates.map((c) => c.name).join(', ')}>
+      aria-label={'Comparaison radar sur sept caractéristiques pour ' + candidates.map((c) => c.name).join(', ')}>
     <title>Profil de compétences scientifiques</title>
-    <desc>Échelle de 0 à 100 ; un contour fermé signifie que les neuf mesures existent. Les mesures manquantes ne sont pas dessinées.</desc>
+    <desc>Échelle de 0 à 100 ; un contour fermé signifie que les sept mesures existent. Les mesures manquantes ne sont pas dessinées.</desc>
     {[.25, .5, .75, 1].map((fraction) =>
       <polygon key={fraction} points={pointsString(fraction)} fill="none" stroke="var(--ds-color-border-strong)"
         strokeDasharray={fraction === 1 ? undefined : '3 5'} strokeWidth={fraction === 1 ? 1.5 : 1} />)}
@@ -127,7 +127,7 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
   const [picked, setPicked] = useState<string[] | null>(null);
   const [axis, setAxis] = useState<RadarAxisId>(initialAxis);
   const [focus, setFocus] = useState('');
-  const candidates = useMemo(() => grouping === 'model' ? buildConfigurationRadars(entries, profiles) : buildDiagramLabRadar(entries, grouping, profiles), [entries, grouping, profiles]);
+  const candidates = useMemo(() => grouping === 'model' ? buildConfigurationRadars(entries, profiles, true) : buildDiagramLabRadar(entries, grouping, profiles, true), [entries, grouping, profiles]);
   const filtered = useMemo(() => grouping !== 'method' ? candidates : candidates.filter((candidate) =>
     candidate.methods.some((method) => method.startsWith('blind-graph')) === (family === 'graph')), [candidates, grouping, family]);
   const partial = useMemo(() => grouping === 'method'
@@ -179,7 +179,7 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
   const eligible = ranked.filter((c) => grouping !== 'method' ? c.weightedScore !== null
     : partial?.rows.some((row) => row.id === c.id && row.score !== null));
   const missingAxes = examined ? RADAR_AXES.filter((item) => examined.axes[item.id].value === null) : [];
-  const graphDiagnostic = grouping === 'model' && examined?.axes.relations.value === null
+  const graphDiagnostic = grouping === 'model' && !examined?.observationOnly && examined?.axes.relations.value === null
     ? diagnoseGraphRadarMeasurement(scopedEntries, scopedModel) : null;
   const primaryScore = activeModel
     ? (activeModel.complete ? activeModel.weightedScore : observedRadarScore(activeModel, weights)) : null;
@@ -223,7 +223,7 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
           <strong>{primaryScore === null ? '—' :
             primaryScore.toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' / 100'}</strong>
           <small>{activeModel.complete
-            ? 'Note pondérée sur les neuf caractéristiques.'
+            ? 'Note pondérée sur les sept caractéristiques.'
             : primaryScore === null
               ? 'Aucune mesure disponible. Lancez les tests pour obtenir un premier indice.'
               : 'Calculé sur les seules caractéristiques mesurées · provisoire, non comparable à une note globale.'}</small>
@@ -236,7 +236,7 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
           <span>{comparedModel.complete ? 'Note globale' : 'Indice partiel'} · {comparedModel.name}</span>
           <strong>{comparisonScore === null ? '—' :
             comparisonScore.toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' / 100'}</strong>
-          <small>{comparedModel.measured}/9 caractéristiques
+          <small>{comparedModel.measured}/{RADAR_AXES.length} caractéristiques
             {!comparedModel.complete && ' · score provisoire'}</small>
         </div>}
       </div>}
@@ -245,8 +245,8 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
           <p>{missingAxes.length
             ? missingAxes.length + ' caractéristique(s) ' +
               (graphDiagnostic && ['retry', 'exhausted', 'unusable'].includes(graphDiagnostic.kind)
-                ? 'sans note' : 'à mesurer') + ' sur neuf.'
-            : 'Les neuf axes sont alimentés par les campagnes de test enregistrées.'}</p></div>
+                ? 'sans note' : 'à mesurer') + ' sur sept.'
+            : 'Les sept axes sont alimentés par les campagnes de test enregistrées.'}</p></div>
         {missingAxes.length > 0 && <>
           <div className="diagram-radar-evaluate">
             {completePlan && <Button disabled={busy || !profileIds.includes(completePlan.profileId)}
@@ -258,7 +258,7 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
               ? completePlan.steps.length + ' batterie' + (completePlan.steps.length > 1 ? 's' : '') + ' de test à enchaîner automatiquement · ' +
                 radarPlanDescription(completePlan.steps) + '.'
               : graphDiagnostic?.kind === 'exhausted' ? 'Le graphe a déjà été relu : aucune relance identique proposée.'
-                : 'Une même configuration doit pouvoir tester ce LLM en Analyse et en Vision pour couvrir les neuf caractéristiques.'}
+                : 'Une même configuration doit pouvoir tester ce LLM en Analyse et en Vision pour couvrir les sept caractéristiques.'}
               {' '}Les résultats non exploitables resteront non mesurés.</p>
             {activeModel.measured > 0 && <p>Les mesures validées restent acquises. Cette action n'enchaîne que les familles de tests nécessaires aux axes absents, sans transformer les échecs en notes nulles.</p>}
             <p role="status">Axes sans note : {missingAxes.map((item) => item.label).join(' · ')}.</p>
@@ -300,7 +300,6 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
           setFamily(event.currentTarget.value as typeof family); setPicked(null); setFocus('');
         }}>
           <option value="grading">Notation des schémas</option>
-          <option value="graph">Extraction du graphe</option>
         </DesignSystemSelect>
       </label>}
       <label>Priorité du classement
@@ -323,7 +322,7 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
           {grouping === 'model' ? <div className="diagram-radar-legend diagram-radar-legend-selected" aria-label="Modèles affichés sur le radar">
             {selected.map((candidate, index) => <div className="diagram-radar-legend-item" key={candidate.id}>
               <span className="diagram-radar-legend-dot" aria-hidden="true" style={{ background: RADAR_COMPARISON_COLORS[index] }} />
-              <span><strong>{candidate.name}</strong><small>{candidate.measured}/9 axes · {candidate.complete ? 'note complète' : 'mesures partielles'}</small></span>
+              <span><strong>{candidate.name}</strong><small>{candidate.measured}/{RADAR_AXES.length} axes · {candidate.complete ? 'note complète' : 'mesures partielles'}</small></span>
             </div>)}
           </div> : <div className="diagram-radar-legend" role="group" aria-label="Candidats affichés sur le radar">
             {ranked.map((candidate) => {
@@ -333,17 +332,17 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
                   onChange={() => toggle(candidate.id)} />
                 <span aria-hidden="true" className="diagram-radar-legend-dot"
                   style={{ background: ix >= 0 ? RADAR_COMPARISON_COLORS[ix] : 'var(--ds-color-border-strong)' }} />
-                <span><strong>{candidate.name}</strong><small>{candidate.measured}/9 axes · {candidate.complete ? 'profil mesuré' : 'profil incomplet'}</small></span>
+                <span><strong>{candidate.name}</strong><small>{candidate.measured}/{RADAR_AXES.length} axes · {candidate.complete ? 'profil mesuré' : 'profil incomplet'}</small></span>
               </label>;
             })}
           </div>}
           <p className="diagram-radar-footnote">{grouping === 'model'
             ? 'La comparaison facultative superpose deux LLM. Contour fermé : note globale calculable ; courbes ouvertes : essais manquants. Une méthode utilisant deux modèles mesure leur chaîne, pas le LLM seul.'
-            : 'Maximum quatre candidats superposés. Contour continu : neuf axes disponibles ; pointillés : mesures partielles. Une répétition unique ne permet pas de mesurer la stabilité.'}</p>
+            : 'Maximum quatre candidats superposés. Contour continu : sept axes disponibles ; pointillés : mesures partielles. Une répétition unique ne permet pas de mesurer la stabilité.'}</p>
         </> : <p className="diagram-radar-empty">Aucun LLM enregistré ou mesuré. Enregistrez une configuration IA pour choisir son modèle, puis lancez une batterie automatique.</p>}
       </div>
       <aside className="diagram-radar-inspector" aria-label="Explication des scores">
-        <h4>{grouping === 'model' && activeModel ? 'Détails · ' + activeModel.name : 'Lire les neuf caractéristiques'}</h4>
+        <h4>{grouping === 'model' && activeModel ? 'Détails · ' + activeModel.name : 'Lire les sept caractéristiques'}</h4>
         <div className="diagram-radar-axis-buttons" role="group" aria-label="Axe à examiner">
           {RADAR_AXES.map((item) => <button type="button" key={item.id} aria-pressed={axis === item.id}
             onClick={() => setAxis(item.id)}>{item.label}
@@ -401,10 +400,10 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
     <section className="diagram-radar-ranking" aria-label="Classement des candidats">
       <div className="diagram-radar-ranking-heading"><div><h4>{grouping === 'model' ? 'Comparer les notes des LLM' : 'Classement et couverture des tests'}</h4>
         <p>{grouping === 'model'
-          ? 'Note globale /100 uniquement avec les neuf axes. Les indices partiels restent visibles pour suivre les progrès, sans entrer dans le classement.'
+          ? 'Note globale /100 uniquement avec les sept axes. Les indices partiels restent visibles pour suivre les progrès, sans entrer dans le classement.'
           : grouping === 'profile'
-            ? 'Le classement global exige neuf axes mesurés : aucun score inventé sur une batterie manquante.'
-            : 'Classement exploratoire uniquement sur les mêmes axes disponibles pour toutes les méthodes sélectionnées, jamais un score global sur neuf.'}</p></div>
+            ? 'Le classement global exige sept axes mesurés : aucun score inventé sur une batterie manquante.'
+            : 'Classement exploratoire uniquement sur les mêmes axes disponibles pour toutes les méthodes sélectionnées, jamais un score global sur sept.'}</p></div>
         <strong>{eligible.length} candidat(s) classable(s){partial ? ' · ' + partial.weightedAxes.length + ' axes communs' : ''}</strong></div>
       <div className="pilot-evaluation-table-scroll"><table className="pilot-evaluation-table">
         <thead><tr><th>Rang</th><th>{grouping === 'model' ? 'LLM' : 'Profil ou méthode'}</th><th>{grouping === 'model' ? 'Note globale /100' : 'Score pondéré'}</th><th>Axes disponibles</th><th>{grouping === 'model' ? 'Tests manquants' : 'Dernière campagne'}</th>{grouping === 'model' && <th>Radar</th>}</tr></thead>
@@ -436,7 +435,7 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
         </tr>)}</tbody>
       </table></div>
       {grouping === 'model' && <p className="diagram-radar-footnote">
-        Une note complète utilise les mêmes neuf critères et les pondérations choisies. Les différences de méthodes, de consignes et de modèles Vision associés peuvent influer sur un même LLM : utilisez les vues détaillées pour interpréter le classement.
+        Une note complète utilise les mêmes sept critères et les pondérations choisies. Les différences de méthodes, de consignes et de modèles Vision associés peuvent influer sur un même LLM : utilisez les vues détaillées pour interpréter le classement.
       </p>}
       {grouping === 'profile' && ranked.some((item) => item.methods.length > 1) &&
         <p className="diagram-radar-footnote">Certains profils utilisent plusieurs méthodes ou variantes de consigne. Leurs observations sont agrégées par attendu, sans moyenner les pourcentages. Passez en vue « profil + méthode » pour isoler les stratégies ; les axes absents ne sont pas reconstitués à partir d’un autre parcours.</p>}
@@ -460,7 +459,7 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
         </label>)}
       </div>
       <Button variant="secondary" onClick={() => { setWeights({ ...RADAR_PRESETS.scientific }); setPreset('scientific'); }}>Rétablir les pondérations scientifiques</Button>
-      <p className="diagram-radar-footnote">Score global = somme des scores disponibles × poids / somme des poids, uniquement si les neuf axes existent. Graphisme = exactitude A/B/C ; flèches = justesse du critère de pointage D/E ; précision = décisions exactes / attendus sur A/B/C et D/E ; biologie = mutations détectées sous témoin vérifié ; relations = moitié mutations détectées, moitié relations correctes préservées ; robustesse = absence de faux rejets et de faux positifs ; stabilité = réponses déterminées identiques après répétitions ; couverture = réponses déterminées / attendus ; performance = 100 ÷ (1 + temps moyen / 60 s). Les références sont synthétiques et provisoires. Ces scores ne sont ni des probabilités calibrées ni une validation pédagogique.</p>
+      <p className="diagram-radar-footnote">Score global = somme des scores disponibles × poids / somme des poids, uniquement si les sept axes existent. Graphisme = exactitude A/B/C ; légendes = justesse du pointage D/E, sans pointe ni sens exigé ; précision = décisions exactes / attendus sur A/B/C et D/E ; biologie = exactitude des attendus de compréhension sur A/B/C et R1/R2/R3 ; stabilité = réponses déterminées identiques après répétitions ; couverture = réponses déterminées / attendus ; performance = 100 ÷ (1 + temps moyen / 60 s). Les références sont synthétiques et provisoires. Ces scores ne sont ni des probabilités calibrées ni une validation pédagogique.</p>
     </details>
   </section>;
 }
