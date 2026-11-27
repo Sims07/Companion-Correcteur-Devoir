@@ -28,7 +28,9 @@ export async function probeVisualLogprobs(settings: LogprobSettings, images: rea
     // output limit is admissible, unlike truncated free-form JSON.
     max_output_tokens: 1,
     temperature: 1, top_p: 1,
-    include: ['message.output_text.logprobs'], top_logprobs: 20,
+    // Bionic accepts at most ten alternatives. Keep the conservative decoder
+    // unchanged: omitted alternatives remain unknown, never zero.
+    include: ['message.output_text.logprobs'], top_logprobs: 10,
     ...(!settings.omitReasoningParameter ? { reasoning: { effort: 'none' } } : {}),
     input: [{ role: 'user', content: [
       ...images.map(image => ({ type: 'input_image', image_url: 'data:' + image.mimeType + ';base64,' + image.base64 })),
