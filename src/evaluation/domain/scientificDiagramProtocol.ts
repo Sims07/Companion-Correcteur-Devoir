@@ -42,7 +42,7 @@ export function availableDiagramMethods(profile: AiModelProfile): DiagramMethod[
   const methods: DiagramMethod[] = [];
   // Vision → transcription → analyse discards the diagram geometry. Preserve
   // its identifier to read historical reports, but never schedule new runs.
-  if (config.correctionMethod === 'generative') methods.push('direct-image-generative', 'direct-image-batch');
+  if (config.correctionMethod === 'generative') methods.push('direct-image-generative');
   if (canUseHybridVisualLogprobs(config)) methods.push('direct-image-logprobs', 'direct-image-hybrid');
   if (canUseHybridVisualLogprobs(config, true)) methods.push('direct-image-hybrid-zoom');
   if (supportsLocalSystemOne(config) && (config.correctionMethod === 'decision' || config.correctionMethod === 'visual-decision')
@@ -64,7 +64,8 @@ export function supportsDiagramThinking(profile: AiModelProfile): boolean {
 export function selectDiagramMethods(profile: AiModelProfile, selection: DiagramMethodSelection): DiagramMethod[] {
   const methods = availableDiagramMethods(profile);
   if (selection === 'graph-first-v1' || selection === 'graph-first-v2') return methods.includes('direct-image-generative') ? [selection] : [];
-  if (selection === 'compare') return methods.filter(method => !isLogprobRadarMethod(method) && method !== 'direct-image-batch');
+  if (selection === 'direct-image-batch') return methods.includes('direct-image-generative') ? [selection] : [];
+  if (selection === 'compare') return methods.filter(method => !isLogprobRadarMethod(method));
   if (selection === 'compare-thinking') return methods.includes('direct-image-generative') && supportsDiagramThinking(profile)
     ? ['direct-image-generative', 'direct-image-generative-thinking'] : [];
   if (selection === 'direct-image-generative-thinking') return supportsDiagramThinking(profile)
