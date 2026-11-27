@@ -1,3 +1,5 @@
+import { hybridVisualLogprobIssue } from '../../../shared/domain/hybridVisualLogprobs.ts';
+import { isLogprobRadarMethod } from '../../domain/logprobRadar.ts';
 import { canTryVisualDecision } from '../../../shared/domain/decisionModelCapabilities.ts';
 import { supportsLocalSystemOne } from '../../../shared/domain/lmStudioTransport.ts';
 import { BiologyReaderComparison } from './BiologyReaderComparison.tsx';
@@ -201,6 +203,13 @@ export function EvaluationRadarHome({
   const chosenSciencePlan = scienceComplete || explicitMethod.diagrams || !enabled('diagrams', 'pixel-v1') ? fullPlan : plan;
   const canLaunchScience = (request: typeof fullPlan) =>
     Boolean(request && profiles.some(p => p.id === request.profileId));
+  const scienceLaunchIssue = busy ? 'Une évaluation est déjà en cours.'
+    : !activeScienceMethod ? 'Aucune méthode scientifique active.'
+    : !profiles.some(p => p.id === selected) ? 'Le profil IA de ce radar n’est plus enregistré.'
+    : !canLaunchScience(fullPlan) ? (profile && isLogprobRadarMethod(activeScienceMethod)
+      ? hybridVisualLogprobIssue(profile.configuration, activeScienceMethod === 'direct-image-hybrid-zoom')
+        ?? 'Aucun parcours compatible avec ce profil IA.'
+      : 'Aucun parcours compatible avec ce profil IA.') : undefined;
   function launchChosen(domain: RadarDomain) {
     if (domain === 'diagrams' && fullPlan && activeScienceMethod) {
       runScience({...fullPlan, trial:{id:crypto.randomUUID(), method:activeScienceMethod, weights}});
@@ -255,6 +264,7 @@ export function EvaluationRadarHome({
             else if (profile) runBiologyBatch?.(profile.id, missingBiology);
           }}>Évaluer toutes les méthodes restantes ({scientific ? scienceBatchPlans.length : missingBiology.length})</Button>
       </div>
+      {scientific && scienceLaunchIssue && <p className="radar-method-help" role="status">Évaluation indisponible : {scienceLaunchIssue}</p>}
       {scientific && <section className="radar-method-audit" aria-label={'État des ' + ACTIVE_SCIENCE_METHOD_IDS.length + ' méthodes scientifiques'}>
         <h3>Bilan de complétude par méthode</h3>
         <p>Une campagne terminée n'est pas forcément un radar complet. Les relances ciblées
