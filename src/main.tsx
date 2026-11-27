@@ -8,6 +8,8 @@ import { createRoot } from 'react-dom/client';
 import { App } from './shell/ui/App.tsx';
 import { LocalMemoryCompanion } from './correction/ui/LocalMemoryCompanion.tsx';
 import { installLocalMemoryFetchBridge } from './correction/adapters/ai/localMemoryFetchBridge.ts';
+import { probeVisualLogprobs } from './shared/adapters/ai/visualLogprobTransport.ts';
+import type { VisualLogprobProbe } from './shared/ports/visualLogprobProbe.ts';
 import { currentFetch } from './shared/adapters/ai/currentFetch.ts';
 import { unloadPilotOllamaModels } from './evaluation/adapters/ai/pilotOllamaMemory.ts';
 import { IndexedDbBackgroundCorrectionRepository, IndexedDbLocalCorrectionRepository } from './correction/adapters/storage/correctionRepository.ts';
@@ -51,10 +53,12 @@ const diagramLabArchive = new IndexedDbDiagramLabArchiveRepository();
 const storageDiagnosticsService = createStorageDiagnosticsService(new IndexedDbStorageDiagnosticsRepository());
 const scientificDiagramAnalyzer = createOpenAiScientificDiagramAnalyzer();
 const scientificDiagramAnalysisService = createScientificDiagramAnalysisService(scientificDiagramAnalyzer);
-const backgroundCorrectionService = createBackgroundCorrectionService(new IndexedDbBackgroundCorrectionRepository(), { checkReady: (settings, signal) => checkOllamaReady(settings, currentFetch, signal), prewarmModel: (settings, model, signal) => prewarmOllamaModel(settings, model, currentFetch, signal), unloadModel: unloadOllamaModel, listModels: (endpoint, signal) => listOllamaModels(endpoint, currentFetch, signal), createProvider: createOllamaProvider, importRubricImage: (images, settings, onProgress, signal) => importRubricImageWithOllama(images, settings, currentFetch, onProgress, signal) }, scientificDiagramAnalysisService);
+const correctionLogprobProbe: VisualLogprobProbe = (settings, images, target, context, signal) =>
+  probeVisualLogprobs(settings, images, target, context, signal, currentFetch, 'Correction hybride · décision visuelle logprobs');
+const backgroundCorrectionService = createBackgroundCorrectionService(new IndexedDbBackgroundCorrectionRepository(), { probeVisualLogprobs: correctionLogprobProbe, checkReady: (settings, signal) => checkOllamaReady(settings, currentFetch, signal), prewarmModel: (settings, model, signal) => prewarmOllamaModel(settings, model, currentFetch, signal), unloadModel: unloadOllamaModel, listModels: (endpoint, signal) => listOllamaModels(endpoint, currentFetch, signal), createProvider: createOllamaProvider, importRubricImage: (images, settings, onProgress, signal) => importRubricImageWithOllama(images, settings, currentFetch, onProgress, signal) }, scientificDiagramAnalysisService);
 installLocalMemoryFetchBridge(localCorrectionRepository);
 const correctionWorkspaceService = createCorrectionWorkspaceService(
-  { generateCopyAnnotations, prepareQuestionContracts, discoverCompatibleModels: (endpoint, token, signal) => discoverCompatibleModels(endpoint, token, currentFetch, signal), checkReady: (settings, signal) => checkOllamaReady(settings, currentFetch, signal), prewarmModel: (settings, model, signal) => prewarmOllamaModel(settings, model, currentFetch, signal), listModels: (endpoint, signal) => listOllamaModels(endpoint, currentFetch, signal), createProvider: createOllamaProvider, importRubricImage: (images, settings, onProgress, signal) => importRubricImageWithOllama(images, settings, currentFetch, onProgress, signal) },
+  { probeVisualLogprobs: correctionLogprobProbe, generateCopyAnnotations, prepareQuestionContracts, discoverCompatibleModels: (endpoint, token, signal) => discoverCompatibleModels(endpoint, token, currentFetch, signal), checkReady: (settings, signal) => checkOllamaReady(settings, currentFetch, signal), prewarmModel: (settings, model, signal) => prewarmOllamaModel(settings, model, currentFetch, signal), listModels: (endpoint, signal) => listOllamaModels(endpoint, currentFetch, signal), createProvider: createOllamaProvider, importRubricImage: (images, settings, onProgress, signal) => importRubricImageWithOllama(images, settings, currentFetch, onProgress, signal) },
   {
     exportCopyAnnotationPdf: async (copy) => (await import('./correction/adapters/files/copyAnnotationPdf.ts')).createCopyAnnotationPdf(copy),
     prepareFiles: prepareLocalFiles, rotateImage: rotateLocalImage, eraseTeacherAnnotationColor, importRubric: importRubricFile },

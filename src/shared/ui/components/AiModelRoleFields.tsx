@@ -46,11 +46,12 @@ export type ReasoningMode = 'default' | 'off' | AnalysisReasoningEffort;
 /** The same vocabulary and model selection in teacher settings and the evaluator. */
 export function AiModelRoleFields(props: Props) {
   const { prefix, generativeModel, decisionModel, visionModel, method, apiCompatible, disabled } = props;
-  const [manualModel, setManualModel] = useState(false);
+  const [manualModels, setManualModels] = useState<Record<string, boolean>>({});
   const generativeId = prefix === 'ai' ? 'ollama-analysis-model' : 'evaluation-analysis-model';
   function modelField(id: string, label: string, value: string, onChange: (value: string) => void, hint: string) {
-    const choices = Array.from(new Set([value, ...props.models.map(model => model.name)].filter(Boolean)));
-    const canToggleManual = id === generativeId && apiCompatible && props.models.length > 0;
+    const choices = Array.from(new Set([value, ...props.models.filter(model => model.decision === undefined || model.decision === (id !== generativeId)).map(model => model.name)].filter(Boolean)));
+    const canToggleManual = apiCompatible && props.models.length > 0;
+    const manualModel = manualModels[id] === true;
     return <div className="evaluation-config-field">
       <label className="field-label" htmlFor={id}>{label}</label>
       {props.models.length > 0 && !(canToggleManual && manualModel)
@@ -63,7 +64,8 @@ export function AiModelRoleFields(props: Props) {
         </DesignSystemSelect>
         : <input id={id} value={value} disabled={disabled} onChange={event => onChange(event.target.value)} placeholder={label.startsWith('Modèle génératif') ? 'Ex. qwen3.5:4b' : 'Ex. tev1:4b'} />}
       {canToggleManual && <button type="button" className="secondary-button" disabled={disabled}
-        onClick={() => setManualModel(!manualModel)}>{manualModel ? 'Afficher les modèles détectés' : 'Saisir un identifiant'}</button>}
+        onClick={() => setManualModels(current => ({ ...current, [id]: !manualModel }))}>{id === generativeId ? (manualModel ? 'Afficher les modèles détectés' : 'Saisir un identifiant') : (manualModel ? 'Afficher les décisionnels détectés' : 'Saisir un identifiant décisionnel')}</button>}
+      {id !== generativeId && props.models.length === 0 && <p className="hint">Aucun catalogue détecté. Testez la connexion pour actualiser les modèles ; vous pouvez aussi saisir un identifiant manuellement.</p>}
       <p className="hint">{hint}</p>
     </div>;
   }
@@ -80,6 +82,7 @@ export function AiModelRoleFields(props: Props) {
   return <>
     {modelField(generativeId, 'Modèle génératif', generativeModel, props.onGenerativeModel,
       'Prépare les barèmes et peut corriger les copies. Choisissez un modèle avec vision pour lire aussi les images, ou configurez une lecture distincte dans les options avancées.')}
+    {selectedModel?.decision === true && <StatusNotice tone="warning">Ce modèle est identifié comme décisionnel. Choisissez-le dans le champ décisionnel plutôt que génératif.</StatusNotice>}
     {props.models.length > 0 && generativeModel && !selectedModel && <p className="hint">Ce modèle est absent du catalogue détecté.</p>}
     {selectedModel && (selectedModel.vision !== undefined || selectedModel.tools !== undefined) &&
       <p className="hint" role="status">LM Studio indique {[selectedModel.vision === undefined ? '' : selectedModel.vision ? 'vision prise en charge' : 'vision indisponible',
@@ -87,6 +90,8 @@ export function AiModelRoleFields(props: Props) {
     <details className="ai-model-advanced" open={decision || undefined}><summary>Méthode de correction et modèle décisionnel</summary>
     {modelField(`${prefix}-decision-model`, 'Modèle décisionnel (facultatif)', decisionModel, props.onDecisionModel,
       'Évalue les attendus du barème avec System One. Ce choix est mémorisé séparément du modèle génératif.')}
+    {props.models.length > 0 && decisionModel && !props.models.some(model => model.name === decisionModel) && <StatusNotice tone="warning">Identifiant mémorisé absent du catalogue détecté. Vérifiez sa disponibilité avant de corriger.</StatusNotice>}
+    {props.models.find(model => model.name === decisionModel)?.decisionInferred && <StatusNotice tone="warning">Modèle décisionnel identifié par son nom, mais non confirmé par le catalogue natif. La compatibilité System One doit être vérifiée sur le serveur local.</StatusNotice>}
     <div className="evaluation-config-field">
       <label className="field-label" htmlFor={`${prefix}-correction-method`}>Méthode de correction</label>
       <DesignSystemSelect id={`${prefix}-correction-method`} value={decision ? 'decision' : 'generative'} disabled={disabled} onChange={event => props.onMethod(event.target.value as CorrectionMethod)}>
@@ -97,10 +102,10 @@ export function AiModelRoleFields(props: Props) {
         ? `Images → décisions : ${decisionModel || 'modèle décisionnel à choisir'}`
         : `Lecture : ${visionModel || 'modèle de lecture à choisir'} → ${decision ? 'décisions' : 'correction'} : ${(decision ? decisionModel : generativeModel) || 'modèle à choisir'}`}</p>
       {decision && !decisionModel.trim() && <StatusNotice tone="warning">Choisissez un modèle décisionnel pour cette méthode.</StatusNotice>}
-      {decision && apiCompatible && <StatusNotice tone="warning">La correction décisionnelle nécessite une connexion Ollama avec System One. Le modèle génératif reste disponible pour une API compatible OpenAI.</StatusNotice>}
+      {decision && apiCompatible && !props.nativeChat && !props.responses && <StatusNotice tone="warning">La correction décisionnelle nécessite Ollama ou LM Studio local (Chat natif ou Responses) avec System One. Le modèle génératif reste disponible pour une API compatible OpenAI.</StatusNotice>}
       {decision && <details className="ai-model-advanced"><summary>Options de décision sur image</summary>
         <label className="analysis-thinking-option" htmlFor={`${prefix}-direct-decision`}><input id={`${prefix}-direct-decision`} type="checkbox" checked={method === 'visual-decision'} disabled={disabled} onChange={event => props.onMethod(event.target.checked ? 'visual-decision' : 'decision')} /><span><strong>Envoyer directement les images au décisionnel</strong><small>Sans transcription, avec un modèle compatible : Clef/Clef-Flash ou D1/D3 expérimentaux. TEV1 utilise le texte.</small></span></label>
-        {method === 'visual-decision' && !isVisualDecisionModel(decisionModel) && <StatusNotice tone="warning">Ce modèle n’est pas reconnu comme compatible avec les images System One. Utilisez un modèle compatible ou désactivez cette option pour utiliser la transcription.</StatusNotice>}
+        {method === 'visual-decision' && !(props.models.find(model => model.name === decisionModel)?.vision ?? isVisualDecisionModel(decisionModel)) && <StatusNotice tone="warning">Ce modèle n’est pas reconnu comme compatible avec les images System One. Utilisez un modèle compatible ou désactivez cette option pour utiliser la transcription.</StatusNotice>}
       </details>}
     </div>
     </details>

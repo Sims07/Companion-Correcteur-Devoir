@@ -1,4 +1,5 @@
-import { aiTransport } from '../../../shared/domain/lmStudioTransport.ts';
+import { discoverCompatibleModels } from '../../../shared/adapters/ai/compatibleModelDiscovery.ts';
+import { aiTransport, supportsLocalSystemOne } from '../../../shared/domain/lmStudioTransport.ts';
 import { arrowContext } from '../../../shared/adapters/image/arrowContext.ts';
 import { questionGroups, scopedCriterionInput } from '../../domain/questionContract.ts';
 import { promptTrace, type PromptId } from '../../../shared/adapters/ai/prompts/promptRegistry.ts';
@@ -431,19 +432,23 @@ export function createOllamaProvider(
       const analysisModel = settings.analysisModel?.trim() || settings.model?.trim() || '';
       const useTwoModels = Boolean(settings.visionModel?.trim() && settings.analysisModel?.trim());
       // The explicit correction method, never the model name, selects the grading API.
-      // Vision transcription still uses Chat. OpenAI-compatible providers do not expose
-      // Ollama's native /v1/systemone endpoint; fail before grading, never fall back.
-      if (!visionOnly && (settings.correctionMethod === 'decision' || settings.correctionMethod === 'visual-decision') && settings.apiCompatible) {
-        throw new Error('La correction décisionnelle requiert l’API /v1/systemone d’Ollama local. Choisissez Ollama local comme fournisseur ; aucune conversion en appel Chat n’est effectuée.');
+      // Only local System One transports may receive a decision request.
+      if (!visionOnly && (settings.correctionMethod === 'decision' || settings.correctionMethod === 'visual-decision') && !supportsLocalSystemOne(settings)) {
+        throw new Error('La correction décisionnelle requiert l’API /v1/systemone d’Ollama local. Choisissez Ollama local ou une adresse locale LM Studio (Chat natif ou Responses) ; aucune conversion en appel Chat n’est effectuée.');
       }
       if (directGenerativeVision && (settings.correctionMethod !== 'generative' || directVisualDecision || !request.images?.length || hasTranscription || request.detectTeacherAnnotations || request.identifyStudent)) {
         throw new Error('Le test génératif direct exige une configuration générative, des images et aucune transcription préalable.');
       }
       if (directVisualDecision) {
-        if (!['decision', 'visual-decision'].includes(settings.correctionMethod ?? '') || settings.apiCompatible) {
+        if (!['decision', 'visual-decision'].includes(settings.correctionMethod ?? '') || !supportsLocalSystemOne(settings)) {
           throw new Error('Vision + Décisionnel direct exige un modèle Ollama local compatible System One.');
         }
-        if (!isVisualDecisionModel(analysisModel)) {
+        const catalogue = settings.apiCompatible
+          ? await discoverCompatibleModels(endpoint, settings.apiKey ?? '', fetchImpl, signal)
+          : undefined;
+        const detected = catalogue?.find(entry => entry.name === analysisModel);
+        const supportsImages = detected?.decision !== false && (detected?.vision ?? isVisualDecisionModel(analysisModel));
+        if (!supportsImages) {
           throw new Error(/^tev1(?::|$)/i.test(analysisModel)
             ? 'TEV1 n’accepte pas les images via /v1/systemone : choisissez Décisionnelle (Vision puis TEV1 sur texte), ou Clef-Flash pour Vision + Décisionnel direct.'
             : 'Ce modèle ne dispose pas du parcours image System One validé. Utilisez Clef-Flash (ou un D1/D3 compatible).');
@@ -1237,6 +1242,7 @@ export function createOllamaProvider(
             });
             const result = await requestSystemOneDecision({
               endpoint, model: analysisModel, prepared, fetchImpl,
+              lmStudio: settings.apiCompatible, apiKey: settings.apiKey,
               ...(directVisualDecision ? { images: request.images } : {}),
               ...(signal ? { signal } : {}), onDiagnosticResult,
             });

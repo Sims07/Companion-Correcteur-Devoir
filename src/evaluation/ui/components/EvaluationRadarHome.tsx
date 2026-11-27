@@ -1,3 +1,7 @@
+import { hybridVisualLogprobIssue } from '../../../shared/domain/hybridVisualLogprobs.ts';
+import { isLogprobRadarMethod } from '../../domain/logprobRadar.ts';
+import { canTryVisualDecision } from '../../../shared/domain/decisionModelCapabilities.ts';
+import { supportsLocalSystemOne } from '../../../shared/domain/lmStudioTransport.ts';
 import { BiologyReaderComparison } from './BiologyReaderComparison.tsx';
 import { BiologyProfileControls, type BiologyProfileSelection } from './BiologyProfileControls.tsx';
 import { buildRadarTimelineExport } from '../../domain/radarTimelineExport.ts';
@@ -14,7 +18,6 @@ import { downloadJson } from '../../../shared/ui/downloadJson.ts';
 import { Button } from '../../../shared/ui/design-system/index.ts';
 import { useMemo, useState } from 'react';
 import type { AiModelProfile } from '../../../shared/domain/aiModelProfiles.ts';
-import { isVisualDecisionModel } from '../../../correction/api/index.ts';
 import type { DiagramLabArchiveEntry } from '../../domain/diagramLabHistory.ts';
 import {
   diagnoseGraphRadarMeasurement,
@@ -138,7 +141,7 @@ export function EvaluationRadarHome({
   const nonVisualDecision = profiles.some((profile) =>
     profile.id === selected &&
     (profile.configuration.correctionMethod === 'decision' || profile.configuration.correctionMethod === 'visual-decision') &&
-    (profile.configuration.apiCompatible || !isVisualDecisionModel(profile.configuration.analysisModel)));
+    (!supportsLocalSystemOne(profile.configuration) || !canTryVisualDecision(profile.configuration)));
   const [method, setMethod] = useState<ScienceMethod>('pixel-v1');
   const [bioMethod, setBioMethod] = useState<'standard' | 'contract'>('contract');
   const activeScienceMethod = ACTIVE_SCIENCE_METHOD_IDS.includes(method) && enabled('diagrams', method) ? method
@@ -200,6 +203,13 @@ export function EvaluationRadarHome({
   const chosenSciencePlan = scienceComplete || explicitMethod.diagrams || !enabled('diagrams', 'pixel-v1') ? fullPlan : plan;
   const canLaunchScience = (request: typeof fullPlan) =>
     Boolean(request && profiles.some(p => p.id === request.profileId));
+  const scienceLaunchIssue = busy ? 'Une évaluation est déjà en cours.'
+    : !activeScienceMethod ? 'Aucune méthode scientifique active.'
+    : !profiles.some(p => p.id === selected) ? 'Le profil IA de ce radar n’est plus enregistré.'
+    : !canLaunchScience(fullPlan) ? (profile && isLogprobRadarMethod(activeScienceMethod)
+      ? hybridVisualLogprobIssue(profile.configuration, activeScienceMethod === 'direct-image-hybrid-zoom')
+        ?? 'Aucun parcours compatible avec ce profil IA.'
+      : 'Aucun parcours compatible avec ce profil IA.') : undefined;
   function launchChosen(domain: RadarDomain) {
     if (domain === 'diagrams' && fullPlan && activeScienceMethod) {
       runScience({...fullPlan, trial:{id:crypto.randomUUID(), method:activeScienceMethod, weights}});
@@ -254,6 +264,7 @@ export function EvaluationRadarHome({
             else if (profile) runBiologyBatch?.(profile.id, missingBiology);
           }}>Évaluer toutes les méthodes restantes ({scientific ? scienceBatchPlans.length : missingBiology.length})</Button>
       </div>
+      {scientific && scienceLaunchIssue && <p className="radar-method-help" role="status">Évaluation indisponible : {scienceLaunchIssue}</p>}
       {scientific && <section className="radar-method-audit" aria-label={'État des ' + ACTIVE_SCIENCE_METHOD_IDS.length + ' méthodes scientifiques'}>
         <h3>Bilan de complétude par méthode</h3>
         <p>Une campagne terminée n'est pas forcément un radar complet. Les relances ciblées

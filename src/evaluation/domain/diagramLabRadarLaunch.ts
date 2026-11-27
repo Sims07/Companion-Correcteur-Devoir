@@ -1,5 +1,9 @@
+import { isLogprobRadarMethod } from './logprobRadar.ts';
+import { canUseHybridVisualLogprobs } from '../../shared/domain/hybridVisualLogprobs.ts';
+import { canTryVisualDecision } from '../../shared/domain/decisionModelCapabilities.ts';
+import { supportsLocalSystemOne } from '../../shared/domain/lmStudioTransport.ts';
 import { BLIND_GRAPH_PROMPT_VARIANTS, type BlindGraphPromptVariant } from './scientificDiagramBlindGraph.ts';
-import { isNativeDecisionModel, isVisualDecisionModel } from '../../correction/api/index.ts';
+import { isNativeDecisionModel } from '../../correction/api/index.ts';
 import type { DiagramMethodSelection } from './scientificDiagramProtocol.ts';
 import { buildDiagramLabRadar, diagnoseGraphRadarMeasurement, diagnoseUnmeasuredRadarAxis, RADAR_AXES, type RadarAxisId, type RadarCandidate, type RadarModelConfiguration, type RadarRankedCandidate, type RadarGrouping } from './diagramLabRadar.ts';
 import type { DiagramLabArchiveEntry } from './diagramLabHistory.ts';
@@ -49,6 +53,7 @@ export interface RadarMissingTestRequest {
 const ALL_METHODS: DiagramMethodSelection[] = [
   'graph-first-v1', 'direct-image-generative',
   'direct-image-generative-thinking', 'direct-image-systemone',
+  'direct-image-logprobs', 'direct-image-hybrid', 'direct-image-hybrid-zoom',
 ];
 
 /** Map a missing skill to the exact existing automatic test families.
@@ -245,10 +250,11 @@ export function resolveModelProfile(
     const raw = cfg.visionModel.trim() || cfg.generativeModel?.trim() ||
       (cfg.correctionMethod === 'generative' ? cfg.analysisModel.trim() : '');
     // A native decision model does not own image-to-graph observations.
-    return !cfg.apiCompatible && isNativeDecisionModel(raw) ? '' : raw;
+    return supportsLocalSystemOne(cfg) && isNativeDecisionModel(raw) ? '' : raw;
   };
   const canGrade = (profile: RadarModelConfiguration) => {
     const cfg = profile.configuration;
+    if (isLogprobRadarMethod(selectedStrategy) || isLogprobRadarMethod(requestedMethod)) return cfg.analysisModel.trim() === candidate.id && canUseHybridVisualLogprobs({ ...cfg, endpoint: cfg.endpoint ?? '' }, selectedStrategy === 'direct-image-hybrid-zoom' || requestedMethod === 'direct-image-hybrid-zoom');
     if (!needsGrading) return true;
     // An explicitly selected direct-image benchmark must never silently become
     // Vision → analysis when a profile has two distinct models configured.
@@ -260,13 +266,13 @@ export function resolveModelProfile(
     if (requestedMethod === 'direct-image-generative-thinking')
       return cfg.correctionMethod === 'generative' && !cfg.apiCompatible;
     if (requestedMethod === 'direct-image-systemone')
-      return !cfg.apiCompatible && (cfg.correctionMethod === 'decision' || cfg.correctionMethod === 'visual-decision') &&
-        isVisualDecisionModel(cfg.analysisModel);
+      return supportsLocalSystemOne(cfg) && (cfg.correctionMethod === 'decision' || cfg.correctionMethod === 'visual-decision') &&
+        canTryVisualDecision(cfg);
     // Never fall back to text transcription for a scientific image.
     if (cfg.correctionMethod === 'generative') return true;
-    return !cfg.apiCompatible &&
+    return supportsLocalSystemOne(cfg) &&
       (cfg.correctionMethod === 'decision' || cfg.correctionMethod === 'visual-decision') &&
-      isVisualDecisionModel(cfg.analysisModel);
+      canTryVisualDecision(cfg);
   };
 
   // Prefer a single profile able to measure every missing axis. A decision LLM

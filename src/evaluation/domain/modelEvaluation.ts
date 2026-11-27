@@ -208,6 +208,7 @@ export interface ModelEvaluationCallTrace {
 }
 
 export interface ModelEvaluationResultSnapshot {
+  logprobRadar?: import('./logprobRadar.ts').LogprobRadarTrace;
   graphEvidence?: import('./scientificDiagramBlindGraph.ts').DiagramGraphEvidence;
   profileId: string;
   profileName: string;
@@ -239,6 +240,7 @@ export interface ModelEvaluationResultSnapshot {
 }
 
 export interface ModelEvaluationRecord {
+  logprobRadarMethod?: import('./logprobRadar.ts').LogprobRadarMethod;
   graphFirst?: boolean;
   /** The legacy graphFirst flag remains true for both generations. */
   graphVersion?: 'v1' | 'v2';

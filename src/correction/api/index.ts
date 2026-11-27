@@ -8,3 +8,6 @@ export { parseScientificDiagramRubric, SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC } fro
 export { expectedDecisionTargets, isNativeDecisionModel, isVisualDecisionModel } from '../domain/systemOneDecision.ts';
 export type { GradingOutcome } from './gradingOutcome.ts';
 export { reportGradingOutcome } from '../application/reportGradingOutcome.ts';
+export { gradeDiagramImages, type DiagramImageGradingInput } from '../ports/gradeDiagramImages.ts';
+export { createHybridDiagramShortcut } from '../ports/hybridDiagramShortcut.ts';
+export type { GradingProvider, OllamaSettings } from '../ports/aiProvider.ts';

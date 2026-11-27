@@ -16,6 +16,21 @@ const ok = () => new Response(JSON.stringify({
 }), { status: 200 });
 
 describe('experimental direct visual grading', () => {
+  it('honours a Bionic decision model reporting vision disabled before uploading the copy', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(Response.json({
+      models: [{ key: 'clef-flash', type: 'decision', capabilities: { vision: false } }],
+    }));
+    const provider = createOllamaProvider({
+      endpoint: 'https://mac-mini.local:8443/v1/responses', apiCompatible: true,
+      analysisModel: 'clef-flash', correctionMethod: 'visual-decision',
+    }, fetchImpl);
+    await expect(provider.generate({ question: 'Observation', rubric: JSON.stringify(rubric),
+      images: [{ base64: 'aGVsbG8=', mimeType: 'image/png' }] })).rejects.toThrow(/image System One/);
+    expect(fetchImpl).toHaveBeenCalledOnce();
+    expect(fetchImpl.mock.calls[0][1]?.method).toBe('GET');
+    expect(fetchImpl.mock.calls[0][1]?.body).toBeUndefined();
+  });
+
   it('sends the student image only once to D1 without any preceding OCR call', async () => {
     const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(ok());
     const diagnostics = vi.fn();

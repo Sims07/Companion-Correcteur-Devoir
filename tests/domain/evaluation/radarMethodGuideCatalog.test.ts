@@ -15,6 +15,7 @@ describe('catalogue des fiches illustrées du laboratoire', () => {
     expect(science.map(entry => entry.id)).toEqual([
       'image-direct-v1', 'pixel-v1', 'leaders-v1', 'direct-v1', 'guided-v1', 'graph-first-v1',
       'graph-first-v2', 'vision-then-analysis', 'direct-image-generative-thinking', 'direct-image-systemone',
+      'direct-image-logprobs', 'direct-image-hybrid', 'direct-image-hybrid-zoom',
     ]);
     expect(biology).toHaveLength(3);
     for (const route of Object.keys(diagramMethodLabels)) {

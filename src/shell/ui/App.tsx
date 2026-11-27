@@ -1,4 +1,5 @@
-import { aiTransport, endpointForTransport, type AiTransport } from '../../shared/domain/lmStudioTransport.ts';
+import { canTryVisualDecision } from '../../shared/domain/decisionModelCapabilities.ts';
+import { supportsLocalSystemOne, aiTransport, endpointForTransport, type AiTransport } from '../../shared/domain/lmStudioTransport.ts';
 import { CopyActionIcon } from '../../correction/ui/components/CopyActionIcon.tsx';
 import { extractDiagramGraphEvidence, extractDiagramGraphEvidenceV2, graphGradingContext } from '../../evaluation/application/diagramGraphEvidence.ts';
 import { biologyPoints, campaignGroups, scienceMethods } from '../../evaluation/domain/radarTimeline.ts';
@@ -87,7 +88,7 @@ import { defaultCopyOverviewFilter, toCopyOverviewStatus, type CopyOverviewFilte
 import type { TeacherAnnotationReviewCandidate, TeacherAnnotationReviewDecision } from '../../correction/domain/teacherAnnotations.ts';
 import { buildLocalDecisionBenchmark } from '../../evaluation/domain/localDecisionBenchmark.ts';
 import { compareVisualDecisions, extractVisualDecisions, summarizeModelEvaluationScores, visualChoiceLabels } from '../../evaluation/domain/visualDecisionEvaluation.ts';
-import { isNativeDecisionModel, isVisualDecisionModel } from '../../correction/domain/systemOneDecision.ts';
+import { isNativeDecisionModel } from '../../correction/domain/systemOneDecision.ts';
 import { PILOT_CASES, PILOT_PROTOCOL_ID, PILOT_QUESTION, PILOT_RUBRIC, PILOT_TITLE, buildPilotReport, isLocalPilotConfiguration, isLocalPilotProfile, isLoopbackPilotEndpoint, pilotSelectionIssue, selectPilotProfiles, type PilotCase, type PilotRun } from '../../evaluation/domain/pilotEvaluationProtocol.ts';
 import { PilotEvaluationPanel } from '../../evaluation/ui/components/PilotEvaluationPanel.tsx';
 import { BiologyTeacherRadar } from '../../evaluation/ui/components/BiologyTeacherRadar.tsx';
@@ -107,6 +108,9 @@ import { shouldRetryInvalidDiagramRecord } from '../../evaluation/domain/diagram
 import type { DiagramLabArchiveRepository } from '../../evaluation/ports/diagramLabArchiveRepository.ts';
 import { initialAssignmentRubric, type AssignmentKind } from '../../correction/domain/assignmentKind.ts';
 import { DiagramRubricQuickAccess } from '../../correction/ui/components/DiagramRubricQuickAccess.tsx';
+import { evaluateLogprobRadar } from '../../evaluation/application/evaluateLogprobRadar.ts';
+import { isLogprobRadarMethod, type LogprobRadarTrace } from '../../evaluation/domain/logprobRadar.ts';
+import { canUseHybridVisualLogprobs } from '../../correction/ports/hybridDiagramShortcut.ts';
 import { correctScientificDiagramDirect, directDiagramAssignmentIssue } from '../../correction/application/directScientificDiagramCorrection.ts';
 import { SCIENTIFIC_DIAGRAM_PROTOCOL_ID, buildScientificDiagramProtocolReport, diagramMethodIssue, diagramMethodLabels, selectDiagramMethods, usesDirectDiagramVision, type DiagramMethod, type DiagramMethodSelection, type DiagramProtocolCount } from '../../evaluation/domain/scientificDiagramProtocol.ts';
 import { SCIENTIFIC_DIAGRAM_FIXTURE_CONTEXT, SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC, buildScientificDiagramFixtureReport, type ScientificDiagramFixtureId, type ScientificDiagramFixtureRun } from '../../evaluation/domain/scientificDiagramFixtures.ts';
@@ -526,13 +530,14 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
   const [analysisReasoningEffort, setAnalysisReasoningEffort] = useState<AnalysisReasoningEffort>(() => readAiModelConfiguration().analysisReasoningEffort ?? 'medium');
   const [omitReasoningParameter, setOmitReasoningParameter] = useState(() => readAiModelConfiguration().omitReasoningParameter === true);
   const [contextLength, setContextLength] = useState<number | undefined>(() => readAiModelConfiguration().contextLength);
+  const [hybridVisualLogprobs, setHybridVisualLogprobs] = useState(() => readAiModelConfiguration().hybridVisualLogprobs === true);
   const [smartZoom, setSmartZoom] = useState(() => readAiModelConfiguration().smartZoom === true);
   const [smartZoomBudget, setSmartZoomBudget] = useState(() => readAiModelConfiguration().smartZoomBudget);
   const [gradingOutputTokens, setGradingOutputTokens] = useState(() => readAiModelConfiguration().gradingOutputTokens);
   const [analysisTemperature, setAnalysisTemperature] = useState(() => readAiModelConfiguration().analysisTemperature);
   const [analysisTopP, setAnalysisTopP] = useState(() => readAiModelConfiguration().analysisTopP);
   const [analysisTopK, setAnalysisTopK] = useState(() => readAiModelConfiguration().analysisTopK);
-  const teacherThinking = { gradingOutputTokens, omitReasoningParameter, contextLength, smartZoom, smartZoomBudget, thinking: analysisThinking, analysisTemperature, analysisTopP, analysisTopK, ...(apiCompatible && analysisThinking ? { thinkingLevel: analysisReasoningEffort } : {}) };
+  const teacherThinking = { hybridVisualLogprobs, gradingOutputTokens, omitReasoningParameter, contextLength, smartZoom, smartZoomBudget, thinking: analysisThinking, analysisTemperature, analysisTopP, analysisTopK, ...(apiCompatible && analysisThinking ? { thinkingLevel: analysisReasoningEffort } : {}) };
   const [criterionByCriterion, setCriterionByCriterion] = useState(() => readAiModelConfiguration().criterionByCriterion);
   const [aiModelProfiles, setAiModelProfiles] = useState<AiModelProfile[]>(readAiModelProfiles);
   const [aiModelProfileName, setAiModelProfileName] = useState('');
@@ -1245,10 +1250,10 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
   ];
 
   useEffect(() => {
-    const configuration: AiModelConfiguration = { generativeModel, decisionModel, endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, analysisReasoningEffort, omitReasoningParameter, contextLength, gradingOutputTokens, analysisTemperature, analysisTopP, analysisTopK, criterionByCriterion, smartZoom, smartZoomBudget, correctionMethod };
+    const configuration: AiModelConfiguration = { generativeModel, decisionModel, endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, analysisReasoningEffort, omitReasoningParameter, contextLength, gradingOutputTokens, analysisTemperature, analysisTopP, analysisTopK, criterionByCriterion, smartZoom, smartZoomBudget, hybridVisualLogprobs, correctionMethod };
     try { window.localStorage.setItem(aiModelConfigurationKey, JSON.stringify(configuration)); }
     catch { /* The current settings remain usable for this session if storage is unavailable. */ }
-  }, [generativeModel, decisionModel, endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, analysisReasoningEffort, omitReasoningParameter, contextLength, gradingOutputTokens, analysisTemperature, analysisTopP, analysisTopK, criterionByCriterion, smartZoom, smartZoomBudget, correctionMethod]);
+  }, [generativeModel, decisionModel, endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, analysisReasoningEffort, omitReasoningParameter, contextLength, gradingOutputTokens, analysisTemperature, analysisTopP, analysisTopK, criterionByCriterion, smartZoom, smartZoomBudget, hybridVisualLogprobs, correctionMethod]);
 
   function applyAiModelProfile(profile: AiModelProfile) {
     setEndpoint(profile.configuration.endpoint);
@@ -1277,6 +1282,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     setContextLength(profile.configuration.contextLength);
     setSmartZoom(profile.configuration.smartZoom === true);
     setSmartZoomBudget(profile.configuration.smartZoomBudget);
+    setHybridVisualLogprobs(profile.configuration.hybridVisualLogprobs === true);
     setCriterionByCriterion(profile.configuration.criterionByCriterion);
     setSelectedAiModelProfileId(profile.id);
     setAiModelProfileMessage('Profil « ' + profile.name + ' » chargé.');
@@ -1307,6 +1313,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     setOmitReasoningParameter(false);
     setContextLength(undefined);
     setSmartZoom(false);
+    setHybridVisualLogprobs(false);
     setCriterionByCriterion(true);
     resetAiConnectionResult();
   }
@@ -1339,7 +1346,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
   function saveAiModelProfile() {
     const name = aiModelProfileName.trim();
     if (!name) { setAiModelProfileTone('warning'); setAiModelProfileMessage('Donnez un nom à cette configuration avant de l’enregistrer.'); return; }
-    const configuration: AiModelConfiguration = { generativeModel, decisionModel, endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, analysisReasoningEffort, omitReasoningParameter, contextLength, gradingOutputTokens, analysisTemperature, analysisTopP, analysisTopK, criterionByCriterion, smartZoom, smartZoomBudget, correctionMethod };
+    const configuration: AiModelConfiguration = { generativeModel, decisionModel, endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, analysisReasoningEffort, omitReasoningParameter, contextLength, gradingOutputTokens, analysisTemperature, analysisTopP, analysisTopK, criterionByCriterion, smartZoom, smartZoomBudget, hybridVisualLogprobs, correctionMethod };
     const profile: AiModelProfile = {
       id: selectedAiModelProfileId || 'ai-profile-' + Date.now(),
       name,
@@ -1707,6 +1714,8 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     aiConnectionRequest.current = controller;
     setConnectingAi(true);
     setBusy(true);
+    // Do not present a stale catalogue as current during a new detection or after failure.
+    setDetectedModels([]);
     setConnectionTone('info');
     setConnectionMessage('Test de connexion en cours… Lecture du catalogue du serveur IA.');
     try {
@@ -1825,8 +1834,8 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
       if (!validation.valid) throw new Error(validation.errors.join(' '));
       if (!images.length) throw new Error('Importez au moins une photo ou un PDF de la copie.');
       if (correctionMethod === 'visual-decision') {
-        if (apiCompatible) throw new Error('Vision + Décisionnel direct nécessite Ollama local et son API /v1/systemone.');
-        if (!isVisualDecisionModel(analysisModel)) throw new Error(/^tev1(?::|$)/i.test(analysisModel)
+        if (!supportsLocalSystemOne({ apiCompatible, endpoint })) throw new Error('Choisissez une adresse locale Ollama ou LM Studio pour la décision sur image.');
+        if (!canTryVisualDecision({ apiCompatible, analysisModel, correctionMethod })) throw new Error(/^tev1(?::|$)/i.test(analysisModel)
           ? 'TEV1 ne prend pas en charge les photos via System One. Choisissez « Décisionnelle — Vision puis System One texte » ou un modèle visuel comme Clef-Flash.'
           : 'Le modèle d’analyse ne prend pas en charge l’entrée image System One. Sélectionnez un modèle compatible comme Clef-Flash.');
       }
@@ -1973,7 +1982,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
           configuration: {
             ...defaultAiModelConfiguration,
             endpoint, apiCompatible, apiKey, visionModel, analysisModel,
-            analysisThinking, analysisReasoningEffort, omitReasoningParameter, contextLength, gradingOutputTokens, analysisTemperature, analysisTopP, analysisTopK, criterionByCriterion, smartZoom, smartZoomBudget, correctionMethod,
+            analysisThinking, analysisReasoningEffort, omitReasoningParameter, contextLength, gradingOutputTokens, analysisTemperature, analysisTopP, analysisTopK, criterionByCriterion, smartZoom, smartZoomBudget, hybridVisualLogprobs, correctionMethod,
           },
           signal: abortController.signal,
           onDiagnosticResult: captureDiagramDiagnostic,
@@ -2237,10 +2246,10 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
       diagramMethod ? diagramMethod === 'direct-image-systemone'
         : profile.configuration.correctionMethod === 'visual-decision'
           || (runVisualDirect && profile.configuration.correctionMethod === 'decision'
-            && isVisualDecisionModel(profile.configuration.analysisModel))
+            && canTryVisualDecision(profile.configuration))
     );
     const directGenerativeProfiles = (_profile: AiModelProfile) => runStage === 'integrated'
-      && (diagramMethod === 'graph-first-v1' || diagramMethod === 'graph-first-v2' || diagramMethod === 'direct-image-generative' || diagramMethod === 'direct-image-generative-thinking');
+      && (diagramMethod === 'graph-first-v1' || diagramMethod === 'graph-first-v2' || diagramMethod === 'direct-image-generative' || diagramMethod === 'direct-image-generative-thinking' || isLogprobRadarMethod(diagramMethod));
     // Only the diagram lab can override a saved visual-decision profile to test
     // its two-step System One text baseline. The teacher route is unchanged.
     const effectiveMethod = (profile: AiModelProfile) =>
@@ -2254,6 +2263,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     setBusy(true);
     setIsAnalyzing(true);
     const graphEvidence = new Map<string, DiagramGraphEvidence>();
+    const logprobTraces = new Map<string, LogprobRadarTrace>();
     const outputs = await runModelEvaluation({
       stages: [...measuredStages],
       stagesForConfiguration: (configuration) => {
@@ -2288,7 +2298,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
         analysisTopK: profile.configuration.analysisTopK,
         criterionByCriterion: profile.configuration.criterionByCriterion,
         smartZoom: profile.configuration.smartZoom,
-         smartZoomBudget: profile.configuration.smartZoomBudget,
+        smartZoomBudget: profile.configuration.smartZoomBudget,
         correctionMethod: effectiveMethod(profile),
         directVisualDecision: directProfiles(profile),
         directGenerativeVision: directGenerativeProfiles(profile),
@@ -2321,7 +2331,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
       } } : {}),
       execute: async (configuration, _isCancelled, onStage) => {
         setEvaluationStage('preparing');
-        if (configuration.correctionMethod === 'visual-decision' && !isVisualDecisionModel(configuration.analysisModel)) {
+        if (configuration.correctionMethod === 'visual-decision' && !canTryVisualDecision(configuration)) {
           throw new Error(/^tev1(?::|$)/i.test(configuration.analysisModel)
             ? 'TEV1 ne supporte pas les images dans System One : sélectionnez une méthode Vision puis Analyse, ou Clef-Flash.'
             : 'Le modèle choisi ne prend pas en charge les décisions directes sur images dans System One.');
@@ -2342,7 +2352,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
         let analysisStartedAt: number | null = null;
         const measuredRuns: DiagnosticModelResult[] = [];
         let streamedOutput = '';
-        const provider = service.createProvider({
+        const providerSettings = {
           endpoint: configuration.endpoint,
           apiCompatible: configuration.apiCompatible,
           omitReasoningParameter: configuration.omitReasoningParameter,
@@ -2357,11 +2367,12 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
           thinking: configuration.thinking,
           ...(configuration.thinkingLevel ? { thinkingLevel: configuration.thinkingLevel } : {}),
           criterionByCriterion: configuration.criterionByCriterion,
-          smartZoom: configuration.smartZoom,
-           smartZoomBudget: configuration.smartZoomBudget,
+          smartZoom: isLogprobRadarMethod(diagramMethod) ? diagramMethod === 'direct-image-hybrid-zoom' : configuration.smartZoom,
+          smartZoomBudget: configuration.smartZoomBudget,
           correctionMethod: configuration.correctionMethod,
-          diagnosticStrategy: 'single',
-        });
+          diagnosticStrategy: 'single' as const,
+        };
+        const provider = service.createProvider(providerSettings);
         setStreamedOutput('');
         let sequentialProposal: GradingProposal | undefined;
         try {
@@ -2400,7 +2411,20 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
           }
           const gradingContext = buildAssignmentContext({ title: runTitle, description: runDescription, educationLevel: runLevel, question: gradingQuestion });
           const directDiagram = diagramMethod === 'direct-image-generative' || diagramMethod === 'direct-image-generative-thinking';
-          if (configuration.directGenerativeVision && directDiagram && configuration.criterionByCriterion) {
+          if (isLogprobRadarMethod(diagramMethod)) {
+            const trace: LogprobRadarTrace = { decisions: {}, fastCriteria: [], totalCriteria: runRubric.criteria.length, probes: 0, unavailable: false };
+            logprobTraces.set(configuration.id, trace);
+            analysisStartedAt = startedAt;
+            onStage('analysis');
+            setEvaluationStage('grading');
+            setAnalysisStage('grading');
+            sequentialProposal = await awaitOrAbort(() => evaluateLogprobRadar(diagramMethod, providerSettings, provider, {
+              question: gradingContext, images: runImages, rubric: runRubric, signal: abortController.signal,
+              onCriterion: (index, title) => setEvaluationCriterion((index + 1) + '/' + runRubric.criteria.length + ' · ' + title),
+              onDiagnosticResult: result => { if (!abortController.signal.aborted) measuredRuns.push(result); },
+            }, service.probeVisualLogprobs?.bind(service), trace), abortController.signal);
+            raw = sequentialProposal ? JSON.stringify(sequentialProposal) : '';
+          } else if (configuration.directGenerativeVision && directDiagram && configuration.criterionByCriterion) {
             sequentialProposal = await awaitOrAbort(() => gradeDiagramImages(provider, {
               question: gradingContext,
               images: structuredClone(runImages),
@@ -2478,7 +2502,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
         if (runStage === 'vision' && analysisStartedAt === null) readingMs = Math.max(0, analysisFinishedAt - startedAt);
         const analysisMs = analysisStartedAt === null ? 0 : Math.max(0, analysisFinishedAt - analysisStartedAt);
         setEvaluationStage('parsing');
-        const { score, proposal: parsedProposal } = sequentialProposal
+        const { score, proposal: parsedProposal } = diagramMethod === 'direct-image-logprobs' ? { score: null, proposal: null } : sequentialProposal
           ? { score: sequentialProposal.scoreIncomplete ? null : sequentialProposal.finalScore, proposal: sequentialProposal }
           : readEvaluationGradingResult(
               runStage, raw, runRubric,
@@ -2502,6 +2526,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
       if (firstReadableResult?.value?.transcription) setTranscription(firstReadableResult.value.transcription);
     }
     const results = outputs.map((output) => ({
+      ...(logprobTraces.has(output.configuration.id) ? { logprobRadar: logprobTraces.get(output.configuration.id) } : {}),
       ...(graphEvidence.has(output.configuration.id) ? {graphEvidence: graphEvidence.get(output.configuration.id)} : {}),
       profileId: output.configuration.id,
       profileName: output.configuration.name,
@@ -2528,6 +2553,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     // Render results immediately; IndexedDB writes must never block navigation.
     if (results.length > 0 && !options) setEvaluationWorkspaceStep('results');
     const savedRecord: ModelEvaluationRecord = {
+      ...(isLogprobRadarMethod(diagramMethod) ? { logprobRadarMethod: diagramMethod } : {}),
       ...(diagramMethod === 'graph-first-v1' || diagramMethod === 'graph-first-v2'
         ? {graphFirst: true, graphVersion: diagramMethod === 'graph-first-v2' ? 'v2' as const : 'v1' as const} : {}),
       id: 'evaluation-' + Date.now() + (options ? '-' + options.pilotCase.id + '-' + runStage + (options.contractVariant ? '-' + options.contractVariant : '') : ''),
@@ -2558,7 +2584,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
         analysisTopK: profile.configuration.analysisTopK,
         criterionByCriterion: profile.configuration.criterionByCriterion,
         smartZoom: profile.configuration.smartZoom,
-         smartZoomBudget: profile.configuration.smartZoomBudget,
+        smartZoomBudget: profile.configuration.smartZoomBudget,
         apiCompatible: profile.configuration.apiCompatible,
         correctionMethod: effectiveMethod(profile),
         directVisualDecision: directProfiles(profile),
@@ -5047,6 +5073,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
           <input id="ai-transcription-frequency-penalty" type="number" min="0" max="2" step="0.05" value={transcriptionFrequencyPenalty} onChange={(event) => { setTranscriptionFrequencyPenalty(Math.min(2, Math.max(0, Number(event.target.value) || 0))); setTranscription(null); }} />
           <p className="hint">Cette pénalité est différente de repeat_penalty. Pour une transcription fidèle, la valeur neutre 0 est recommandée ; n’augmentez-la que si vous avez validé son effet avec votre fournisseur.</p>
         </>}
+        <label className="analysis-thinking-option" htmlFor="ai-hybrid-logprobs"><input id="ai-hybrid-logprobs" type="checkbox" checked={hybridVisualLogprobs} disabled={busy || pilotBusy || (!hybridVisualLogprobs && !canUseHybridVisualLogprobs({ endpoint, apiCompatible, analysisModel, correctionMethod }))} onChange={event => setHybridVisualLogprobs(event.target.checked)} /><span><strong>Correction hybride par logprobs (expérimental)</strong><small>Schémas scientifiques uniquement · Responses local. Les critères entièrement satisfaits sont proposés pour confirmation du professeur ; les autres passent en analyse générative avec justification et zoom si activé. Désactivé par défaut.</small></span></label>
         <label className="analysis-thinking-option" htmlFor="ai-criterion-by-criterion"><input id="ai-criterion-by-criterion" type="checkbox" checked={criterionByCriterion} disabled={correctionMethod !== 'generative'} onChange={(event) => setCriterionByCriterion(event.target.checked)} /><span><strong>Analyser critère par critère</strong><small>Un appel séquentiel par critère, avec affichage progressif. Désactivez cette option pour envoyer tout le barème dans un seul appel et comparer les deux approches.</small></span></label>
         </details>
         <div className="settings-actions"><button type="button" className="primary-button" onClick={() => setShowAiSettings(false)}>Terminé, revenir au devoir</button></div>
@@ -5134,6 +5161,15 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
           onRunSensitivity={(request) => followEvaluation({ title: 'Schémas scientifiques · sensibilité sémantique', journey: 'diagrams', targetId: 'evaluation-diagram-sensitivity-results', profiles: selectedEvaluationProfiles.map((profile) => profile.name).join(' · ') }, () => runScientificDiagramSensitivity(request))}
           onRunBlindGraph={(request) => followEvaluation({ title: 'Schémas scientifiques · graphe de relations', journey: 'diagrams', targetId: 'evaluation-diagram-graph-results', profiles: selectedEvaluationProfiles.map((profile) => profile.name).join(' · ') }, () => runScientificDiagramBlindGraph(request))}
           onStop={stopPilotProtocol}
+          onLogprobRunChange={(controller, running) => {
+            if (running) {
+              evaluationAbortController.current = controller;
+              setPilotBusy(true);
+            } else if (evaluationAbortController.current === controller) {
+              evaluationAbortController.current = null;
+              setPilotBusy(false);
+            }
+          }}
           onManageProfiles={() => setManagingEvaluationProfiles(true)}
           report={diagramProtocolReport}
           fixtureReport={diagramFixtureReport}
@@ -5258,7 +5294,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
           <button type="button" className={evaluationStageMode === 'integrated' ? 'is-active' : ''} aria-pressed={evaluationStageMode === 'integrated'} title="Mesurer le pipeline complet de lecture et de notation" disabled={busy || pilotBusy} onClick={() => setEvaluationStageMode('integrated')}><strong>Parcours complet</strong></button>
         </div>
         <p className="evaluation-stage-guidance" role="status">{evaluationStageMode === 'vision' ? 'Seul le modèle Vision est sollicité. Les transcriptions obtenues sont comparables entre profils et restent disponibles pour une validation humaine.' : evaluationStageMode === 'analysis' ? 'La transcription courante est réutilisée à l’identique pour chaque profil : aucune image n’est renvoyée au modèle Vision.' : evaluationVisualDirect ? 'D1/D3 : décisions directement depuis les photos, sans OCR. Les autres profils suivent Vision puis Analyse et servent de référence.' : 'Chaque profil exécute les deux étapes successivement. Ce mode mesure aussi le temps total du parcours.'}</p>
-        {evaluationStageMode === 'integrated' && <label className="analysis-thinking-option evaluation-thinking-option" htmlFor="evaluation-visual-proof"><input id="evaluation-visual-proof" type="checkbox" checked={evaluationVisualDirect} disabled={busy} onChange={(event) => setEvaluationVisualDirect(event.target.checked)} /><span><strong>Tester la décision directement sur les images (D1 / D3)</strong><small>Expérimental : les profils Ollama décisionnels D1 et D3 reçoivent les photos sans OCR via System One. Les autres profils restent inchangés et servent de comparaison. Les notes doivent être vérifiées par le professeur. Utiliser uniquement un serveur Ollama local.</small></span></label>}
+        {evaluationStageMode === 'integrated' && <label className="analysis-thinking-option evaluation-thinking-option" htmlFor="evaluation-visual-proof"><input id="evaluation-visual-proof" type="checkbox" checked={evaluationVisualDirect} disabled={busy} onChange={(event) => setEvaluationVisualDirect(event.target.checked)} /><span><strong>Tester la décision directement sur les images avec System One</strong><small>Les modèles décisionnels compatibles reçoivent la même photo que les modèles génératifs pour comparer leurs observations. Utilisez un profil Ollama ou LM Studio local.</small></span></label>}
         {evaluationStageMode === 'analysis' && <section className="evaluation-analysis-reference" aria-labelledby="evaluation-analysis-reference-title">
           <div><p className="eyebrow">SOURCE DE RÉFÉRENCE</p><h3 id="evaluation-analysis-reference-title">Transcription à noter</h3><p>Vérifiez et corrigez le texte une fois pour toutes : chaque modèle d’analyse recevra exactement cette même transcription, sans nouvelle lecture d’image.</p></div>
           <textarea aria-label="Transcription de référence pour l’évaluation de l’analyse" rows={8} value={transcription ?? ''} onChange={(event) => setTranscription(event.target.value)} placeholder="Lancez d’abord une évaluation Vision, ou collez ici une transcription déjà vérifiée…" />
@@ -5984,7 +6020,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
                 {evaluationWorkspaceStep === 'execution' && evaluationProgress && <section className="evaluation-progress" aria-labelledby="evaluation-progress-title" aria-live="polite">
           <div className="evaluation-progress-heading"><div><p className="eyebrow">SUIVI DE L’EXPÉRIENCE</p><h3 id="evaluation-progress-title">{evaluationProgress.status === 'completed' ? 'Évaluation terminée' : evaluationProgress.status === 'cancelled' ? 'Évaluation interrompue' : 'Évaluation en cours'}</h3><p>{evaluationProgress.status === 'completed' ? 'Toutes les configurations ont été traitées.' : evaluationProgress.status === 'cancelled' ? 'La requête en cours a été annulée.' : evaluationProgress.currentConfiguration ? 'La configuration active est indiquée ci-dessous.' : 'Préparation de la prochaine configuration…'}</p></div><strong className="evaluation-progress-counter">{evaluationProgress.completedSteps} / {evaluationProgress.totalSteps} étapes terminées</strong></div>
           <div className="evaluation-progress-track" role="progressbar" aria-label="Étapes de traitement terminées" aria-valuemin={0} aria-valuemax={evaluationProgress.totalSteps} aria-valuenow={evaluationProgress.completedSteps}><span style={{ width: (evaluationProgress.completedSteps / Math.max(1, evaluationProgress.totalSteps) * 100) + '%' }} /></div>
-          <ol className="evaluation-configuration-steps" aria-label="Progression par configuration">{selectedEvaluationProfiles.map((profile, index) => { const active = evaluationProgress.currentConfiguration?.id === profile.id; const complete = index < evaluationProgress.completed || (evaluationProgress.status === 'completed' && index < evaluationProgress.total); const result = modelEvaluationResults.find((item) => item.profileId === profile.id); const failed = complete && result?.status === 'failed'; return <li key={profile.id} className={`evaluation-configuration-step ${active ? 'is-active' : ''} ${complete ? 'is-complete' : ''} ${failed ? 'has-failed' : ''}`}><span className="evaluation-configuration-step-index" aria-hidden="true">{complete ? (failed ? '!' : '✓') : index + 1}</span><div><strong>{profile.name}</strong><span>{active ? (evaluationProgress.currentStage === 'analysis' ? (evaluationVisualDirect && profile.configuration.correctionMethod === 'decision' && isVisualDecisionModel(profile.configuration.analysisModel) ? 'En cours maintenant · décision visuelle directe' : 'En cours maintenant · analyse · lecture terminée') : evaluationProgress.currentStage === 'reading' ? 'En cours maintenant · lecture' : 'En cours maintenant · préparation') : complete ? (failed ? 'Échec — voir le détail' : 'Terminé') : 'En attente'}</span><small>{evaluationStageMode === 'integrated' && evaluationVisualDirect && profile.configuration.correctionMethod === 'decision' && isVisualDecisionModel(profile.configuration.analysisModel) ? 'Image → System One direct · ' + profile.configuration.analysisModel : (profile.configuration.visionModel || 'Vision non définie') + ' → ' + (profile.configuration.analysisModel || 'Analyse non définie')}</small></div>{active && <span className="evaluation-active-pill">EN COURS</span>}</li>; })}</ol>
+          <ol className="evaluation-configuration-steps" aria-label="Progression par configuration">{selectedEvaluationProfiles.map((profile, index) => { const active = evaluationProgress.currentConfiguration?.id === profile.id; const complete = index < evaluationProgress.completed || (evaluationProgress.status === 'completed' && index < evaluationProgress.total); const result = modelEvaluationResults.find((item) => item.profileId === profile.id); const failed = complete && result?.status === 'failed'; return <li key={profile.id} className={`evaluation-configuration-step ${active ? 'is-active' : ''} ${complete ? 'is-complete' : ''} ${failed ? 'has-failed' : ''}`}><span className="evaluation-configuration-step-index" aria-hidden="true">{complete ? (failed ? '!' : '✓') : index + 1}</span><div><strong>{profile.name}</strong><span>{active ? (evaluationProgress.currentStage === 'analysis' ? (evaluationVisualDirect && profile.configuration.correctionMethod === 'decision' && canTryVisualDecision(profile.configuration) ? 'En cours maintenant · décision visuelle directe' : 'En cours maintenant · analyse · lecture terminée') : evaluationProgress.currentStage === 'reading' ? 'En cours maintenant · lecture' : 'En cours maintenant · préparation') : complete ? (failed ? 'Échec — voir le détail' : 'Terminé') : 'En attente'}</span><small>{evaluationStageMode === 'integrated' && evaluationVisualDirect && profile.configuration.correctionMethod === 'decision' && canTryVisualDecision(profile.configuration) ? 'Image → System One direct · ' + profile.configuration.analysisModel : (profile.configuration.visionModel || 'Vision non définie') + ' → ' + (profile.configuration.analysisModel || 'Analyse non définie')}</small></div>{active && <span className="evaluation-active-pill">EN COURS</span>}</li>; })}</ol>
           {evaluationProgress.status === 'running' && <div className="evaluation-phase-panel"><strong>{evaluationStage === 'preparing' ? '1. Préparation des modèles' : evaluationStage === 'reading' ? '2. Lecture des images et extraction du texte' : evaluationStage === 'grading' ? (evaluationProgress.currentConfiguration?.directVisualDecision ? 'Décision sur la preuve visuelle (sans OCR)' : '3. Analyse de la copie et attribution des notes') : evaluationStage === 'parsing' ? '4. Structuration et vérification du résultat' : evaluationStage === 'saving' ? '5. Enregistrement de l’expérience' : 'Initialisation'}</strong><p>{evaluationStage === 'preparing' ? 'Vérification de la disponibilité des modèles Ollama avant de commencer cette configuration.' : evaluationStage === 'reading' ? 'Le modèle Vision traite les images originales de la copie.' : evaluationStage === 'grading' ? (evaluationProgress.currentConfiguration?.directVisualDecision ? 'D1/D3 évalue directement les images selon les attendus du barème. Les décisions restent provisoires.' : 'Le modèle d’analyse confronte la transcription au barème et prépare les notes.') : evaluationStage === 'parsing' ? 'La réponse est convertie en critères, notes et justifications exploitables.' : evaluationStage === 'saving' ? 'Les résultats, les images et le barème sont enregistrés dans l’historique local.' : 'Mise en place de la séquence de test.'}</p></div>}
         </section>}
         {evaluationWorkspaceStep === 'execution' && busy && streamedOutput && <section className="transcription-review" aria-live="polite"><h3>Réponse du modèle en streaming</h3><pre>{streamedOutput}</pre></section>}
@@ -6585,6 +6621,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
             {diagnosticStrategy !== 'single' && <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-second-model">Second modèle d’analyse</label>{availableModels.length ? <DesignSystemSelect id="evaluation-second-model" value={secondAnalysisModel} onChange={(event) => setSecondAnalysisModel(event.target.value)}><option value="">Choisir un modèle</option>{availableModels.map((model) => <option key={model} value={model}>{model}</option>)}</DesignSystemSelect> : <input id="evaluation-second-model" value={secondAnalysisModel} onChange={(event) => setSecondAnalysisModel(event.target.value)} placeholder="Nom du second modèle" />}</div>}
             {diagnosticStrategy === 'arbitrate' && <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-arbitrator-model">Modèle arbitre</label>{availableModels.length ? <DesignSystemSelect id="evaluation-arbitrator-model" value={arbitratorModel} onChange={(event) => setArbitratorModel(event.target.value)}><option value="">Choisir un arbitre</option>{availableModels.map((model) => <option key={model} value={model}>{model}</option>)}</DesignSystemSelect> : <input id="evaluation-arbitrator-model" value={arbitratorModel} onChange={(event) => setArbitratorModel(event.target.value)} placeholder="Nom du modèle arbitre" />}</div>}
           </div>
+          <label className="analysis-thinking-option" htmlFor="evaluation-hybrid-logprobs"><input id="evaluation-hybrid-logprobs" type="checkbox" checked={hybridVisualLogprobs} disabled={busy || pilotBusy || (!hybridVisualLogprobs && !canUseHybridVisualLogprobs({ endpoint, apiCompatible, analysisModel, correctionMethod }))} onChange={event => setHybridVisualLogprobs(event.target.checked)} /><span><strong>Correction hybride par logprobs (expérimental)</strong><small>Schémas scientifiques uniquement · Responses local. Les critères entièrement satisfaits sont proposés pour confirmation du professeur ; les autres passent en analyse générative avec justification et zoom si activé. Désactivé par défaut.</small></span></label>
           <label className="analysis-thinking-option evaluation-thinking-option" htmlFor="evaluation-criterion-by-criterion"><input id="evaluation-criterion-by-criterion" type="checkbox" checked={criterionByCriterion} disabled={correctionMethod !== 'generative'} onChange={(event) => setCriterionByCriterion(event.target.checked)} /><span><strong>Analyser critère par critère</strong><small>Un appel par critère, séquentiellement. Désactivez pour comparer avec une requête globale.</small></span></label>
           </details>
           <div className="evaluation-config-actions"><Button variant="primary" disabled={busy || pilotBusy} onClick={saveAiModelProfile}>Enregistrer la configuration</Button></div>

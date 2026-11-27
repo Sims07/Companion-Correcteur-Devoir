@@ -281,7 +281,7 @@ it('starts every remaining scientific method sequentially as separate four-batte
   expect(new Set(requests.map(request => request.trial.id)).size).toBe(8);
   expect(requests.map(request => request.trial.method)).toEqual(
     Object.keys((await import('../../src/evaluation/domain/radarTimeline.ts')).scienceMethods)
-      .filter(method => method !== 'direct-image-systemone' && method !== 'vision-then-analysis'));
+      .filter(method => method !== 'direct-image-systemone' && method !== 'vision-then-analysis' && !['direct-image-logprobs','direct-image-hybrid','direct-image-hybrid-zoom'].includes(method)));
   for (const request of requests) {
     expect(request.steps.map(step => step.protocol)).toEqual(['reference','arrows','semantic','graph']);
     expect(request.profileId).toBe('alpha:4b');
@@ -362,7 +362,7 @@ it('keeps four successive scientific methods as four independently selectable ra
 });
 
 
-it('audits all nine active scientific methods and schedules only pending method trials from one button', async () => {
+it('audits all twelve active scientific methods and schedules only pending method trials from one button', async () => {
   const node = document.createElement('div');
   document.body.append(node);
   const root = createRoot(node);
@@ -376,9 +376,9 @@ it('audits all nine active scientific methods and schedules only pending method 
   const analyse = [...node.querySelectorAll<HTMLButtonElement>('button')].find(button =>
     button.textContent?.trim() === 'Analyse des méthodes')!;
   await act(async () => analyse.click());
-  const audit = node.querySelector('section[aria-label="État des 9 méthodes scientifiques"]')!;
+  const audit = node.querySelector('section[aria-label="État des 12 méthodes scientifiques"]')!;
   expect(audit).toBeTruthy();
-  expect(audit.querySelectorAll('tbody tr')).toHaveLength(9);
+  expect(audit.querySelectorAll('tbody tr')).toHaveLength(12);
   expect(audit.textContent).toContain('Non testé');
   expect(audit.textContent).toContain('/9');
   const launch = [...node.querySelectorAll<HTMLButtonElement>('button')].find(button =>
@@ -399,4 +399,37 @@ it('audits all nine active scientific methods and schedules only pending method 
   }));
   await act(async () => root.unmount());
   node.remove();
+});
+
+it.each([
+  ['https://mac.local/api/v1/chat', true],
+  ['https://mac.local/v1/chat/completions', true],
+  ['https://example.com/v1/responses', false],
+] as const)('explains or launches the hybrid radar for %s', async (endpoint, allowed) => {
+  const node = document.createElement('div');
+  const root = createRoot(node);
+  const runScience = vi.fn();
+  const profile = { ...profiles[0]!, configuration: { ...profiles[0]!.configuration, endpoint, apiCompatible: true } };
+  await act(async () => root.render(createElement(EvaluationRadarHome, {
+    entries: [], history: [], profiles: [profile], model: profile.id, choose: vi.fn(), busy: false,
+    manage: vi.fn(), details: vi.fn(), campaigns: vi.fn(), runScience, runBiology: vi.fn(), initialLab: 'diagrams',
+  })));
+  const select = [...node.querySelectorAll('select')].find(el => [...el.options].some(option => option.value === 'direct-image-hybrid'))!;
+  await act(async () => {
+    select.value = 'direct-image-hybrid';
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  const launch = [...node.querySelectorAll('button')].find(el => el.textContent === 'Évaluer avec cette méthode')!;
+  expect(launch.disabled).toBe(!allowed);
+  if (allowed) {
+    await act(async () => launch.click());
+    expect(runScience).toHaveBeenCalledWith(expect.objectContaining({
+      profileId: profile.id, trial: expect.objectContaining({ method: 'direct-image-hybrid' }),
+      steps: expect.arrayContaining([expect.objectContaining({ method: 'direct-image-hybrid' })]),
+    }));
+  } else {
+    expect(node.textContent).toContain('Configurez une adresse LM Studio locale');
+    expect(runScience).not.toHaveBeenCalled();
+  }
+  await act(async () => root.unmount());
 });
