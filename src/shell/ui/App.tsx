@@ -1712,6 +1712,8 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     aiConnectionRequest.current = controller;
     setConnectingAi(true);
     setBusy(true);
+    // Do not present a stale catalogue as current during a new detection or after failure.
+    setDetectedModels([]);
     setConnectionTone('info');
     setConnectionMessage('Test de connexion en cours… Lecture du catalogue du serveur IA.');
     try {

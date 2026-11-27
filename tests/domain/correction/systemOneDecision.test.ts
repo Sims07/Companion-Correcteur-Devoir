@@ -17,6 +17,8 @@ describe('real System One decisions', () => {
     expect(isNativeDecisionModel('d3:4b')).toBe(true);
     expect(isNativeDecisionModel('pplx-decider-flash:4b')).toBe(true);
     expect(isNativeDecisionModel('pplx-decider:27b')).toBe(true);
+    expect(isNativeDecisionModel('perplexity-ai/pplx-decider-flash-v1.2')).toBe(true);
+    expect(isNativeDecisionModel('pplx-computer-qwen')).toBe(false);
     expect(isNativeDecisionModel(' PPLX-DECIDER-FLASH:4B ')).toBe(true);
     expect(isNativeDecisionModel('qwen3.5:4b')).toBe(false);
     expect(isNativeDecisionModel('pplx-decider-chat:4b')).toBe(false);
