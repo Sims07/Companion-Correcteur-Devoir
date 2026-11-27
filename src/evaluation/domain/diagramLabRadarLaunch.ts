@@ -229,7 +229,7 @@ export function radarEvaluationOutcome(entries: readonly DiagramLabArchiveEntry[
     .map((axis) => ({
       id: axis.id,
       label: axis.label,
-      reason: diagnoseUnmeasuredRadarAxis(entries, modelId, axis.id),
+      reason: diagnoseUnmeasuredRadarAxis(entries, modelId, axis.id, observationOnly),
     }));
   return { measured: candidate?.measured ?? 0, complete: candidate?.complete ?? false, missing };
 }
