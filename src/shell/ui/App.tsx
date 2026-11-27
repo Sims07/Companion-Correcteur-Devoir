@@ -1992,6 +1992,11 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
           },
           signal: abortController.signal,
           onDiagnosticResult: captureDiagramDiagnostic,
+          onCriterionFailure: (index, cause) => {
+            const id = rubric.criteria[index]!.id;
+            setCriterionStatuses(current => ({ ...current, [id]: 'failed' }));
+            setError('Critère à reprendre · ' + rubric.criteria[index]!.title + ' · ' + String(cause));
+          },
           onCriterion: (index, title, result) => {
             const id = rubric.criteria[index]!.id;
             setActiveCriterionId(result ? null : id);
@@ -2107,16 +2112,25 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
           : mergeScientificDiagramCriteria(rubric, textProposal, diagramAnalysisResult))
         : textProposal;
       if (!parsed) throw new Error('Aucune proposition de correction exploitable n’a été produite.');
-      diagnosticProposal = parsed;
+      diagnosticProposal = parsed.scoreIncomplete ? null : parsed;
       setProposal(parsed);
       setReview((current) => toReviewedCriteria(parsed).map((item) => current.find((existing) => existing.criterionId === item.criterionId) ?? item));
       setTeacherQuestions(parsed.questionsForTeacher.join('\\n'));
 
-      setCriterionStatuses(Object.fromEntries(rubric.criteria.map((criterion) => [criterion.id, 'completed' as const])));
+      const assessed = new Set(parsed.criteria.filter(c => c.assessmentStatus !== 'not-evaluated').map(c => c.criterionId));
+      setCriterionStatuses(Object.fromEntries(rubric.criteria.map(c => [c.id, assessed.has(c.id) ? 'completed' : 'failed'])));
       if (interfaceMode === 'teacher') setTeacherStep('review');
       outcome = 'success';
     } catch (cause) {
       if (interfaceMode === 'teacher') setTeacherStep(textImages.length === 0 || partialCriteria.length > 0 || analysisStartedAt !== null ? 'review' : 'copy');
+      if (isScientificDiagramAssignment && partialCriteria.length) {
+        const accepted = rubric.criteria.flatMap(c => partialCriteria.filter(item => item.criterionId === c.id));
+        const partial: GradingProposal = { summary: 'Correction partielle à vérifier.', criteria: accepted,
+          scoreIncomplete: true, finalScore: sumGradeScores(accepted.filter(c => c.assessmentStatus !== 'not-evaluated').map(c => c.points)),
+          questionsForTeacher: accepted.flatMap(c => c.questionForTeacher ? [c.questionForTeacher] : []) };
+        setProposal(partial);
+        setReview(toReviewedCriteria(partial));
+      }
       if (abortController.signal.aborted) setReviewMessage('Correction arrêtée. Les éléments déjà lus restent disponibles ; vous pouvez relancer la correction.');
       else setError(cause instanceof Error ? cause.message : 'La correction a échoué.');
     } finally {
