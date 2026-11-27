@@ -23,11 +23,17 @@ describe('radar logprobs methods', () => {
       expect(trialSteps(method).find(s => s.protocol === 'graph')?.method).toBe('compare');
     }
   });
-  it('selects only local Responses and does not silently change ordinary comparison', () => {
+  it('selects local Responses-capable profiles and does not silently change ordinary comparison', () => {
     const profile: AiModelProfile = { id: 'p', name: 'P', mode: 'single', updatedAt: '', configuration: {
       ...defaultAiModelConfiguration, endpoint: settings.endpoint, apiCompatible: true, analysisModel: 'any-model', correctionMethod: 'generative' } };
     expect(selectDiagramMethods(profile, 'direct-image-logprobs')).toEqual(['direct-image-logprobs']);
     expect(selectDiagramMethods(profile, 'compare')).toEqual(['direct-image-generative']);
+    for (const path of ['/api/v1/chat', '/v1/chat/completions', '/v1']) {
+      const chat = { ...profile, configuration: { ...profile.configuration, endpoint: 'https://mac.local' + path } };
+      expect(selectDiagramMethods(chat, 'direct-image-logprobs')).toEqual(['direct-image-logprobs']);
+      expect(selectDiagramMethods(chat, 'direct-image-hybrid')).toEqual(['direct-image-hybrid']);
+      expect(selectDiagramMethods(chat, 'direct-image-hybrid-zoom')).toEqual(path === '/api/v1/chat' ? ['direct-image-hybrid-zoom'] : []);
+    }
     expect(selectDiagramMethods({ ...profile, configuration: { ...profile.configuration, endpoint: 'https://example.com/v1/responses' } }, 'direct-image-hybrid')).toEqual([]);
   });
   it('measures closed decisions without creating a score or calling generation', async () => {
