@@ -21,6 +21,7 @@ export function DiagramConcurrencyPanel({ visible, busy, profiles, prepare, prov
   const [diagnosticMode, setDiagnosticMode] = useState(false);
   const [repetitions, setRepetitions] = useState(3);
   const [engine, setEngine] = useState('');
+  const [runMetadata, setRunMetadata] = useState({ engine: '', repetitions: 3 });
   const [limit, setLimit] = useState<CriterionLevel>(4);
   const [status, setStatus] = useState('');
   const [started, setStarted] = useState<number | null>(null);
@@ -49,6 +50,7 @@ export function DiagramConcurrencyPanel({ visible, busy, profiles, prepare, prov
       diagnosticStrategy: 'single' as const, criterionByCriterion: true };
     setRunning(true); setStarted(Date.now()); setSeconds(0); setStatus('Préparation des images de référence…');
     setSamples([]); setMemory({}); setModel(config.analysisModel);
+    setRunMetadata({ engine: engine.trim(), repetitions });
     const rows: DiagramConcurrencySample[] = [];
     try {
       setProfileKey(concurrencyProfileKey(config, groups));
@@ -110,7 +112,7 @@ export function DiagramConcurrencyPanel({ visible, busy, profiles, prepare, prov
       <label>Répétitions par cas et variante <DesignSystemSelect value={repetitions} disabled={started !== null} onChange={e => setRepetitions(Number(e.target.value))}>
         <option value={1}>1 (exploratoire)</option><option value={3}>3</option><option value={5}>5</option>
       </DesignSystemSelect></label>
-      <label>Moteur d’exécution (déclaration manuelle) <input value={engine} disabled={started !== null || !!samples.length} onChange={e => setEngine(e.target.value)} placeholder="Ex. oMLX, version…" /></label>
+      <label>Moteur d’exécution (déclaration manuelle) <input value={engine} disabled={started !== null} onChange={e => setEngine(e.target.value)} placeholder="Ex. oMLX, version…" /></label>
     </> : <label>Concurrence maximale <DesignSystemSelect value={limit} disabled={started !== null} onChange={e => setLimit(Number(e.target.value) as CriterionLevel)}>
       {[2, 4, 8].map(n => <option key={n}>{n}</option>)}</DesignSystemSelect></label>}
     <button className="primary-button" disabled={!profile || busy || started !== null} onClick={() => void run()}>{diagnosticMode ? 'Lancer le diagnostic qualité' : 'Comparer les niveaux de concurrence'}</button>
@@ -122,6 +124,6 @@ export function DiagramConcurrencyPanel({ visible, busy, profiles, prepare, prov
       {!diagnosticMode && <><p>Pic mémoire du processus modèle, à relever sur le serveur pendant chaque série.</p>
       {Array.from(new Set(samples.map(s => s.level))).map(n => <label key={n}>Niveau {n} (Go) <input type="number" min="0" step="any" value={memory[n] ?? ''} onChange={e => setMemory({ ...memory, [n]: e.target.value })}/></label>)}
       </>}
-      <button onClick={() => downloadJson(diagnosticMode ? { schemaVersion: 1, model, profileKey, engine: engine.trim() || null, repetitions, samples } : { model, profileKey, samples, peakMemoryGB: memory }, diagnosticMode ? 'companion-parallelisme-diagnostic.json' : 'companion-parallelisme.json')}>Exporter la comparaison JSON</button></>}
+      <button onClick={() => downloadJson(diagnosticMode ? { schemaVersion: 1, model, profileKey, engine: runMetadata.engine || null, repetitions: runMetadata.repetitions, complete: samples.length === runMetadata.repetitions * 15, samples } : { model, profileKey, samples, peakMemoryGB: memory }, diagnosticMode ? 'companion-parallelisme-diagnostic.json' : 'companion-parallelisme.json')}>Exporter la comparaison JSON</button></>}
   </section>;
 }
