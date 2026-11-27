@@ -1,5 +1,5 @@
 import { isTokenCount, type ResponsesDiagnostics } from '../../domain/responsesOutput.ts';
-import { getNetworkRequestMetadata } from '../../ports/networkRequestMetadata.ts';
+import { getNetworkRequestMetadata, type SmartZoomRequestDiagnostics } from '../../ports/networkRequestMetadata.ts';
 import { isOllamaInferenceRequest, readOllamaNativeTimings, type OllamaNativeTimings } from '../../domain/ollamaTimings.ts';
 import { OllamaThinkingStream } from '../../domain/ollamaThinkingStream.ts';
 import { isLmStudioChat, isOpenAiCompletionRequest, isOpenAiResponsesRequest, OpenAiCompletionStream, type OpenAiTokenUsage } from '../../domain/openAiCompletionStream.ts';
@@ -21,6 +21,7 @@ export type NetworkRequestRecord = {
   tokenUsage?: OpenAiTokenUsage;
   responsesDiagnostics?: ResponsesDiagnostics;
   generationBudget?: number;
+  smartZoom?: SmartZoomRequestDiagnostics;
   state: NetworkRequestState;
   status: number | null;
   statusText: string;
@@ -224,6 +225,7 @@ export function installNetworkInspector(): () => void {
     const metadata = getNetworkRequestMetadata(init);
     const record: NetworkRequestRecord = {
       id, method, url: sanitizeUrl(url), intent: metadata?.intent ?? 'Intention non renseignée', context: metadata?.context ?? '', startedAt, durationMs: null, state: 'pending', status: null, statusText: '',
+      ...(metadata?.smartZoom ? { smartZoom: metadata.smartZoom } : {}),
       requestHeaders: sanitizeHeaders(headers), responseHeaders: {},
       requestBody: sanitizeRequestBody(init?.body), responseBody: '', error: null,
     };

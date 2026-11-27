@@ -1,7 +1,15 @@
+export interface SmartZoomRequestDiagnostics {
+  used: number;
+  budget: number;
+  rejected: number;
+  rejectionBudget: number;
+  phase: 'exploration' | 'budget' | 'rejections' | 'recovery';
+}
 export interface NetworkRequestMetadata {
   intent: string;
   context?: string;
   responsesExpectsJson?: boolean;
+  smartZoom?: SmartZoomRequestDiagnostics;
 }
 const requestMetadata = new WeakMap<RequestInit, NetworkRequestMetadata>();
 /** Attaches local-only observability metadata without adding HTTP headers or changing the payload. */
@@ -13,10 +21,10 @@ export function getNetworkRequestMetadata(init?: RequestInit | null): NetworkReq
   return init ? requestMetadata.get(init) : undefined;
 }
 /** Keeps intent metadata when a transport adapter translates a request to another HTTP endpoint. */
-export function copyNetworkRequestMetadata(source: RequestInit | undefined, target: RequestInit, responsesExpectsJson?: boolean): RequestInit {
+export function copyNetworkRequestMetadata(source: RequestInit | undefined, target: RequestInit, responsesExpectsJson?: boolean, smartZoom?: SmartZoomRequestDiagnostics): RequestInit {
   const metadata = getNetworkRequestMetadata(source);
-  if (responsesExpectsJson !== undefined) {
-    requestMetadata.set(target, { intent: 'Intention non renseignée', ...metadata, responsesExpectsJson });
+  if (responsesExpectsJson !== undefined || smartZoom) {
+    requestMetadata.set(target, { intent: 'Intention non renseignée', ...metadata, ...(responsesExpectsJson !== undefined ? { responsesExpectsJson } : {}), ...(smartZoom ? { smartZoom } : {}) });
   } else if (metadata) requestMetadata.set(target, metadata);
   return target;
 }

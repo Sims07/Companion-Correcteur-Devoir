@@ -122,13 +122,20 @@ describe('shared simple AI model controls', () => {
       .node.querySelector<HTMLInputElement>('#evaluation-context-length')?.disabled).toBe(true);
   });
 
-  it('offers bounded zoom only for LM Studio native chat in generative mode', () => {
+  it('offers a configurable zoom budget only for LM Studio generative mode', () => {
     const onSmartZoom = vi.fn();
+    const onSmartZoomBudget = vi.fn();
     const { node } = render({ apiCompatible: true, nativeChat: true,
-      smartZoom: true, onSmartZoom });
+      smartZoom: true, onSmartZoom, onSmartZoomBudget });
     const checkbox = node.querySelector<HTMLInputElement>('#evaluation-smart-zoom')!;
     expect(checkbox.checked).toBe(true);
-    expect(node.textContent).toContain('2 par critère maximum');
+    const budget = node.querySelector<HTMLSelectElement>('#evaluation-zoom-budget')!;
+    expect(budget.value).toBe('6');
+    expect(Array.from(budget.options).map(option => Number(option.value))).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    act(() => { budget.value = '8'; budget.dispatchEvent(new Event('change', { bubbles: true })); });
+    expect(onSmartZoomBudget).toHaveBeenCalledWith(8);
+    expect(render({ apiCompatible: true, responses: true, smartZoom: true, smartZoomBudget: 4 }).node.querySelector<HTMLSelectElement>('#evaluation-zoom-budget')?.value).toBe('4');
+    expect(render({ apiCompatible: true, responses: true, smartZoom: false }).node.querySelector('#evaluation-zoom-budget')).toBeNull();
     act(() => checkbox.click());
     expect(onSmartZoom).toHaveBeenCalledWith(false);
     expect(render({ apiCompatible: true, nativeChat: false }).node.querySelector('#evaluation-smart-zoom')).toBeNull();

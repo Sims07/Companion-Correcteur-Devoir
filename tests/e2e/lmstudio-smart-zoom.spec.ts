@@ -21,10 +21,13 @@ test('teacher enables local smart zoom and the configuration survives reload', a
   await expect(toggle).toBeVisible();
   await expect(toggle).not.toBeChecked();
   await toggle.check();
+  await panel.getByLabel('Zooms maximum par critère').selectOption('8');
+  await expect.poll(() => page.evaluate(key => JSON.parse(localStorage.getItem(key) ?? '{}').smartZoomBudget, key)).toBe(8);
   await expect.poll(() => page.evaluate(key => JSON.parse(localStorage.getItem(key) ?? '{}').smartZoom, key)).toBe(true);
   await page.reload();
   await openActiveAssignment(page);
   await page.getByRole('button', { name: /Réglages IA|Configurer l’IA/ }).click();
+  await expect(page.locator('#teacher-ai-settings-panel').getByLabel('Zooms maximum par critère')).toHaveValue('8');
   await expect(page.locator('#teacher-ai-settings-panel')
     .getByRole('checkbox', { name: /Zoom intelligent sur demande/ })).toBeChecked();
 });
@@ -91,7 +94,9 @@ test('laboratory displays the same crop that is delivered to the model', async (
   await openCustomTests(page);
   await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: 'Schémas scientifiques' }).click();
   await page.getByText('Vérifier le zoom du modèle', { exact: true }).click();
+  await page.getByLabel('Budget de zoom du test').selectOption('4');
   await page.getByRole('button', { name: 'Tester le cadrage' }).click();
+  await expect(page.getByRole('table', { name: 'Comparaison des budgets de zoom' }).getByText('1/4')).toBeVisible();
   await expect(page.getByText(/1 zoom\(s\) obtenu/)).toBeVisible();
   await expect(page.getByText(/Réponse du modèle : 0000/)).toBeVisible();
   await expect(page.getByText(/cible couverte à 100 %/)).toBeVisible();
@@ -99,18 +104,21 @@ test('laboratory displays the same crop that is delivered to the model', async (
   await expect(page.getByAltText('Recadrage réel 1')).toHaveAttribute('src', sentCrop);
   const launch = page.getByRole('button', { name: 'Tester le cadrage' });
   mode = 'no-call';
+  await page.getByLabel('Budget de zoom du test').selectOption('2');
   await launch.click();
+  await expect(page.getByRole('table', { name: 'Comparaison des budgets de zoom' }).getByText('0/2')).toBeVisible();
+  await expect(page.getByRole('table', { name: 'Comparaison des budgets de zoom' }).getByText('1/4')).toBeVisible();
   await expect(page.getByText(/Aucun appel de zoom/)).toBeVisible();
   await expect(page.getByAltText('Recadrage réel 1')).toHaveCount(0);
   mode = 'truncated';
   await launch.click();
-  await expect(page.getByText('Limite de génération atteinte pendant le test de zoom.')).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Test du zoom' }).getByRole('status')).toHaveText('Limite de génération atteinte pendant le test de zoom.');
   mode = 'reasoning';
   await launch.click();
-  await expect(page.getByText('LM Studio Responses n’a renvoyé aucune réponse finale pour le test de zoom.')).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Test du zoom' }).getByRole('status')).toHaveText('LM Studio Responses n’a renvoyé aucune réponse finale pour le test de zoom.');
   mode = 'error';
   await launch.click();
-  await expect(page.getByText(/LM Studio a répondu HTTP 503/)).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Test du zoom' }).getByRole('status')).toHaveText(/LM Studio a répondu HTTP 503/);
   mode = 'wait';
   const pending = page.waitForRequest('**/v1/responses');
   await launch.click();

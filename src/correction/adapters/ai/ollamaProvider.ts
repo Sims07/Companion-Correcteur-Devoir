@@ -717,7 +717,7 @@ export function createOllamaProvider(
           }, request.diagramCriterionLabel ? intent + ' · ' + request.diagramCriterionLabel : intent, `Modèle ${model} · ${context}`);
           response = chat && usesResponses
             ? await sendLmStudioZoomDiagramTurn(endpoint, settings.apiKey ?? '', chat,
-                { ...requestBody, criterionLabel: request.diagramCriterionLabel, omitReasoningParameter: settings.omitReasoningParameter },
+                { ...requestBody, criterionLabel: request.diagramCriterionLabel, zoomBudget: settings.smartZoomBudget, omitReasoningParameter: settings.omitReasoningParameter },
                 originalDiagramImages ?? [], init, fetchImpl, payload => activeRequestPayloads?.push(payload), undefined, settings.smartZoom === true)
             : chat
               ? await sendLmStudioDiagramTurn(endpoint, settings.apiKey ?? '', chat, { ...requestBody, omitReasoningParameter: settings.omitReasoningParameter, contextLength: settings.contextLength }, init, fetchImpl, payload => activeRequestPayloads?.push(payload))

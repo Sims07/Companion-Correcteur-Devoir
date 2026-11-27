@@ -14,6 +14,12 @@ describe('AI model configuration persistence', () => {
     expect(parseAiModelConfiguration(JSON.stringify(configuration)).gradingOutputTokens).toBe(expected);
     expect(parseAiModelProfiles(JSON.stringify([{ ...profile, configuration }]))[0]!.configuration.gradingOutputTokens).toBe(expected);
   });
+  it.each([1, 6, 10, 0, 11, 2.5, '6'] as const)('validates zoom budget %s in current settings and saved profiles', value => {
+    const configuration = { ...profile.configuration, smartZoomBudget: value };
+    const expected = typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 10 ? value : undefined;
+    expect(parseAiModelConfiguration(JSON.stringify(configuration)).smartZoomBudget).toBe(expected);
+    expect(parseAiModelProfiles(JSON.stringify([{ ...profile, configuration }]))[0]!.configuration.smartZoomBudget).toBe(expected);
+  });
   it('restores the last valid configuration from local storage data', () => {
     const configuration = { ...defaultAiModelConfiguration, visionModel: 'gemma3:4b', analysisModel: 'qwen3.5:4b', analysisThinking: true };
     expect(parseAiModelConfiguration(JSON.stringify(configuration))).toEqual(configuration);

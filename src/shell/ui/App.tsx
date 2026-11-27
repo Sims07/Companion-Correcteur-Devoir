@@ -532,11 +532,12 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
   const [contextLength, setContextLength] = useState<number | undefined>(() => readAiModelConfiguration().contextLength);
   const [hybridVisualLogprobs, setHybridVisualLogprobs] = useState(() => readAiModelConfiguration().hybridVisualLogprobs === true);
   const [smartZoom, setSmartZoom] = useState(() => readAiModelConfiguration().smartZoom === true);
+  const [smartZoomBudget, setSmartZoomBudget] = useState(() => readAiModelConfiguration().smartZoomBudget);
   const [gradingOutputTokens, setGradingOutputTokens] = useState(() => readAiModelConfiguration().gradingOutputTokens);
   const [analysisTemperature, setAnalysisTemperature] = useState(() => readAiModelConfiguration().analysisTemperature);
   const [analysisTopP, setAnalysisTopP] = useState(() => readAiModelConfiguration().analysisTopP);
   const [analysisTopK, setAnalysisTopK] = useState(() => readAiModelConfiguration().analysisTopK);
-  const teacherThinking = { hybridVisualLogprobs, gradingOutputTokens, omitReasoningParameter, contextLength, smartZoom, thinking: analysisThinking, analysisTemperature, analysisTopP, analysisTopK, ...(apiCompatible && analysisThinking ? { thinkingLevel: analysisReasoningEffort } : {}) };
+  const teacherThinking = { hybridVisualLogprobs, gradingOutputTokens, omitReasoningParameter, contextLength, smartZoom, smartZoomBudget, thinking: analysisThinking, analysisTemperature, analysisTopP, analysisTopK, ...(apiCompatible && analysisThinking ? { thinkingLevel: analysisReasoningEffort } : {}) };
   const [criterionByCriterion, setCriterionByCriterion] = useState(() => readAiModelConfiguration().criterionByCriterion);
   const [aiModelProfiles, setAiModelProfiles] = useState<AiModelProfile[]>(readAiModelProfiles);
   const [aiModelProfileName, setAiModelProfileName] = useState('');
@@ -1249,10 +1250,10 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
   ];
 
   useEffect(() => {
-    const configuration: AiModelConfiguration = { generativeModel, decisionModel, endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, analysisReasoningEffort, omitReasoningParameter, contextLength, gradingOutputTokens, analysisTemperature, analysisTopP, analysisTopK, criterionByCriterion, smartZoom, hybridVisualLogprobs, correctionMethod };
+    const configuration: AiModelConfiguration = { generativeModel, decisionModel, endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, analysisReasoningEffort, omitReasoningParameter, contextLength, gradingOutputTokens, analysisTemperature, analysisTopP, analysisTopK, criterionByCriterion, smartZoom, smartZoomBudget, hybridVisualLogprobs, correctionMethod };
     try { window.localStorage.setItem(aiModelConfigurationKey, JSON.stringify(configuration)); }
     catch { /* The current settings remain usable for this session if storage is unavailable. */ }
-  }, [generativeModel, decisionModel, endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, analysisReasoningEffort, omitReasoningParameter, contextLength, gradingOutputTokens, analysisTemperature, analysisTopP, analysisTopK, criterionByCriterion, smartZoom, hybridVisualLogprobs, correctionMethod]);
+  }, [generativeModel, decisionModel, endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, analysisReasoningEffort, omitReasoningParameter, contextLength, gradingOutputTokens, analysisTemperature, analysisTopP, analysisTopK, criterionByCriterion, smartZoom, smartZoomBudget, hybridVisualLogprobs, correctionMethod]);
 
   function applyAiModelProfile(profile: AiModelProfile) {
     setEndpoint(profile.configuration.endpoint);
@@ -1280,6 +1281,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     setOmitReasoningParameter(profile.configuration.omitReasoningParameter === true);
     setContextLength(profile.configuration.contextLength);
     setSmartZoom(profile.configuration.smartZoom === true);
+    setSmartZoomBudget(profile.configuration.smartZoomBudget);
     setHybridVisualLogprobs(profile.configuration.hybridVisualLogprobs === true);
     setCriterionByCriterion(profile.configuration.criterionByCriterion);
     setSelectedAiModelProfileId(profile.id);
@@ -1344,7 +1346,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
   function saveAiModelProfile() {
     const name = aiModelProfileName.trim();
     if (!name) { setAiModelProfileTone('warning'); setAiModelProfileMessage('Donnez un nom à cette configuration avant de l’enregistrer.'); return; }
-    const configuration: AiModelConfiguration = { generativeModel, decisionModel, endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, analysisReasoningEffort, omitReasoningParameter, contextLength, gradingOutputTokens, analysisTemperature, analysisTopP, analysisTopK, criterionByCriterion, smartZoom, hybridVisualLogprobs, correctionMethod };
+    const configuration: AiModelConfiguration = { generativeModel, decisionModel, endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, analysisReasoningEffort, omitReasoningParameter, contextLength, gradingOutputTokens, analysisTemperature, analysisTopP, analysisTopK, criterionByCriterion, smartZoom, smartZoomBudget, hybridVisualLogprobs, correctionMethod };
     const profile: AiModelProfile = {
       id: selectedAiModelProfileId || 'ai-profile-' + Date.now(),
       name,
@@ -1980,7 +1982,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
           configuration: {
             ...defaultAiModelConfiguration,
             endpoint, apiCompatible, apiKey, visionModel, analysisModel,
-            analysisThinking, analysisReasoningEffort, omitReasoningParameter, contextLength, gradingOutputTokens, analysisTemperature, analysisTopP, analysisTopK, criterionByCriterion, smartZoom, hybridVisualLogprobs, correctionMethod,
+            analysisThinking, analysisReasoningEffort, omitReasoningParameter, contextLength, gradingOutputTokens, analysisTemperature, analysisTopP, analysisTopK, criterionByCriterion, smartZoom, smartZoomBudget, hybridVisualLogprobs, correctionMethod,
           },
           signal: abortController.signal,
           onDiagnosticResult: captureDiagramDiagnostic,
@@ -2296,6 +2298,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
         analysisTopK: profile.configuration.analysisTopK,
         criterionByCriterion: profile.configuration.criterionByCriterion,
         smartZoom: profile.configuration.smartZoom,
+        smartZoomBudget: profile.configuration.smartZoomBudget,
         correctionMethod: effectiveMethod(profile),
         directVisualDecision: directProfiles(profile),
         directGenerativeVision: directGenerativeProfiles(profile),
@@ -2365,6 +2368,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
           ...(configuration.thinkingLevel ? { thinkingLevel: configuration.thinkingLevel } : {}),
           criterionByCriterion: configuration.criterionByCriterion,
           smartZoom: isLogprobRadarMethod(diagramMethod) ? diagramMethod === 'direct-image-hybrid-zoom' : configuration.smartZoom,
+          smartZoomBudget: configuration.smartZoomBudget,
           correctionMethod: configuration.correctionMethod,
           diagnosticStrategy: 'single' as const,
         };
@@ -2580,6 +2584,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
         analysisTopK: profile.configuration.analysisTopK,
         criterionByCriterion: profile.configuration.criterionByCriterion,
         smartZoom: profile.configuration.smartZoom,
+        smartZoomBudget: profile.configuration.smartZoomBudget,
         apiCompatible: profile.configuration.apiCompatible,
         correctionMethod: effectiveMethod(profile),
         directVisualDecision: directProfiles(profile),
@@ -5044,7 +5049,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
         </div>
         <AiConnectionFields prefix="ai" endpoint={endpoint} apiCompatible={apiCompatible} apiKey={apiKey} connecting={connectingAi} disabled={busy || pilotBusy} onTransport={updateAiTransport} onEndpoint={updateAiEndpoint} onApiKey={updateAiKey} onConnect={() => void testAiConnection()} onCancel={stopAiConnection} />
         {connectionMessage && <StatusNotice tone={connectionTone}>{connectionMessage}</StatusNotice>}
-        <AiModelRoleFields prefix="ai" models={detectedModels} generativeModel={generativeModel} decisionModel={decisionModel} method={correctionMethod} apiCompatible={apiCompatible} visionModel={visionModel} analysisThinking={analysisThinking} analysisReasoningEffort={analysisReasoningEffort} omitReasoningParameter={omitReasoningParameter} onReasoning={updateReasoning} nativeChat={aiTransport(apiCompatible, endpoint) === 'lmstudio-chat'} responses={aiTransport(apiCompatible, endpoint) === 'lmstudio-responses'} smartZoom={smartZoom} onSmartZoom={setSmartZoom} contextLength={contextLength} onContextLength={setContextLength} gradingOutputTokens={gradingOutputTokens} onGradingOutputTokens={setGradingOutputTokens} analysisTemperature={analysisTemperature} analysisTopP={analysisTopP} analysisTopK={analysisTopK} onAnalysisTemperature={setAnalysisTemperature} onAnalysisTopP={setAnalysisTopP} onAnalysisTopK={setAnalysisTopK} onGenerativeModel={changeGenerativeModel} onDecisionModel={setDecisionModel} onMethod={setCorrectionMethod} disabled={busy || pilotBusy} />
+        <AiModelRoleFields prefix="ai" models={detectedModels} generativeModel={generativeModel} decisionModel={decisionModel} method={correctionMethod} apiCompatible={apiCompatible} visionModel={visionModel} analysisThinking={analysisThinking} analysisReasoningEffort={analysisReasoningEffort} omitReasoningParameter={omitReasoningParameter} onReasoning={updateReasoning} nativeChat={aiTransport(apiCompatible, endpoint) === 'lmstudio-chat'} responses={aiTransport(apiCompatible, endpoint) === 'lmstudio-responses'} smartZoom={smartZoom} onSmartZoom={setSmartZoom} smartZoomBudget={smartZoomBudget} onSmartZoomBudget={setSmartZoomBudget} contextLength={contextLength} onContextLength={setContextLength} gradingOutputTokens={gradingOutputTokens} onGradingOutputTokens={setGradingOutputTokens} analysisTemperature={analysisTemperature} analysisTopP={analysisTopP} analysisTopK={analysisTopK} onAnalysisTemperature={setAnalysisTemperature} onAnalysisTopP={setAnalysisTopP} onAnalysisTopK={setAnalysisTopK} onGenerativeModel={changeGenerativeModel} onDecisionModel={setDecisionModel} onMethod={setCorrectionMethod} disabled={busy || pilotBusy} />
         <details className="ai-model-advanced"><summary>Options avancées de lecture et de correction</summary>
         <label className="field-label" htmlFor="ollama-vision-model">Modèle de lecture des copies</label>
         {availableModels.length > 0 ? <DesignSystemSelect id="ollama-vision-model" value={visionModel} onChange={(event) => { setVisionModel(event.target.value); setTranscription(null); }}>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</DesignSystemSelect> : <input id="ollama-vision-model" value={visionModel} onChange={(event) => { setVisionModel(event.target.value); setTranscription(null); }} placeholder="Ex. gemma3:4b ou qwen2.5vl" />}
@@ -5992,7 +5997,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
             setBiologyRadarOpen(false);
           }} /></div>}
       <ZoomWitnessPanel profiles={aiModelProfiles} busy={busy || pilotBusy || radarAutoBusy}
-        current={{ endpoint, apiCompatible, apiKey, analysisModel, analysisThinking, analysisReasoningEffort, omitReasoningParameter, gradingOutputTokens, analysisTemperature, analysisTopP }}
+        current={{ endpoint, apiCompatible, apiKey, analysisModel, analysisThinking, analysisReasoningEffort, omitReasoningParameter, gradingOutputTokens, analysisTemperature, analysisTopP, smartZoomBudget }}
         visible={interfaceMode === 'diagnostic' && evaluationJourney === 'diagrams' && diagramLabView === 'protocols' && evaluationWorkspaceStep === 'configuration'} />
       {interfaceMode === 'diagnostic' && evaluationJourney === 'diagrams' && diagramLabView !== 'protocols' && evaluationWorkspaceStep === 'configuration' &&
         <ScientificDiagramLabHistory repository={diagramArchive} revision={diagramHistoryRevision} archiveError={diagramHistoryError}
@@ -6607,7 +6612,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
             <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-profile-name">Nom de la configuration</label><input id="evaluation-profile-name" value={aiModelProfileName} onChange={(event) => setAiModelProfileName(event.target.value)} placeholder="Ex. Gemma rapide, Qwen raisonnement…" /></div>
             <AiConnectionFields prefix="evaluation" endpoint={endpoint} apiCompatible={apiCompatible} apiKey={apiKey} connecting={connectingAi} disabled={busy || pilotBusy} onTransport={updateAiTransport} onEndpoint={updateAiEndpoint} onApiKey={updateAiKey} onConnect={() => void testAiConnection()} onCancel={stopAiConnection} />
             {connectionMessage && <StatusNotice tone={connectionTone}>{connectionMessage}</StatusNotice>}
-            <AiModelRoleFields prefix="evaluation" models={detectedModels} generativeModel={generativeModel} decisionModel={decisionModel} method={correctionMethod} apiCompatible={apiCompatible} visionModel={visionModel} analysisThinking={analysisThinking} analysisReasoningEffort={analysisReasoningEffort} omitReasoningParameter={omitReasoningParameter} onReasoning={updateReasoning} nativeChat={aiTransport(apiCompatible, endpoint) === 'lmstudio-chat'} responses={aiTransport(apiCompatible, endpoint) === 'lmstudio-responses'} smartZoom={smartZoom} onSmartZoom={setSmartZoom} contextLength={contextLength} onContextLength={setContextLength} gradingOutputTokens={gradingOutputTokens} onGradingOutputTokens={setGradingOutputTokens} analysisTemperature={analysisTemperature} analysisTopP={analysisTopP} analysisTopK={analysisTopK} onAnalysisTemperature={setAnalysisTemperature} onAnalysisTopP={setAnalysisTopP} onAnalysisTopK={setAnalysisTopK} onGenerativeModel={changeGenerativeModel} onDecisionModel={setDecisionModel} onMethod={setCorrectionMethod} disabled={busy || pilotBusy} />
+            <AiModelRoleFields prefix="evaluation" models={detectedModels} generativeModel={generativeModel} decisionModel={decisionModel} method={correctionMethod} apiCompatible={apiCompatible} visionModel={visionModel} analysisThinking={analysisThinking} analysisReasoningEffort={analysisReasoningEffort} omitReasoningParameter={omitReasoningParameter} onReasoning={updateReasoning} nativeChat={aiTransport(apiCompatible, endpoint) === 'lmstudio-chat'} responses={aiTransport(apiCompatible, endpoint) === 'lmstudio-responses'} smartZoom={smartZoom} onSmartZoom={setSmartZoom} smartZoomBudget={smartZoomBudget} onSmartZoomBudget={setSmartZoomBudget} contextLength={contextLength} onContextLength={setContextLength} gradingOutputTokens={gradingOutputTokens} onGradingOutputTokens={setGradingOutputTokens} analysisTemperature={analysisTemperature} analysisTopP={analysisTopP} analysisTopK={analysisTopK} onAnalysisTemperature={setAnalysisTemperature} onAnalysisTopP={setAnalysisTopP} onAnalysisTopK={setAnalysisTopK} onGenerativeModel={changeGenerativeModel} onDecisionModel={setDecisionModel} onMethod={setCorrectionMethod} disabled={busy || pilotBusy} />
           </div>
           <details className="ai-model-advanced"><summary>Options avancées du test</summary>
           <div className="evaluation-config-fields">
