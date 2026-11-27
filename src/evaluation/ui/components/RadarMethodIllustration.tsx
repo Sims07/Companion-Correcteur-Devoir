@@ -3,6 +3,7 @@ import type { MethodGuideIllustration } from '../../domain/radarMethodGuideCatal
 /** Deliberately SVG rather than a raster screenshot: vector scenes stay sharp,
  * responsive and explain the actual observation protocol (not a model verdict). */
 const titles: Record<MethodGuideIllustration, string> = {
+  'batch-grading': 'Quatre requêtes indépendantes contenant chacune les images et un groupe de critères',
   'direct-correction': 'Schéma scientifique et barème fournis directement au LLM multimodal, qui produit les critères, justifications et note',
   'small-tips': 'Pointe de flèche candidate repérée au bout du trait ADN vers ARN, puis vérification par Vision',
   'long-shafts': 'Hampe fine et longue suivie jusqu’à une tête possible, avec exemple de faux signal',
@@ -238,8 +239,9 @@ function Pilot() {
   </>;
 }
 
-type RouteKind = 'logprob-grading' | 'hybrid-grading' | 'hybrid-zoom-grading' | 'relations-v2' | 'vision-analysis' | 'direct-grading' | 'thinking-grading' | 'systemone-grading';
+type RouteKind = 'batch-grading' | 'logprob-grading' | 'hybrid-grading' | 'hybrid-zoom-grading' | 'relations-v2' | 'vision-analysis' | 'direct-grading' | 'thinking-grading' | 'systemone-grading';
 const routes: Record<RouteKind, { stages: string[]; note: string; badge: string }> = {
+  'batch-grading': { stages: ['Image + critère', '4 appels en parallèle', 'Note assemblée'], note: 'Image renvoyée à chaque requête', badge: 'Batch ×4' },
   'logprob-grading': { stages: ['Image + barème', 'Logprobs A/B/C/D', 'Décisions'], note: 'Aucun point attribué automatiquement', badge: 'Logprobs' },
   'hybrid-grading': { stages: ['Image + barème', 'Logprobs / LLM', 'À confirmer'], note: 'Doute ou déduction : analyse générative', badge: 'Hybride' },
   'hybrid-zoom-grading': { stages: ['Image + barème', 'Logprobs / zoom', 'À confirmer'], note: 'Zoom disponible pour le chemin génératif', badge: 'Hybride + zoom' },
