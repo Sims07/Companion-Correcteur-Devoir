@@ -254,7 +254,7 @@ export function resolveModelProfile(
   };
   const canGrade = (profile: RadarModelConfiguration) => {
     const cfg = profile.configuration;
-    if (isLogprobRadarMethod(selectedStrategy) || isLogprobRadarMethod(requestedMethod)) return cfg.analysisModel.trim() === candidate.id && canUseHybridVisualLogprobs({ ...cfg, endpoint: cfg.endpoint ?? '' });
+    if (isLogprobRadarMethod(selectedStrategy) || isLogprobRadarMethod(requestedMethod)) return cfg.analysisModel.trim() === candidate.id && canUseHybridVisualLogprobs({ ...cfg, endpoint: cfg.endpoint ?? '' }, selectedStrategy === 'direct-image-hybrid-zoom' || requestedMethod === 'direct-image-hybrid-zoom');
     if (!needsGrading) return true;
     // An explicitly selected direct-image benchmark must never silently become
     // Vision → analysis when a profile has two distinct models configured.
