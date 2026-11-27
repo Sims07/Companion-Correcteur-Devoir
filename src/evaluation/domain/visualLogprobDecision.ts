@@ -16,6 +16,8 @@ export function summarizeLogprobRows(rows: readonly LogprobPilotRow[]) {
     abstentions: rows.filter(row => row.status === 'ambiguous' || row.verdict === 'undetermined').length,
     falsePositives: rows.filter(row => row.verdict === 'present' && row.expected !== 'present').length,
     falseNegatives: rows.filter(row => row.verdict === 'absent' && row.expected !== 'absent').length,
+    relativeOnly: rows.filter(row => row.relativeObservation !== undefined).length,
+    relativeCorrect: rows.filter(row => row.relativeObservation?.leader === row.expected).length,
     durationMs: rows.reduce((sum, row) => sum + row.durationMs, 0),
   };
 }
