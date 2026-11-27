@@ -55,5 +55,5 @@ export async function correctScientificDiagramDirect(
   if (signal?.aborted) throw new DOMException('Traitement interrompu.', 'AbortError');
 
   const createProvider = () => gateway.createProvider(settings);
-  return gradeDiagramImages(createProvider(), { ...request, execution: { level: resolveCriterionLevel(configuration), createProvider } }, settings.criterionByCriterion, undefined, configuration.smartZoom === true, shortcut);
+  return gradeDiagramImages(createProvider(), { ...request, execution: { level: resolveCriterionLevel(configuration, rubric.criteria.length), createProvider } }, settings.criterionByCriterion, undefined, configuration.smartZoom === true, shortcut);
 }

@@ -1,4 +1,3 @@
-import { resolveCriterionLevel } from '../../shared/domain/concurrencyCalibration.ts';
 import { criterionLevels, type CriterionLevel } from '../../shared/domain/criterionConcurrency.ts';
 import { DiagramConcurrencyPanel } from '../../evaluation/ui/components/DiagramConcurrencyPanel.tsx';
 import { canTryVisualDecision } from '../../shared/domain/decisionModelCapabilities.ts';
@@ -541,8 +540,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
   const [analysisTopP, setAnalysisTopP] = useState(() => readAiModelConfiguration().analysisTopP);
   const [analysisTopK, setAnalysisTopK] = useState(() => readAiModelConfiguration().analysisTopK);
   const [criterionConcurrency, setCriterionConcurrency] = useState<CriterionLevel | 'auto'>(() => readAiModelConfiguration().criterionConcurrency ?? 1);
-  const teacherThinking = { criterionConcurrency: resolveCriterionLevel({ criterionConcurrency, endpoint, analysisModel, apiCompatible, analysisThinking,
-    analysisReasoningEffort, omitReasoningParameter, contextLength, gradingOutputTokens, analysisTemperature, analysisTopP, analysisTopK, smartZoom, smartZoomBudget, hybridVisualLogprobs }), hybridVisualLogprobs, gradingOutputTokens, omitReasoningParameter, contextLength, smartZoom, smartZoomBudget, thinking: analysisThinking, analysisTemperature, analysisTopP, analysisTopK, ...(apiCompatible && analysisThinking ? { thinkingLevel: analysisReasoningEffort } : {}) };
+  const teacherThinking = { criterionConcurrency, hybridVisualLogprobs, gradingOutputTokens, omitReasoningParameter, contextLength, smartZoom, smartZoomBudget, thinking: analysisThinking, analysisTemperature, analysisTopP, analysisTopK, ...(apiCompatible && analysisThinking ? { thinkingLevel: analysisReasoningEffort } : {}) };
   const [criterionByCriterion, setCriterionByCriterion] = useState(() => readAiModelConfiguration().criterionByCriterion);
   const [aiModelProfiles, setAiModelProfiles] = useState<AiModelProfile[]>(readAiModelProfiles);
   const [aiModelProfileName, setAiModelProfileName] = useState('');

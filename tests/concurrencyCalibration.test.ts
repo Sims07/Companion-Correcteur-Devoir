@@ -20,3 +20,8 @@ it('isolates model, zoom and thinking settings and excludes credentials', () => 
   expect(concurrencyProfileKey(config)).not.toBe(concurrencyProfileKey({...config, smartZoom:true}));
   expect(resolveCriterionLevel({...config, criterionConcurrency:'auto'})).toBe(1);
 });
+
+it('uses a distinct calibration for eight groups', () => {
+  expect(concurrencyProfileKey(config,8)).not.toBe(concurrencyProfileKey(config,4));
+  expect(chooseCriterionLevel([...series(1,100), ...series(8,40).map(s => ({...s, peak:8}))])).toBe(8);
+});

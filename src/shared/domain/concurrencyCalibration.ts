@@ -2,13 +2,15 @@ import type { AiModelConfiguration } from './aiModelProfiles.ts';
 import { criterionLevels, type CriterionLevel } from './criterionConcurrency.ts';
 
 type Configuration = Pick<AiModelConfiguration, 'endpoint' | 'analysisModel' | 'apiCompatible' | 'analysisThinking'>
-  & Partial<AiModelConfiguration>;
+  & Partial<Pick<AiModelConfiguration, 'criterionConcurrency' | 'omitReasoningParameter' | 'contextLength' | 'gradingOutputTokens'
+    | 'analysisTemperature' | 'analysisTopP' | 'analysisTopK' | 'smartZoom' | 'smartZoomBudget' | 'hybridVisualLogprobs' | 'apiKey'>>
+  & { analysisReasoningEffort?: string };
 
-export function concurrencyProfileKey(c: Configuration) {
+export function concurrencyProfileKey(c: Configuration, criterionCount = 4) {
   // Never include bearer credentials, URL credentials or query parameters in storage.
   const url = new URL(c.endpoint);
-  return 'companion:diagram-concurrency:v1:' + JSON.stringify([url.origin, url.pathname, c.apiCompatible,
-    c.analysisModel, c.analysisThinking, c.analysisThinking ? c.analysisReasoningEffort : null,
+  return 'companion:diagram-concurrency:v1:' + JSON.stringify([criterionCount >= 8 ? 8 : 4, url.origin, url.pathname, c.apiCompatible,
+    c.analysisModel, c.analysisThinking, c.apiCompatible && c.analysisThinking ? c.analysisReasoningEffort : null,
     !!c.omitReasoningParameter, c.contextLength, c.gradingOutputTokens, c.analysisTemperature,
     c.analysisTopP, c.analysisTopK, !!c.smartZoom, c.smartZoom ? c.smartZoomBudget : null, !!c.hybridVisualLogprobs]);
 }
@@ -39,11 +41,11 @@ export function chooseCriterionLevel(samples: readonly CalibrationSample[]): Cri
   return best;
 }
 
-export function resolveCriterionLevel(config: Configuration): CriterionLevel {
+export function resolveCriterionLevel(config: Configuration, criterionCount = 4): CriterionLevel {
   const mode = config.criterionConcurrency;
   if (mode !== 'auto') return mode === 2 || mode === 4 || mode === 8 ? mode : 1;
   try {
-    const level = Number(localStorage.getItem(concurrencyProfileKey(config)));
+    const level = Number(localStorage.getItem(concurrencyProfileKey(config, criterionCount)));
     return level === 2 || level === 4 || level === 8 ? level : 1;
   } catch { return 1; }
 }
