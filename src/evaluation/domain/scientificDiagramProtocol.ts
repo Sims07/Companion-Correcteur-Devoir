@@ -1,3 +1,4 @@
+import { exportedZoomDiagnostics } from './diagramZoomDiagnostics.ts';
 import { canUseHybridVisualLogprobs, hybridVisualLogprobIssue } from '../../shared/domain/hybridVisualLogprobs.ts';
 import { isLogprobRadarMethod, type LogprobRadarMethod } from './logprobRadar.ts';
 import { canTryVisualDecision } from '../../shared/domain/decisionModelCapabilities.ts';
@@ -222,7 +223,7 @@ export function diagramFailureCategory(error?: string): DiagramFailureCategory |
  * traces, prompts, image data, provider errors or request/response payloads.
  * This allows diagnosing expensive JSON repair loops from a pasted report. */
 export function diagramAnalysisDiagnostics(
-  result: Pick<ModelEvaluationResultSnapshot, 'diagnosticRuns' | 'error'>,
+  result: Pick<ModelEvaluationResultSnapshot, 'diagnosticRuns' | 'error'>, rubric?: Rubric,
 ) {
   const calls = (result.diagnosticRuns ?? []).filter((run) => run.kind === 'model' && run.stage === 'analysis');
   const budget = calls.map((run) => run.requestMetadata?.options.generationTokenLimit ?? run.generationTokenLimit)
@@ -243,7 +244,9 @@ export function diagramAnalysisDiagnostics(
   const measured = (value: unknown, ceiling: number): number | null =>
     typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= ceiling
       ? Math.round(value) : null;
-  const analysisCallTraces = calls.map((call) => ({
+  const analysisCallTraces = calls.map((call) => {
+    const smartZoom = exportedZoomDiagnostics(call.requestPayload, rubric);
+    return ({
     role: call.promptId === 'grading.full-repair' || call.promptId === 'grading.incremental-repair'
       || call.promptId === 'diagram.direct-repair' ? 'repair' as const : 'primary' as const,
     provider: call.requestMetadata?.provider === 'ollama' || call.requestMetadata?.provider === 'openai-compatible'
@@ -257,7 +260,8 @@ export function diagramAnalysisDiagnostics(
     doneReason: call.doneReason === 'length' ? 'length' as const
       : call.doneReason === 'stop' ? 'stop' as const : 'unknown' as const,
     thinkingObserved: typeof call.thinkingPresent === 'boolean' ? call.thinkingPresent : null,
-  }));
+    ...(smartZoom ? { smartZoom } : {}),
+  }); });
   return {
     ...(invalidPoints.length ? { invalidPoints } : {}),
     analysisCalls: calls.length,
@@ -321,7 +325,7 @@ export function buildScientificDiagramProtocolReport(
     readingMs: result.readingMs, analysisMs: result.analysisMs,
     tokens: result.tokens, score: result.score,
     ...(result.diagnosticRuns?.length ? { prompts: evaluationPromptReferences(result.diagnosticRuns) } : {}),
-    diagnostics: diagramAnalysisDiagnostics(result),
+    diagnostics: diagramAnalysisDiagnostics(result, rubric),
     scoreStatus: result.status !== 'success' ? 'execution-failed' as const
       : result.score !== null ? 'scored' as const
       : result.proposal || result.logprobRadar ? 'teacher-review-required' as const : 'invalid-or-incomplete-proposal' as const,

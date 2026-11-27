@@ -290,6 +290,40 @@ describe('protocole de schémas scientifiques', () => {
     }
   });
 
+  it('exporte uniquement les événements de zoom observés et distingue zéro de non mesuré', () => {
+    const base = result();
+    const rubric = SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC;
+    const first = rubric.criteria[0]!;
+    const criterion = '1/' + rubric.criteria.length + ' · ' + first.title;
+    const report = diagramAnalysisDiagnostics({
+      diagnosticRuns: [{
+        ...base.diagnosticRuns![0]!,
+        requestPayload: JSON.stringify({ attempts: [
+          { input: '[TEXT / IMAGE REDACTED]', tools: ['inspect_region'], apiKey: 'SECRET_KEY' },
+          { smartZoom: { criterion, status: 'inspected', region: { page: 1, x: 0.2, y: 0.3, width: 0.4, height: 0.5, secret: 'SECRET_REGION' }, cropWidth: 800, cropHeight: 600, cropMs: 12, image: 'SECRET_IMAGE' } },
+          { smartZoom: { criterion: 'SECRET_LABEL', status: 'rejected', region: { page: 1, x: 99 }, cropMs: -1 } },
+          { smartZoom: { status: 'SECRET_STATUS' } },
+        ] }),
+      }, {
+        ...base.diagnosticRuns![0]!,
+        requestPayload: JSON.stringify({ attempts: [{ input: '[TEXT / IMAGE REDACTED]', tools: ['inspect_region'] }] }),
+      }, {
+        ...base.diagnosticRuns![0]!,
+        requestPayload: JSON.stringify({ attempts: [{ input: '[TEXT / IMAGE REDACTED]', tools: [] }] }),
+      }],
+    }, rubric);
+    expect(report.analysisCallTraces[0]?.smartZoom).toEqual({
+      offered: true, observedRequests: 2, cropsPrepared: 1, rejected: 1,
+      events: [
+        { criterionId: first.id, status: 'inspected', region: { page: 1, x: 0.2, y: 0.3, width: 0.4, height: 0.5 }, cropWidth: 800, cropHeight: 600, cropMs: 12 },
+        { criterionId: null, status: 'rejected', region: null, cropWidth: null, cropHeight: null, cropMs: null },
+      ],
+    });
+    expect(report.analysisCallTraces[1]?.smartZoom).toEqual({ offered: true, observedRequests: 0, cropsPrepared: 0, rejected: 0, events: [] });
+    expect(report.analysisCallTraces[2]).not.toHaveProperty('smartZoom');
+    expect(JSON.stringify(report)).not.toContain('SECRET_');
+  });
+
   it('considère les traces absentes comme données non mesurées, jamais un nombre de tokens inventé', () => {
     expect(diagramAnalysisDiagnostics({ diagnosticRuns: [] })).toEqual({
       analysisCalls: 0, repairCalls: 0, generationLimitHits: 0,

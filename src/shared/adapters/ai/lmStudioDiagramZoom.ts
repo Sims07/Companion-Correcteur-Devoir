@@ -196,11 +196,13 @@ export async function sendLmStudioZoomDiagramTurn(
     }
     const next: unknown[] = [];
     for (const call of calls) {
+      const cropStartedAt = performance.now();
       if (!call.call_id) throw new Error('Appel de zoom sans identifiant.');
       if (!toolsAllowed || call.name !== 'inspect_region' || inspections >= budget || rejected >= MAX_REJECTIONS) {
         next.push({ type: 'function_call_output', call_id: call.call_id,
           output: 'Outil non autorisé ou budget d’inspection atteint. ' + CONCLUDE });
         if (toolsAllowed && call.name !== 'inspect_region' && rejected < MAX_REJECTIONS) reject();
+        if (enableZoom && call.name === 'inspect_region') preview({ smartZoom: { criterion, status: 'rejected' } });
         continue;
       }
       try {
@@ -227,14 +229,14 @@ export async function sendLmStudioZoomDiagramTurn(
         conversation.zoomHistory.push({ criterion, region, cropWidth: evidence.cropWidth,
           cropHeight: evidence.cropHeight, status: 'inspected' });
         preview({ smartZoom: { criterion, region, cropWidth: evidence.cropWidth,
-          cropHeight: evidence.cropHeight, status: 'inspected' } });
+          cropHeight: evidence.cropHeight, status: 'inspected', cropMs: Math.round(performance.now() - cropStartedAt) } });
       } catch (error) {
         if (signal?.aborted) throw new DOMException('Zoom interrompu.', 'AbortError');
         reject();
         next.push({ type: 'function_call_output', call_id: call.call_id,
           output: 'Recadrage impossible : ' + (error instanceof Error ? error.message : 'zone incorrecte') +
             '. Choisis une autre zone si le budget le permet, sinon signale le doute.' });
-        preview({ smartZoom: { criterion, status: 'rejected' } });
+        preview({ smartZoom: { criterion, status: 'rejected', cropMs: Math.round(performance.now() - cropStartedAt) } });
       }
     }
     if (!toolsAllowed) {
