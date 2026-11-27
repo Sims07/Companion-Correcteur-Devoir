@@ -25,9 +25,28 @@ describe('local Responses logprob experiment', () => {
     expect(init?.redirect).toBe('error');
     const body = JSON.parse(String(init?.body));
     expect(body).toMatchObject({ model: 'any-vision-model', stream: false, store: false,
-      max_output_tokens: 1, include: ['message.output_text.logprobs'], top_logprobs: 20, reasoning: { effort: 'none' } });
+      max_output_tokens: 1, include: ['message.output_text.logprobs'], top_logprobs: 10, reasoning: { effort: 'none' } });
     expect(body.input[0].content[0]).toEqual({ type: 'input_image', image_url: 'data:image/png;base64,AAAA' });
     expect(body.input[0].content[1].text).toContain('Titre centré');
+  });
+  it('works with a local provider enforcing a maximum of ten alternatives without retrying or renormalizing', async () => {
+    const limitedPayload = { status: 'completed', output: [{ type: 'message', content: [{
+      type: 'output_text', text: 'A', logprobs: [{ token: 'A', logprob: Math.log(.4),
+        top_logprobs: [{ token: 'B', logprob: Math.log(.3) }] }],
+    }]}] };
+    const fetcher = vi.fn<typeof fetch>().mockImplementation(async (_url, init) => {
+      const body = JSON.parse(String(init?.body));
+      return body.top_logprobs > 10
+        ? new Response(JSON.stringify({ error: { message: 'top_logprobs must be less than or equal to 10' } }), { status: 500 })
+        : new Response(JSON.stringify(limitedPayload));
+    });
+    const decision = await probeVisualLogprobs(settings, images, target, '', new AbortController().signal, fetcher);
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(decision.status).toBe('ambiguous');
+    expect(decision.verdict).toBeNull();
+    expect(decision.probabilities.present).toBeCloseTo(.4);
+    expect(decision.probabilities.partial).toBeNull();
+    expect(decision.unobservedMass).toBeCloseTo(.3);
   });
   it('never contacts an external endpoint', async () => {
     const fetcher = vi.fn<typeof fetch>();

@@ -13,6 +13,10 @@ résultats partiels restent exportables. Le transport est non-streaming, sans st
 redirection et sans repli sur une API distante. La compatibilité effective dépend du serveur,
 de l'engine et de la tokenisation ; elle n'est pas présumée.
 
+Le transport commun au pilote, au radar et à la correction hybride demande au maximum dix
+alternatives (`top_logprobs: 10`), conformément à la limite observée sur Bionic.
+La couverture peut être moindre qu’avec vingt alternatives ; aucune probabilité absente n’est inventée.
+
 Les alternatives top_logprobs et le token généré sont dédupliqués, les variantes avec espace
 agrégées ; seules les masses brutes observées sont affichées. Une alternative manquante reste
 inconnue. Une décision dominante doit rester devant le deuxième choix même si toute la masse
