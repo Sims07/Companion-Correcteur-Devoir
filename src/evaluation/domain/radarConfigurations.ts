@@ -55,6 +55,7 @@ export function radarProfileThinking(configuration: {
 export function buildConfigurationRadars(
   entries: readonly DiagramLabArchiveEntry[],
   profiles: readonly RadarModelConfiguration[],
+  observationOnly = false,
 ): RadarCandidate[] {
   const settings = new Map<string, { id: string; name: string; model: string }>();
   for (const entry of entries) {
@@ -75,7 +76,7 @@ export function buildConfigurationRadars(
     const evaluated = buildDiagramLabRadar(scoped, 'model', [{
       id: setting.id, name: setting.name,
       configuration: { visionModel: '', analysisModel: setting.model },
-    }]).find(candidate => candidate.id === setting.model);
+    }], observationOnly).find(candidate => candidate.id === setting.model);
     return evaluated ? [{
       ...evaluated, id: setting.id, profileId: setting.id, name: setting.name,
       models: [setting.model],
