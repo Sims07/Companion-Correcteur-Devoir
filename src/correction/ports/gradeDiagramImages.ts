@@ -6,7 +6,7 @@ import type { Rubric, RubricCriterion } from '../domain/rubric.ts';
 
 export interface DiagramImageGradingInput {
   execution?: { level: CriterionLevel; createProvider: () => GradingProvider;
-    /** Laboratory-only override. Omitted preserves the production conversation protocol. */
+    /** Explicit context protocol. Omitted preserves the existing correction protocol. */
     contextMode?: 'shared' | 'independent' };
   images: ImageInput[];
   rubric: Rubric;
@@ -89,4 +89,9 @@ export async function gradeDiagramImages(provider: GradingProvider,
     ...resultWithScope,
     finalScore: sumGradeScores(resultWithScope.criteria.filter(criterion => criterion.assessmentStatus !== 'not-evaluated').map(criterion => criterion.points)),
   } : resultWithScope;
+}
+
+/** Direct batch grading: every group starts with all original images and no shared response ID. */
+export function gradeDiagramImagesBatch(createProvider: () => GradingProvider, request: DiagramImageGradingInput, allowSmartZoom = false) {
+  return gradeDiagramImages(createProvider(), { ...request, execution: { level: 4, contextMode: 'independent', createProvider } }, true, undefined, allowSmartZoom);
 }
