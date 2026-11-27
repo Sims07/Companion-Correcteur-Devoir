@@ -1,3 +1,4 @@
+import { isNativeDecisionModel } from '../../domain/decisionModelCapabilities.ts';
 import type { AiModelOption } from '../../domain/aiModelProfiles.ts';
 import { awaitOrAbort } from '../../domain/awaitOrAbort.ts';
 import { aiTransport, responsesEndpoint } from '../../domain/lmStudioTransport.ts';
@@ -10,6 +11,8 @@ interface NativeModel {
   display_name?: string;
   variants?: string[];
   loaded_instances?: { id?: string }[];
+  decision_type?: string;
+  has_vision_adapter?: boolean;
   capabilities?: {
     vision?: boolean;
     trained_for_tool_use?: boolean;
@@ -34,15 +37,21 @@ export async function discoverCompatibleModels(
       const models = new Map<string, AiModelOption>();
       for (const model of payload.models) {
         if ((model?.type !== 'llm' && model?.type !== 'decision') || typeof model.key !== 'string') continue;
+        const declaredDecision = model.type === 'decision' || (typeof model.decision_type === 'string' && model.decision_type.trim() !== '');
+        // Some Bionic builds expose decision checkpoints as llm. Recognize known
+        // identifiers without claiming that the local runtime supports System One.
+        const inferredDecision = !declaredDecision && isNativeDecisionModel(model.key);
+        const decision = declaredDecision || inferredDecision;
         const variants = Array.isArray(model.variants) ? model.variants : [];
         const loadedIds = Array.isArray(model.loaded_instances) ? model.loaded_instances.map(instance => instance?.id) : [];
         for (const name of [model.key, ...variants, ...loadedIds]) {
           if (typeof name !== 'string' || !name.trim()) continue;
           models.set(name, {
             name,
-            decision: model.type === 'decision',
+            decision,
+            ...(inferredDecision ? { decisionInferred: true } : {}),
             ...(name === model.key && typeof model.display_name === 'string' ? { label: model.display_name } : {}),
-            vision: model.capabilities?.vision,
+            vision: decision ? model.has_vision_adapter ?? model.capabilities?.vision : model.capabilities?.vision,
             tools: model.capabilities?.trained_for_tool_use,
             reasoningOptions: model.capabilities?.reasoning?.allowed_options,
           });
@@ -51,7 +60,7 @@ export async function discoverCompatibleModels(
       return [...models.values()];
     }
     if (Array.isArray(payload?.data)) {
-      return [...new Set(payload.data.map(model => model?.id).filter((id): id is string => typeof id === 'string' && Boolean(id.trim())))].map(name => ({ name }));
+      return [...new Set(payload.data.map(model => model?.id).filter((id): id is string => typeof id === 'string' && Boolean(id.trim())))].map(name => isLmStudio && isNativeDecisionModel(name) ? { name, decision: true, decisionInferred: true } : { name });
     }
     throw new Error('Réponse du catalogue des modèles invalide.');
   }

@@ -43,11 +43,12 @@ export type ReasoningMode = 'default' | 'off' | AnalysisReasoningEffort;
 /** The same vocabulary and model selection in teacher settings and the evaluator. */
 export function AiModelRoleFields(props: Props) {
   const { prefix, generativeModel, decisionModel, visionModel, method, apiCompatible, disabled } = props;
-  const [manualModel, setManualModel] = useState(false);
+  const [manualModels, setManualModels] = useState<Record<string, boolean>>({});
   const generativeId = prefix === 'ai' ? 'ollama-analysis-model' : 'evaluation-analysis-model';
   function modelField(id: string, label: string, value: string, onChange: (value: string) => void, hint: string) {
     const choices = Array.from(new Set([value, ...props.models.filter(model => model.decision === undefined || model.decision === (id !== generativeId)).map(model => model.name)].filter(Boolean)));
-    const canToggleManual = id === generativeId && apiCompatible && props.models.length > 0;
+    const canToggleManual = apiCompatible && props.models.length > 0;
+    const manualModel = manualModels[id] === true;
     return <div className="evaluation-config-field">
       <label className="field-label" htmlFor={id}>{label}</label>
       {props.models.length > 0 && !(canToggleManual && manualModel)
@@ -60,7 +61,8 @@ export function AiModelRoleFields(props: Props) {
         </DesignSystemSelect>
         : <input id={id} value={value} disabled={disabled} onChange={event => onChange(event.target.value)} placeholder={label.startsWith('Modèle génératif') ? 'Ex. qwen3.5:4b' : 'Ex. tev1:4b'} />}
       {canToggleManual && <button type="button" className="secondary-button" disabled={disabled}
-        onClick={() => setManualModel(!manualModel)}>{manualModel ? 'Afficher les modèles détectés' : 'Saisir un identifiant'}</button>}
+        onClick={() => setManualModels(current => ({ ...current, [id]: !manualModel }))}>{id === generativeId ? (manualModel ? 'Afficher les modèles détectés' : 'Saisir un identifiant') : (manualModel ? 'Afficher les décisionnels détectés' : 'Saisir un identifiant décisionnel')}</button>}
+      {id !== generativeId && props.models.length === 0 && <p className="hint">Aucun catalogue détecté. Testez la connexion pour actualiser les modèles ; vous pouvez aussi saisir un identifiant manuellement.</p>}
       <p className="hint">{hint}</p>
     </div>;
   }
@@ -77,6 +79,7 @@ export function AiModelRoleFields(props: Props) {
   return <>
     {modelField(generativeId, 'Modèle génératif', generativeModel, props.onGenerativeModel,
       'Prépare les barèmes et peut corriger les copies. Choisissez un modèle avec vision pour lire aussi les images, ou configurez une lecture distincte dans les options avancées.')}
+    {selectedModel?.decision === true && <StatusNotice tone="warning">Ce modèle est identifié comme décisionnel. Choisissez-le dans le champ décisionnel plutôt que génératif.</StatusNotice>}
     {props.models.length > 0 && generativeModel && !selectedModel && <p className="hint">Ce modèle est absent du catalogue détecté.</p>}
     {selectedModel && (selectedModel.vision !== undefined || selectedModel.tools !== undefined) &&
       <p className="hint" role="status">LM Studio indique {[selectedModel.vision === undefined ? '' : selectedModel.vision ? 'vision prise en charge' : 'vision indisponible',
@@ -84,6 +87,8 @@ export function AiModelRoleFields(props: Props) {
     <details className="ai-model-advanced" open={decision || undefined}><summary>Méthode de correction et modèle décisionnel</summary>
     {modelField(`${prefix}-decision-model`, 'Modèle décisionnel (facultatif)', decisionModel, props.onDecisionModel,
       'Évalue les attendus du barème avec System One. Ce choix est mémorisé séparément du modèle génératif.')}
+    {props.models.length > 0 && decisionModel && !props.models.some(model => model.name === decisionModel) && <StatusNotice tone="warning">Identifiant mémorisé absent du catalogue détecté. Vérifiez sa disponibilité avant de corriger.</StatusNotice>}
+    {props.models.find(model => model.name === decisionModel)?.decisionInferred && <StatusNotice tone="warning">Modèle décisionnel identifié par son nom, mais non confirmé par le catalogue natif. La compatibilité System One doit être vérifiée sur le serveur local.</StatusNotice>}
     <div className="evaluation-config-field">
       <label className="field-label" htmlFor={`${prefix}-correction-method`}>Méthode de correction</label>
       <DesignSystemSelect id={`${prefix}-correction-method`} value={decision ? 'decision' : 'generative'} disabled={disabled} onChange={event => props.onMethod(event.target.value as CorrectionMethod)}>

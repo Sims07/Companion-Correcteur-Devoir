@@ -27,10 +27,34 @@ describe('shared simple AI model controls', () => {
     expect(node.querySelector('[role="status"]')?.textContent).toContain('ocr → décisions : tev1:4b');
   });
 
+  it('has no invented decision catalogue before discovery, retaining only the saved identifier as text', () => {
+    const { node } = render({ apiCompatible: true, responses: true, decisionModel: 'previous-id' });
+    const decision = node.querySelector<HTMLInputElement>('#evaluation-decision-model')!;
+    expect(decision.tagName).toBe('INPUT');
+    expect(decision.value).toBe('previous-id');
+    expect(node.textContent).toContain('Aucun catalogue détecté');
+  });
+
   it('preserves manually entered model names when the server lists different models', () => {
     const { node } = render({ models: [{ name: 'other' }] });
     expect(node.querySelector<HTMLSelectElement>('#evaluation-analysis-model')!.value).toBe('qwen');
     expect(node.querySelector<HTMLSelectElement>('#evaluation-decision-model')!.value).toBe('tev1:4b');
+  });
+
+  it('separates newly detected decision checkpoints and enables manual decision identifiers independently', () => {
+    const { node, props } = render({ apiCompatible: true, responses: true, decisionModel: 'pplx-decider-flash-v1.2',
+      models: [{ name: 'qwen', decision: false }, { name: 'pplx-decider-flash-v1.2', decision: true, decisionInferred: true, vision: true },
+        { name: 'unknown-decision', decision: true, vision: true }] });
+    const generator = node.querySelector<HTMLSelectElement>('#evaluation-analysis-model')!;
+    const decider = node.querySelector<HTMLSelectElement>('#evaluation-decision-model')!;
+    expect(Array.from(generator.options).map(o => o.value)).toEqual(['', 'qwen']);
+    expect(Array.from(decider.options).map(o => o.value)).toEqual(['', 'pplx-decider-flash-v1.2', 'unknown-decision']);
+    expect(node.textContent).toContain('non confirmé par le catalogue natif');
+    const manual = decider.closest('.evaluation-config-field')!.querySelector<HTMLButtonElement>('button')!;
+    act(() => manual.click());
+    expect(node.querySelector('#evaluation-decision-model')?.tagName).toBe('INPUT');
+    expect(node.querySelector('#evaluation-analysis-model')?.tagName).toBe('SELECT');
+    expect(props.onDecisionModel).not.toHaveBeenCalled();
   });
 
   it('shows a missing decision model and incompatible provider without silently changing family', () => {
