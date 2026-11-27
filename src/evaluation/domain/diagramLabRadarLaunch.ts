@@ -5,7 +5,7 @@ import { supportsLocalSystemOne } from '../../shared/domain/lmStudioTransport.ts
 import { BLIND_GRAPH_PROMPT_VARIANTS, type BlindGraphPromptVariant } from './scientificDiagramBlindGraph.ts';
 import { isNativeDecisionModel } from '../../correction/api/index.ts';
 import type { DiagramMethodSelection } from './scientificDiagramProtocol.ts';
-import { buildDiagramLabRadar, diagnoseGraphRadarMeasurement, diagnoseUnmeasuredRadarAxis, RADAR_AXES, type RadarAxisId, type RadarCandidate, type RadarModelConfiguration, type RadarRankedCandidate, type RadarGrouping } from './diagramLabRadar.ts';
+import { buildDiagramLabRadar, diagnoseGraphRadarMeasurement, diagnoseUnmeasuredRadarAxis, radarAxesFor, observationRadarProtocol, type RadarAxisId, type RadarCandidate, type RadarModelConfiguration, type RadarRankedCandidate, type RadarGrouping } from './diagramLabRadar.ts';
 import type { DiagramLabArchiveEntry } from './diagramLabHistory.ts';
 import type { ScienceMethod } from './radarTimeline.ts';
 
@@ -65,7 +65,7 @@ export function planMissingRadarAxis(
   grouping: RadarGrouping,
   entries: readonly DiagramLabArchiveEntry[] = [],
 ): Omit<RadarMissingTestRequest, 'id'> | null {
-  if (candidate.axes[axis].value !== null) return null;
+  if (candidate.axes[axis].value !== null || !radarAxesFor(candidate).some(item => item.id === axis)) return null;
 
   const variant = grouping === 'method' ? candidate.id.split('\u0000').slice(1) : [];
   const methodName = variant[0] ?? '';
@@ -90,7 +90,7 @@ export function planMissingRadarAxis(
     case 'graphics': protocols = ['reference']; break;
     case 'arrows': protocols = ['arrows']; break;
     case 'precision': protocols = ['arrows']; break; // D/E provides accuracy on all 38 expected decisions.
-    case 'biology': protocols = ['semantic']; break;
+    case 'biology': protocols = [candidate.observationOnly ? 'reference' : 'semantic']; break;
     case 'relations': protocols = ['graph']; break;
     case 'robustness': {
       const semanticMissing = candidate.axes.biology.value === null;
@@ -133,6 +133,7 @@ export function planMissingRadarAxis(
   if (graphRecovery?.kind === 'exhausted' || graphRecovery?.kind === 'unusable') {
     protocols = protocols.filter((protocol) => protocol !== 'graph');
   }
+  if (candidate.observationOnly) protocols = protocols.filter(observationRadarProtocol);
   if (!protocols.length) return null;
 
   if (grouping === 'method') {
@@ -156,7 +157,7 @@ export function planMissingRadarAxis(
 }
 
 export const RADAR_TEST_PROTOCOL_NAMES: Record<RadarTestProtocol, string> = {
-  reference: 'Qualité graphique A/B/C', arrows: 'Flèches D/E',
+  reference: 'Qualité graphique A/B/C', arrows: 'Traits de rappel D/E',
   semantic: 'Biologie S0–S5', graph: 'Graphe S0–S5',
 };
 
@@ -173,7 +174,7 @@ export function planRadarModelEvaluation(
   candidate: RadarCandidate,
   entries: readonly DiagramLabArchiveEntry[] = [],
 ): Omit<RadarMissingTestRequest, 'id'> | null {
-  const missing = RADAR_AXES.filter((axis) => candidate.axes[axis.id].value === null);
+  const missing = radarAxesFor(candidate).filter((axis) => candidate.axes[axis.id].value === null);
   if (!missing.length) return null;
 
   const steps = new Map<RadarTestProtocol, RadarTestStep>();
@@ -222,9 +223,9 @@ export function planRadarModelEvaluation(
 /** Read the radar from persisted campaigns, not from successful API calls.
  * A successful response may still lack usable decisions; those axes remain
  * explicitly unmeasured and must never be counted as a completed evaluation. */
-export function radarEvaluationOutcome(entries: readonly DiagramLabArchiveEntry[], modelId: string) {
-  const candidate = buildDiagramLabRadar(entries, 'model').find((item) => item.id === modelId);
-  const missing = RADAR_AXES.filter((axis) => candidate?.axes[axis.id].value === null || !candidate)
+export function radarEvaluationOutcome(entries: readonly DiagramLabArchiveEntry[], modelId: string, observationOnly = false) {
+  const candidate = buildDiagramLabRadar(entries, 'model', [], observationOnly).find((item) => item.id === modelId);
+  const missing = radarAxesFor({ observationOnly }).filter((axis) => candidate?.axes[axis.id].value === null || !candidate)
     .map((axis) => ({
       id: axis.id,
       label: axis.label,
