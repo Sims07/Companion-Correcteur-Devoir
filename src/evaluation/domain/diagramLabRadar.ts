@@ -632,12 +632,13 @@ export function diagnoseGraphRadarMeasurement(
 /** Explain a missing measure from locally archived runs, without inventing
  * a zero or treating a successful network request as a scored decision. */
 export function diagnoseUnmeasuredRadarAxis(
-  entries: readonly DiagramLabArchiveEntry[], modelId: string, axis: RadarAxisId,
+  entries: readonly DiagramLabArchiveEntry[], modelId: string, axis: RadarAxisId, observationOnly = false,
 ): string {
+  if (observationOnly) entries = entries.filter(entry => observationRadarProtocol(entry.protocol));
   const protocol: Exclude<DiagramLabProtocol, 'personal'> | null =
     axis === 'graphics' ? 'reference'
       : axis === 'arrows' ? 'arrows'
-        : axis === 'biology' ? 'semantic'
+        : axis === 'biology' ? (observationOnly ? 'reference' : 'semantic')
           : axis === 'relations' ? 'graph' : null;
   const relevant = [...entries].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     .filter((entry) => entry.protocol !== 'personal' && (protocol === null || entry.protocol === protocol)
