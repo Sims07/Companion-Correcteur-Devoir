@@ -1,3 +1,4 @@
+import { criterionLevels, type CriterionLevel } from '../../shared/domain/criterionConcurrency.ts';
 import { DiagramConcurrencyPanel } from '../../evaluation/ui/components/DiagramConcurrencyPanel.tsx';
 import { canTryVisualDecision } from '../../shared/domain/decisionModelCapabilities.ts';
 import { supportsLocalSystemOne, aiTransport, endpointForTransport, type AiTransport } from '../../shared/domain/lmStudioTransport.ts';
@@ -538,7 +539,8 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
   const [analysisTemperature, setAnalysisTemperature] = useState(() => readAiModelConfiguration().analysisTemperature);
   const [analysisTopP, setAnalysisTopP] = useState(() => readAiModelConfiguration().analysisTopP);
   const [analysisTopK, setAnalysisTopK] = useState(() => readAiModelConfiguration().analysisTopK);
-  const teacherThinking = { hybridVisualLogprobs, gradingOutputTokens, omitReasoningParameter, contextLength, smartZoom, smartZoomBudget, thinking: analysisThinking, analysisTemperature, analysisTopP, analysisTopK, ...(apiCompatible && analysisThinking ? { thinkingLevel: analysisReasoningEffort } : {}) };
+  const [criterionConcurrency, setCriterionConcurrency] = useState<CriterionLevel>(() => readAiModelConfiguration().criterionConcurrency ?? 1);
+  const teacherThinking = { criterionConcurrency, hybridVisualLogprobs, gradingOutputTokens, omitReasoningParameter, contextLength, smartZoom, smartZoomBudget, thinking: analysisThinking, analysisTemperature, analysisTopP, analysisTopK, ...(apiCompatible && analysisThinking ? { thinkingLevel: analysisReasoningEffort } : {}) };
   const [criterionByCriterion, setCriterionByCriterion] = useState(() => readAiModelConfiguration().criterionByCriterion);
   const [aiModelProfiles, setAiModelProfiles] = useState<AiModelProfile[]>(readAiModelProfiles);
   const [aiModelProfileName, setAiModelProfileName] = useState('');
@@ -1251,10 +1253,10 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
   ];
 
   useEffect(() => {
-    const configuration: AiModelConfiguration = { generativeModel, decisionModel, endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, analysisReasoningEffort, omitReasoningParameter, contextLength, gradingOutputTokens, analysisTemperature, analysisTopP, analysisTopK, criterionByCriterion, smartZoom, smartZoomBudget, hybridVisualLogprobs, correctionMethod };
+    const configuration: AiModelConfiguration = { generativeModel, decisionModel, endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, analysisReasoningEffort, omitReasoningParameter, contextLength, gradingOutputTokens, analysisTemperature, analysisTopP, analysisTopK, criterionConcurrency, criterionByCriterion, smartZoom, smartZoomBudget, hybridVisualLogprobs, correctionMethod };
     try { window.localStorage.setItem(aiModelConfigurationKey, JSON.stringify(configuration)); }
     catch { /* The current settings remain usable for this session if storage is unavailable. */ }
-  }, [generativeModel, decisionModel, endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, analysisReasoningEffort, omitReasoningParameter, contextLength, gradingOutputTokens, analysisTemperature, analysisTopP, analysisTopK, criterionByCriterion, smartZoom, smartZoomBudget, hybridVisualLogprobs, correctionMethod]);
+  }, [generativeModel, decisionModel, endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, analysisReasoningEffort, omitReasoningParameter, contextLength, gradingOutputTokens, analysisTemperature, analysisTopP, analysisTopK, criterionConcurrency, criterionByCriterion, smartZoom, smartZoomBudget, hybridVisualLogprobs, correctionMethod]);
 
   function applyAiModelProfile(profile: AiModelProfile) {
     setEndpoint(profile.configuration.endpoint);
@@ -1284,6 +1286,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     setSmartZoom(profile.configuration.smartZoom === true);
     setSmartZoomBudget(profile.configuration.smartZoomBudget);
     setHybridVisualLogprobs(profile.configuration.hybridVisualLogprobs === true);
+    setCriterionConcurrency(profile.configuration.criterionConcurrency ?? 1);
     setCriterionByCriterion(profile.configuration.criterionByCriterion);
     setSelectedAiModelProfileId(profile.id);
     setAiModelProfileMessage('Profil « ' + profile.name + ' » chargé.');
@@ -1347,7 +1350,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
   function saveAiModelProfile() {
     const name = aiModelProfileName.trim();
     if (!name) { setAiModelProfileTone('warning'); setAiModelProfileMessage('Donnez un nom à cette configuration avant de l’enregistrer.'); return; }
-    const configuration: AiModelConfiguration = { generativeModel, decisionModel, endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, analysisReasoningEffort, omitReasoningParameter, contextLength, gradingOutputTokens, analysisTemperature, analysisTopP, analysisTopK, criterionByCriterion, smartZoom, smartZoomBudget, hybridVisualLogprobs, correctionMethod };
+    const configuration: AiModelConfiguration = { generativeModel, decisionModel, endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, analysisReasoningEffort, omitReasoningParameter, contextLength, gradingOutputTokens, analysisTemperature, analysisTopP, analysisTopK, criterionConcurrency, criterionByCriterion, smartZoom, smartZoomBudget, hybridVisualLogprobs, correctionMethod };
     const profile: AiModelProfile = {
       id: selectedAiModelProfileId || 'ai-profile-' + Date.now(),
       name,
@@ -1983,7 +1986,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
           configuration: {
             ...defaultAiModelConfiguration,
             endpoint, apiCompatible, apiKey, visionModel, analysisModel,
-            analysisThinking, analysisReasoningEffort, omitReasoningParameter, contextLength, gradingOutputTokens, analysisTemperature, analysisTopP, analysisTopK, criterionByCriterion, smartZoom, smartZoomBudget, hybridVisualLogprobs, correctionMethod,
+            analysisThinking, analysisReasoningEffort, omitReasoningParameter, contextLength, gradingOutputTokens, analysisTemperature, analysisTopP, analysisTopK, criterionConcurrency, criterionByCriterion, smartZoom, smartZoomBudget, hybridVisualLogprobs, correctionMethod,
           },
           signal: abortController.signal,
           onDiagnosticResult: captureDiagramDiagnostic,
@@ -5075,7 +5078,10 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
           <p className="hint">Cette pénalité est différente de repeat_penalty. Pour une transcription fidèle, la valeur neutre 0 est recommandée ; n’augmentez-la que si vous avez validé son effet avec votre fournisseur.</p>
         </>}
         <label className="analysis-thinking-option" htmlFor="ai-hybrid-logprobs"><input id="ai-hybrid-logprobs" type="checkbox" checked={hybridVisualLogprobs} disabled={busy || pilotBusy || (!hybridVisualLogprobs && !canUseHybridVisualLogprobs({ endpoint, apiCompatible, analysisModel, correctionMethod }))} onChange={event => setHybridVisualLogprobs(event.target.checked)} /><span><strong>Correction hybride par logprobs (expérimental)</strong><small>Schémas scientifiques uniquement · Responses local. Les critères entièrement satisfaits sont proposés pour confirmation du professeur ; les autres passent en analyse générative avec justification et zoom si activé. Désactivé par défaut.</small></span></label>
-        <label className="analysis-thinking-option" htmlFor="ai-criterion-by-criterion"><input id="ai-criterion-by-criterion" type="checkbox" checked={criterionByCriterion} disabled={correctionMethod !== 'generative'} onChange={(event) => setCriterionByCriterion(event.target.checked)} /><span><strong>Analyser critère par critère</strong><small>Un appel séquentiel par critère, avec affichage progressif. Désactivez cette option pour envoyer tout le barème dans un seul appel et comparer les deux approches.</small></span></label>
+        <label className="analysis-thinking-option" htmlFor="ai-criterion-by-criterion"><input id="ai-criterion-by-criterion" type="checkbox" checked={criterionByCriterion} disabled={correctionMethod !== 'generative'} onChange={(event) => setCriterionByCriterion(event.target.checked)} /><span><strong>Analyser critère par critère</strong><small>Un appel par critère, avec affichage progressif. Désactivez cette option pour envoyer tout le barème dans un seul appel et comparer les deux approches.</small></span></label>
+        {criterionByCriterion && correctionMethod === 'generative' && <label>Exécution des critères de schéma
+          <DesignSystemSelect id="ai-diagram-concurrency" value={criterionConcurrency} onChange={e => setCriterionConcurrency(Number(e.target.value) as CriterionLevel)}>
+            {criterionLevels.map(n => <option key={n} value={n}>{n === 1 ? 'Séquentiel · 1 critère' : 'Parallèle · ' + n + ' critères'}</option>)}</DesignSystemSelect></label>}
         </details>
         <div className="settings-actions"><button type="button" className="primary-button" onClick={() => setShowAiSettings(false)}>Terminé, revenir au devoir</button></div>
       </section>}
@@ -6422,7 +6428,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
           }
           if (!item) {
             const status = criterionStatuses[criterion.id];
-            const active = isAnalyzing && activeCriterionId === criterion.id;
+            const active = isAnalyzing && (activeCriterionId === criterion.id || status === 'started');
             const statusLabel = status === 'failed' ? 'À vérifier' : status === 'retrying' ? 'Nouvel essai en cours' : active ? `Analyse du critère ${criterionIndex + 1} en cours…` : (criterionByCriterion || correctionMethod === 'decision') ? 'En attente de son analyse' : 'En attente du résultat global';
             return <article tabIndex={0} className={`panel review-card review-card-pending ${active ? 'is-active' : ''}`} key={criterion.id} aria-label={`Critère ${criterion.title} : ${statusLabel}`}>
               <div className="review-card-heading"><div><h3>{criterion.title}</h3><p>Maximum : {criterion.maxPoints} points</p></div><span className="review-pending-status">{statusLabel}</span></div>

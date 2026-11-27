@@ -45,12 +45,14 @@ export async function correctScientificDiagramDirect(
     omitReasoningParameter: configuration.omitReasoningParameter,
     contextLength: configuration.contextLength,
     smartZoom: configuration.smartZoom,
+    smartZoomBudget: configuration.smartZoomBudget,
     correctionMethod: 'generative' as const,
     diagnosticStrategy: 'single' as const,
   };
   const shortcut = createHybridDiagramShortcut(settings, images, request.question, gateway.probeVisualLogprobs?.bind(gateway));
-  await gateway.checkReady({ ...settings, model: configuration.analysisModel });
+  await gateway.checkReady({ ...settings, model: configuration.analysisModel }, ...(signal ? [signal] : []));
   if (signal?.aborted) throw new DOMException('Traitement interrompu.', 'AbortError');
 
-  return gradeDiagramImages(gateway.createProvider(settings), request, settings.criterionByCriterion, undefined, configuration.smartZoom === true, shortcut);
+  const createProvider = () => gateway.createProvider(settings);
+  return gradeDiagramImages(createProvider(), { ...request, execution: { level: configuration.criterionConcurrency ?? 1, createProvider } }, settings.criterionByCriterion, undefined, configuration.smartZoom === true, shortcut);
 }

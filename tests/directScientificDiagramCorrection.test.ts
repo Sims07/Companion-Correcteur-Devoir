@@ -83,3 +83,26 @@ describe('direct diagram teacher correction', () => {
     expect(isLoopbackDiagramEndpoint('bad url')).toBe(false);
   });
 });
+
+it('branches each parallel criterion from one image context and restores rubric order', async () => {
+  const contexts: object[] = [];
+  const prepareDiagramContext = vi.fn(async () => 'resp_image');
+  const generate: GradingProvider['generate'] = async request => {
+    const part = JSON.parse(request.rubric);
+    const conversation = request.diagramConversation!;
+    expect(conversation.responseId).toBe('resp_image');
+    contexts.push(conversation);
+    conversation.responseId = 'resp_private';
+    if (part.criteria[0].id === rubric.criteria[0].id) await new Promise(resolve => setTimeout(resolve, 5));
+    const raw = JSON.parse(response);
+    raw.criteria = raw.criteria.filter((c: { criterionId: string }) => c.criterionId === part.criteria[0].id);
+    return JSON.stringify(raw);
+  };
+  const createProvider = vi.fn(() => ({ id: 'test', generate, prepareDiagramContext }));
+  const output = await correctScientificDiagramDirect({ checkReady: async () => {}, createProvider }, {
+    ...request(), configuration: { ...configuration, criterionByCriterion: true, criterionConcurrency: 2 },
+  });
+  expect(prepareDiagramContext).toHaveBeenCalledTimes(1);
+  expect(new Set(contexts).size).toBe(rubric.criteria.length);
+  expect(output.criteria.map(c => c.criterionId)).toEqual(rubric.criteria.map(c => c.id));
+});

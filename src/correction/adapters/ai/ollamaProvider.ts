@@ -408,6 +408,29 @@ export function createOllamaProvider(
   const analysisThink = settings.thinking ? (settings.thinkingLevel ?? true) : false;
   return {
     id: settings.apiCompatible ? 'openai-compatible' : 'ollama',
+    async prepareDiagramContext(images, signal) {
+      const endpoint = normalizedEndpoint(settings.endpoint);
+      const transport = aiTransport(settings.apiCompatible === true, endpoint);
+      if (transport !== 'lmstudio-responses' && transport !== 'lmstudio-chat') return undefined;
+      const conversation: { responseId?: string } = {};
+      const photos: string[] = [];
+      for (const image of images) {
+        const prepared = await resizeVisionImage(image, undefined, signal);
+        photos.push('data:' + prepared.mimeType + ';base64,' + prepared.base64);
+      }
+      const turn = { model: settings.analysisModel ?? '', think: false, options: {},
+        omitReasoningParameter: settings.omitReasoningParameter, contextLength: settings.contextLength,
+        messages: [{ content: 'Conserve ces pages pour les questions suivantes. Réponds simplement OK.', images: photos }] };
+      const init = annotateNetworkRequest({ method: 'POST', signal }, 'Préparer la copie pour les critères', turn.model);
+      const response = transport === 'lmstudio-responses' || settings.smartZoom
+        ? await sendLmStudioZoomDiagramTurn(endpoint, settings.apiKey ?? '', conversation, turn, [], init, fetchImpl, () => {}, undefined, false)
+        : await sendLmStudioDiagramTurn(endpoint, settings.apiKey ?? '', conversation, turn, init, fetchImpl, () => {});
+      if (!response.ok) throw new Error('Préparation du contexte de la copie · HTTP ' + response.status);
+      await response.text();
+      signal?.throwIfAborted();
+      if (!conversation.responseId) throw new Error('Le serveur ne fournit pas de contexte pour les critères parallèles.');
+      return conversation.responseId;
+    },
     async generate(request: GradingRequest, onChunk?: (chunk: string) => void, onStage?: (stage: 'reading' | 'grading') => void, onTranscription?: (transcription: string, kind?: 'copy' | 'subject' | 'annotations' | 'warning' | 'identity') => void, onDiagnosticResult?: (result: DiagnosticModelResult) => void, onCriterionUpdate?: (update: CriterionAnalysisUpdate) => void, onTeacherAnnotationReview?: (candidates: TeacherAnnotationReviewCandidate[]) => Promise<TeacherAnnotationReviewDecision[]>, onProgress?: (event: GradingProgressEvent) => void, signal?: AbortSignal): Promise<string> {
       if (!request.visionOnly) requireCorrectionMethodAvailable(settings.correctionMethod ?? 'generative', new Set(['generative', 'decision', 'visual-decision']));
       const endpoint = normalizedEndpoint(settings.endpoint);
