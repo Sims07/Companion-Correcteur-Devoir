@@ -400,3 +400,36 @@ it('audits all twelve active scientific methods and schedules only pending metho
   await act(async () => root.unmount());
   node.remove();
 });
+
+it.each([
+  ['https://mac.local/api/v1/chat', true],
+  ['https://mac.local/v1/chat/completions', true],
+  ['https://example.com/v1/responses', false],
+] as const)('explains or launches the hybrid radar for %s', async (endpoint, allowed) => {
+  const node = document.createElement('div');
+  const root = createRoot(node);
+  const runScience = vi.fn();
+  const profile = { ...profiles[0]!, configuration: { ...profiles[0]!.configuration, endpoint, apiCompatible: true } };
+  await act(async () => root.render(createElement(EvaluationRadarHome, {
+    entries: [], history: [], profiles: [profile], model: profile.id, choose: vi.fn(), busy: false,
+    manage: vi.fn(), details: vi.fn(), campaigns: vi.fn(), runScience, runBiology: vi.fn(), initialLab: 'diagrams',
+  })));
+  const select = [...node.querySelectorAll('select')].find(el => [...el.options].some(option => option.value === 'direct-image-hybrid'))!;
+  await act(async () => {
+    select.value = 'direct-image-hybrid';
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  const launch = [...node.querySelectorAll('button')].find(el => el.textContent === 'Évaluer avec cette méthode')!;
+  expect(launch.disabled).toBe(!allowed);
+  if (allowed) {
+    await act(async () => launch.click());
+    expect(runScience).toHaveBeenCalledWith(expect.objectContaining({
+      profileId: profile.id, trial: expect.objectContaining({ method: 'direct-image-hybrid' }),
+      steps: expect.arrayContaining([expect.objectContaining({ method: 'direct-image-hybrid' })]),
+    }));
+  } else {
+    expect(node.textContent).toContain('Configurez une adresse LM Studio locale');
+    expect(runScience).not.toHaveBeenCalled();
+  }
+  await act(async () => root.unmount());
+});

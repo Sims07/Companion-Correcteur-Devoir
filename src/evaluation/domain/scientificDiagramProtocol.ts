@@ -1,4 +1,4 @@
-import { canUseHybridVisualLogprobs } from '../../shared/domain/hybridVisualLogprobs.ts';
+import { canUseHybridVisualLogprobs, hybridVisualLogprobIssue } from '../../shared/domain/hybridVisualLogprobs.ts';
 import { isLogprobRadarMethod, type LogprobRadarMethod } from './logprobRadar.ts';
 import { canTryVisualDecision } from '../../shared/domain/decisionModelCapabilities.ts';
 import { supportsLocalSystemOne } from '../../shared/domain/lmStudioTransport.ts';
@@ -41,7 +41,8 @@ export function availableDiagramMethods(profile: AiModelProfile): DiagramMethod[
   // Vision → transcription → analyse discards the diagram geometry. Preserve
   // its identifier to read historical reports, but never schedule new runs.
   if (config.correctionMethod === 'generative') methods.push('direct-image-generative');
-  if (canUseHybridVisualLogprobs(config)) methods.push('direct-image-logprobs', 'direct-image-hybrid', 'direct-image-hybrid-zoom');
+  if (canUseHybridVisualLogprobs(config)) methods.push('direct-image-logprobs', 'direct-image-hybrid');
+  if (canUseHybridVisualLogprobs(config, true)) methods.push('direct-image-hybrid-zoom');
   if (supportsLocalSystemOne(config) && (config.correctionMethod === 'decision' || config.correctionMethod === 'visual-decision')
       && canTryVisualDecision(config)) methods.push('direct-image-systemone');
   return methods;
@@ -85,7 +86,7 @@ export function diagramMethodIssue(profile: AiModelProfile, selection: DiagramMe
       ? 'TEV1 ne prend pas en charge les images via System One. Pour un schéma scientifique, choisissez un modèle visuel compatible.'
       : 'Ce modèle ne peut pas recevoir directement le schéma via System One : ' + profile.name;
   }
-  if (isLogprobRadarMethod(selection)) return 'Cette méthode exige un modèle génératif multimodal avec Responses local et logprobs compatibles : ' + profile.name;
+  if (isLogprobRadarMethod(selection)) return (hybridVisualLogprobIssue(profile.configuration, selection === 'direct-image-hybrid-zoom') ?? 'Logprobs indisponibles pour ce profil.') + ' · ' + profile.name;
   if (selection === 'compare-thinking' || selection === 'direct-image-generative-thinking') {
     return 'Le test Think nécessite un modèle d’analyse génératif sur Ollama local (pas une API distante). Les capacités Think sont vérifiées auprès d’Ollama au lancement : ' + profile.name;
   }

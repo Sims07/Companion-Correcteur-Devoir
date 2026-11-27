@@ -30,10 +30,17 @@ function provider() {
   return { id: 'test', generate } satisfies GradingProvider;
 }
 describe('hybrid direct diagram grading', () => {
-  it('is opt-in and rejects an external or non-Responses endpoint before any inference', () => {
+  it('is opt-in and rejects an external or unsupported endpoint before any inference', () => {
     expect(createHybridDiagramShortcut({ ...settings, hybridVisualLogprobs: false }, images, '')).toBeUndefined();
     expect(() => createHybridDiagramShortcut({ ...settings, endpoint: 'https://example.com/v1/responses' }, images, '')).toThrow('local');
-    expect(() => createHybridDiagramShortcut({ ...settings, endpoint: 'https://mac.local/v1/chat/completions' }, images, '')).toThrow('Responses');
+    expect(() => createHybridDiagramShortcut({ ...settings, endpoint: 'https://mac.local/api/unknown' }, images, '')).toThrow('Responses');
+  });
+  it.each(['/api/v1/chat', '/v1/chat/completions', '/v1'])('probes Responses on the same host for %s', async path => {
+    const fetcher = vi.fn<typeof fetch>().mockImplementation(async () => answer('A', .99));
+    const shortcut = createHybridDiagramShortcut({ ...settings, endpoint: 'https://mac.local' + path }, images, '', fetcher)!;
+    expect(await shortcut(criterion)).not.toBeNull();
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(fetcher.mock.calls.every(([url]) => url === 'https://mac.local/v1/responses')).toBe(true);
   });
   it('skips generation only for all-positive high raw probability and requires teacher confirmation', async () => {
     const fetcher = vi.fn<typeof fetch>().mockImplementation(async () => answer('A', .99));
