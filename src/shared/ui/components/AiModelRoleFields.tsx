@@ -61,7 +61,8 @@ export function AiModelRoleFields(props: Props) {
         </DesignSystemSelect>
         : <input id={id} value={value} disabled={disabled} onChange={event => onChange(event.target.value)} placeholder={label.startsWith('Modèle génératif') ? 'Ex. qwen3.5:4b' : 'Ex. tev1:4b'} />}
       {canToggleManual && <button type="button" className="secondary-button" disabled={disabled}
-        onClick={() => setManualModels(current => ({ ...current, [id]: !manualModel }))}>{manualModel ? 'Afficher les modèles détectés' : 'Saisir un identifiant'}</button>}
+        onClick={() => setManualModels(current => ({ ...current, [id]: !manualModel }))}>{id === generativeId ? (manualModel ? 'Afficher les modèles détectés' : 'Saisir un identifiant') : (manualModel ? 'Afficher les décisionnels détectés' : 'Saisir un identifiant décisionnel')}</button>}
+      {id !== generativeId && props.models.length === 0 && <p className="hint">Aucun catalogue détecté. Testez la connexion pour actualiser les modèles ; vous pouvez aussi saisir un identifiant manuellement.</p>}
       <p className="hint">{hint}</p>
     </div>;
   }
@@ -86,6 +87,7 @@ export function AiModelRoleFields(props: Props) {
     <details className="ai-model-advanced" open={decision || undefined}><summary>Méthode de correction et modèle décisionnel</summary>
     {modelField(`${prefix}-decision-model`, 'Modèle décisionnel (facultatif)', decisionModel, props.onDecisionModel,
       'Évalue les attendus du barème avec System One. Ce choix est mémorisé séparément du modèle génératif.')}
+    {props.models.length > 0 && decisionModel && !props.models.some(model => model.name === decisionModel) && <StatusNotice tone="warning">Identifiant mémorisé absent du catalogue détecté. Vérifiez sa disponibilité avant de corriger.</StatusNotice>}
     {props.models.find(model => model.name === decisionModel)?.decisionInferred && <StatusNotice tone="warning">Modèle décisionnel identifié par son nom, mais non confirmé par le catalogue natif. La compatibilité System One doit être vérifiée sur le serveur local.</StatusNotice>}
     <div className="evaluation-config-field">
       <label className="field-label" htmlFor={`${prefix}-correction-method`}>Méthode de correction</label>

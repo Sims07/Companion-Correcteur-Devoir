@@ -44,6 +44,8 @@ test('one native diagram request via ' + (bionic ? 'LM Studio Bionic' : 'Ollama'
   await page.locator('#evaluation-profile-name').fill('Clef Vision + Décision');
   await page.getByText('Méthode de correction et modèle décisionnel', { exact: true }).click();
   if (bionic) {
+    await expect(page.locator('input#evaluation-decision-model')).toBeVisible();
+    await expect(page.getByText(/Aucun catalogue détecté/)).toBeVisible();
     await page.getByRole('button', { name: /Tester la connexion et détecter les modèles/ }).click();
     await expect(page.locator('#evaluation-decision-model option[value="future-decision"]')).toHaveCount(1);
     await expect(page.locator('#evaluation-analysis-model option[value="pplx-decider-flash-v1.2"]')).toHaveCount(0);

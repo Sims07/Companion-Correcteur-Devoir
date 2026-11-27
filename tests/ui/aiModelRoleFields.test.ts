@@ -27,6 +27,14 @@ describe('shared simple AI model controls', () => {
     expect(node.querySelector('[role="status"]')?.textContent).toContain('ocr → décisions : tev1:4b');
   });
 
+  it('has no invented decision catalogue before discovery, retaining only the saved identifier as text', () => {
+    const { node } = render({ apiCompatible: true, responses: true, decisionModel: 'previous-id' });
+    const decision = node.querySelector<HTMLInputElement>('#evaluation-decision-model')!;
+    expect(decision.tagName).toBe('INPUT');
+    expect(decision.value).toBe('previous-id');
+    expect(node.textContent).toContain('Aucun catalogue détecté');
+  });
+
   it('preserves manually entered model names when the server lists different models', () => {
     const { node } = render({ models: [{ name: 'other' }] });
     expect(node.querySelector<HTMLSelectElement>('#evaluation-analysis-model')!.value).toBe('qwen');
