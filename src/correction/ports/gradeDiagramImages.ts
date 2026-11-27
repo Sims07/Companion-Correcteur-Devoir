@@ -5,7 +5,9 @@ import { sumGradeScores } from '../../shared/domain/scorePrecision.ts';
 import type { Rubric, RubricCriterion } from '../domain/rubric.ts';
 
 export interface DiagramImageGradingInput {
-  execution?: { level: CriterionLevel; createProvider: () => GradingProvider };
+  execution?: { level: CriterionLevel; createProvider: () => GradingProvider;
+    /** Laboratory-only override. Omitted preserves the production conversation protocol. */
+    contextMode?: 'shared' | 'independent' };
   images: ImageInput[];
   rubric: Rubric;
   question: string;
@@ -29,7 +31,11 @@ export async function gradeDiagramImages(provider: GradingProvider,
   const proposals: GradingProposal[] = [];
   let lastFailure: unknown;
   const level = split ? request.execution?.level ?? 1 : 1;
-  const rootId = level > 1 && groups.length > 1 ? await provider.prepareDiagramContext?.(request.images, signal) : undefined;
+  const contextMode = split ? request.execution?.contextMode : undefined;
+  const isolated = level > 1 || contextMode !== undefined;
+  const shared = contextMode === 'shared' || (contextMode === undefined && level > 1);
+  const rootId = shared && groups.length > 1 ? await provider.prepareDiagramContext?.(request.images, signal) : undefined;
+  if (contextMode === 'shared' && !rootId) throw new Error('Le serveur ne fournit pas de contexte partagé pour cette variante.');
   await runCriterionWorkers(groups.length, level, signal, async index => {
     const criteria = groups[index]!;
     signal?.throwIfAborted();
@@ -44,14 +50,14 @@ export async function gradeDiagramImages(provider: GradingProvider,
       if (fast) {
         proposal = fast;
       } else {
-        const isolatedProvider = level > 1 ? request.execution!.createProvider() : provider;
+        const isolatedProvider = isolated ? request.execution!.createProvider() : provider;
         const raw = await isolatedProvider.generate({
           question: request.question.trim() || 'Évalue uniquement les caractéristiques observables du dessin selon le barème fourni.',
           rubric: JSON.stringify(part),
           images: request.images,
           directGenerativeVision: true,
           retryDiagramGenerationLimit: true,
-          ...(split || allowSmartZoom ? { diagramConversation: level > 1 ? { responseId: rootId } : diagramConversation } : {}),
+          ...(split || allowSmartZoom ? { diagramConversation: isolated ? (rootId ? { responseId: rootId } : {}) : diagramConversation } : {}),
           ...(split ? { diagramCriterionLabel: (index + 1) + '/' + groups.length + ' · ' + title } : {}),
         }, onActivity, undefined, undefined, request.onDiagnosticResult, undefined, undefined, undefined, signal);
         signal?.throwIfAborted();
