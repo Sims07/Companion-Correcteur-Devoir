@@ -3,6 +3,7 @@ import { sendLmStudioZoomDiagramTurn, type ZoomConversation } from '../../../src
 import { cropOriginalDiagram } from '../../../src/shared/adapters/image/cropOriginalDiagram.ts';
 import { createOllamaProvider } from '../../../src/correction/adapters/ai/ollamaProvider.ts';
 import { gradeDiagramImages } from '../../../src/correction/ports/gradeDiagramImages.ts';
+import { exportedZoomDiagnostics } from '../../../src/evaluation/domain/diagramZoomDiagnostics.ts';
 import { SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC } from '../../../src/correction/domain/scientificDiagramRubric.ts';
 
 vi.mock('../../../src/shared/adapters/image/cropOriginalDiagram.ts', async (importOriginal) => {
@@ -62,6 +63,14 @@ describe('LM Studio on-demand smart zoom (Responses API)', () => {
     expect(conversation.responseId).toBe('resp_final');
     expect(conversation.zoomHistory).toHaveLength(1);
     expect(previews.join('')).toContain('inspected');
+    expect(exportedZoomDiagnostics(JSON.stringify({ attempts: previews.map(value => JSON.parse(value)) }))).toMatchObject({
+      offered: true, observedRequests: 1, cropsPrepared: 1, rejected: 0, cropsInReadableResponses: 1,
+      rounds: [
+        { turn: 1, cropCount: 0, responseMs: expect.any(Number), inputTokens: 20, outputTokens: 10 },
+        { turn: 2, cropCount: 1, responseMs: expect.any(Number), inputTokens: 20, outputTokens: 10 },
+      ],
+      events: [{ status: 'inspected', region, cropWidth: 800, cropHeight: 600, cropMs: expect.any(Number) }],
+    });
     expect(previews.join('')).not.toContain('Q1JPUA==');
     expect(previews.join('')).not.toContain('UFJFVklFVw==');
   });
@@ -297,6 +306,28 @@ describe('LM Studio on-demand smart zoom (Responses API)', () => {
       analysisModel: 'gemma-26b', smartZoom: true }, fetchMock);
     const grade = await gradeDiagramImages(provider, { rubric, question: 'Observer le dessin', images: originals }, true);
     expect(grade.criteria[0]).toMatchObject({ points: 1 });
+  });
+
+  it('propagates zoom metadata through the real grading provider to the export boundary', async () => {
+    const rubric = { ...SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC,
+      criteria: SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC.criteria.slice(0, 1).map(c => ({ ...c, subcriteria: [], maxPoints: 1 })) };
+    const id = rubric.criteria[0]!.id;
+    const answer = JSON.stringify({ criteria: { [id]: { points: 1, evidence: 'Structure visible', confidence: 'high', questionForTeacher: null } } });
+    let calls = 0;
+    const fetchMock: typeof fetch = async () => ++calls === 1
+      ? completion('resp_zoom', [toolCall('zoom_1')])
+      : completion('resp_grade', [{ type: 'message', content: [{ type: 'output_text', text: answer }] }]);
+    const provider = createOllamaProvider({ endpoint, apiCompatible: true, correctionMethod: 'generative',
+      analysisModel: 'gemma-26b', smartZoom: true }, fetchMock);
+    const onDiagnosticResult = vi.fn();
+    await gradeDiagramImages(provider, { rubric, question: 'Observer le dessin', images: originals, onDiagnosticResult }, true);
+    expect(onDiagnosticResult).toHaveBeenCalled();
+    const payload = onDiagnosticResult.mock.calls[0]![0].requestPayload;
+    const diagnostics = exportedZoomDiagnostics(payload, rubric);
+    expect(diagnostics).toMatchObject({ offered: true, observedRequests: 1, cropsPrepared: 1, cropsInReadableResponses: 1,
+      rounds: [{ criterionId: id, cropCount: 0 }, { criterionId: id, cropCount: 1 }],
+      events: [{ criterionId: id, status: 'inspected', region }] });
+    expect(JSON.stringify(diagnostics)).not.toContain('Q1JPUA==');
   });
 
   it('preserves a full photo only in the first criterion request and continues with the same response ID', async () => {

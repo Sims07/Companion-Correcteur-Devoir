@@ -111,6 +111,8 @@ export async function sendLmStudioZoomDiagramTurn(
   let input: unknown[] = [{ role: 'user', content: [...firstImage, { type: 'input_text', text: prompt }] }];
   let previousId = conversation.responseId;
   let inspections = attempts[criterion] ?? 0;
+  // Number of prepared crops included in the next request, not the whole history.
+  let pendingCrops = 0;
   let totalInput = 0;
   let totalOutput = 0;
   let total = 0;
@@ -142,6 +144,7 @@ export async function sendLmStudioZoomDiagramTurn(
     };
     // Never persist copies or crops in the network request inspector.
     preview({ ...body, input: '[TEXT / IMAGE REDACTED]', tools: toolsAllowed ? ['inspect_region'] : [] });
+    const responseStartedAt = performance.now();
     const response = await fetchImpl(url, copyNetworkRequestMetadata(init, {
       ...init,
       method: 'POST', headers: { 'Content-Type': 'application/json',
@@ -159,6 +162,14 @@ export async function sendLmStudioZoomDiagramTurn(
     if ((turn.store !== false && !payload.id?.startsWith('resp_')) || (!Array.isArray(payload.output) && !payload.output_text?.trim() && payload.status !== 'incomplete')) {
       throw new Error('LM Studio n’a pas retourné de réponse Responses exploitable.');
     }
+    // Record only completed, readable provider responses. A prepared crop
+    // is not evidence that the model received or interpreted its pixels.
+    if (enableZoom) preview({ smartZoomRound: {
+      criterion, turn: turnIndex + 1, cropCount: pendingCrops,
+      responseMs: Math.round(performance.now() - responseStartedAt),
+      inputTokens: payload.usage?.input_tokens, outputTokens: payload.usage?.output_tokens,
+    } });
+    pendingCrops = 0;
     previousId = payload.id;
     totalInput += payload.usage?.input_tokens ?? 0;
     totalOutput += payload.usage?.output_tokens ?? 0;
@@ -196,11 +207,13 @@ export async function sendLmStudioZoomDiagramTurn(
     }
     const next: unknown[] = [];
     for (const call of calls) {
+      const cropStartedAt = performance.now();
       if (!call.call_id) throw new Error('Appel de zoom sans identifiant.');
       if (!toolsAllowed || call.name !== 'inspect_region' || inspections >= budget || rejected >= MAX_REJECTIONS) {
         next.push({ type: 'function_call_output', call_id: call.call_id,
           output: 'Outil non autorisé ou budget d’inspection atteint. ' + CONCLUDE });
         if (toolsAllowed && call.name !== 'inspect_region' && rejected < MAX_REJECTIONS) reject();
+        if (enableZoom && call.name === 'inspect_region') preview({ smartZoom: { criterion, status: 'rejected' } });
         continue;
       }
       try {
@@ -213,6 +226,7 @@ export async function sendLmStudioZoomDiagramTurn(
         const evidence = await cropOriginalDiagram(originalImages[region.page - 1], region, signal);
         signal?.throwIfAborted();
         inspections++;
+        pendingCrops++;
         attempts[criterion] = inspections;
         next.push({ type: 'function_call_output', call_id: call.call_id,
           output: 'La région demandée est jointe dans le message image suivant. Compare-la au dessin d’ensemble.' });
@@ -227,14 +241,14 @@ export async function sendLmStudioZoomDiagramTurn(
         conversation.zoomHistory.push({ criterion, region, cropWidth: evidence.cropWidth,
           cropHeight: evidence.cropHeight, status: 'inspected' });
         preview({ smartZoom: { criterion, region, cropWidth: evidence.cropWidth,
-          cropHeight: evidence.cropHeight, status: 'inspected' } });
+          cropHeight: evidence.cropHeight, status: 'inspected', cropMs: Math.round(performance.now() - cropStartedAt) } });
       } catch (error) {
         if (signal?.aborted) throw new DOMException('Zoom interrompu.', 'AbortError');
         reject();
         next.push({ type: 'function_call_output', call_id: call.call_id,
           output: 'Recadrage impossible : ' + (error instanceof Error ? error.message : 'zone incorrecte') +
             '. Choisis une autre zone si le budget le permet, sinon signale le doute.' });
-        preview({ smartZoom: { criterion, status: 'rejected' } });
+        preview({ smartZoom: { criterion, status: 'rejected', cropMs: Math.round(performance.now() - cropStartedAt) } });
       }
     }
     if (!toolsAllowed) {
