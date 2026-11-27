@@ -37,6 +37,15 @@ describe('generic visual logprob decisions', () => {
       expect(decodeVisualLogprobs(payload).status).toBe('unavailable');
     }
   });
+  it('reports numeric mass and the sampled letter for an inconsistent distribution without accepting a verdict or exposing other tokens', () => {
+    const result = decodeVisualLogprobs(response('B', .6873, [candidate('B', .6873),
+      candidate('A', .3128), candidate('private-token', .0001)]));
+    expect(result).toMatchObject({ status: 'unavailable', sampled: 'absent', verdict: null,
+      probabilities: { present: null, absent: null, partial: null, undetermined: null }, unobservedMass: null });
+    expect(result.reason).toContain('100.020000 %');
+    expect(result.reason).toContain('3 tokens distincts');
+    expect(result.reason).not.toContain('private-token');
+  });
   it('builds a rubric-derived question without reference answers or model identifiers', () => {
     const text = logprobQuestion({ key: 'x', criterionTitle: 'Organisation', criterionDescription: 'Structure',
       title: 'Titre', description: 'Sous le dessin' }, 'Exercice');
