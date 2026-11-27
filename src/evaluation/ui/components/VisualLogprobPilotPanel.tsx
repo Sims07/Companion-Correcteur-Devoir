@@ -7,7 +7,7 @@ import { downloadJson } from '../../../shared/ui/downloadJson.ts';
 import { diagramTargetKey } from '../../domain/scientificDiagramProtocol.ts';
 import { SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC, SCIENTIFIC_DIAGRAM_FIXTURES,
   type ScientificDiagramFixtureId } from '../../domain/scientificDiagramFixtures.ts';
-import { logprobChoices, summarizeLogprobRows, type LogprobPilotRow } from '../../domain/visualLogprobDecision.ts';
+import { logprobChoices, summarizeLogprobRows, visualLogprobTopAlternatives, type LogprobPilotRow } from '../../domain/visualLogprobDecision.ts';
 import { localLogprobEndpoint, runVisualLogprobPilot, type LogprobPilotCase } from '../../application/visualLogprobPilot.ts';
 
 const labels = { present: 'Présent', absent: 'Absent', partial: 'Partiel', undetermined: 'Indéterminable' };
@@ -75,7 +75,8 @@ export function VisualLogprobPilotPanel({ profiles, busy, prepareCase, onRunChan
     <summary>Décisions visuelles par logprobs · expérimental</summary>
     <p>Tout modèle génératif multimodal compatible Responses local peut être testé, sans OCR ni modèle décisionnel dédié.
       Un appel indépendant par attendu, Thinking désactivé si le profil le permet.
-      Les probabilités de tokens ne sont pas une confiance pédagogique calibrée.</p>
+      Les probabilités de tokens ne sont pas une confiance pédagogique calibrée. Si leur somme dépasse la limite,
+      le laboratoire peut poursuivre avec un classement relatif séparé, sans verdict validé.</p>
     {selected ? <label>Profil à tester <select value={selected.id} disabled={running || busy}
       onChange={event => setId(event.currentTarget.value)}>
       {available.map(profile => <option key={profile.id} value={profile.id}>{profile.name} · {profile.configuration.analysisModel}</option>)}
@@ -93,21 +94,27 @@ export function VisualLogprobPilotPanel({ profiles, busy, prepareCase, onRunChan
       <p><strong>{report.model}</strong> · {summary.correct}/{summary.attempted} verdicts conformes aux références provisoires ;
         {' '}{summary.resolved} résolus, {summary.abstentions} abstentions, {summary.unavailable} indisponibles ;
         {' '}{summary.falsePositives} faux positifs « présent », {summary.falseNegatives} faux négatifs « absent ».
+        {summary.relativeOnly > 0 && <>Classement relatif uniquement : {summary.relativeCorrect}/{summary.relativeOnly} conformes (hors verdicts valides).{' '}</>}
         Temps cumulé des appels : {(summary.durationMs / 1000).toFixed(1)} s.</p>
       <Button variant="secondary" onClick={() => downloadJson({
         protocol: 'visual-logprob-pilot-v1', ...report, summary, rows,
-        temperature: 1, topP: 1, topLogprobs: 20, maxOutputTokens: 1,
+        temperature: 1, topP: 1, topLogprobs: visualLogprobTopAlternatives, maxOutputTokens: 1,
       }, 'companion-logprobs.json')}>Exporter les décisions JSON</Button>
       <div className="responses-compatibility-results">
         <table><caption>Probabilités brutes observées (— : non observée)</caption>
           <thead><tr><th>Cas</th><th>Attendu</th><th>Référence</th><th>Token produit</th><th>Décision</th>
-            {logprobChoices.map(key => <th key={key}>{labels[key]}</th>)}<th>Masse manquante</th><th>Durée</th></tr></thead>
+            {logprobChoices.map(key => <th key={key}>{labels[key]}</th>)}<th>Masse manquante</th><th>Classement relatif (non valide)</th><th>Durée</th></tr></thead>
           <tbody>{rows.map(row => <tr key={row.caseId + row.targetKey}>
             <td>{row.caseId}</td><td>{targets.find(target => target.key === row.targetKey)?.title ?? row.targetKey}</td>
             <td>{labels[row.expected]}</td><td>{row.sampled ? labels[row.sampled] : '—'}</td>
             <td title={row.reason}>{row.verdict ? labels[row.verdict] : row.status === 'unavailable' ? 'Indisponible' : 'À revoir'}</td>
             {logprobChoices.map(key => <td key={key}>{row.probabilities[key] === null ? '—' : (row.probabilities[key] * 100).toFixed(1) + '%'}</td>)}
-            <td>{row.unobservedMass === null ? '—' : (row.unobservedMass * 100).toFixed(1) + '%'}</td><td>{(row.durationMs / 1000).toFixed(2)} s</td>
+            <td>{row.unobservedMass === null ? '—' : (row.unobservedMass * 100).toFixed(1) + '%'}</td><td>{row.relativeObservation ? <span title={row.reason}>
+              {row.relativeObservation.leader ? labels[row.relativeObservation.leader] : 'Sans leader'}
+              {' · masse '}{(row.relativeObservation.observedMass * 100).toFixed(3)} %
+              {' · '}{logprobChoices.map(key => labels[key] + ' : ' +
+                (row.relativeObservation!.scores[key] === null ? '—' : (row.relativeObservation!.scores[key]! * 100).toFixed(2) + ' %')).join(' / ')}
+            </span> : '—'}</td><td>{(row.durationMs / 1000).toFixed(2)} s</td>
           </tr>)}</tbody>
         </table>
       </div>

@@ -34,7 +34,9 @@ export async function runVisualLogprobPilot(settings: LogprobSettings, cases: re
       signal.throwIfAborted();
       onRow({ ...decision, caseId: item.id, targetKey: target.key, expected, durationMs: performance.now() - start });
       // A failed transport/capability is a blocking issue, not 94 more requests.
-      if (decision.status === 'unavailable') throw new Error('Essai suspendu : ' + decision.reason);
+      // An inconsistent numeric distribution may still provide a separate
+      // relative observation for research. Never promote it to a verdict.
+      if (decision.status === 'unavailable' && !decision.relativeObservation) throw new Error('Essai suspendu : ' + decision.reason);
     }
   }
 }

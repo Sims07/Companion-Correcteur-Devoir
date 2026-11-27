@@ -4,7 +4,7 @@ import type { LogprobSettings } from '../../ports/visualLogprobProbe.ts';
 export type { LogprobSettings } from '../../ports/visualLogprobProbe.ts';
 import type { ImageInput } from '../../domain/imageInput.ts';
 import { annotateNetworkRequest } from '../../ports/networkRequestMetadata.ts';
-import { decodeVisualLogprobs, logprobQuestion, unavailableLogprobDecision,
+import { decodeVisualLogprobs, logprobQuestion, unavailableLogprobDecision, visualLogprobTopAlternatives,
   type LogprobTarget } from '../../domain/visualLogprobDecision.ts';
 
 /** Only a configured local Responses route. No automatic cloud or chat fallback. */
@@ -30,7 +30,7 @@ export async function probeVisualLogprobs(settings: LogprobSettings, images: rea
     temperature: 1, top_p: 1,
     // Bionic accepts at most ten alternatives. Keep the conservative decoder
     // unchanged: omitted alternatives remain unknown, never zero.
-    include: ['message.output_text.logprobs'], top_logprobs: 10,
+    include: ['message.output_text.logprobs'], top_logprobs: visualLogprobTopAlternatives,
     ...(!settings.omitReasoningParameter ? { reasoning: { effort: 'none' } } : {}),
     input: [{ role: 'user', content: [
       ...images.map(image => ({ type: 'input_image', image_url: 'data:' + image.mimeType + ';base64,' + image.base64 })),
