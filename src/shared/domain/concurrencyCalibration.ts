@@ -9,7 +9,8 @@ type Configuration = Pick<AiModelConfiguration, 'endpoint' | 'analysisModel' | '
 export function concurrencyProfileKey(c: Configuration, criterionCount = 4) {
   // Never include bearer credentials, URL credentials or query parameters in storage.
   const url = new URL(c.endpoint);
-  return 'companion:diagram-concurrency:v1:' + JSON.stringify([criterionCount >= 8 ? 8 : 4, url.origin, url.pathname, c.apiCompatible,
+  // The old v1 measurements used a shared root; do not reuse them for independent images.
+  return 'companion:diagram-concurrency:v2:' + JSON.stringify([criterionCount >= 8 ? 8 : 4, url.origin, url.pathname, c.apiCompatible,
     c.analysisModel, c.analysisThinking, c.apiCompatible && c.analysisThinking ? c.analysisReasoningEffort : null,
     !!c.omitReasoningParameter, c.contextLength, c.gradingOutputTokens, c.analysisTemperature,
     c.analysisTopP, c.analysisTopK, !!c.smartZoom, c.smartZoom ? c.smartZoomBudget : null, !!c.hybridVisualLogprobs]);
