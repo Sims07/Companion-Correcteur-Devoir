@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
+import { gradeDiagramImagesBatch } from '../src/correction/ports/gradeDiagramImages.ts';
+import { SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC } from '../src/evaluation/domain/scientificDiagramFixtures.ts';
 import { diagnosticVariants, orderedDiagnosticVariants, measureDiagramConcurrency } from '../src/evaluation/application/diagramConcurrencyBenchmark.ts';
 import { SCIENTIFIC_DIAGRAM_FIXTURES } from '../src/evaluation/domain/scientificDiagramFixtures.ts';
 import type { GradingProvider, GradingRequest } from '../src/correction/ports/aiProvider.ts';
@@ -69,5 +71,21 @@ describe('diagnostic quality matrix', () => {
     expect(result.errors[0]).toContain('contexte partagé');
     expect(result.measured).toBe(0);
     expect(gateway.calls).toHaveLength(0);
+  });
+});
+
+
+describe('ordinary batch grading', () => {
+  it('starts four independent image requests, never prepares a shared context and merges in rubric order', async () => {
+    const gateway = mockGateway();
+    const proposal = await gradeDiagramImagesBatch(gateway.createProvider, {
+      images, rubric: SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC, question: 'Correction',
+    });
+    expect(gateway.prepareDiagramContext).not.toHaveBeenCalled();
+    expect(gateway.calls).toHaveLength(4);
+    expect(gateway.calls.every(call => call.incoming === undefined && call.request.images === images)).toBe(true);
+    expect(new Set(gateway.calls.map(call => call.provider)).size).toBe(4);
+    expect(new Set(gateway.calls.map(call => call.request.diagramConversation)).size).toBe(4);
+    expect(proposal.criteria.map(criterion => criterion.criterionId)).toEqual(SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC.criteria.map(criterion => criterion.id));
   });
 });

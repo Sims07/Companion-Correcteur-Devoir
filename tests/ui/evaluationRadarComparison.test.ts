@@ -213,7 +213,7 @@ it('launches every remaining scientific strategy as independent, sequentially ex
   await act(async () => open.click());
   const launch = [...node.querySelectorAll<HTMLButtonElement>('.method-lab button')]
     .find(button => button.textContent?.startsWith('Évaluer toutes les méthodes restantes'))!;
-  expect(launch.textContent).toContain('(4)');
+  expect(launch.textContent).toContain('(5)');
   const methodSelect = node.querySelector<HTMLSelectElement>('.lab-launch select')!;
   await act(async () => {
     methodSelect.value = 'graph-first-v2';
@@ -226,9 +226,9 @@ it('launches every remaining scientific strategy as independent, sequentially ex
   expect(runScienceBatch).toHaveBeenCalledOnce();
   const requests = runScienceBatch.mock.calls[0]![0];
   expect(requests.map((request: {trial: {method: string}}) => request.trial.method))
-    .toEqual(['image-direct-v1', 'graph-first-v1', 
+    .toEqual(['image-direct-v1', 'direct-image-batch', 'graph-first-v1', 
         'graph-first-v2', 'direct-image-generative-thinking']);
-  expect(new Set(requests.map((request: {trial: {id: string}}) => request.trial.id)).size).toBe(4);
+  expect(new Set(requests.map((request: {trial: {id: string}}) => request.trial.id)).size).toBe(5);
   expect(requests.every((request: {modelId: string; steps: unknown[]}) =>
     request.modelId === models[0] && request.steps.length === 2)).toBe(true);
   await act(async () => root.unmount());
@@ -270,7 +270,7 @@ it('starts every remaining scientific method sequentially as separate two-batter
   const open = [...section.querySelectorAll('button')].find(button => button.textContent === 'Analyse des méthodes')!;
   await act(async () => (open as HTMLButtonElement).click());
   const button = [...node.querySelectorAll<HTMLButtonElement>('.method-lab button')]
-    .find(button => button.textContent === 'Évaluer toutes les méthodes restantes (4)')!;
+    .find(button => button.textContent === 'Évaluer toutes les méthodes restantes (5)')!;
   expect(button).toBeTruthy();
   expect(button.disabled).toBe(false);
   await act(async () => button.click());
@@ -279,8 +279,8 @@ it('starts every remaining scientific method sequentially as separate two-batter
     trial: {id: string; method: string}; steps: Array<{protocol: string}>;
     profileId: string; modelId?: string;
   }>;
-  expect(requests).toHaveLength(4);
-  expect(new Set(requests.map(request => request.trial.id)).size).toBe(4);
+  expect(requests).toHaveLength(5);
+  expect(new Set(requests.map(request => request.trial.id)).size).toBe(5);
   expect(requests.map(request => request.trial.method)).toEqual(
     (await import('../../src/evaluation/domain/radarTimeline.ts')).OBSERVATION_SCIENCE_METHOD_IDS
       .filter(method => method !== 'direct-image-systemone' && method !== 'vision-then-analysis' && !['direct-image-logprobs','direct-image-hybrid','direct-image-hybrid-zoom'].includes(method)));
@@ -364,7 +364,7 @@ it('keeps four successive scientific methods as four independently selectable ra
 });
 
 
-it('audits all eight active scientific methods and schedules only pending method trials from one button', async () => {
+it('audits all nine active scientific methods and schedules only pending method trials from one button', async () => {
   const node = document.createElement('div');
   document.body.append(node);
   const root = createRoot(node);
@@ -378,20 +378,20 @@ it('audits all eight active scientific methods and schedules only pending method
   const analyse = [...node.querySelectorAll<HTMLButtonElement>('button')].find(button =>
     button.textContent?.trim() === 'Analyse des méthodes')!;
   await act(async () => analyse.click());
-  const audit = node.querySelector('section[aria-label="État des 8 méthodes scientifiques"]')!;
+  const audit = node.querySelector('section[aria-label="État des 9 méthodes scientifiques"]')!;
   expect(audit).toBeTruthy();
-  expect(audit.querySelectorAll('tbody tr')).toHaveLength(8);
+  expect(audit.querySelectorAll('tbody tr')).toHaveLength(9);
   expect(audit.textContent).toContain('Non testé');
   expect(audit.textContent).toContain('/7');
   const launch = [...node.querySelectorAll<HTMLButtonElement>('button')].find(button =>
-    button.textContent?.includes('Évaluer toutes les méthodes restantes (4)'))!;
+    button.textContent?.includes('Évaluer toutes les méthodes restantes (5)'))!;
   expect(launch.disabled).toBe(false);
   await act(async () => launch.click());
   const requests = runScienceBatch.mock.calls[0]![0] as Array<{
     trial: {id:string; method:string}; steps: Array<{protocol:string}>;
   }>;
-  expect(requests).toHaveLength(4);
-  expect(new Set(requests.map(item => item.trial.method)).size).toBe(4);
+  expect(requests).toHaveLength(5);
+  expect(new Set(requests.map(item => item.trial.method)).size).toBe(5);
   expect(requests.every(item => item.steps.length === 2)).toBe(true);
   const targeted = audit.querySelector<HTMLButtonElement>('tbody tr button')!;
   await act(async () => targeted.click());
@@ -434,4 +434,36 @@ it.each([
     expect(runScience).not.toHaveBeenCalled();
   }
   await act(async () => root.unmount());
+});
+
+
+it('launches independent image batch from the ordinary scientific radar even if profile splitting is off', async () => {
+  const node = document.createElement('div');
+  const root = createRoot(node);
+  const runScience = vi.fn();
+  const profile = { ...profiles[0]!, configuration: { ...profiles[0]!.configuration, criterionByCriterion: false } };
+  await act(async () => root.render(createElement(EvaluationRadarHome, {
+    entries: [], history: [], profiles: [profile], model: profile.id, choose: vi.fn(), busy: false,
+    manage: vi.fn(), details: vi.fn(), campaigns: vi.fn(), runScience, runBiology: vi.fn(),
+  })));
+  try {
+    const open = [...node.querySelectorAll<HTMLButtonElement>('article[aria-label="Schémas scientifiques"] button')]
+      .find(button => button.textContent === 'Analyse des méthodes')!;
+    await act(async () => open.click());
+    const select = node.querySelector<HTMLSelectElement>('.lab-launch select')!;
+    expect([...select.options].some(option => option.value === 'direct-image-batch')).toBe(true);
+    await act(async () => {
+      select.value = 'direct-image-batch';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    const launch = [...node.querySelectorAll<HTMLButtonElement>('.method-lab button')]
+      .find(button => button.textContent === 'Évaluer avec cette méthode')!;
+    expect(launch.disabled).toBe(false);
+    await act(async () => launch.click());
+    expect(runScience).toHaveBeenCalledWith(expect.objectContaining({
+      profileId: profile.id, trial: expect.objectContaining({ method: 'direct-image-batch' }),
+      steps: [expect.objectContaining({protocol: 'reference', method: 'direct-image-batch'}),
+        expect.objectContaining({protocol: 'arrows', method: 'direct-image-batch'})],
+    }));
+  } finally { await act(async () => root.unmount()); }
 });

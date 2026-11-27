@@ -9,6 +9,7 @@ import type { RadarTestStep } from './diagramLabRadarLaunch.ts';
 
 export const scienceMethods = {
   'image-direct-v1': { label: 'Image → LLM → correction directe · référence', graphVariant: 'baseline', promptMode: 'standard' },
+  'direct-image-batch': { label: 'Batch ×4 — image à chaque requête', graphVariant: 'baseline', promptMode: 'standard' },
   'graph-first-v1': { label: 'Image → graphe → correction · v1', graphVariant: 'isolated-arrows-outside', promptMode: 'standard' },
   'leaders-v1': { label: 'Graphe · détecteur des longs traits (#438)', graphVariant: 'pixel-leaders-v1', promptMode: 'standard' },
   'pixel-v1': { label: 'Graphe · détecteur des petites pointes (#439)', graphVariant: 'pixel-arrows', promptMode: 'standard' },

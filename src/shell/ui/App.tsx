@@ -79,7 +79,7 @@ import { autoRotateScientificPages } from '../../correction/application/autoRota
 import type { BackgroundCorrectionService } from '../../correction/application/backgroundCorrectionService.ts';
 import { aiModelRoles, correctionModelFor, defaultAiModelConfiguration, parseAiModelConfiguration, parseAiModelProfiles, removeAiModelProfiles, upsertAiModelProfile, type AiModelConfiguration, type AiModelProfile, type AnalysisReasoningEffort } from '../../shared/domain/aiModelProfiles.ts';
 import { AiConnectionFields } from '../../shared/ui/components/AiConnectionFields.tsx';
-import { gradeDiagramImages } from '../../correction/ports/gradeDiagramImages.ts';
+import { gradeDiagramImages, gradeDiagramImagesBatch } from '../../correction/ports/gradeDiagramImages.ts';
 import { AiModelRoleFields, type ReasoningMode } from '../../shared/ui/components/AiModelRoleFields.tsx';
 import { AiProfileManager } from '../../shared/ui/components/AiProfileManager.tsx';
 import { EvaluationProfilesDialog } from '../../evaluation/ui/components/EvaluationProfilesDialog.tsx';
@@ -2269,7 +2269,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
             && canTryVisualDecision(profile.configuration))
     );
     const directGenerativeProfiles = (_profile: AiModelProfile) => runStage === 'integrated'
-      && (diagramMethod === 'graph-first-v1' || diagramMethod === 'graph-first-v2' || diagramMethod === 'direct-image-generative' || diagramMethod === 'direct-image-generative-thinking' || isLogprobRadarMethod(diagramMethod));
+      && (diagramMethod === 'graph-first-v1' || diagramMethod === 'graph-first-v2' || diagramMethod === 'direct-image-batch' || diagramMethod === 'direct-image-generative' || diagramMethod === 'direct-image-generative-thinking' || isLogprobRadarMethod(diagramMethod));
     // Only the diagram lab can override a saved visual-decision profile to test
     // its two-step System One text baseline. The teacher route is unchanged.
     const effectiveMethod = (profile: AiModelProfile) =>
@@ -2430,7 +2430,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
             onStage('analysis');
           }
           const gradingContext = buildAssignmentContext({ title: runTitle, description: runDescription, educationLevel: runLevel, question: gradingQuestion });
-          const directDiagram = diagramMethod === 'direct-image-generative' || diagramMethod === 'direct-image-generative-thinking';
+          const directDiagram = diagramMethod === 'direct-image-batch' || diagramMethod === 'direct-image-generative' || diagramMethod === 'direct-image-generative-thinking';
           if (isLogprobRadarMethod(diagramMethod)) {
             const trace: LogprobRadarTrace = { decisions: {}, fastCriteria: [], totalCriteria: runRubric.criteria.length, probes: 0, unavailable: false };
             logprobTraces.set(configuration.id, trace);
@@ -2444,8 +2444,11 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
               onDiagnosticResult: result => { if (!abortController.signal.aborted) measuredRuns.push(result); },
             }, service.probeVisualLogprobs?.bind(service), trace), abortController.signal);
             raw = sequentialProposal ? JSON.stringify(sequentialProposal) : '';
-          } else if (configuration.directGenerativeVision && directDiagram && configuration.criterionByCriterion) {
-            sequentialProposal = await awaitOrAbort(() => gradeDiagramImages(provider, {
+          } else if (configuration.directGenerativeVision && directDiagram && (configuration.criterionByCriterion || diagramMethod === 'direct-image-batch')) {
+            const grade = diagramMethod === 'direct-image-batch'
+              ? (request: Parameters<typeof gradeDiagramImages>[1]) => gradeDiagramImagesBatch(() => service.createProvider(providerSettings), request, configuration.smartZoom)
+              : (request: Parameters<typeof gradeDiagramImages>[1]) => gradeDiagramImages(provider, request, true, undefined, configuration.smartZoom);
+            sequentialProposal = await awaitOrAbort(() => grade({
               question: gradingContext,
               images: structuredClone(runImages),
               rubric: runRubric,
@@ -2464,7 +2467,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
               onDiagnosticResult: result => {
                 if (!abortController.signal.aborted) measuredRuns.push(result);
               },
-            }, true, undefined, configuration.smartZoom), abortController.signal);
+            }), abortController.signal);
             raw = JSON.stringify(sequentialProposal);
           } else {
             raw = await awaitOrAbort(() => provider.generate({
@@ -2573,6 +2576,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
     // Render results immediately; IndexedDB writes must never block navigation.
     if (results.length > 0 && !options) setEvaluationWorkspaceStep('results');
     const savedRecord: ModelEvaluationRecord = {
+      ...(diagramMethod === 'direct-image-batch' ? { diagramBatch: true as const } : {}),
       ...(isLogprobRadarMethod(diagramMethod) ? { logprobRadarMethod: diagramMethod } : {}),
       ...(diagramMethod === 'graph-first-v1' || diagramMethod === 'graph-first-v2'
         ? {graphFirst: true, graphVersion: diagramMethod === 'graph-first-v2' ? 'v2' as const : 'v1' as const} : {}),

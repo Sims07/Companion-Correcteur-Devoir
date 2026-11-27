@@ -12,6 +12,13 @@ export interface RadarMethodDescription {
 }
 
 export const SCIENCE_METHOD_DESCRIPTIONS: Record<ScienceMethod, RadarMethodDescription> = {
+  'direct-image-batch': {
+    principle: 'Correction générative directe, avec jusqu’à quatre groupes de critères simultanés. Chaque requête contient les images de la copie et son critère, sans historique partagé.',
+    steps: ['Séparer le barème en groupes de critères.', 'Envoyer les images avec chaque groupe, dans une conversation indépendante, avec au plus quatre appels actifs.', 'Assembler les notes dans l’ordre du barème et mesurer le temps réel écoulé.'],
+    interest: 'Exploiter le batching du moteur local sans dépendre de la réutilisation du contexte visuel.',
+    limitations: 'Le serveur doit accepter des requêtes simultanées ; le débit, la mémoire et la qualité dépendent du moteur. Le gain doit être mesuré, pas supposé.',
+    radarScope: 'Les mêmes copies et barèmes du radar scientifique, avec une méthode distincte et des temps mesurés côté client.',
+  },
   'image-direct-v1': {
     principle: 'Méthode témoin : fournir au LLM multimodal les pixels du schéma et le barème de correction dans un même parcours génératif. Le modèle décide directement des points par critère, sans OCR, extraction de graphe ou détecteur géométrique en amont.',
     steps: [

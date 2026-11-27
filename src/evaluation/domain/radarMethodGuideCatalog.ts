@@ -9,7 +9,7 @@ import {
 export type MethodGuideIllustration =
   | 'small-tips' | 'long-shafts' | 'direct-graph' | 'guided' | 'graph-first'
   | 'relations-v2' | 'vision-analysis' | 'direct-grading' | 'thinking-grading' | 'systemone-grading'
-  | 'logprob-grading' | 'hybrid-grading' | 'hybrid-zoom-grading'
+  | 'batch-grading' | 'logprob-grading' | 'hybrid-grading' | 'hybrid-zoom-grading'
   | 'question-contracts' | 'standard-rubric' | 'historical-pilot' | 'direct-correction';
 
 export interface MethodGuidePresentation {
@@ -28,6 +28,13 @@ export interface MethodGuideEntry extends MethodGuidePresentation {
 
 /** Display data is separate from the scientific facts and references canonical method IDs. */
 export const SCIENCE_METHOD_PRESENTATION: Record<ScienceMethod, MethodGuidePresentation> = {
+  'direct-image-batch': {
+    title: 'Correction batch parallèle ×4',
+    summary: 'Quatre groupes indépendants au maximum, chacun recevant les images originales.',
+    illustration: 'batch-grading',
+    visualFocus: 'Quatre requêtes autonomes, une correction',
+    visualCaption: 'Chaque groupe reçoit l’image et son barème ; les résultats sont rassemblés sans partager de conversation entre groupes.',
+  },
   'image-direct-v1': {
     title: 'Correction directe sur image · référence',
     summary: 'Le LLM reçoit directement le schéma et le barème pour produire la correction.',
@@ -147,7 +154,7 @@ export const BIOLOGY_METHOD_PRESENTATION: Record<BiologyMethodId, MethodGuidePre
 
 const scienceOrder: readonly ScienceMethod[] =
   ['image-direct-v1', 'pixel-v1', 'leaders-v1', 'direct-v1', 'guided-v1', 'graph-first-v1',
-    'graph-first-v2', 'vision-then-analysis', 'direct-image-generative-thinking',
+    'graph-first-v2', 'vision-then-analysis', 'direct-image-generative-thinking', 'direct-image-batch',
     'direct-image-systemone', 'direct-image-logprobs', 'direct-image-hybrid', 'direct-image-hybrid-zoom'];
 
 /** Includes excluded methods and strategies with no archived score. */

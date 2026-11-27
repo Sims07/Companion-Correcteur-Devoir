@@ -14,7 +14,7 @@ describe('catalogue des fiches illustrées du laboratoire', () => {
     const biology = radarMethodGuideEntries('biology');
     expect(science.map(entry => entry.id)).toEqual([
       'image-direct-v1', 'pixel-v1', 'leaders-v1', 'direct-v1', 'guided-v1', 'graph-first-v1',
-      'graph-first-v2', 'vision-then-analysis', 'direct-image-generative-thinking', 'direct-image-systemone',
+      'graph-first-v2', 'vision-then-analysis', 'direct-image-generative-thinking', 'direct-image-batch', 'direct-image-systemone',
       'direct-image-logprobs', 'direct-image-hybrid', 'direct-image-hybrid-zoom',
     ]);
     expect(biology).toHaveLength(3);
@@ -43,10 +43,10 @@ describe('catalogue des fiches illustrées du laboratoire', () => {
     expect(entries[0]?.illustration).toBe('direct-correction');
     expect(entries[0]?.science.principle).toContain('sans OCR');
     expect(entries[0]?.science.radarScope).toContain('extraction indépendante');
-    expect(entries[1]?.science.radarScope).toContain('S0–S5');
-    expect(entries[2]?.science.radarScope).toContain('S0–S5');
-    expect(entries[1]?.science.limitations).toMatch(/fausses pointes/);
-    expect(entries[2]?.science.limitations).toMatch(/manquée/);
+    expect(entries.find(entry => entry.id === 'pixel-v1')?.science.radarScope).toContain('S0–S5');
+    expect(entries.find(entry => entry.id === 'leaders-v1')?.science.radarScope).toContain('S0–S5');
+    expect(entries.find(entry => entry.id === 'pixel-v1')?.science.limitations).toMatch(/fausses pointes/);
+    expect(entries.find(entry => entry.id === 'leaders-v1')?.science.limitations).toMatch(/manquée/);
     expect(entries.find(entry => entry.id === 'image-direct-v1')?.science.principle)
       .toContain('pixels du schéma');
     expect(entries.find(entry => entry.id === 'direct-image-systemone')?.science.limitations)

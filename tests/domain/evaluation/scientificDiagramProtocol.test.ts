@@ -77,6 +77,8 @@ describe('protocole de schémas scientifiques', () => {
     const generative = profile('qwen3.5:9b', 'generative');
     expect(availableDiagramMethods(generative)).toEqual(['direct-image-generative']);
     expect(selectDiagramMethods(generative, 'direct-image-generative')).toEqual(['direct-image-generative']);
+    expect(selectDiagramMethods(generative, 'direct-image-batch')).toEqual(['direct-image-batch']);
+    expect(selectDiagramMethods(profile('d1:3b'), 'direct-image-batch')).toEqual([]);
     expect(selectDiagramMethods(generative, 'vision-then-analysis')).toEqual([]);
     expect(diagramMethodIssue(generative, 'vision-then-analysis')).toContain('anciens résultats');
     expect(diagramMethodIssue(generative, 'direct-image-systemone')).toContain('System One');
@@ -132,6 +134,17 @@ describe('protocole de schémas scientifiques', () => {
     expect(selectDiagramMethods(tevReader, 'vision-then-analysis')).toEqual([]);
     expect(diagramMethodIssue(tevReader, 'vision-then-analysis')).toContain('retirée');
   });
+
+    it('keeps the batch method distinct and does not sum overlapping native durations', () => {
+      const base = record({ ...result(), directVisualDecision: false });
+      base.configurations = [{ ...base.configurations[0]!, directVisualDecision: false, directGenerativeVision: true, correctionMethod: 'generative' }];
+      const report = buildScientificDiagramProtocolReport([
+        { repetition: 1, record: base, clientDurationMs: 80_000 },
+        { repetition: 1, record: { ...base, diagramBatch: true }, clientDurationMs: 25_000 },
+      ], SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC, {}, 1, '2026-11-27T17:00:00Z', 1);
+      expect(report.experiments.map(run => run.method)).toEqual(['direct-image-generative', 'direct-image-batch']);
+      expect(report.experiments[1]).toMatchObject({ providerDurationMs: null, clientDurationMs: 25_000 });
+    });
 
     it('persists tagged client performance independently of native engine timing', () => {
       const output = buildScientificDiagramProtocolReport([

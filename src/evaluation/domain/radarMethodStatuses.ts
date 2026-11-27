@@ -18,6 +18,7 @@ export const RADAR_METHOD_STATUS_GROUPS: readonly {
 /** Initial editorial classification, not a measured ranking or a restriction. */
 export const DEFAULT_DIAGRAM_METHOD_STATUSES: Record<ScienceMethod, RadarMethodStatus> = {
   'image-direct-v1': 'candidate',
+  'direct-image-batch': 'evaluating',
   'direct-image-generative-thinking': 'evaluating',
   'direct-image-systemone': 'evaluating',
   'direct-image-logprobs': 'evaluating',

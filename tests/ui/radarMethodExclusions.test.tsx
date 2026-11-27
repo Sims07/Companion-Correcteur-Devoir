@@ -98,15 +98,16 @@ it('keeps excluded scientific strategies out of the active sequential batch and 
     const include = node.querySelector<HTMLInputElement>(
       'input[aria-label="Inclure '+scienceMethods['graph-first-v1'].label+'"]',
     )!;
-    expect(all().textContent).toContain('(4)');
+    expect(all().textContent).toContain('(5)');
     await act(async () => include.click());
-    expect(all().textContent).toContain('(3)');
+    expect(all().textContent).toContain('(4)');
     expect(node.querySelector<HTMLSelectElement>('.lab-launch select')?.value).not.toBe('graph-first-v1');
     await act(async () => all().click());
     expect(batch).toHaveBeenCalledTimes(1);
     const requests = batch.mock.calls[0]![0] as Array<{trial: {method: string}}>;
-    expect(requests).toHaveLength(3);
+    expect(requests).toHaveLength(4);
     expect(requests.map(row => row.trial.method)).toContain('image-direct-v1');
+    expect(requests.map(row => row.trial.method)).toContain('direct-image-batch');
     expect(requests.map(row => row.trial.method)).not.toContain('graph-first-v1');
     expect(requests.map(row => row.trial.method)).not.toContain('vision-then-analysis');
     const runOne = [...node.querySelectorAll<HTMLButtonElement>('button')]
