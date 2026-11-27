@@ -4,7 +4,7 @@ import { blindVisualObservationPrompt } from './scientificDiagramBlindGraph.ts';
 import { diagramSensitivityContext } from './scientificDiagramSensitivity.ts';
 import { BIOLOGY_RADAR_AXES, buildBiologyRadar, type BiologyRadarObservation } from './biologyTeacherRadar.ts';
 import type { DiagramLabArchiveEntry } from './diagramLabHistory.ts';
-import { buildDiagramLabRadar, observedRadarScore, RADAR_AXES, type RadarWeights } from './diagramLabRadar.ts';
+import { buildDiagramLabRadar, observedRadarScore, radarAxesFor, observationRadarProtocol, type RadarWeights } from './diagramLabRadar.ts';
 import type { RadarTestStep } from './diagramLabRadarLaunch.ts';
 
 export const scienceMethods = {
@@ -57,11 +57,14 @@ export interface TimelinePoint {
   reconstructed?: boolean;
 }
 
-export function trialSteps(method: ScienceMethod): RadarTestStep[] {
+/** Graph-only S0–S5 strategies stay in the archive, not in observation grading. */
+export const OBSERVATION_SCIENCE_METHOD_IDS = ACTIVE_SCIENCE_METHOD_IDS.filter(method =>
+  !['leaders-v1', 'pixel-v1', 'direct-v1', 'guided-v1'].includes(method));
+export function trialSteps(method: ScienceMethod, observationOnly = false): RadarTestStep[] {
   const { promptMode, graphVariant } = scienceMethods[method];
   // Real correction engines remain distinct from the blind-graph observation battery.
   const gradingMethod: DiagramMethodSelection = method in diagramMethodLabels ? method as DiagramMethod : 'compare';
-  return (['reference', 'arrows', 'semantic', 'graph'] as const).map(protocol => ({
+  return (['reference', 'arrows', 'semantic', 'graph'] as const).filter(protocol => !observationOnly || observationRadarProtocol(protocol)).map(protocol => ({
     protocol, repetitions: protocol === 'reference' ? 3 : 1, method: protocol === 'graph' ? 'compare'
       : method === 'image-direct-v1' ? 'direct-image-generative' : gradingMethod,
     promptMode, graphVariant, zoom: false,
@@ -132,7 +135,9 @@ export function summarizeRadarRouting(group: readonly DiagramLabArchiveEntry[], 
     reviewTargets: hasHybrid ? reviewTargets : null } : undefined;
 }
 
-export function sciencePoints(group: DiagramLabArchiveEntry[], weights: RadarWeights): TimelinePoint[] {
+export function sciencePoints(group: DiagramLabArchiveEntry[], weights: RadarWeights, observationOnly = false): TimelinePoint[] {
+  if (observationOnly) group = group.filter(entry => observationRadarProtocol(entry.protocol));
+  if (!group.length) return [];
   const latest = group.reduce((a, b) => a.createdAt > b.createdAt ? a : b);
   const trial = latest.trial;
   const prompts = [...new Set(group.flatMap(({report}) => [
@@ -149,7 +154,7 @@ export function sciencePoints(group: DiagramLabArchiveEntry[], weights: RadarWei
   };
   const reports = new Map(group.map(entry => [entry.id, evidenceFor(entry)]));
   function measurementScope(candidate: ReturnType<typeof buildDiagramLabRadar>[number]) {
-    const sources = RADAR_AXES.map(axis => {
+    const sources = radarAxesFor(candidate).map(axis => {
       const signatures = candidate.axes[axis.id].evidence.map(item => JSON.stringify(reports.get(item.reportId)));
       return [...new Set(signatures)].sort();
     });
@@ -157,7 +162,7 @@ export function sciencePoints(group: DiagramLabArchiveEntry[], weights: RadarWei
     const byAxis = sources.map(list => list.map(signature => references.indexOf(signature)));
     return JSON.stringify([references, byAxis, Object.entries(trial?.weights ?? weights).sort()]);
   }
-  return buildDiagramLabRadar(group, 'model').map(candidate => ({
+  return buildDiagramLabRadar(group, 'model', [], observationOnly).map(candidate => ({
     id: trial?.id ?? latest.id, date: latest.createdAt, model: candidate.id,
     label: trial ? scienceMethods[trial.method]?.label ?? trial.method : candidate.methods.map(raw => {
       const [method, variant] = raw.split(' · ');
@@ -165,16 +170,16 @@ export function sciencePoints(group: DiagramLabArchiveEntry[], weights: RadarWei
     }).join(' + ') || 'Méthode non renseignée',
     protocolLabel: [...new Set(group.map(entry => entry.title))].join(' / '),
     comparisonBasis: measurementScope(candidate),
-    caseCounts: Object.fromEntries(RADAR_AXES.map(axis => [axis.label, new Set(candidate.axes[axis.id].evidence
+    caseCounts: Object.fromEntries(radarAxesFor(candidate).map(axis => [axis.label, new Set(candidate.axes[axis.id].evidence
       .flatMap(item => reports.get(item.reportId)?.cases.map(([id]) => id) ?? [])).size])),
     scienceMethod: trial?.method ?? (candidate.methods.length === 1 && candidate.methods[0] === 'graph-first-v1' ? 'graph-first-v1' : undefined),
-    instructions: trial ? [diagramSensitivityContext(scienceMethods[trial.method].promptMode),
+    instructions: trial && !observationOnly ? [diagramSensitivityContext(scienceMethods[trial.method].promptMode),
       blindVisualObservationPrompt(scienceMethods[trial.method].graphVariant)] : undefined,
     revision: latest.revision, prompts: [...candidate.methods, ...prompts],
     batteryEngines: recordedRadarBatteryEngines(group, candidate.id),
     logprobRouting: summarizeRadarRouting(group, candidate.id, candidate.axes.coverage.evidence.map(item => item.reportId)),
     score: observedRadarScore(candidate, trial?.weights ?? weights),
-    axes: Object.fromEntries(RADAR_AXES.map(axis => [axis.label, candidate.axes[axis.id].value])),
+    axes: Object.fromEntries(radarAxesFor(candidate).map(axis => [axis.label, candidate.axes[axis.id].value])),
   }));
 }
 
@@ -189,15 +194,15 @@ export function biologyPoints(group: BiologyRadarObservation[]): TimelinePoint[]
         date: latest.recordedAt, model: candidate.name, revision: latest.revision,
         label: biologyRunMethodLabel(protocol, candidate.method, candidate.provider),
         protocolLabel: [...new Set(rows.map(r => r.caseId))].sort().join(' / '),
-        comparisonBasis: JSON.stringify([candidate.provider, BIOLOGY_RADAR_AXES.map(axis => axis.weight),
+        comparisonBasis: JSON.stringify([candidate.provider, BIOLOGY_radarAxesFor(candidate).map(axis => axis.weight),
           rows.map(row => JSON.stringify([row.caseId, row.referenceScore,
             row.decisions.map(item => [item.id, item.expected]).sort()])).sort()]),
-        caseCounts: Object.fromEntries(BIOLOGY_RADAR_AXES.map(axis => [axis.label,
+        caseCounts: Object.fromEntries(BIOLOGY_radarAxesFor(candidate).map(axis => [axis.label,
           new Set(rows.filter(row => (axis.id === 'traps' ? ['D','E','F','G'] : ['A','B','C']).includes(row.caseId)).map(row => row.caseId)).size])),
         biologyMethod: protocol === 'pilot' ? undefined : protocol,
         prompts: [...new Set(rows.flatMap(row => (row.prompts ?? []).map(p => p.promptId + ' v' + (p.promptVersion ?? '?'))))],
         score: candidate.score ?? candidate.partialScore,
-        axes: Object.fromEntries(BIOLOGY_RADAR_AXES.map(axis => [axis.label, candidate.axes[axis.id]])),
+        axes: Object.fromEntries(BIOLOGY_radarAxesFor(candidate).map(axis => [axis.label, candidate.axes[axis.id]])),
       };
     }));
 }
