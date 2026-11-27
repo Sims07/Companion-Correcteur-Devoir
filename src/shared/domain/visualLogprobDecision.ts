@@ -11,6 +11,8 @@ export interface LogprobDecision {
   unobservedMass: number | null;
   status: 'resolved' | 'ambiguous' | 'unavailable';
   reason: string;
+  /** Conditional scores over observed tokens only; never a usable probability or grading verdict. */
+  relativeObservation?: { observedMass: number; scores: LogprobDistribution; leader: LogprobChoice | null };
 }
 const emptyDistribution = (): LogprobDistribution =>
   ({ present: null, absent: null, partial: null, undetermined: null });
@@ -78,8 +80,16 @@ export function decodeVisualLogprobs(raw: unknown): LogprobDecision {
     // tokens, copied content or provider payload enter the exported report.
     const observed = [...candidates].map(([token, probability]) =>
       (choice(token) ?? 'autre') + '=' + probability.toPrecision(12)).join(', ');
+    const scores = emptyDistribution();
+    for (const label of logprobChoices) {
+      const probability = probabilities[label];
+      if (probability !== null) scores[label] = probability / mass;
+    }
+    const ranked = [...logprobChoices].sort((a, b) => (scores[b] ?? 0) - (scores[a] ?? 0));
+    const leader = (scores[ranked[0]] ?? 0) > (scores[ranked[1]] ?? 0) + 1e-5 ? ranked[0] : null;
     return { ...unavailableLogprobDecision('Distribution incohérente : masse observée ' +
-      (mass * 100).toFixed(6) + ' % (' + candidates.size + ' tokens distincts ; ' + observed + ')'), sampled };
+      (mass * 100).toFixed(6) + ' % (' + candidates.size + ' tokens distincts ; ' + observed + ')'), sampled,
+      relativeObservation: { observedMass: mass, scores, leader } };
   }
   const unobservedMass = Math.max(0, 1 - mass);
   // Missing alternatives are NOT zero. Even if every missing token belonged to
