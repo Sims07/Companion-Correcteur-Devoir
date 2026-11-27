@@ -7,7 +7,7 @@ import type { LogprobRadarMethod, LogprobRadarTrace } from '../domain/logprobRad
 export async function evaluateLogprobRadar(method: LogprobRadarMethod, settings: OllamaSettings,
   provider: GradingProvider, input: DiagramImageGradingInput, probe: VisualLogprobProbe | undefined,
   trace: LogprobRadarTrace): Promise<GradingProposal | undefined> {
-  if (!probe || !canUseHybridVisualLogprobs(settings)) throw new Error('Logprobs Responses local indisponibles.');
+  if (!probe || !canUseHybridVisualLogprobs(settings, method === 'direct-image-hybrid-zoom')) throw new Error('Logprobs Responses local indisponibles.');
   const signal = input.signal ?? new AbortController().signal;
   const tracked: VisualLogprobProbe = async (config, images, target, context, activeSignal) => {
     trace.probes++;
