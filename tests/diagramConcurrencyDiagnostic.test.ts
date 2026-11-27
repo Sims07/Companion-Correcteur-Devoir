@@ -89,3 +89,16 @@ describe('ordinary batch grading', () => {
     expect(proposal.criteria.map(criterion => criterion.criterionId)).toEqual(SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC.criteria.map(criterion => criterion.id));
   });
 });
+
+
+it('calibrates the production parallel protocol with independent image requests, preserving explicit shared diagnostics', async () => {
+  const gateway = mockGateway();
+  const result = await measureDiagramConcurrency(fixture, images, 4, gateway.createProvider,
+    new AbortController().signal, () => {}, 4);
+  expect(result.errors).toEqual([]);
+  expect(result.peak).toBe(4);
+  expect(result.measured).toBe(19);
+  expect(gateway.prepareDiagramContext).not.toHaveBeenCalled();
+  expect(gateway.calls.map(c => c.incoming)).toEqual(Array(4).fill(undefined));
+  expect(gateway.calls.every(c => c.request.images === images)).toBe(true);
+});
