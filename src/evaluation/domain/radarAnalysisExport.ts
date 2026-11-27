@@ -1,6 +1,6 @@
 import { BIOLOGY_RADAR_AXES, buildBiologyRadar, type BiologyRadarObservation } from './biologyTeacherRadar.ts';
 import type { DiagramLabArchiveEntry } from './diagramLabHistory.ts';
-import { buildDiagramLabRadar, observedRadarScore, RADAR_AXES, rankDiagramLabRadar, type RadarWeights } from './diagramLabRadar.ts';
+import { buildDiagramLabRadar, observedRadarScore, radarAxesFor, rankDiagramLabRadar, type RadarWeights } from './diagramLabRadar.ts';
 import { ALL_QUESTION_CONTRACT_CASES, questionContractRubric } from './questionContractPilot.ts';
 import {
   activeBiologyObservations, activeScienceEntries, EMPTY_RADAR_EXCLUSIONS,
@@ -13,18 +13,18 @@ export function isRadarBenchmark(entry: DiagramLabArchiveEntry) {
 
 export function buildRadarAnalysisExport(entries: readonly DiagramLabArchiveEntry[],
   history: readonly BiologyRadarObservation[], weights: RadarWeights, exportedAt: string,
-  exclusions: RadarMethodExclusions = EMPTY_RADAR_EXCLUSIONS) {
+  exclusions: RadarMethodExclusions = EMPTY_RADAR_EXCLUSIONS, observationOnly = false) {
   const campaigns = entries.filter(isRadarBenchmark);
   const activeCampaigns = activeScienceEntries(campaigns, exclusions);
   const activeObservations = activeBiologyObservations(history, exclusions);
   const dashboardProtocol = methodIsActive(exclusions, 'biology', 'contract') ? 'contract'
     : methodIsActive(exclusions, 'biology', 'standard') ? 'standard' : null;
-  const science = rankDiagramLabRadar(buildDiagramLabRadar(activeCampaigns, 'model'), weights);
+  const science = rankDiagramLabRadar(buildDiagramLabRadar(activeCampaigns, 'model', [], observationOnly), weights);
   return {
     format: 'companion-radar-analysis', version: 1, exportedAt,
     excludedMethods: exclusions,
     diagrams: {
-      weights, axes: RADAR_AXES,
+      weights, axes: radarAxesFor({ observationOnly }),
       candidates: science.map(candidate => ({
         ...candidate, observedScore: observedRadarScore(candidate, weights),
       })),
