@@ -42,7 +42,7 @@ export function analysisSamplingSettings(value: {
 }
 
 export interface AiModelConfiguration {
-  criterionConcurrency?: import('./criterionConcurrency.ts').CriterionLevel;
+  criterionConcurrency?: import('./criterionConcurrency.ts').CriterionLevel | 'auto';
   endpoint: string;
   apiCompatible: boolean;
   apiKey: string;
@@ -126,7 +126,7 @@ export function parseAiModelConfiguration(raw: string | null): AiModelConfigurat
       analysisReasoningEffort: parseAnalysisReasoningEffort(candidate.analysisReasoningEffort),
       omitReasoningParameter: candidate.omitReasoningParameter === true,
       ...(parseModelContextLength(candidate.contextLength) !== undefined ? { contextLength: parseModelContextLength(candidate.contextLength) } : {}),
-      ...(candidate.criterionConcurrency === 2 || candidate.criterionConcurrency === 4 || candidate.criterionConcurrency === 8 ? { criterionConcurrency: candidate.criterionConcurrency } : {}),
+      ...(candidate.criterionConcurrency === 'auto' || candidate.criterionConcurrency === 2 || candidate.criterionConcurrency === 4 || candidate.criterionConcurrency === 8 ? { criterionConcurrency: candidate.criterionConcurrency } : {}),
       criterionByCriterion: candidate.criterionByCriterion !== false,
       ...(candidate.hybridVisualLogprobs === true ? { hybridVisualLogprobs: true } : {}),
       ...(typeof candidate.smartZoom === 'boolean' ? { smartZoom: candidate.smartZoom } : {}),

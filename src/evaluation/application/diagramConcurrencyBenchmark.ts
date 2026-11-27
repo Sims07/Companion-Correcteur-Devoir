@@ -1,12 +1,26 @@
-import { gradeDiagramImages, type GradingProvider, type GradingProposal } from '../../correction/api/index.ts';
+import { sumGradeScores } from '../../shared/domain/scorePrecision.ts';
+import { gradeDiagramImages, getRubricSubcriteria, type GradingProvider, type GradingProposal } from '../../correction/api/index.ts';
 import type { CriterionLevel } from '../../shared/domain/criterionConcurrency.ts';
 import type { ImageInput } from '../../shared/domain/imageInput.ts';
 import { diagramTargetKey } from '../domain/scientificDiagramProtocol.ts';
 import { SCIENTIFIC_DIAGRAM_FIXTURE_CONTEXT, SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC, type ScientificDiagramFixtureCase } from '../domain/scientificDiagramFixtures.ts';
 
+export function concurrencyBenchmarkRubric(groups: 4 | 8) {
+  const original = SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC;
+  if (groups === 4) return original;
+  return { ...original, criteria: original.criteria.flatMap(criterion => {
+    const targets = getRubricSubcriteria(criterion);
+    const middle = Math.ceil(targets.length / 2);
+    return [targets.slice(0, middle), targets.slice(middle)].map((subcriteria, i) => ({
+      ...criterion, id: criterion.id + '/group-' + (i + 1), subcriteria,
+      maxPoints: sumGradeScores(subcriteria.map(sub => sub.maxPoints)),
+    }));
+  }) };
+}
+
 export async function measureDiagramConcurrency(fixture: ScientificDiagramFixtureCase, images: ImageInput[],
-  level: CriterionLevel, createProvider: () => GradingProvider, signal: AbortSignal, progress: (completed: number) => void) {
-  const rubric = SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC;
+  level: CriterionLevel, createProvider: () => GradingProvider, signal: AbortSignal, progress: (completed: number) => void, groups: 4 | 8 = 4) {
+  const rubric = concurrencyBenchmarkRubric(groups);
   const errors: string[] = [];
   const tokens: number[] = [];
   let active = 0, peak = 0, completed = 0;
@@ -36,7 +50,7 @@ export async function measureDiagramConcurrency(fixture: ScientificDiagramFixtur
   for (const key of Object.keys(deviations)) deviations[key] = null;
   for (const criterion of proposal?.criteria ?? []) {
     for (const sub of criterion.subcriteria ?? []) {
-      const key = diagramTargetKey(criterion.criterionId, sub.subcriterionId);
+      const key = diagramTargetKey(criterion.criterionId.split('/group-')[0], sub.subcriterionId);
       if (key in deviations && criterion.assessmentStatus !== 'not-evaluated' && sub.assessmentStatus !== 'not-evaluated')
         deviations[key] = Math.abs(sub.points - fixture.referencePoints[key]!);
     }
@@ -44,7 +58,7 @@ export async function measureDiagramConcurrency(fixture: ScientificDiagramFixtur
   const measured = Object.values(deviations).filter((n): n is number => n !== null);
   const generated = tokens.length >= completed && tokens.length && tokens.every(Number.isFinite)
     ? tokens.reduce((a, b) => a + b, 0) : null;
-  return { caseId: fixture.id, level, peak, durationMs, errors, deviations, measured: measured.length,
+  return { caseId: fixture.id, groups, level, peak, durationMs, errors, deviations, measured: measured.length,
     exact: measured.filter(n => n < 0.001).length,
     tokensPerSecond: generated !== null && durationMs > 0 ? generated * 1000 / durationMs : null };
 }

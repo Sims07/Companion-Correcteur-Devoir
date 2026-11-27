@@ -114,7 +114,7 @@ export interface GradingProvider {
 }
 
 export interface OllamaSettings {
-  criterionConcurrency?: import('../../shared/domain/criterionConcurrency.ts').CriterionLevel;
+  criterionConcurrency?: import('../../shared/domain/criterionConcurrency.ts').CriterionLevel | 'auto';
   endpoint: string;
   /** Route chat calls through an OpenAI Chat Completions compatible endpoint. */
   apiCompatible?: boolean;

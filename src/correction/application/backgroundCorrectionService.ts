@@ -1,3 +1,4 @@
+import { resolveCriterionLevel } from '../../shared/domain/concurrencyCalibration.ts';
 import { placeAnnotationsAfterRotation, restoreCopyAnnotations } from '../domain/copyAnnotationFeature.ts';
 import { parseGradingProposal, toReviewedCriteria } from '../domain/grading.ts';
 import { createHybridDiagramShortcut } from '../ports/hybridDiagramShortcut.ts';
@@ -345,9 +346,13 @@ export function createBackgroundCorrectionService(
               progressWrite = progressWrite.then(() => saveProgress(id, criteria));
               return progressWrite;
             };
+            const level = resolveCriterionLevel({
+              ...jobSettings, analysisModel: model, apiCompatible: !!jobSettings.apiCompatible,
+              analysisThinking: !!current.thinking, analysisReasoningEffort: jobSettings.thinkingLevel,
+            }, current.rubric.criteria.length);
             const assessment = requested.criteria.length > 0
               ? await withModelInactivityTimeout(requestAbortController, markActivity => gradeDiagramImages(createProvider(), {
-                execution: { level: jobSettings.criterionConcurrency ?? 1, createProvider },
+                execution: { level, createProvider },
                 question: current.question, images: current.images, rubric: requested, signal,
                 onCriterion: (index, _title, result) => {
                   markActivity();
