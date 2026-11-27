@@ -5231,12 +5231,12 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
             // from the number of API calls or a notification saying "terminé".
             const archived = await diagramArchive.list();
             const scope = scopeRadarEntries(request.trial ? archived.filter(entry => entry.trial?.id === request.trial!.id) : archived, request.profileId);
-            const outcome = radarEvaluationOutcome(scope, request.modelId);
+            const outcome = radarEvaluationOutcome(scope, request.modelId, true);
             if (!outcome.complete && scienceMethodQueue.current && !failed.length) scienceMethodQueue.current.failures++;
             if (outcome.complete) return batteryStatus + 'Radar complet pour ' + request.profileName +
-              ' : 9/9 caractéristiques mesurées.';
+              ' : 7/7 caractéristiques mesurées.';
             return batteryStatus + 'Évaluation partielle pour ' + request.profileName + ' : ' +
-              outcome.measured + '/9 caractéristiques mesurées. Restent à mesurer : ' +
+              outcome.measured + '/7 caractéristiques mesurées. Restent à mesurer : ' +
               outcome.missing.map((axis) => axis.label + ' (' + axis.reason + ')').join(' ; ') +
               '. Consultez les campagnes pour comprendre les échecs ou les décisions indéterminées.';
           }}
