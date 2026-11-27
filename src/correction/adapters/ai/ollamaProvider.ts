@@ -496,7 +496,7 @@ export function createOllamaProvider(
       // Prepare smaller image payloads only for LLM transport. Never mutate the
       // teacher's original copy, or the high-resolution pages kept for zoom/review.
       // This also covers legacy queued copies that contain unscaled PNG/JPEG pages.
-      if (!chat?.responseId && (request.images?.length || request.subjectImages?.length || request.teacherAnnotationImages?.length || request.identityImage)) {
+      if (request.images?.length || request.subjectImages?.length || request.teacherAnnotationImages?.length || request.identityImage) {
         const cache = new WeakMap<ImageInput, ImageInput>();
         const prepareImage = async (image: ImageInput) => {
           const cached = cache.get(image);
