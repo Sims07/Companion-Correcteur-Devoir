@@ -20,6 +20,11 @@ Le rapport exporte la même limite que le transport. Une masse observée supéri
 reste un échec technique ; le motif précise la masse, le nombre de tokens distincts et leurs
 probabilités par catégorie de verdict, sans inclure le texte brut des tokens. Le choix échantillonné
 est conservé à titre diagnostique uniquement, sans verdict ni note.
+Le pilote poursuit les cas lorsque cette distribution fournit des scores relatifs : chaque masse
+par lettre est divisée par la masse totale des tokens observés (y compris les autres tokens).
+Ce classement conditionnel est affiché et compté séparément ; les alternatives non observées
+restent inconnues. Il ne rend pas la distribution valide et ne débloque ni le radar logprobs
+ni le raccourci hybride. Les autres erreurs techniques continuent d’interrompre le pilote.
 
 Les alternatives top_logprobs et le token généré sont dédupliqués, les variantes avec espace
 agrégées ; seules les masses brutes observées sont affichées. Une alternative manquante reste
