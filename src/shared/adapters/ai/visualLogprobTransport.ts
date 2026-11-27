@@ -1,18 +1,12 @@
 import { currentFetch } from './currentFetch.ts';
-import { responsesEndpoint, supportsLocalSystemOne } from '../../domain/lmStudioTransport.ts';
+import { localLogprobEndpoint } from '../../domain/hybridVisualLogprobs.ts';
+export { localLogprobEndpoint } from '../../domain/hybridVisualLogprobs.ts';
 import type { LogprobSettings } from '../../ports/visualLogprobProbe.ts';
 export type { LogprobSettings } from '../../ports/visualLogprobProbe.ts';
 import type { ImageInput } from '../../domain/imageInput.ts';
 import { annotateNetworkRequest } from '../../ports/networkRequestMetadata.ts';
 import { decodeVisualLogprobs, logprobQuestion, unavailableLogprobDecision, visualLogprobTopAlternatives,
   type LogprobTarget } from '../../domain/visualLogprobDecision.ts';
-
-/** Only a configured local Responses route. No automatic cloud or chat fallback. */
-export function localLogprobEndpoint(config: LogprobSettings): string | undefined {
-  if (!config.apiCompatible || config.correctionMethod !== 'generative' || !config.analysisModel.trim()) return undefined;
-  const endpoint = responsesEndpoint(config.endpoint);
-  return endpoint && supportsLocalSystemOne({ apiCompatible: true, endpoint }) ? endpoint : undefined;
-}
 
 export async function probeVisualLogprobs(settings: LogprobSettings, images: readonly ImageInput[],
   target: LogprobTarget, context: string, signal: AbortSignal, fetchImpl: typeof fetch = currentFetch, intent = 'Laboratoire · décision visuelle logprobs') {
