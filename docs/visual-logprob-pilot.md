@@ -16,6 +16,10 @@ de l'engine et de la tokenisation ; elle n'est pas présumée.
 Le transport commun au pilote, au radar et à la correction hybride demande au maximum dix
 alternatives (`top_logprobs: 10`), conformément à la limite observée sur Bionic.
 La couverture peut être moindre qu’avec vingt alternatives ; aucune probabilité absente n’est inventée.
+Le rapport exporte la même limite que le transport. Une masse observée supérieure à 100,001 %
+reste un échec technique ; le motif précise la masse, le nombre de tokens distincts et leurs
+probabilités par catégorie de verdict, sans inclure le texte brut des tokens. Le choix échantillonné
+est conservé à titre diagnostique uniquement, sans verdict ni note.
 
 Les alternatives top_logprobs et le token généré sont dédupliqués, les variantes avec espace
 agrégées ; seules les masses brutes observées sont affichées. Une alternative manquante reste
