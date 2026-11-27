@@ -64,7 +64,7 @@ const fixtureImageUrls: Record<ScientificDiagramFixtureId, string> = {
 
 /** Bundled raster art is passed directly to the normal image preparer.
  * Only the old D/E SVG controls require device-local rasterization. */
-async function prepareBundledDiagramFile(id: ScientificDiagramFixtureId): Promise<File> {
+export async function prepareBundledDiagramFile(id: ScientificDiagramFixtureId): Promise<File> {
   const response = await fetch(fixtureImageUrls[id], { cache: 'force-cache' });
   if (!response.ok) throw new Error('Image intégrée indisponible pour le cas ' + id);
   const blob = await response.blob();

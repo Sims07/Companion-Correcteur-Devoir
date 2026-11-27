@@ -1,3 +1,4 @@
+import { DiagramConcurrencyPanel } from '../../evaluation/ui/components/DiagramConcurrencyPanel.tsx';
 import { canTryVisualDecision } from '../../shared/domain/decisionModelCapabilities.ts';
 import { supportsLocalSystemOne, aiTransport, endpointForTransport, type AiTransport } from '../../shared/domain/lmStudioTransport.ts';
 import { CopyActionIcon } from '../../correction/ui/components/CopyActionIcon.tsx';
@@ -5996,6 +5997,9 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
             setEvaluationBiologyScenario(scenario);
             setBiologyRadarOpen(false);
           }} /></div>}
+      <DiagramConcurrencyPanel profiles={aiModelProfiles} busy={busy || pilotBusy || radarAutoBusy}
+        provider={settings => service.createProvider(settings)} prepare={files => service.prepareFiles(files)}
+        visible={interfaceMode === 'diagnostic' && evaluationJourney === 'diagrams' && diagramLabView === 'protocols' && evaluationWorkspaceStep === 'configuration'} />
       <ZoomWitnessPanel profiles={aiModelProfiles} busy={busy || pilotBusy || radarAutoBusy}
         current={{ endpoint, apiCompatible, apiKey, analysisModel, analysisThinking, analysisReasoningEffort, omitReasoningParameter, gradingOutputTokens, analysisTemperature, analysisTopP, smartZoomBudget }}
         visible={interfaceMode === 'diagnostic' && evaluationJourney === 'diagrams' && diagramLabView === 'protocols' && evaluationWorkspaceStep === 'configuration'} />
