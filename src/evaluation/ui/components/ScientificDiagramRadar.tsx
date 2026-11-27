@@ -365,7 +365,7 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
           </strong>
           <p>{evidence.reason}</p>
           {evidence.value === null && grouping === 'model' && examined &&
-            <p role="status">{diagnoseUnmeasuredRadarAxis(scopedEntries, scopedModel, axis)}</p>}
+            <p role="status">{diagnoseUnmeasuredRadarAxis(scopedEntries, scopedModel, axis, true)}</p>}
           {evidence.value === null && examined && <div className="diagram-radar-next-test">
             {missingPlan ? <>
               <strong>Compléter cet axe</strong>
