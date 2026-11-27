@@ -13,8 +13,8 @@ describe('catalogue des fiches illustrées du laboratoire', () => {
     const science = radarMethodGuideEntries('diagrams');
     const biology = radarMethodGuideEntries('biology');
     expect(science.map(entry => entry.id)).toEqual([
-      'image-direct-v1', 'direct-image-batch', 'pixel-v1', 'leaders-v1', 'direct-v1', 'guided-v1', 'graph-first-v1',
-      'graph-first-v2', 'vision-then-analysis', 'direct-image-generative-thinking', 'direct-image-systemone',
+      'image-direct-v1', 'pixel-v1', 'leaders-v1', 'direct-v1', 'guided-v1', 'graph-first-v1',
+      'graph-first-v2', 'vision-then-analysis', 'direct-image-generative-thinking', 'direct-image-batch', 'direct-image-systemone',
       'direct-image-logprobs', 'direct-image-hybrid', 'direct-image-hybrid-zoom',
     ]);
     expect(biology).toHaveLength(3);
