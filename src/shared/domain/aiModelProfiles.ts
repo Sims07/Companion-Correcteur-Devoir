@@ -7,6 +7,8 @@ export interface AiModelOption {
   name: string;
   label?: string;
   decision?: boolean;
+  /** Recognized by identifier, not confirmed by the native catalogue. */
+  decisionInferred?: boolean;
   vision?: boolean;
   tools?: boolean;
   reasoningOptions?: string[];

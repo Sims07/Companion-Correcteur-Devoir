@@ -26,6 +26,35 @@ describe('discoverCompatibleModels', () => {
     expect(fetchMock).toHaveBeenCalledOnce();
   });
 
+  it('classifies decision checkpoints from Bionic metadata and versioned identifiers, preserving aliases', async () => {
+    const fetchMock = vi.fn<typeof fetch>(async () => Response.json({ models: [
+      { key: 'pplx-decider-flash-v1.2', type: 'llm', capabilities: { vision: true }, loaded_instances: [{ id: 'local-flash' }] },
+      { key: 'unknown-decision', type: 'decision', has_vision_adapter: true },
+      { key: 'text-decision', type: 'decision', has_vision_adapter: false, capabilities: { vision: true } },
+      { key: 'other-decision', type: 'llm', decision_type: 'systemone', has_vision_adapter: true },
+      { key: 'pplx-computer-qwen', type: 'llm', capabilities: { vision: true } },
+    ] }));
+    const models = await discoverCompatibleModels('https://mac.example/v1/responses', '', fetchMock);
+    expect(models).toMatchObject([
+      { name: 'pplx-decider-flash-v1.2', decision: true, decisionInferred: true, vision: true },
+      { name: 'local-flash', decision: true, decisionInferred: true, vision: true },
+      { name: 'unknown-decision', decision: true, vision: true },
+      { name: 'text-decision', decision: true, vision: false },
+      { name: 'other-decision', decision: true, vision: true },
+      { name: 'pplx-computer-qwen', decision: false, vision: true },
+    ]);
+    expect(models?.[2].decisionInferred).toBeUndefined();
+  });
+
+  it('recognizes known decision identifiers in the compatible fallback without guessing other roles', async () => {
+    const fetchMock = vi.fn<typeof fetch>(async url => String(url).includes('/api/')
+      ? new Response(null, { status: 404 })
+      : Response.json({ data: [{ id: 'pplx-decider-flash-v1.2' }, { id: 'unknown' }] }));
+    await expect(discoverCompatibleModels('https://mac.example/v1/responses', '', fetchMock)).resolves.toEqual([
+      { name: 'pplx-decider-flash-v1.2', decision: true, decisionInferred: true }, { name: 'unknown' },
+    ]);
+  });
+
   it('uses the compatible catalogue when a native catalogue is unavailable', async () => {
     const fetchMock = vi.fn<typeof fetch>(async url => String(url).includes('/api/')
       ? new Response(null, { status: 404 })

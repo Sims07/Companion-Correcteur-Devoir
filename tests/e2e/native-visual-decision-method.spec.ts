@@ -5,7 +5,7 @@ const profilesKey = 'companion-correcteur:ollama-profiles:v1';
 
 for (const bionic of [false, true]) {
 test('one native diagram request via ' + (bionic ? 'LM Studio Bionic' : 'Ollama'), async ({ page }) => {
-  const model = bionic ? 'instance-visuelle' : 'clef-flash';
+  const model = bionic ? 'pplx-decider-flash-v1.2' : 'clef-flash';
   const requests: Array<{ url: string; payload: Record<string, unknown> }> = [];
   await page.route(bionic ? 'http://localhost:1234/**' : 'http://localhost:11434/**', async (route) => {
     const request = route.request();
@@ -13,7 +13,7 @@ test('one native diagram request via ' + (bionic ? 'LM Studio Bionic' : 'Ollama'
     const headers = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*',
       'access-control-allow-methods': 'POST,GET,OPTIONS', 'content-type': 'application/json' };
     if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers });
-    if (url.pathname === '/api/v1/models') return route.fulfill({ status: 200, headers, body: JSON.stringify({ models: [{ key: model, type: 'decision', capabilities: { vision: true } }] }) });
+    if (url.pathname === '/api/v1/models') return route.fulfill({ status: 200, headers, body: JSON.stringify({ models: [{ key: model, type: 'llm', capabilities: { vision: true } }, { key: 'future-decision', type: 'decision', has_vision_adapter: true }, { key: 'gemma', type: 'llm' }] }) });
     if (url.pathname === '/v1/models') return route.fulfill({ status: 200, headers, body: JSON.stringify({ data: [{ id: 'clef-flash' }] }) });
     if (url.pathname === '/api/tags') return route.fulfill({ status: 200, headers, body: JSON.stringify({
       models: [{ name: 'clef-flash', model: 'clef-flash' }],
@@ -43,7 +43,12 @@ test('one native diagram request via ' + (bionic ? 'LM Studio Bionic' : 'Ollama'
   if (bionic) await page.getByLabel('Connexion IA').selectOption('lmstudio-chat');
   await page.locator('#evaluation-profile-name').fill('Clef Vision + Décision');
   await page.getByText('Méthode de correction et modèle décisionnel', { exact: true }).click();
-  await page.locator('#evaluation-decision-model').fill(model);
+  if (bionic) {
+    await page.getByRole('button', { name: /Tester la connexion et détecter les modèles/ }).click();
+    await expect(page.locator('#evaluation-decision-model option[value="future-decision"]')).toHaveCount(1);
+    await expect(page.locator('#evaluation-analysis-model option[value="pplx-decider-flash-v1.2"]')).toHaveCount(0);
+    await page.locator('#evaluation-decision-model').selectOption(model);
+  } else await page.locator('#evaluation-decision-model').fill(model);
   await page.locator('#evaluation-correction-method').selectOption('decision');
   await page.getByText('Options de décision sur image', { exact: true }).click();
   await page.getByLabel('Envoyer directement les images au décisionnel').check();
