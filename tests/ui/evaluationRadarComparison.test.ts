@@ -280,7 +280,7 @@ it('starts every remaining scientific method sequentially as separate two-batter
     profileId: string; modelId?: string;
   }>;
   expect(requests).toHaveLength(5);
-  expect(new Set(requests.map(request => request.trial.id)).size).toBe(4);
+  expect(new Set(requests.map(request => request.trial.id)).size).toBe(5);
   expect(requests.map(request => request.trial.method)).toEqual(
     (await import('../../src/evaluation/domain/radarTimeline.ts')).OBSERVATION_SCIENCE_METHOD_IDS
       .filter(method => method !== 'direct-image-systemone' && method !== 'vision-then-analysis' && !['direct-image-logprobs','direct-image-hybrid','direct-image-hybrid-zoom'].includes(method)));
