@@ -1,3 +1,4 @@
+import { resolveCriterionLevel } from '../../shared/domain/concurrencyCalibration.ts';
 import { createHybridDiagramShortcut } from '../ports/hybridDiagramShortcut.ts';
 import type { AiModelConfiguration } from '../../shared/domain/aiModelProfiles.ts';
 import type { GradingProposal } from '../domain/grading.ts';
@@ -54,5 +55,5 @@ export async function correctScientificDiagramDirect(
   if (signal?.aborted) throw new DOMException('Traitement interrompu.', 'AbortError');
 
   const createProvider = () => gateway.createProvider(settings);
-  return gradeDiagramImages(createProvider(), { ...request, execution: { level: configuration.criterionConcurrency ?? 1, createProvider } }, settings.criterionByCriterion, undefined, configuration.smartZoom === true, shortcut);
+  return gradeDiagramImages(createProvider(), { ...request, execution: { level: resolveCriterionLevel(configuration), createProvider } }, settings.criterionByCriterion, undefined, configuration.smartZoom === true, shortcut);
 }
