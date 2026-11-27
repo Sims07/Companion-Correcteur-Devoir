@@ -240,7 +240,7 @@ describe('scientific automatic protocol runner invoked from radar', () => {
     await act(async () => root.unmount());
   });
 
-  it('explains an invalid graph endpoint and copies the launch error in one click', async () => {
+  it('explains a retired graph request and copies the launch error in one click', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     vi.stubGlobal('navigator', Object.assign(Object.create(navigator), { clipboard: { writeText } }));
     const invalidProfile: AiModelProfile = {
@@ -262,12 +262,12 @@ describe('scientific automatic protocol runner invoked from radar', () => {
     })));
     const feedback = container.querySelector('[aria-label="Suivi du lancement depuis le radar"]');
     expect(feedback?.textContent).toContain('Cause :');
-    expect(feedback?.textContent).toContain('adresse racine');
+    expect(feedback?.textContent).toContain('test historique S0–S5');
     const copy = [...container.querySelectorAll('button')].find((button) =>
       button.textContent?.includes('Copier l’erreur'));
     expect(copy).toBeDefined();
     await act(async () => (copy as HTMLButtonElement).click());
-    expect(writeText).toHaveBeenCalledWith(expect.stringContaining('adresse racine'));
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining('test historique S0–S5'));
     expect(feedback?.textContent).toContain('Erreur copiée.');
     expect(invoked).not.toHaveBeenCalled();
     await act(async () => root.unmount());

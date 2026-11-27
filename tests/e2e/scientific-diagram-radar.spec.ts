@@ -7,7 +7,7 @@ test('benchmark radar ranks complete scientific candidates and reveals the origi
   const inputs = (['reference', 'arrows', 'semantic', 'graph'] as const).map((protocol, index) => {
     const cases = (protocol === 'reference' ? ['A', 'B', 'C'] : protocol === 'arrows' ? ['D', 'E']
       : DIAGRAM_SENSITIVITY_CASES.map((item) => item.id)).map((caseId) => {
-      const gold = protocol === 'reference' ? { 'graphic::quality': 'present' }
+      const gold = protocol === 'reference' ? { 'graphic::quality': 'present', 'understanding::phase': 'present' }
         : protocol === 'arrows' ? { [SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET]: caseId === 'D' ? 'present' : 'absent' }
           : DIAGRAM_SENSITIVITY_CASES.find((c) => c.id === caseId)?.gold ?? {};
       const experiments = ['profile-good', 'profile-mixed'].flatMap((profileId) =>
@@ -80,9 +80,9 @@ test('benchmark radar ranks complete scientific candidates and reveals the origi
   const overview = journal.getByRole('region', { name: 'Bilan des batteries scientifiques' });
   await expect(overview.locator('.diagram-lab-readiness-stat').nth(0)).toContainText('4');
   await expect(overview.locator('.diagram-lab-readiness-stat').nth(1)).toContainText('2');
-  await expect(overview.locator('.diagram-lab-readiness-stat').nth(2)).toContainText('9/9');
-  await expect(overview.getByText(/candidats avec neuf axes/)).toBeVisible();
-  await overview.getByRole('button', { name: 'Voir le radar à neuf axes' }).click();
+  await expect(overview.locator('.diagram-lab-readiness-stat').nth(2)).toContainText('7/7');
+  await expect(overview.getByText(/candidats avec sept axes/)).toBeVisible();
+  await overview.getByRole('button', { name: 'Voir le radar à sept axes' }).click();
   await expect(page.getByRole('navigation', { name: 'Espaces de l’évaluation' })
     .getByRole('button', { name: 'Radars' })).toHaveAttribute('aria-current', 'page');
   const radar = journal.getByRole('region', { name: 'Radar des candidats scientifiques' });
@@ -90,7 +90,7 @@ test('benchmark radar ranks complete scientific candidates and reveals the origi
   await expect(radar.getByRole('region', { name: 'Classement des candidats' }).getByText('2 candidat(s) classable(s)')).toBeVisible();
   await expect(radar.getByLabel('Choisir un LLM')).toHaveValue('profile-good');
   await expect(radar.getByRole('region', { name: 'Bilan du LLM sélectionné' })).toContainText('Note globale');
-  await expect(radar.locator('.diagram-radar-score-coverage')).toContainText('9 / 9');
+  await expect(radar.locator('.diagram-radar-score-coverage')).toContainText('7 / 7');
   await radar.getByLabel('Choisir un LLM').selectOption('profile-mixed');
   await expect(radar.getByRole('region', { name: 'Bilan du LLM sélectionné' })).toContainText('Vision rapide');
   await radar.getByLabel('Choisir un LLM').selectOption('profile-good');

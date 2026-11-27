@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { DiagramLabArchiveEntry, DiagramLabProtocol } from '../../../src/evaluation/domain/diagramLabHistory.ts';
-import { radarEvaluationOutcome } from '../../../src/evaluation/domain/diagramLabRadarLaunch.ts';
+import { radarEvaluationOutcome, planRadarModelEvaluation } from '../../../src/evaluation/domain/diagramLabRadarLaunch.ts';
 import { DIAGRAM_SENSITIVITY_CASES } from '../../../src/evaluation/domain/scientificDiagramSensitivity.ts';
 import { SCIENTIFIC_DIAGRAM_FIXTURES, SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET } from '../../../src/evaluation/domain/scientificDiagramFixtures.ts';
+import { trialSteps } from '../../../src/evaluation/domain/radarTimeline.ts';
+import { scienceMethodProgress } from '../../../src/evaluation/domain/radarMethodProgress.ts';
 import { buildDiagramLabRadar, diagnoseUnmeasuredRadarAxis, compareRadarCommonAxes, observedRadarScore, RADAR_PRESETS, rankDiagramLabRadar, validRadarWeights } from '../../../src/evaluation/domain/diagramLabRadar.ts';
 
 function sample(protocol: Exclude<DiagramLabProtocol, 'personal'>, createdAt: string, repetitions = 1): DiagramLabArchiveEntry {
@@ -394,5 +396,46 @@ it('identifies the actual archived method independently of the D/E battery title
   for (const c of row.report.cases) for (const run of c.experiments) run.method = 'graph-first-v1';
   expect(sciencePoints([row], RADAR_PRESETS.scientific)[0]).toMatchObject({
     label:'Image → graphe → correction · v1', scienceMethod:'graph-first-v1', protocolLabel:row.title,
+  });
+});
+
+describe('drawings of observation without directed-arrow experiments', () => {
+  it('scores seven axes using only A/B/C and D/E, never archived semantic or graph evidence', () => {
+    const entries = complete(3);
+    const reference = entries[0]!;
+    const cases = (reference.report as unknown as { cases: Array<{
+      caseId: string; gold: Record<string, string>;
+      experiments: Array<{ observations: Array<{ key: string; choice: string }> }>;
+    }> }).cases;
+    for (const item of cases) {
+      const fixture = SCIENTIFIC_DIAGRAM_FIXTURES.find(row => row.id === item.caseId)!;
+      item.gold = { ...fixture.gold };
+      for (const run of item.experiments) run.observations = Object.entries(item.gold).map(([key, choice]) => ({
+        key, choice: item.caseId === 'C' && key === 'understanding::understanding-interphase' ? 'present' : choice,
+      }));
+    }
+    const before = JSON.stringify(entries);
+    const current = buildDiagramLabRadar(entries, 'model', [], true)[0]!;
+    expect(current.complete).toBe(true);
+    expect(current.measured).toBe(7);
+    expect(current.axes.biology.value).toBeCloseTo(91.7, 1);
+    expect(current.axes.biology.evidence[0]?.protocol).toBe('reference');
+    expect(current.axes.relations.value).toBeNull();
+    expect(current.axes.robustness.value).toBeNull();
+    expect(current.axes.speed.evidence.map(item => item.protocol).sort()).toEqual(['arrows', 'reference']);
+    expect(rankDiagramLabRadar([current], RADAR_PRESETS.balanced)[0]?.weightedScore).not.toBeNull();
+    expect(planRadarModelEvaluation(current, entries)).toBeNull();
+    expect(buildDiagramLabRadar(entries, 'model')[0]?.axes.relations.value).toBe(100);
+    expect(JSON.stringify(entries)).toBe(before);
+  });
+  it('does not schedule directed-arrow batteries, even when an old graph archive exists', () => {
+    const entries = [sample('graph', '2026-11-10T15:00:00Z')];
+    const profile = { id: 'profile-q', name: 'Qwen', configuration: { analysisModel: 'qwen:4b', visionModel: '' } };
+    const candidate = buildDiagramLabRadar(entries, 'model', [profile], true)[0]!;
+    expect(candidate.measured).toBe(0);
+    expect(planRadarModelEvaluation(candidate, entries)?.steps.map(step => step.protocol)).toEqual(['reference', 'arrows']);
+    expect(trialSteps('direct-image-hybrid', true).map(step => step.protocol)).toEqual(['reference', 'arrows']);
+    expect(scienceMethodProgress(entries, 'qwen:4b', true).find(item => item.method === 'direct-image-hybrid')?.steps.map(step => step.protocol)).toEqual(['reference', 'arrows']);
+    expect(scienceMethodProgress(entries, 'qwen:4b', true).some(item => item.method === 'pixel-v1')).toBe(false);
   });
 });

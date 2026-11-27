@@ -39,7 +39,6 @@ describe('decision models on the unchanged radar dashboard', () => {
         steps: [
           { protocol: 'reference', method: 'direct-image-systemone' },
           { protocol: 'arrows', method: 'direct-image-systemone' },
-          { protocol: 'semantic', method: 'direct-image-systemone' },
         ],
       });
 

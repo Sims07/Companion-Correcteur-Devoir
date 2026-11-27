@@ -7,7 +7,7 @@ import { BlindGraphRunDetails } from './BlindGraphRunDetails.tsx';
 import { buildDiagramLabComparison } from '../../domain/diagramLabComparison.ts';
 import { compareCampaignRubrics } from '../../domain/diagramRubricComparison.ts';
 import type { RadarMissingTestRequest } from '../../domain/diagramLabRadarLaunch.ts';
-import { buildDiagramLabRadar, type RadarAxisId, type RadarModelConfiguration } from '../../domain/diagramLabRadar.ts';
+import { OBSERVATION_RADAR_AXES, buildDiagramLabRadar, type RadarAxisId, type RadarModelConfiguration } from '../../domain/diagramLabRadar.ts';
 import { describeDiagramCampaign } from '../../domain/diagramCampaignVerdict.ts';
 import { summarizeDiagramLabReadiness } from '../../domain/diagramLabReadiness.ts';
 import { ScientificDiagramRadar } from './ScientificDiagramRadar.tsx';
@@ -261,8 +261,8 @@ export function ScientificDiagramLabHistory({ initialReportId, revision, archive
   const visible = useMemo(() => entries.filter((entry) =>
     (protocolFilter === 'all' || entry.protocol === protocolFilter) &&
     (entry.title + ' ' + entry.profiles.join(' ')).toLocaleLowerCase('fr-FR').includes(search.toLocaleLowerCase('fr-FR'))), [entries, protocolFilter, search]);
-  const radarCandidates = useMemo(() => buildDiagramLabRadar(entries, 'profile'), [entries]);
-  const readiness = useMemo(() => summarizeDiagramLabReadiness(entries.length, radarCandidates), [entries, radarCandidates]);
+  const radarCandidates = useMemo(() => buildDiagramLabRadar(entries, 'profile', [], true), [entries]);
+  const readiness = useMemo(() => summarizeDiagramLabReadiness(entries.length, radarCandidates, OBSERVATION_RADAR_AXES.length), [entries, radarCandidates]);
   const selected = entries.find((item) => item.id === selectedId) ?? visible[0] ?? null;
   const campaignResult = selected ? describeDiagramCampaign(selected) : null;
   // The test banner deep-links to a specific archived report: place focus on
@@ -280,7 +280,7 @@ export function ScientificDiagramLabHistory({ initialReportId, revision, archive
     {view === 'campaigns' && onBack && <div className="diagram-lab-history-back"><Button variant="secondary" onClick={onBack}>← Retour aux campagnes</Button><span>Historique des évaluations / Schémas scientifiques</span></div>}
     {view === 'campaigns' && <div className="diagram-lab-history-heading">
       <div><p className="eyebrow">CAMPAGNES DE TEST · SCHÉMAS SCIENTIFIQUES</p><h2>Campagnes de test</h2>
-        <p>Comparez les performances sur neuf caractéristiques ou examinez les preuves de chaque campagne.</p></div>
+        <p>Comparez les performances sur sept caractéristiques ou examinez les preuves de chaque campagne.</p></div>
       <div className="diagram-lab-history-heading-actions">
         <input ref={fileInput} type="file" accept=".json,application/json" hidden
           aria-label="Choisir un ancien rapport JSON"
@@ -303,11 +303,11 @@ export function ScientificDiagramLabHistory({ initialReportId, revision, archive
       <div className="diagram-lab-readiness-stat"><strong>{readiness.bestMeasuredAxes}/{readiness.totalAxes}</strong><span>Axes du profil le mieux couvert</span></div>
       <div className="diagram-lab-readiness-action">
         <p role="status">{readiness.fullyMeasured >= 2
-          ? readiness.fullyMeasured + ' candidats avec neuf axes : comparaison globale possible.'
+          ? readiness.fullyMeasured + ' candidats avec sept axes : comparaison globale possible.'
           : readiness.fullyMeasured === 1
             ? 'Un candidat complet. Évaluez un second candidat pour les comparer.'
             : 'Aucun candidat complet : les axes non testés restent non mesurés.'}</p>
-        <Button variant="secondary" onClick={() => onViewChange('radar')}>Voir le radar à neuf axes</Button>
+        <Button variant="secondary" onClick={() => onViewChange('radar')}>Voir le radar à sept axes</Button>
       </div>
     </section>}
 

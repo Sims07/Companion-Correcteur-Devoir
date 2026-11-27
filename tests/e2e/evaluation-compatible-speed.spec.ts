@@ -73,7 +73,7 @@ test('a completed LM Studio scientific evaluation includes portable performance 
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
   const radar = page.getByRole('region', { name: 'Tableau de bord des radars' });
   const science = radar.getByRole('article', { name: 'Schémas scientifiques' });
-  await expect(science).toContainText('9/9 axes');
+  await expect(science).toContainText('7/7 axes');
   await expect(science).toContainText('Note globale');
   await expect(science.getByRole('button', { name: 'Compléter les tests' })).toHaveCount(0);
 

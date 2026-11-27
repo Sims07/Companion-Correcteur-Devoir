@@ -342,7 +342,7 @@ export function ScientificDiagramProtocolPanel({
     onAutoRequestConsumed?.(autoRequest.id);
     const profile = selectedProfiles[0]!;
     const issue = autoRequest.steps.map((step) =>
-      step.protocol === 'graph' ? blindGraphProfileIssue(profile) : diagramMethodIssue(profile, step.method))
+      step.protocol === 'semantic' || step.protocol === 'graph' ? 'Le test historique S0–S5 sur les flèches dirigées est retiré du radar des dessins d’observation.' : diagramMethodIssue(profile, step.method))
       .find((reason): reason is string => Boolean(reason));
     if (issue) {
       setDiagnosticCopyMessage('');
@@ -508,8 +508,6 @@ export function ScientificDiagramProtocolPanel({
         ['reference', 'FORME', 'Qualité graphique', 'A/B/C · Présentation et justesse', '3 dessins'],
         ['arrows', 'LÉGENDES', 'Traits de rappel', 'D/E · Destinations des traits', '2 dessins'],
         ['classroom', 'OBSERVATION', 'Cas de classe synthétiques', 'R1/R2/R3 · Erreurs de copies', '3 dessins'],
-        ['semantic', 'BIOLOGIE', 'Compréhension biologique', 'S0–S5 · Relations fausses et témoins', '6 dessins'],
-        ['graph', 'GRAPHE', 'Graphe des relations', 'S0–S5 · Lecture sans barème', '6 dessins'],
       ] as const).map(([id, number, title, subtitle, count]) =>
         <button key={id} role="tab" type="button" aria-selected={activeProtocol === id}
           disabled={busy || uploading || fixtureLoading || sensitivityLoading || blindGraphLoading}
@@ -518,6 +516,7 @@ export function ScientificDiagramProtocolPanel({
         </button>)}
     </div>
 
+    <p className="pilot-evaluation-hint">Dessins d’observation : aucun sens ni pointe de flèche exigé. Les anciens essais S0–S5 restent consultables dans les campagnes enregistrées.</p>
     <p className="diagram-lab-protocol-summary" role="status">{({ reference: '3 schémas · présentation, légendes et justesse', arrows: '2 schémas · traits corrects D et cibles incorrectes E', classroom: '3 dessins entièrement synthétiques · références provisoires, aucune copie privée', semantic: '6 variantes · erreurs biologiques et faux rejets', graph: '6 schémas · relations sans barème' } as const)[activeProtocol]}</p>
     {activeProtocol !== 'graph' && (autoSequenceRunning && activeAutoStep
       ? <div className="diagram-fixture-run-controls diagram-lab-method diagram-lab-auto-engine" role="status"

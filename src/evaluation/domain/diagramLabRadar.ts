@@ -16,6 +16,16 @@ export const RADAR_AXES = [
 ] as const;
 
 export type RadarAxisId = typeof RADAR_AXES[number]['id'];
+/** Drawing-of-observation scope: directed process arrows are not a grading
+ * requirement. Legacy axes remain readable in historical reports. */
+export const OBSERVATION_RADAR_AXES: readonly { id: RadarAxisId; label: string; short: string; detail: string }[] =
+  RADAR_AXES.filter(axis => axis.id !== 'relations' && axis.id !== 'robustness').map(axis =>
+    axis.id === 'biology' ? { ...axis, detail: 'Exactitude des attendus de compréhension biologique sur A/B/C et R1/R2/R3.' } : axis);
+export const observationRadarProtocol = (protocol: DiagramLabProtocol) =>
+  protocol === 'reference' || protocol === 'arrows' || protocol === 'classroom';
+export function radarAxesFor(candidate: { observationOnly?: boolean }) {
+  return candidate.observationOnly ? OBSERVATION_RADAR_AXES : RADAR_AXES;
+}
 export type RadarWeights = Record<RadarAxisId, number>;
 export type RadarGrouping = 'model' | 'profile' | 'method';
 
@@ -47,6 +57,7 @@ export interface RadarAxisScore {
   evidence: RadarEvidence[];
 }
 export interface RadarCandidate {
+  observationOnly?: boolean;
   id: string;
   profileId: string;
   name: string;
@@ -188,7 +199,7 @@ function completeReadings(readings: Reading[], protocol: Exclude<DiagramLabProto
     })).flatMap((rows) => rows);
 }
 
-function goldAccuracy(battery: Battery, key?: string): Fraction | null {
+function goldAccuracy(battery: Battery, key?: string | ((target: string) => boolean)): Fraction | null {
   let correct = 0;
   let labelled = 0;
   let resolved = 0;
@@ -207,7 +218,7 @@ function goldAccuracy(battery: Battery, key?: string): Fraction | null {
         Object.prototype.hasOwnProperty.call(matchingCase.gold, target));
     const referenceGold = sameTargets ? currentReference.gold : matchingCase.gold;
     for (const [target, gold] of Object.entries(referenceGold)) {
-      if (key && target !== key) continue;
+      if (key && (typeof key === 'function' ? !key(target) : target !== key)) continue;
       if (gold !== 'present' && gold !== 'absent' && gold !== 'partial') continue;
       labelled++;
       const choice = run.observations[target];
@@ -435,10 +446,11 @@ export function buildDiagramLabRadar(
   entries: readonly DiagramLabArchiveEntry[],
   grouping: RadarGrouping = 'profile',
   savedProfiles: readonly RadarModelConfiguration[] = [],
+  observationOnly = false,
 ): RadarCandidate[] {
   const candidates = new Map<string, CandidateDraft>();
   for (const entry of [...entries].sort((a, b) => b.createdAt.localeCompare(a.createdAt))) {
-    if (entry.state !== 'finished' || entry.protocol === 'personal') continue;
+    if (entry.state !== 'finished' || entry.protocol === 'personal' || (observationOnly && !observationRadarProtocol(entry.protocol))) continue;
     // D/E artwork changed in fixture v7: the microscopy leaders no longer
     // have arrowheads. Keep older reports in history, but do not score v6
     // arrowheaded images as evidence for the new leader-line benchmark.
@@ -515,12 +527,26 @@ export function buildDiagramLabRadar(
   }
   return [...candidates.values()].map((candidate) => {
     const axes = makeCandidateAxes(candidate.batteries, candidate.stabilityBatteries, candidate.relationsBattery);
-    const measured = RADAR_AXES.filter((axis) => axes[axis.id].value !== null).length;
+    if (observationOnly) {
+      const biologyEvidence = ['reference', 'classroom'].flatMap(protocol => {
+        const battery = candidate.batteries.get(protocol as DiagramLabProtocol);
+        const fraction = battery && goldAccuracy(battery, target => target.startsWith('understanding::'));
+        return battery && fraction ? [evidence(battery, 'Compréhension biologique : décisions exactes / attendus', fraction.n, fraction.d)] : [];
+      });
+      const total = biologyEvidence.reduce((sum, item) => sum + item.total, 0);
+      axes.biology = total ? { value: percent(biologyEvidence.reduce((sum, item) => sum + item.observed, 0), total),
+        reason: 'Compréhension biologique des dessins d’observation A/B/C et R1/R2/R3.', evidence: biologyEvidence }
+        : empty('Aucune batterie A/B/C ou R1/R2/R3 complète avec décision biologique exploitable.');
+      axes.relations = empty('Ancienne batterie S0–S5 hors périmètre des dessins d’observation.');
+      axes.robustness = empty('Ancienne batterie S0–S5 hors périmètre des dessins d’observation.');
+    }
+    const activeAxes = radarAxesFor({ observationOnly });
+    const measured = activeAxes.filter((axis) => axes[axis.id].value !== null).length;
     return {
       id: candidate.id, profileId: candidate.profileId,
       name: grouping === 'method' ? candidate.name + ' · ' + [...candidate.methods].join(', ') : candidate.name,
       methods: [...candidate.methods].sort(), models: [...candidate.models].sort(),
-      axes, measured, complete: measured === RADAR_AXES.length,
+      axes, measured, complete: measured === activeAxes.length, ...(observationOnly ? { observationOnly: true } : {}),
       updatedAt: candidate.batteries.size ? candidate.updatedAt : '',
     };
   }).sort((a, b) => b.measured - a.measured || a.name.localeCompare(b.name, 'fr'));
@@ -606,12 +632,13 @@ export function diagnoseGraphRadarMeasurement(
 /** Explain a missing measure from locally archived runs, without inventing
  * a zero or treating a successful network request as a scored decision. */
 export function diagnoseUnmeasuredRadarAxis(
-  entries: readonly DiagramLabArchiveEntry[], modelId: string, axis: RadarAxisId,
+  entries: readonly DiagramLabArchiveEntry[], modelId: string, axis: RadarAxisId, observationOnly = false,
 ): string {
+  if (observationOnly) entries = entries.filter(entry => observationRadarProtocol(entry.protocol));
   const protocol: Exclude<DiagramLabProtocol, 'personal'> | null =
     axis === 'graphics' ? 'reference'
       : axis === 'arrows' ? 'arrows'
-        : axis === 'biology' ? 'semantic'
+        : axis === 'biology' ? (observationOnly ? 'reference' : 'semantic')
           : axis === 'relations' ? 'graph' : null;
   const relevant = [...entries].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     .filter((entry) => entry.protocol !== 'personal' && (protocol === null || entry.protocol === protocol)
@@ -656,7 +683,7 @@ export function diagnoseUnmeasuredRadarAxis(
  * It uses only measured axes, without treating missing tests as zeros. */
 export function observedRadarScore(candidate: RadarCandidate, weights: RadarWeights): number | null {
   if (!validRadarWeights(weights)) return null;
-  const observed = RADAR_AXES.filter((axis) => weights[axis.id] > 0 && candidate.axes[axis.id].value !== null);
+  const observed = radarAxesFor(candidate).filter((axis) => weights[axis.id] > 0 && candidate.axes[axis.id].value !== null);
   const total = observed.reduce((sum, axis) => sum + weights[axis.id], 0);
   if (total === 0) return null;
   return limited(observed.reduce((sum, axis) =>
@@ -672,13 +699,13 @@ export function validRadarWeights(value: unknown): value is RadarWeights {
 
 export function rankDiagramLabRadar(candidates: readonly RadarCandidate[], weights: RadarWeights): RadarRankedCandidate[] {
   if (!validRadarWeights(weights)) return candidates.map((candidate) => ({ ...candidate, weightedScore: null }));
-  const totalWeight = RADAR_AXES.reduce((sum, axis) => sum + weights[axis.id], 0);
-  return candidates.map((candidate) => ({
-    ...candidate,
-    weightedScore: candidate.complete
-      ? limited(RADAR_AXES.reduce((sum, axis) => sum + (candidate.axes[axis.id].value ?? 0) * weights[axis.id], 0) / totalWeight)
-      : null,
-  })).sort((a, b) => (b.weightedScore ?? -1) - (a.weightedScore ?? -1) ||
+  return candidates.map((candidate) => {
+    const axes = radarAxesFor(candidate);
+    const totalWeight = axes.reduce((sum, axis) => sum + weights[axis.id], 0);
+    return { ...candidate, weightedScore: candidate.complete && totalWeight > 0
+      ? limited(axes.reduce((sum, axis) => sum + (candidate.axes[axis.id].value ?? 0) * weights[axis.id], 0) / totalWeight)
+      : null };
+  }).sort((a, b) => (b.weightedScore ?? -1) - (a.weightedScore ?? -1) ||
     b.measured - a.measured || a.name.localeCompare(b.name, 'fr'));
 }
 
@@ -687,7 +714,8 @@ export function rankDiagramLabRadar(candidates: readonly RadarCandidate[], weigh
  * participating algorithms, never fill unavailable axes with zero. It is not
  * a nine-axis global leaderboard. */
 export function compareRadarCommonAxes(candidates: readonly RadarCandidate[], weights: RadarWeights) {
-  const commonAxes = RADAR_AXES.filter((axis) => candidates.length >= 2 &&
+  const commonAxes = radarAxesFor({ observationOnly: candidates.some(candidate => candidate.observationOnly) }).filter((axis) => candidates.length >= 2 &&
+    candidates.every(candidate => Boolean(candidate.observationOnly) === Boolean(candidates[0]?.observationOnly)) &&
     candidates.every((candidate) => candidate.axes[axis.id].value !== null));
   const weighted = commonAxes.filter((axis) => weights[axis.id] > 0);
   const total = weighted.reduce((sum, axis) => sum + weights[axis.id], 0);

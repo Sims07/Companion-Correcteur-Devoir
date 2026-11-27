@@ -34,7 +34,7 @@ test('Biologie and Ma copie test selectors fill their row like scientific diagra
 
     await journeys.getByRole('button', { name: 'Schémas scientifiques' }).click();
     await expectFullWidthSubnavigation(page.getByRole('tablist', { name: 'Protocoles automatiques des schémas scientifiques' }),
-      5,
+      3,
     );
 
     await journeys.getByRole('button', { name: 'Biologie' }).click();

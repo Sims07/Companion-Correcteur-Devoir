@@ -11,7 +11,7 @@ import {
   methodIsActive, observedRadarMethodId, saveRadarMethodExclusions, toggleRadarMethodExclusion,
 } from '../../domain/radarMethodExclusions.ts';
 import { scienceMethodProgress } from '../../domain/radarMethodProgress.ts';
-import { biologyPoints, biologyRunMethodLabel, campaignGroups, scienceMethods, ACTIVE_SCIENCE_METHOD_IDS, sciencePoints, trialSteps, type ScienceMethod, type TimelinePoint } from '../../domain/radarTimeline.ts';
+import { biologyPoints, biologyRunMethodLabel, campaignGroups, scienceMethods, OBSERVATION_SCIENCE_METHOD_IDS, sciencePoints, trialSteps, type ScienceMethod, type TimelinePoint } from '../../domain/radarTimeline.ts';
 import { RadarTimeline } from './RadarTimeline.tsx';
 import { buildRadarAnalysisExport, isRadarBenchmark } from '../../domain/radarAnalysisExport.ts';
 import { downloadJson } from '../../../shared/ui/downloadJson.ts';
@@ -23,6 +23,7 @@ import {
   diagnoseGraphRadarMeasurement,
   observedRadarScore,
   rankDiagramLabRadar,
+  OBSERVATION_RADAR_AXES,
 } from '../../domain/diagramLabRadar.ts';
 import {
   type RadarMissingTestRequest,
@@ -75,7 +76,7 @@ export function EvaluationRadarHome({
   const eligibleEntries = useMemo(() => activeScienceEntries(entries, excluded, weights), [entries, excluded, weights]);
   const eligibleHistory = useMemo(() => activeBiologyObservations(history, excluded), [history, excluded]);
   const science = useMemo(
-    () => rankDiagramLabRadar(buildConfigurationRadars(eligibleEntries, profiles), weights),
+    () => rankDiagramLabRadar(buildConfigurationRadars(eligibleEntries, profiles, true), weights),
     [eligibleEntries, profiles, weights],
   );
   const biology = useMemo(() => enabled('biology', 'contract') || enabled('biology', 'standard')
@@ -135,24 +136,24 @@ export function EvaluationRadarHome({
         Number(a.method === bio?.method && a.provider === bio?.provider))[0];
   const biologies = [bio, ...compared.map(comparedBiology)]
     .filter((candidate): candidate is BiologyRadarCandidate => candidate !== undefined);
-  const graphDiagnostic = sci?.axes.relations.value === null && selectedModel
+  const graphDiagnostic = !sci?.observationOnly && sci?.axes.relations.value === null && selectedModel
     ? diagnoseGraphRadarMeasurement(scopeRadarEntries(eligibleEntries, selected), selectedModel) : null;
   const plan = sci ? configuredRadarPlan(sci, eligibleEntries, profiles) : null;
   const nonVisualDecision = profiles.some((profile) =>
     profile.id === selected &&
     (profile.configuration.correctionMethod === 'decision' || profile.configuration.correctionMethod === 'visual-decision') &&
     (!supportsLocalSystemOne(profile.configuration) || !canTryVisualDecision(profile.configuration)));
-  const [method, setMethod] = useState<ScienceMethod>('pixel-v1');
+  const [method, setMethod] = useState<ScienceMethod>('image-direct-v1');
   const [bioMethod, setBioMethod] = useState<'standard' | 'contract'>('contract');
-  const activeScienceMethod = ACTIVE_SCIENCE_METHOD_IDS.includes(method) && enabled('diagrams', method) ? method
-    : ACTIVE_SCIENCE_METHOD_IDS.find(id => enabled('diagrams', id));
+  const activeScienceMethod = OBSERVATION_SCIENCE_METHOD_IDS.includes(method) && enabled('diagrams', method) ? method
+    : OBSERVATION_SCIENCE_METHOD_IDS.find(id => enabled('diagrams', id));
   const activeBioMethodAllowed = (id: 'standard' | 'contract') => enabled('biology', id) &&
     (!profile || enabled('biology', observedRadarMethodId('biology', biologyRunMethodLabel(
       id, profile.configuration.correctionMethod,
       profile.configuration.apiCompatible ? 'openai-compatible' : 'ollama'))));
   const activeBioMethod = activeBioMethodAllowed(bioMethod) ? bioMethod
     : (['contract', 'standard'] as const).find(activeBioMethodAllowed);
-  const scientificProgress = useMemo(() => scienceMethodProgress(selectedScienceEntries, selectedModel), [selectedScienceEntries, selectedModel]);
+  const scientificProgress = useMemo(() => scienceMethodProgress(selectedScienceEntries, selectedModel, true), [selectedScienceEntries, selectedModel]);
   function toggleMethod(domain: RadarDomain, id: string) {
     if (busy) return;
     const next = toggleRadarMethodExclusion(excluded, domain, id);
@@ -174,12 +175,12 @@ export function EvaluationRadarHome({
     : [];
 
   const fullPlan = sci && activeScienceMethod && configuredRadarPlan(sci, eligibleEntries, profiles, {
-    axis: 'graphics', steps: trialSteps(activeScienceMethod), strategy: activeScienceMethod,
+    axis: 'graphics', steps: trialSteps(activeScienceMethod, true), strategy: activeScienceMethod,
   });
   const timeline = useMemo(() => ({
     diagrams: campaignGroups(selectedScienceEntries.filter(isRadarBenchmark), e => e.trial?.id ?? e.id).flatMap<TimelinePoint>(group => {
       const last = [...group].sort((a,b) => b.createdAt.localeCompare(a.createdAt))[0]!;
-      const calculated = sciencePoints(group, weights);
+      const calculated = sciencePoints(group, weights, true);
       // Stored snapshots can predate later resumed batteries within the same
       // trial. Recompute axes/score from archived evidence, not from a stale snapshot.
       return calculated.map(point => {
@@ -199,8 +200,8 @@ export function EvaluationRadarHome({
   }), [selectedScienceEntries, selectedHistory, weights]);
   const score = (value: number | null | undefined) =>
     value == null ? '—' : value.toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' / 100';
-  const scienceComplete = sci?.measured === 9;
-  const chosenSciencePlan = scienceComplete || explicitMethod.diagrams || !enabled('diagrams', 'pixel-v1') ? fullPlan : plan;
+  const scienceComplete = sci?.complete === true;
+  const chosenSciencePlan = scienceComplete || explicitMethod.diagrams || !enabled('diagrams', 'image-direct-v1') ? fullPlan : plan;
   const canLaunchScience = (request: typeof fullPlan) =>
     Boolean(request && profiles.some(p => p.id === request.profileId));
   const scienceLaunchIssue = busy ? 'Une évaluation est déjà en cours.'
@@ -242,7 +243,7 @@ export function EvaluationRadarHome({
         {scientific ? <select value={activeScienceMethod ?? ''} disabled={!activeScienceMethod}
           onChange={e => { setMethod(e.target.value as ScienceMethod); markChosen(lab); }}>
           {!activeScienceMethod && <option value="">Aucune méthode active</option>}
-          {ACTIVE_SCIENCE_METHOD_IDS.map(id =>
+          {OBSERVATION_SCIENCE_METHOD_IDS.map(id =>
             <option key={id} value={id} disabled={!enabled('diagrams', id)}>{scienceMethods[id].label}{!enabled('diagrams', id) ? ' (exclue)' : ''}</option>)}
         </select> : <select value={activeBioMethod ?? ''} disabled={!activeBioMethod}
           onChange={e => { setBioMethod(e.target.value as typeof bioMethod); markChosen(lab); }}>
@@ -265,7 +266,7 @@ export function EvaluationRadarHome({
           }}>Évaluer toutes les méthodes restantes ({scientific ? scienceBatchPlans.length : missingBiology.length})</Button>
       </div>
       {scientific && scienceLaunchIssue && <p className="radar-method-help" role="status">Évaluation indisponible : {scienceLaunchIssue}</p>}
-      {scientific && <section className="radar-method-audit" aria-label={'État des ' + ACTIVE_SCIENCE_METHOD_IDS.length + ' méthodes scientifiques'}>
+      {scientific && <section className="radar-method-audit" aria-label={'État des ' + OBSERVATION_SCIENCE_METHOD_IDS.length + ' méthodes scientifiques'}>
         <h3>Bilan de complétude par méthode</h3>
         <p>Une campagne terminée n'est pas forcément un radar complet. Les relances ciblées
           conservent le même essai et ne refont pas les batteries déjà exploitables.</p>
@@ -277,13 +278,13 @@ export function EvaluationRadarHome({
             return <tr key={progress.method} data-excluded={excludedMethod}>
               <th scope="row">{progress.label}{excludedMethod && <small> · Exclue</small>}</th>
               <td>{progress.successful}/{progress.planned}{progress.failed > 0 ? ' · ' + progress.failed + ' échec(s)' : ''}</td>
-              <td>{progress.measured}/9</td>
+              <td>{progress.measured}/{OBSERVATION_RADAR_AXES.length}</td>
               <td><strong>{excludedMethod ? 'Exclue · non relancée' : progress.complete ? 'Complet' :
                 progress.interrupted ? 'Interrompu / partiel' :
                 !progress.trial ? 'Non testé' : next ? 'Partiel · à reprendre' : 'Partiel · bloqué'}</strong>
                 {!progress.complete && <details><summary>Pourquoi ?</summary><p>{progress.reason}</p>
                   <ul>{progress.batteries.map(battery => <li key={battery.protocol}>
-                    {{reference: 'Référence A/B/C', arrows: 'Flèches D/E', semantic: 'Biologie S0–S5', graph: 'Relations S0–S5'}[battery.protocol]}
+                    {{reference: 'Référence A/B/C', arrows: 'Traits de rappel D/E', semantic: 'Biologie S0–S5', graph: 'Relations S0–S5'}[battery.protocol]}
                     {' · '}{battery.successful}/{battery.planned} passages réussis{battery.failed > 0 && ' · ' + battery.failed + ' en échec'}
                   </li>)}</ul></details>}
               </td>
@@ -345,7 +346,7 @@ export function EvaluationRadarHome({
         <Button variant="secondary" disabled={!history.length && !entries.some(isRadarBenchmark)}
           onClick={() => {
             const date = new Date().toISOString();
-            downloadJson(buildRadarAnalysisExport(entries, history, weights, date, excluded),
+            downloadJson(buildRadarAnalysisExport(entries, history, weights, date, excluded, true),
               'companion-radars-' + date.replace(/:/g, '-') + '.json');
           }}>Exporter tous les résultats</Button>
       </header>
@@ -384,7 +385,7 @@ export function EvaluationRadarHome({
         {(['diagrams', 'biology'] as const).map((domain) => {
           const scientific = domain === 'diagrams';
           const count = (scientific ? sci : bio)?.measured ?? 0;
-          const total = scientific ? 9 : BIOLOGY_RADAR_AXES.length;
+          const total = scientific ? OBSERVATION_RADAR_AXES.length : BIOLOGY_RADAR_AXES.length;
           const value = scientific
             ? sci && observedRadarScore(sci, weights)
             : (bio?.score ?? bio?.partialScore);
@@ -479,7 +480,7 @@ export function EvaluationRadarHome({
                       busy || !(scientific ? activeScienceMethod && canLaunchScience(chosenSciencePlan) : profile && activeBioMethod)
                     }
                     onClick={() => {
-                      if (explicitMethod[domain] || (scientific && (scienceComplete || !enabled('diagrams', 'pixel-v1')))) launchChosen(domain);
+                      if (explicitMethod[domain] || (scientific && (scienceComplete || !enabled('diagrams', 'image-direct-v1')))) launchChosen(domain);
                       else if (scientific && plan && activeScienceMethod) runScience({ ...plan, trial: {
                         id: crypto.randomUUID(), method: activeScienceMethod, weights,
                       } });
