@@ -156,6 +156,10 @@ export function NetworkInspector({ initialFilter = 'all', hasRunningCorrections 
              {completionSelected && thinkingRequested?.enabled === false && thinkingReceived && <p className="network-waiting-hint" role="status">Le fournisseur transmet du raisonnement malgré la désactivation demandée.</p>}
              {completionSelected && !responsesSelected && selected.finishReason && <p className="network-stream-hint">Fin de génération : {selected.finishReason}{selected.finishReason === 'length' ? ' · limite de tokens atteinte, réponse possiblement tronquée' : ''}</p>}
              {completionSelected && !responses && selected.state === 'success' && !selectedMessage.trim() && <p className="network-waiting-hint" role="status">La requête HTTP s’est terminée sans texte de réponse finale exploitable. Aucune note ne doit être déduite de ce résultat.</p>}
+             {selected.smartZoom && <div className="network-token-metrics" aria-label="Budget du zoom intelligent">
+               <p>Zooms réalisés <strong>{selected.smartZoom.used}/{selected.smartZoom.budget}</strong> · Rejets <strong>{selected.smartZoom.rejected}/{selected.smartZoom.rejectionBudget}</strong></p>
+               <p>{({ exploration: 'Exploration visuelle autorisée', budget: 'Conclusion sans outil : budget de zoom atteint', rejections: 'Conclusion sans outil : trop de recadrages rejetés', recovery: 'Dernière tentative de conclusion sans outil' } as const)[selected.smartZoom.phase]}</p>
+             </div>}
              {responsesSelected && <div className="network-token-metrics" aria-label="Génération Responses">
                <p>Budget de génération <strong>{selected.generationBudget ?? 'Non renseigné'}</strong></p>
                {responses && <>

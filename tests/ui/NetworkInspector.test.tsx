@@ -46,6 +46,14 @@ describe('NetworkInspector live request feedback', () => {
     vi.useRealTimers();
   });
 
+  it('displays the zoom budget and explicit reason for a conclusion turn', async () => {
+    mockNetworkHistory.records = [{ ...pendingRecord, url: 'http://localhost:1234/v1/responses', smartZoom: { used: 6, budget: 6, rejected: 1, rejectionBudget: 3, phase: 'budget' } }];
+    container = document.createElement('div'); document.body.appendChild(container); root = createRoot(container);
+    await act(async () => { root?.render(<NetworkInspector />); });
+    expect(container.textContent).toContain('Zooms réalisés 6/6');
+    expect(container.textContent).toContain('Rejets 1/3');
+    expect(container.textContent).toContain('Conclusion sans outil : budget de zoom atteint');
+  });
   it('displays native Ollama and end-to-end LM Studio rates beside durations', async () => {
     mockNetworkHistory.records = [
       { ...pendingRecord, id: 'lm', url: 'https://macmini.local:8443/v1/chat/completions',
