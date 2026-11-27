@@ -51,7 +51,7 @@ export interface RadarMissingTestRequest {
 }
 
 const ALL_METHODS: DiagramMethodSelection[] = [
-  'graph-first-v1', 'direct-image-generative',
+  'graph-first-v1', 'direct-image-generative', 'direct-image-batch',
   'direct-image-generative-thinking', 'direct-image-systemone',
   'direct-image-logprobs', 'direct-image-hybrid', 'direct-image-hybrid-zoom',
 ];
@@ -259,11 +259,11 @@ export function resolveModelProfile(
     if (!needsGrading) return true;
     // An explicitly selected direct-image benchmark must never silently become
     // Vision → analysis when a profile has two distinct models configured.
-    if (selectedStrategy === 'image-direct-v1') return cfg.correctionMethod === 'generative' &&
+    if (selectedStrategy === 'image-direct-v1' || selectedStrategy === 'direct-image-batch') return cfg.correctionMethod === 'generative' &&
       cfg.analysisModel.trim() === candidate.id;
     if (cfg.analysisModel.trim() !== candidate.id) return false;
     if (requestedMethod === 'graph-first-v1' || requestedMethod === 'graph-first-v2' ||
-        requestedMethod === 'direct-image-generative') return cfg.correctionMethod === 'generative';
+        requestedMethod === 'direct-image-generative' || requestedMethod === 'direct-image-batch') return cfg.correctionMethod === 'generative';
     if (requestedMethod === 'direct-image-generative-thinking')
       return cfg.correctionMethod === 'generative' && !cfg.apiCompatible;
     if (requestedMethod === 'direct-image-systemone')
