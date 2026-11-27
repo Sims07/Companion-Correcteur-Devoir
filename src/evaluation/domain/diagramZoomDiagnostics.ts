@@ -15,6 +15,8 @@ export function exportedZoomDiagnostics(payload: string | undefined, rubric?: Ru
     typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= maximum
       ? Math.round(value) : null;
   const number = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
+  const criterionId = (label: unknown) => rubric?.criteria.find((item, index) =>
+    label === (index + 1) + '/' + rubric.criteria.length + ' · ' + item.title)?.id ?? null;
   const events = attempts.flatMap((attempt: unknown) => {
     const zoom = object(object(attempt)?.smartZoom);
     if (!zoom || (zoom.status !== 'inspected' && zoom.status !== 'rejected')) return [];
@@ -24,16 +26,23 @@ export function exportedZoomDiagnostics(payload: string | undefined, rubric?: Ru
       && number(x) && number(y) && number(width) && number(height)
       && x >= 0 && y >= 0 && width >= 0.04 && width <= 0.8 && height >= 0.04 && height <= 0.8
       && x + width <= 1.000001 && y + height <= 1.000001;
-    const criterion = rubric?.criteria.find((item, index) =>
-      zoom.criterion === (index + 1) + '/' + rubric.criteria.length + ' · ' + item.title);
     return [{
       status: zoom.status,
-      criterionId: criterion?.id ?? null,
+      criterionId: criterionId(zoom.criterion),
       region: validRegion ? { page, x, y, width, height } : null,
       cropWidth: measured(zoom.cropWidth, 1600),
       cropHeight: measured(zoom.cropHeight, 1600),
       cropMs: measured(zoom.cropMs, 24 * 3600 * 1000),
     }];
+  });
+  const rounds = attempts.flatMap((attempt: unknown) => {
+    const round = object(object(attempt)?.smartZoomRound);
+    if (!round) return [];
+    const turn = measured(round.turn, 100), cropCount = measured(round.cropCount, 100);
+    const responseMs = measured(round.responseMs, 24 * 3600 * 1000);
+    if (turn === null || turn < 1 || cropCount === null || responseMs === null) return [];
+    return [{ criterionId: criterionId(round.criterion), turn, cropCount, responseMs,
+      inputTokens: measured(round.inputTokens, 1000000), outputTokens: measured(round.outputTokens, 1000000) }];
   });
   // Older traces without the tool offered are unmeasured, not zero zooms.
   const offered = attempts.some((attempt: unknown) => {
@@ -41,12 +50,14 @@ export function exportedZoomDiagnostics(payload: string | undefined, rubric?: Ru
     return value?.input === '[TEXT / IMAGE REDACTED]' &&
       Array.isArray(value.tools) && value.tools.includes('inspect_region');
   });
-  if (!offered && events.length === 0) return undefined;
+  if (!offered && events.length === 0 && rounds.length === 0) return undefined;
   return {
     offered,
     observedRequests: events.length,
     cropsPrepared: events.filter(event => event.status === 'inspected').length,
     rejected: events.filter(event => event.status === 'rejected').length,
     events,
+    // Legacy previews did not measure the provider responses per round.
+    ...(rounds.length ? { rounds, cropsInReadableResponses: rounds.reduce((sum, round) => sum + round.cropCount, 0) } : {}),
   };
 }

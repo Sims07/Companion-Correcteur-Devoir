@@ -300,7 +300,9 @@ describe('protocole de schémas scientifiques', () => {
         ...base.diagnosticRuns![0]!,
         requestPayload: JSON.stringify({ attempts: [
           { input: '[TEXT / IMAGE REDACTED]', tools: ['inspect_region'], apiKey: 'SECRET_KEY' },
+          { smartZoomRound: { criterion, turn: 1, cropCount: 0, responseMs: 50, inputTokens: 900, outputTokens: 12, response: 'SECRET_RESPONSE' } },
           { smartZoom: { criterion, status: 'inspected', region: { page: 1, x: 0.2, y: 0.3, width: 0.4, height: 0.5, secret: 'SECRET_REGION' }, cropWidth: 800, cropHeight: 600, cropMs: 12, image: 'SECRET_IMAGE' } },
+          { smartZoomRound: { criterion, turn: 2, cropCount: 1, responseMs: 73, inputTokens: 1200, outputTokens: 35 } },
           { smartZoom: { criterion: 'SECRET_LABEL', status: 'rejected', region: { page: 1, x: 99 }, cropMs: -1 } },
           { smartZoom: { status: 'SECRET_STATUS' } },
         ] }),
@@ -314,6 +316,11 @@ describe('protocole de schémas scientifiques', () => {
     }, rubric);
     expect(report.analysisCallTraces[0]?.smartZoom).toEqual({
       offered: true, observedRequests: 2, cropsPrepared: 1, rejected: 1,
+      cropsInReadableResponses: 1,
+      rounds: [
+        { criterionId: first.id, turn: 1, cropCount: 0, responseMs: 50, inputTokens: 900, outputTokens: 12 },
+        { criterionId: first.id, turn: 2, cropCount: 1, responseMs: 73, inputTokens: 1200, outputTokens: 35 },
+      ],
       events: [
         { criterionId: first.id, status: 'inspected', region: { page: 1, x: 0.2, y: 0.3, width: 0.4, height: 0.5 }, cropWidth: 800, cropHeight: 600, cropMs: 12 },
         { criterionId: null, status: 'rejected', region: null, cropWidth: null, cropHeight: null, cropMs: null },

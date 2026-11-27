@@ -111,6 +111,8 @@ export async function sendLmStudioZoomDiagramTurn(
   let input: unknown[] = [{ role: 'user', content: [...firstImage, { type: 'input_text', text: prompt }] }];
   let previousId = conversation.responseId;
   let inspections = attempts[criterion] ?? 0;
+  // Number of prepared crops included in the next request, not the whole history.
+  let pendingCrops = 0;
   let totalInput = 0;
   let totalOutput = 0;
   let total = 0;
@@ -142,6 +144,7 @@ export async function sendLmStudioZoomDiagramTurn(
     };
     // Never persist copies or crops in the network request inspector.
     preview({ ...body, input: '[TEXT / IMAGE REDACTED]', tools: toolsAllowed ? ['inspect_region'] : [] });
+    const responseStartedAt = performance.now();
     const response = await fetchImpl(url, copyNetworkRequestMetadata(init, {
       ...init,
       method: 'POST', headers: { 'Content-Type': 'application/json',
@@ -159,6 +162,14 @@ export async function sendLmStudioZoomDiagramTurn(
     if ((turn.store !== false && !payload.id?.startsWith('resp_')) || (!Array.isArray(payload.output) && !payload.output_text?.trim() && payload.status !== 'incomplete')) {
       throw new Error('LM Studio n’a pas retourné de réponse Responses exploitable.');
     }
+    // Record only completed, readable provider responses. A prepared crop
+    // is not evidence that the model received or interpreted its pixels.
+    if (enableZoom) preview({ smartZoomRound: {
+      criterion, turn: turnIndex + 1, cropCount: pendingCrops,
+      responseMs: Math.round(performance.now() - responseStartedAt),
+      inputTokens: payload.usage?.input_tokens, outputTokens: payload.usage?.output_tokens,
+    } });
+    pendingCrops = 0;
     previousId = payload.id;
     totalInput += payload.usage?.input_tokens ?? 0;
     totalOutput += payload.usage?.output_tokens ?? 0;
@@ -215,6 +226,7 @@ export async function sendLmStudioZoomDiagramTurn(
         const evidence = await cropOriginalDiagram(originalImages[region.page - 1], region, signal);
         signal?.throwIfAborted();
         inspections++;
+        pendingCrops++;
         attempts[criterion] = inspections;
         next.push({ type: 'function_call_output', call_id: call.call_id,
           output: 'La région demandée est jointe dans le message image suivant. Compare-la au dessin d’ensemble.' });

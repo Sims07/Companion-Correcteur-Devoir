@@ -64,7 +64,11 @@ describe('LM Studio on-demand smart zoom (Responses API)', () => {
     expect(conversation.zoomHistory).toHaveLength(1);
     expect(previews.join('')).toContain('inspected');
     expect(exportedZoomDiagnostics(JSON.stringify({ attempts: previews.map(value => JSON.parse(value)) }))).toMatchObject({
-      offered: true, observedRequests: 1, cropsPrepared: 1, rejected: 0,
+      offered: true, observedRequests: 1, cropsPrepared: 1, rejected: 0, cropsInReadableResponses: 1,
+      rounds: [
+        { turn: 1, cropCount: 0, responseMs: expect.any(Number), inputTokens: 20, outputTokens: 10 },
+        { turn: 2, cropCount: 1, responseMs: expect.any(Number), inputTokens: 20, outputTokens: 10 },
+      ],
       events: [{ status: 'inspected', region, cropWidth: 800, cropHeight: 600, cropMs: expect.any(Number) }],
     });
     expect(previews.join('')).not.toContain('Q1JPUA==');
@@ -320,7 +324,8 @@ describe('LM Studio on-demand smart zoom (Responses API)', () => {
     expect(onDiagnosticResult).toHaveBeenCalled();
     const payload = onDiagnosticResult.mock.calls[0]![0].requestPayload;
     const diagnostics = exportedZoomDiagnostics(payload, rubric);
-    expect(diagnostics).toMatchObject({ offered: true, observedRequests: 1, cropsPrepared: 1,
+    expect(diagnostics).toMatchObject({ offered: true, observedRequests: 1, cropsPrepared: 1, cropsInReadableResponses: 1,
+      rounds: [{ criterionId: id, cropCount: 0 }, { criterionId: id, cropCount: 1 }],
       events: [{ criterionId: id, status: 'inspected', region }] });
     expect(JSON.stringify(diagnostics)).not.toContain('Q1JPUA==');
   });

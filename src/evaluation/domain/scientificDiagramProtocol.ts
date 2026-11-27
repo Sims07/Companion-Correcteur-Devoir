@@ -246,22 +246,23 @@ export function diagramAnalysisDiagnostics(
       ? Math.round(value) : null;
   const analysisCallTraces = calls.map((call) => {
     const smartZoom = exportedZoomDiagnostics(call.requestPayload, rubric);
-    return ({
-    role: call.promptId === 'grading.full-repair' || call.promptId === 'grading.incremental-repair'
-      || call.promptId === 'diagram.direct-repair' ? 'repair' as const : 'primary' as const,
-    provider: call.requestMetadata?.provider === 'ollama' || call.requestMetadata?.provider === 'openai-compatible'
-      ? call.requestMetadata.provider : null,
-    imageCount: measured(call.requestMetadata?.imageCount, 100),
-    elapsedMs: measured(call.elapsedMs, 24 * 3600 * 1000),
-    contextTokens: measured(call.requestMetadata?.options.contextTokens ?? call.contextTokens, 1000000),
-    outputLimit: measured(call.requestMetadata?.options.generationTokenLimit ?? call.generationTokenLimit, 65536),
-    promptTokens: measured(call.promptTokens, 1000000),
-    generatedTokens: measured(call.generatedTokens, 1000000),
-    doneReason: call.doneReason === 'length' ? 'length' as const
-      : call.doneReason === 'stop' ? 'stop' as const : 'unknown' as const,
-    thinkingObserved: typeof call.thinkingPresent === 'boolean' ? call.thinkingPresent : null,
-    ...(smartZoom ? { smartZoom } : {}),
-  }); });
+    return {
+      role: call.promptId === 'grading.full-repair' || call.promptId === 'grading.incremental-repair'
+        || call.promptId === 'diagram.direct-repair' ? 'repair' as const : 'primary' as const,
+      provider: call.requestMetadata?.provider === 'ollama' || call.requestMetadata?.provider === 'openai-compatible'
+        ? call.requestMetadata.provider : null,
+      imageCount: measured(call.requestMetadata?.imageCount, 100),
+      elapsedMs: measured(call.elapsedMs, 24 * 3600 * 1000),
+      contextTokens: measured(call.requestMetadata?.options.contextTokens ?? call.contextTokens, 1000000),
+      outputLimit: measured(call.requestMetadata?.options.generationTokenLimit ?? call.generationTokenLimit, 65536),
+      promptTokens: measured(call.promptTokens, 1000000),
+      generatedTokens: measured(call.generatedTokens, 1000000),
+      doneReason: call.doneReason === 'length' ? 'length' as const
+        : call.doneReason === 'stop' ? 'stop' as const : 'unknown' as const,
+      thinkingObserved: typeof call.thinkingPresent === 'boolean' ? call.thinkingPresent : null,
+      ...(smartZoom ? { smartZoom } : {}),
+    };
+  });
   return {
     ...(invalidPoints.length ? { invalidPoints } : {}),
     analysisCalls: calls.length,
