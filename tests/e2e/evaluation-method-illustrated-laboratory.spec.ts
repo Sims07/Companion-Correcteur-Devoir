@@ -13,11 +13,15 @@ test('method laboratory displays a full-width illustrated panel for every strate
   const lab = page.getByRole('region', { name: 'Laboratoire des méthodes' });
   const tabs = lab.getByRole('tablist', { name: 'Méthodes expliquées' }).getByRole('tab');
   const panel = lab.getByRole('tabpanel');
-  await expect(tabs).toHaveCount(13);
+  await expect(tabs).toHaveCount(14);
   await expect(panel).toHaveAttribute('data-selected-method', 'image-direct-v1');
   await expect(panel.getByRole('img', { name: /Schéma scientifique et barème fournis directement/ })).toBeVisible();
   await expect(panel.getByRole('heading', { name: 'Principe scientifique' })).toBeVisible();
 
+  await lab.locator('[data-method-id="direct-image-batch"]').click();
+  await expect(panel).toHaveAttribute('data-selected-method', 'direct-image-batch');
+  await expect(panel.locator('[data-illustration="batch-grading"]')).toBeVisible();
+  await expect(lab.locator('.lab-launch select option[value="direct-image-batch"]')).toHaveText('Batch ×4 — image à chaque requête');
   await lab.locator('[data-method-id="pixel-v1"]').click();
   await expect(panel).toHaveAttribute('data-selected-method', 'pixel-v1');
   await expect(panel.locator('[data-illustration="small-tips"]')).toBeVisible();
