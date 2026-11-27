@@ -17,7 +17,7 @@ export type DiagramTeacherDecision = 'present' | 'absent' | 'partial';
 export type DiagramGold = Record<string, DiagramTeacherDecision>;
 export type DiagramProtocolRun = { repetition: number; record: ModelEvaluationRecord; /** Monotonic, client-observed full evaluation time. */ clientDurationMs?: number };
 export type DiagramProtocolCount = 1 | 3 | 5;
-export type DiagramMethod = 'graph-first-v1' | 'graph-first-v2' | 'vision-then-analysis' | 'direct-image-generative' | 'direct-image-generative-thinking' | 'direct-image-systemone' | LogprobRadarMethod;
+export type DiagramMethod = 'graph-first-v1' | 'graph-first-v2' | 'vision-then-analysis' | 'direct-image-generative' | 'direct-image-batch' | 'direct-image-generative-thinking' | 'direct-image-systemone' | LogprobRadarMethod;
 export type DiagramMethodSelection = DiagramMethod | 'compare' | 'compare-thinking';
 
 export const diagramMethodLabels: Record<DiagramMethod, string> = {
@@ -25,6 +25,7 @@ export const diagramMethodLabels: Record<DiagramMethod, string> = {
   'graph-first-v2': 'Image → relations légendes/structures → correction · v2',
   'vision-then-analysis': 'Vision puis analyse',
   'direct-image-generative': 'Image → génératif direct',
+  'direct-image-batch': 'Batch ×4 — image à chaque requête',
   'direct-image-generative-thinking': 'Image → génératif direct (Think ON)',
   'direct-image-systemone': 'System One image directe',
   'direct-image-logprobs': 'Image → logprobs seuls',
@@ -41,7 +42,7 @@ export function availableDiagramMethods(profile: AiModelProfile): DiagramMethod[
   const methods: DiagramMethod[] = [];
   // Vision → transcription → analyse discards the diagram geometry. Preserve
   // its identifier to read historical reports, but never schedule new runs.
-  if (config.correctionMethod === 'generative') methods.push('direct-image-generative');
+  if (config.correctionMethod === 'generative') methods.push('direct-image-generative', 'direct-image-batch');
   if (canUseHybridVisualLogprobs(config)) methods.push('direct-image-logprobs', 'direct-image-hybrid');
   if (canUseHybridVisualLogprobs(config, true)) methods.push('direct-image-hybrid-zoom');
   if (supportsLocalSystemOne(config) && (config.correctionMethod === 'decision' || config.correctionMethod === 'visual-decision')
@@ -63,7 +64,7 @@ export function supportsDiagramThinking(profile: AiModelProfile): boolean {
 export function selectDiagramMethods(profile: AiModelProfile, selection: DiagramMethodSelection): DiagramMethod[] {
   const methods = availableDiagramMethods(profile);
   if (selection === 'graph-first-v1' || selection === 'graph-first-v2') return methods.includes('direct-image-generative') ? [selection] : [];
-  if (selection === 'compare') return methods.filter(method => !isLogprobRadarMethod(method));
+  if (selection === 'compare') return methods.filter(method => !isLogprobRadarMethod(method) && method !== 'direct-image-batch');
   if (selection === 'compare-thinking') return methods.includes('direct-image-generative') && supportsDiagramThinking(profile)
     ? ['direct-image-generative', 'direct-image-generative-thinking'] : [];
   if (selection === 'direct-image-generative-thinking') return supportsDiagramThinking(profile)
@@ -91,7 +92,7 @@ export function diagramMethodIssue(profile: AiModelProfile, selection: DiagramMe
   if (selection === 'compare-thinking' || selection === 'direct-image-generative-thinking') {
     return 'Le test Think nécessite un modèle d’analyse génératif sur Ollama local (pas une API distante). Les capacités Think sont vérifiées auprès d’Ollama au lancement : ' + profile.name;
   }
-  return selection === 'direct-image-generative'
+  return selection === 'direct-image-generative' || selection === 'direct-image-batch'
     ? 'Le parcours génératif direct exige une configuration générative et un modèle acceptant les images : ' + profile.name
     : selection === 'direct-image-systemone'
       ? 'Le parcours System One image exige un modèle décisionnel local compatible avec les images (pas TEV1) : ' + profile.name
@@ -288,7 +289,7 @@ export function buildScientificDiagramProtocolReport(
   const experiments = runs.flatMap(({ repetition, record, clientDurationMs }) => record.results.map((result) => ({
     repetition, profileId: result.profileId, profileName: result.profileName,
     model: record.configurations.find((entry) => entry.id === result.profileId)?.analysisModel ?? '',
-    method: record.logprobRadarMethod ?? (record.graphFirst ? (record.graphVersion === 'v2' ? 'graph-first-v2' as const : 'graph-first-v1' as const) : result.directVisualDecision ? 'direct-image-systemone' as const
+    method: (record.diagramBatch ? 'direct-image-batch' as const : undefined) ?? record.logprobRadarMethod ?? (record.graphFirst ? (record.graphVersion === 'v2' ? 'graph-first-v2' as const : 'graph-first-v1' as const) : result.directVisualDecision ? 'direct-image-systemone' as const
       : record.configurations.find((entry) => entry.id === result.profileId)?.directGenerativeVision
         ? (record.configurations.find((entry) => entry.id === result.profileId)?.thinking
           ? 'direct-image-generative-thinking' as const : 'direct-image-generative' as const)
@@ -322,7 +323,7 @@ export function buildScientificDiagramProtocolReport(
     // Chat Completions replies have no native timing fields. Never relabel this
     // as a provider-native measurement.
     clientDurationMs: Number.isFinite(clientDurationMs) && clientDurationMs! >= 0 ? clientDurationMs! : null,
-    providerDurationMs: record.graphFirst || record.logprobRadarMethod ? null : sumReportedProviderDurationForRuns(result.diagnosticRuns ?? []),
+    providerDurationMs: record.graphFirst || record.logprobRadarMethod || record.diagramBatch ? null : sumReportedProviderDurationForRuns(result.diagnosticRuns ?? []),
     readingMs: result.readingMs, analysisMs: result.analysisMs,
     tokens: result.tokens, score: result.score,
     ...(result.diagnosticRuns?.length ? { prompts: evaluationPromptReferences(result.diagnosticRuns) } : {}),
