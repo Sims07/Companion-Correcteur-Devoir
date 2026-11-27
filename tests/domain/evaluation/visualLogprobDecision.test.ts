@@ -46,6 +46,27 @@ describe('generic visual logprob decisions', () => {
     expect(result.reason).toContain('3 tokens distincts');
     expect(result.reason).not.toContain('private-token');
   });
+  it('replays the real ten-alternative distribution as relative research only', () => {
+    const alternatives = [['B', -.375], ['D', -1.125], ['C', -4], ['A', -4],
+      ['E', -10.125], [' B', -10.125], ['I', -13], ['N', -13.5], ['F', -13.875], [' D', -13.875]] as const;
+    const result = decodeVisualLogprobs({ status: 'completed', usage: { output_tokens_details: { reasoning_tokens: 0 } },
+      output: [{ type: 'message', content: [{ type: 'output_text', text: 'B',
+        logprobs: [{ token: 'B', logprob: -.375, top_logprobs: alternatives.map(([token, logprob]) => ({ token, logprob })) }] }] }] });
+    expect(result.status).toBe('unavailable');
+    expect(result.verdict).toBeNull();
+    expect(result.relativeObservation?.observedMass).toBeCloseTo(1.048658670301033, 10);
+    expect(result.relativeObservation?.leader).toBe('absent');
+    expect(result.relativeObservation?.scores.absent).toBeCloseTo(.6554366674, 8);
+    expect(result.probabilities.absent).toBeNull();
+    const summary = summarizeLogprobRows([{ ...result, caseId: 'D', targetKey: 'x', expected: 'absent', durationMs: 1 }]);
+    expect(summary).toMatchObject({ correct: 0, resolved: 0, unavailable: 1, relativeOnly: 1, relativeCorrect: 1 });
+  });
+  it('does not pick a relative leader on ties or turn missing alternatives into zero', () => {
+    const result = decodeVisualLogprobs(response('A', .6, [candidate('B', .6)]));
+    expect(result.relativeObservation?.leader).toBeNull();
+    expect(result.relativeObservation?.scores.partial).toBeNull();
+    expect(result.verdict).toBeNull();
+  });
   it('builds a rubric-derived question without reference answers or model identifiers', () => {
     const text = logprobQuestion({ key: 'x', criterionTitle: 'Organisation', criterionDescription: 'Structure',
       title: 'Titre', description: 'Sous le dessin' }, 'Exercice');
