@@ -7,7 +7,7 @@ import { downloadJson } from '../../../shared/ui/downloadJson.ts';
 import { diagramTargetKey } from '../../domain/scientificDiagramProtocol.ts';
 import { SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC, SCIENTIFIC_DIAGRAM_FIXTURES,
   type ScientificDiagramFixtureId } from '../../domain/scientificDiagramFixtures.ts';
-import { logprobChoices, summarizeLogprobRows, type LogprobPilotRow } from '../../domain/visualLogprobDecision.ts';
+import { logprobChoices, summarizeLogprobRows, visualLogprobTopAlternatives, type LogprobPilotRow } from '../../domain/visualLogprobDecision.ts';
 import { localLogprobEndpoint, runVisualLogprobPilot, type LogprobPilotCase } from '../../application/visualLogprobPilot.ts';
 
 const labels = { present: 'Présent', absent: 'Absent', partial: 'Partiel', undetermined: 'Indéterminable' };
@@ -96,7 +96,7 @@ export function VisualLogprobPilotPanel({ profiles, busy, prepareCase, onRunChan
         Temps cumulé des appels : {(summary.durationMs / 1000).toFixed(1)} s.</p>
       <Button variant="secondary" onClick={() => downloadJson({
         protocol: 'visual-logprob-pilot-v1', ...report, summary, rows,
-        temperature: 1, topP: 1, topLogprobs: 20, maxOutputTokens: 1,
+        temperature: 1, topP: 1, topLogprobs: visualLogprobTopAlternatives, maxOutputTokens: 1,
       }, 'companion-logprobs.json')}>Exporter les décisions JSON</Button>
       <div className="responses-compatibility-results">
         <table><caption>Probabilités brutes observées (— : non observée)</caption>
