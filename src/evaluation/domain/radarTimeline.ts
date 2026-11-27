@@ -194,15 +194,15 @@ export function biologyPoints(group: BiologyRadarObservation[]): TimelinePoint[]
         date: latest.recordedAt, model: candidate.name, revision: latest.revision,
         label: biologyRunMethodLabel(protocol, candidate.method, candidate.provider),
         protocolLabel: [...new Set(rows.map(r => r.caseId))].sort().join(' / '),
-        comparisonBasis: JSON.stringify([candidate.provider, BIOLOGY_radarAxesFor(candidate).map(axis => axis.weight),
+        comparisonBasis: JSON.stringify([candidate.provider, BIOLOGY_RADAR_AXES.map(axis => axis.weight),
           rows.map(row => JSON.stringify([row.caseId, row.referenceScore,
             row.decisions.map(item => [item.id, item.expected]).sort()])).sort()]),
-        caseCounts: Object.fromEntries(BIOLOGY_radarAxesFor(candidate).map(axis => [axis.label,
+        caseCounts: Object.fromEntries(BIOLOGY_RADAR_AXES.map(axis => [axis.label,
           new Set(rows.filter(row => (axis.id === 'traps' ? ['D','E','F','G'] : ['A','B','C']).includes(row.caseId)).map(row => row.caseId)).size])),
         biologyMethod: protocol === 'pilot' ? undefined : protocol,
         prompts: [...new Set(rows.flatMap(row => (row.prompts ?? []).map(p => p.promptId + ' v' + (p.promptVersion ?? '?'))))],
         score: candidate.score ?? candidate.partialScore,
-        axes: Object.fromEntries(BIOLOGY_radarAxesFor(candidate).map(axis => [axis.label, candidate.axes[axis.id]])),
+        axes: Object.fromEntries(BIOLOGY_RADAR_AXES.map(axis => [axis.label, candidate.axes[axis.id]])),
       };
     }));
 }
