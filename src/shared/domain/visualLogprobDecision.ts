@@ -1,5 +1,6 @@
 /** Experimental closed-choice inference from a single Responses output token.
  * Probabilities refer to tokens, not calibrated correctness of a school grade. */
+export const visualLogprobTopAlternatives = 10;
 export const logprobChoices = ['present', 'absent', 'partial', 'undetermined'] as const;
 export type LogprobChoice = typeof logprobChoices[number];
 export type LogprobDistribution = Record<LogprobChoice, number | null>;
@@ -72,7 +73,14 @@ export function decodeVisualLogprobs(raw: unknown): LogprobDecision {
     const label = choice(token);
     if (label) probabilities[label] = (probabilities[label] ?? 0) + probability;
   }
-  if (mass > 1 + 1e-5) return unavailableLogprobDecision('Distribution incohérente');
+  if (mass > 1 + 1e-5) {
+    // Preserve only numeric diagnostics and the closed-choice letter; no raw
+    // tokens, copied content or provider payload enter the exported report.
+    const observed = [...candidates].map(([token, probability]) =>
+      (choice(token) ?? 'autre') + '=' + probability.toPrecision(12)).join(', ');
+    return { ...unavailableLogprobDecision('Distribution incohérente : masse observée ' +
+      (mass * 100).toFixed(6) + ' % (' + candidates.size + ' tokens distincts ; ' + observed + ')'), sampled };
+  }
   const unobservedMass = Math.max(0, 1 - mass);
   // Missing alternatives are NOT zero. Even if every missing token belonged to
   // the runner-up, the winner must remain ahead. No renormalization of A/B/C/D.
