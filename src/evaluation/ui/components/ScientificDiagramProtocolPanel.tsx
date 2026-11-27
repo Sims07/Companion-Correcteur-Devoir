@@ -539,6 +539,7 @@ export function ScientificDiagramProtocolPanel({
         <option value="graph-first-v1">{diagramMethodLabels['graph-first-v1']}</option>
         <option value="graph-first-v2">{diagramMethodLabels['graph-first-v2']}</option>
         <option value="direct-image-generative">Image → modèle génératif — sans OCR, Think OFF</option>
+        <option value="direct-image-batch">{diagramMethodLabels['direct-image-batch']}</option>
         <option value="direct-image-generative-thinking">Image → modèle génératif — Think ON (Ollama compatible)</option>
         <option value="compare-thinking">Comparer génératif direct : Think OFF / ON (modèle compatible)</option>
         <option value="direct-image-systemone">Image → décisionnel System One — sans OCR</option>
