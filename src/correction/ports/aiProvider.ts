@@ -108,11 +108,13 @@ export type GradingProgressEvent =
   | { type: 'first-token'; role: 'reading' | 'analysis'; pageIndex?: number };
 
 export interface GradingProvider {
+  prepareDiagramContext?(images: ImageInput[], signal?: AbortSignal): Promise<string | undefined>;
   readonly id: string;
   generate(request: GradingRequest, onChunk?: (chunk: string) => void, onStage?: (stage: 'reading' | 'grading') => void, onTranscription?: (transcription: string, kind?: 'copy' | 'subject' | 'annotations' | 'warning' | 'identity') => void, onDiagnosticResult?: (result: DiagnosticModelResult) => void, onCriterionUpdate?: (update: CriterionAnalysisUpdate) => void, onTeacherAnnotationReview?: (candidates: TeacherAnnotationReviewCandidate[]) => Promise<TeacherAnnotationReviewDecision[]>, onProgress?: (event: GradingProgressEvent) => void, signal?: AbortSignal): Promise<string>;
 }
 
 export interface OllamaSettings {
+  criterionConcurrency?: import('../../shared/domain/criterionConcurrency.ts').CriterionLevel;
   endpoint: string;
   /** Route chat calls through an OpenAI Chat Completions compatible endpoint. */
   apiCompatible?: boolean;

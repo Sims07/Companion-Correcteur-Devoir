@@ -316,7 +316,7 @@ export function createBackgroundCorrectionService(
             await withModelInactivityTimeout(requestAbortController, () =>
               workspace.checkReady({ ...jobSettings, model }));
             if (requestAbortController.signal.aborted) throw new DOMException('Traitement interrompu.', 'AbortError');
-            const provider = workspace.createProvider({
+            const createProvider = () => workspace.createProvider({
               ...jobSettings,
               visionModel: current.visionModel,
               analysisModel: model,
@@ -332,7 +332,8 @@ export function createBackgroundCorrectionService(
               ? { ...outstanding, criteria: outstanding.criteria.filter(criterion => criterion.id === current.retryDiagramCriterionId) }
               : outstanding;
             const signal = requestAbortController.signal;
-            const updateProgress = async (activeCriterionId: string | null, criteria: BackgroundCorrectionJob['partialCriteria']) => {
+            let progressWrite = Promise.resolve();
+            const saveProgress = async (activeCriterionId: string | null, criteria: BackgroundCorrectionJob['partialCriteria']) => {
               signal.throwIfAborted();
               const partialCriteria = mergeCriteria(current.partialCriteria, criteria);
               current = { ...current, activeCriterionId, partialCriteria,
@@ -340,8 +341,13 @@ export function createBackgroundCorrectionService(
                 updatedAt: new Date().toISOString() };
               await persist(current);
             };
+            const updateProgress = (id: string | null, criteria: BackgroundCorrectionJob['partialCriteria']) => {
+              progressWrite = progressWrite.then(() => saveProgress(id, criteria));
+              return progressWrite;
+            };
             const assessment = requested.criteria.length > 0
-              ? await withModelInactivityTimeout(requestAbortController, markActivity => gradeDiagramImages(provider, {
+              ? await withModelInactivityTimeout(requestAbortController, markActivity => gradeDiagramImages(createProvider(), {
+                execution: { level: jobSettings.criterionConcurrency ?? 1, createProvider },
                 question: current.question, images: current.images, rubric: requested, signal,
                 onCriterion: (index, _title, result) => {
                   markActivity();

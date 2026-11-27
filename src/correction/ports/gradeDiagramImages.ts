@@ -29,6 +29,7 @@ export async function gradeDiagramImages(provider: GradingProvider,
   const proposals: GradingProposal[] = [];
   let lastFailure: unknown;
   const level = split ? request.execution?.level ?? 1 : 1;
+  const rootId = level > 1 && groups.length > 1 ? await provider.prepareDiagramContext?.(request.images, signal) : undefined;
   await runCriterionWorkers(groups.length, level, signal, async index => {
     const criteria = groups[index]!;
     signal?.throwIfAborted();
@@ -50,7 +51,7 @@ export async function gradeDiagramImages(provider: GradingProvider,
           images: request.images,
           directGenerativeVision: true,
           retryDiagramGenerationLimit: true,
-          ...(split || allowSmartZoom ? { diagramConversation: level > 1 ? {} : diagramConversation } : {}),
+          ...(split || allowSmartZoom ? { diagramConversation: level > 1 ? { responseId: rootId } : diagramConversation } : {}),
           ...(split ? { diagramCriterionLabel: (index + 1) + '/' + groups.length + ' · ' + title } : {}),
         }, onActivity, undefined, undefined, request.onDiagnosticResult, undefined, undefined, undefined, signal);
         signal?.throwIfAborted();
