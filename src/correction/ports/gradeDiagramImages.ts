@@ -1,9 +1,11 @@
+import { runCriterionWorkers, type CriterionLevel } from '../../shared/domain/criterionConcurrency.ts';
 import type { DiagnosticModelResult, GradingProvider, ImageInput } from './aiProvider.ts';
 import { parseGradingProposal, type GradingProposal } from '../domain/grading.ts';
 import { sumGradeScores } from '../../shared/domain/scorePrecision.ts';
 import type { Rubric, RubricCriterion } from '../domain/rubric.ts';
 
 export interface DiagramImageGradingInput {
+  execution?: { level: CriterionLevel; createProvider: () => GradingProvider };
   images: ImageInput[];
   rubric: Rubric;
   question: string;
@@ -26,7 +28,9 @@ export async function gradeDiagramImages(provider: GradingProvider,
   const diagramConversation = {};
   const proposals: GradingProposal[] = [];
   let lastFailure: unknown;
-  for (const [index, criteria] of groups.entries()) {
+  const level = split ? request.execution?.level ?? 1 : 1;
+  await runCriterionWorkers(groups.length, level, signal, async index => {
+    const criteria = groups[index]!;
     signal?.throwIfAborted();
     const part = { ...rubric, criteria };
     const title = criteria[0]?.title ?? rubric.title;
@@ -39,13 +43,14 @@ export async function gradeDiagramImages(provider: GradingProvider,
       if (fast) {
         proposal = fast;
       } else {
-        const raw = await provider.generate({
+        const isolatedProvider = level > 1 ? request.execution!.createProvider() : provider;
+        const raw = await isolatedProvider.generate({
           question: request.question.trim() || 'Évalue uniquement les caractéristiques observables du dessin selon le barème fourni.',
           rubric: JSON.stringify(part),
           images: request.images,
           directGenerativeVision: true,
           retryDiagramGenerationLimit: true,
-          ...(split || allowSmartZoom ? { diagramConversation } : {}),
+          ...(split || allowSmartZoom ? { diagramConversation: level > 1 ? {} : diagramConversation } : {}),
           ...(split ? { diagramCriterionLabel: (index + 1) + '/' + groups.length + ' · ' + title } : {}),
         }, onActivity, undefined, undefined, request.onDiagnosticResult, undefined, undefined, undefined, signal);
         signal?.throwIfAborted();
@@ -56,12 +61,12 @@ export async function gradeDiagramImages(provider: GradingProvider,
       if (!split || !request.onCriterionFailure) throw cause;
       lastFailure = cause;
       await request.onCriterionFailure(index, cause);
-      continue;
+      return;
     }
-    if (!split) return proposal;
-    proposals.push(proposal);
-    await request.onCriterion?.(index, title, proposal);
-  }
+    proposals[index] = proposal;
+    if (split) await request.onCriterion?.(index, title, proposal);
+  });
+  if (!split) return proposals[0]!;
   if (!proposals.length && split && groups.length) throw lastFailure;
   const assessedIds = new Set(proposals.flatMap(proposal => proposal.criteria.map(criterion => criterion.criterionId)));
   const assessedRubric = { ...rubric, criteria: rubric.criteria.filter(criterion => assessedIds.has(criterion.id)) };
