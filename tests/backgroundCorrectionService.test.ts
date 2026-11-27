@@ -1485,6 +1485,45 @@ describe('diagram assignments share the resumable correction queue', () => {
     });
   });
 
+  it('corrects a real queued diagram with independent image requests at parallel level 4', async () => {
+    const { f, rubric, first } = diagramFixture();
+    const images = [...first.images, { base64: 'c2Vjb25k', mimeType: 'image/png', fileName: 'page2.png' }];
+    f.jobs.set('copy-1', { ...first, images, originalImages: images });
+    const prepareDiagramContext = vi.fn(async () => 'shared-root');
+    const contexts: object[] = [];
+    let active = 0, peak = 0;
+    let release!: () => void;
+    const barrier = new Promise<void>(resolve => { release = resolve; });
+    const generate: GradingProvider['generate'] = async request => {
+      f.requests.push(request);
+      expect(request.images).toEqual(images);
+      expect(request.directGenerativeVision).toBe(true);
+      expect(request.transcription).toBeUndefined();
+      const context = request.diagramConversation!;
+      expect(context.responseId).toBeUndefined();
+      contexts.push(context);
+      context.responseId = 'private-' + contexts.length;
+      peak = Math.max(peak, ++active);
+      if (contexts.length === rubric.criteria.length) release();
+      await barrier;
+      active--;
+      return diagramResponse(JSON.parse(request.rubric));
+    };
+    f.createProvider.mockImplementation(() => ({ id: 'parallel-test', generate, prepareDiagramContext }));
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    await service.processPending({
+      endpoint: 'http://localhost:11434', analysisModel: 'qwen-vision', correctionMethod: 'generative',
+      criterionByCriterion: true, criterionConcurrency: 4,
+    }, 'assignment-1');
+    expect(prepareDiagramContext).not.toHaveBeenCalled();
+    expect(peak).toBe(rubric.criteria.length);
+    expect(f.requests).toHaveLength(rubric.criteria.length);
+    expect(new Set(contexts).size).toBe(rubric.criteria.length);
+    const stored = f.jobs.get('copy-1')!;
+    expect(stored).toMatchObject({ status: 'ready', completedPages: 2, completedCriteria: rubric.criteria.length });
+    expect(stored.proposal!.criteria.map(c => c.criterionId)).toEqual(rubric.criteria.map(c => c.id));
+  });
+
   it('continues after invalid points and retries only the missing criterion after reopening the queue', async () => {
     const { f, rubric } = diagramFixture();
     const [first, missing, last] = rubric.criteria;
