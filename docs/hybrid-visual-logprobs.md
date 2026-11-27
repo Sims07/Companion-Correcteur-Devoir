@@ -1,6 +1,6 @@
 # Correction hybride expérimentale de schémas
 
-Opt-in dans les options avancées d'un profil génératif Responses local. Aucun nom de modèle
+Opt-in dans les options avancées d'un profil génératif local compatible Responses. Les sondes utilisent /v1/responses sur le même hôte ; la génération conserve le transport configuré. Aucun nom de modèle
 imposé. Le moteur enseignant reste génératif par défaut. Aucun appel distant n'est introduit.
 Le mode hybride impose des critères séquentiels et ne change pas le modèle chargé.
 
