@@ -44,7 +44,7 @@ describe('one-click radar measurement UI', () => {
     await act(async () => root.unmount());
     container.remove();
   });
-  it('offers a different second graph reading after six completed but inconclusive requests', async () => {
+  it('keeps inconclusive historical graph readings outside the active radar', async () => {
     const uncertainRuns: BlindVisualObservationRun[] = runs.map((run) => ({
       ...run,
       observations: {
@@ -65,30 +65,9 @@ describe('one-click radar measurement UI', () => {
       entries: [first], onOpenReport: vi.fn(), onRunMissing,
       profileIds: ['existing-profile'], busy: false,
     })));
-    const axis = [...container.querySelectorAll<HTMLButtonElement>('.diagram-radar-axis-buttons button')]
-      .find((button) => button.textContent?.includes('Lecture des relations'))!;
-    await act(async () => axis.click());
-    expect(container.textContent).toContain('tests terminés, mesure indéterminée');
-    expect(container.textContent).toContain('0/3 mutations comparables');
-    const retry = [...container.querySelectorAll<HTMLButtonElement>('button')]
-      .find((button) => button.textContent?.trim() === 'Seconde lecture ciblée')!;
-    expect(retry).toBeTruthy();
-    await act(async () => retry.click());
-    expect(onRunMissing).toHaveBeenCalledWith(expect.objectContaining({
-      axis: 'relations',
-      steps: [expect.objectContaining({ protocol: 'graph', zoom: true })],
-    }));
-
-    const second = summarizeDiagramLabReport(
-      buildBlindVisualObservationReport(uncertainRuns.map((run) => ({ ...run, zoom: true })),
-        1, '2026-11-14T13:52:32Z'), 'finished');
-    await act(async () => root.render(createElement(ScientificDiagramRadar, {
-      entries: [second, first], onOpenReport: vi.fn(), onRunMissing,
-      profileIds: ['existing-profile'], busy: false,
-    })));
-    expect(container.textContent).toContain('déjà été effectuée');
-    expect([...container.querySelectorAll<HTMLButtonElement>('button')]
-      .some((button) => button.textContent?.trim() === 'Seconde lecture ciblée')).toBe(false);
+    expect(container.textContent).not.toContain('Lecture des relations');
+    expect(container.textContent).not.toContain('Seconde lecture ciblée');
+    expect(onRunMissing).not.toHaveBeenCalled();
     await act(async () => root.unmount());
   });
 

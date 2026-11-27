@@ -72,10 +72,10 @@ describe('OpenAI-compatible radar with universal client-observed performance', (
       .find(item => item.method === 'image-direct-v1')!;
     expect(method.missing).toEqual([]);
     expect(method.steps).toEqual([]);
-    expect(method.reason).toContain('Neuf axes mesurables');
+    expect(method.reason).toContain('9 axes mesurables');
   });
 
-  it('displays a complete 9-axis score with LM Studio and keeps its timings', async () => {
+  it('displays a complete 7-axis score with LM Studio and keeps its timings', async () => {
     const node = document.createElement('div');
     document.body.append(node);
     const root = createRoot(node);
@@ -87,7 +87,7 @@ describe('OpenAI-compatible radar with universal client-observed performance', (
         campaigns: vi.fn(), runScience, runBiology: vi.fn(),
       })));
       const science = node.querySelector('article[aria-label="Schémas scientifiques"]')!;
-      expect(science.textContent).toContain('9/9 axes');
+      expect(science.textContent).toContain('7/7 axes');
       expect(science.textContent).toContain('Note globale');
       expect(science.textContent).not.toContain('Vitesse non mesurable');
       expect([...science.querySelectorAll('button')].some(button =>
@@ -119,21 +119,21 @@ describe('OpenAI-compatible radar with universal client-observed performance', (
         campaigns: vi.fn(), runScience, runBiology: vi.fn(),
       })));
       const science = node.querySelector('article[aria-label="Schémas scientifiques"]')!;
-      expect(science.textContent).toContain('8/9 axes');
+      expect(science.textContent).toContain('6/7 axes');
       const retry = [...science.querySelectorAll('button')].find(button =>
         button.textContent?.includes('Compléter les tests')) as HTMLButtonElement;
       expect(retry).toBeDefined();
       await act(async () => retry.click());
       expect(runScience).toHaveBeenCalledOnce();
       expect(runScience.mock.calls[0]?.[0].steps.map((step: { protocol: string }) => step.protocol))
-        .toEqual(['reference', 'arrows', 'semantic', 'graph']);
+        .toEqual(['reference', 'arrows']);
     } finally {
       await act(async () => root.unmount());
       node.remove();
     }
   });
 
-  it('does not propose a new benchmark when 9/9 is already measured', async () => {
+  it('does not propose a new benchmark when 7/7 is already measured', async () => {
     const node = document.createElement('div');
     document.body.append(node);
     const root = createRoot(node);

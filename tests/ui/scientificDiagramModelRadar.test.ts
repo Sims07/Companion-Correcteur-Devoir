@@ -1,18 +1,11 @@
 // @vitest-environment jsdom
+import { radarSample } from './observationRadarFixture.ts';
 import { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { describe, expect, it, vi } from 'vitest';
-import { DIAGRAM_SENSITIVITY_CASES } from '../../src/evaluation/domain/scientificDiagramSensitivity.ts';
-import { buildBlindVisualObservationReport } from '../../src/evaluation/domain/scientificDiagramBlindGraph.ts';
-import { summarizeDiagramLabReport } from '../../src/evaluation/domain/diagramLabHistory.ts';
 import { ScientificDiagramRadar } from '../../src/evaluation/ui/components/ScientificDiagramRadar.tsx';
 
-const entry = summarizeDiagramLabReport(buildBlindVisualObservationReport(
-  DIAGRAM_SENSITIVITY_CASES.map((item) => ({
-    caseId: item.id, profileId: 'vision-one', profileName: 'Configuration Qwen',
-    model: 'qwen:4b', repetition: 1, status: 'success' as const,
-    durationMs: 2_000, observations: { ...item.gold }, arrowCount: 2, containmentCount: 1,
-  })), 1, '2026-11-11T08:00:00Z'), 'finished');
+const entry = radarSample('reference', 1, 'qwen:4b', 'vision-one', 'Configuration Qwen');
 const profiles = [
   { id: 'vision-one', name: 'Configuration Qwen',
     configuration: { visionModel: 'qwen:4b', analysisModel: 'qwen:4b', correctionMethod: 'generative' } },
@@ -43,7 +36,7 @@ describe('LLM-first scientific radar', () => {
     });
     const summary = node.querySelector('[aria-label="Bilan du LLM sélectionné"]')!;
     expect(summary.textContent).toContain('Configuration Gemma · Think Off');
-    expect(summary.textContent).toContain('0 / 9');
+    expect(summary.textContent).toContain('0 / 7');
     expect(summary.textContent).toContain('Aucune mesure disponible');
     expect(node.querySelector('[aria-label="Résultat du LLM sélectionné"]')?.textContent).not.toContain('Configuration Qwen ·');
     const item = [...node.querySelectorAll('.diagram-radar-remaining-item')]

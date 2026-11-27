@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { radarSample } from './observationRadarFixture.ts';
 import { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { expect, it, vi } from 'vitest';
@@ -17,7 +18,7 @@ const profiles = models.map((model) => ({
     generativeModel: model, correctionMethod: 'generative' as const,
   },
 }));
-const entries = models.slice(0, 2).map((model, index) => summarizeDiagramLabReport(
+const historicalEntries = models.slice(0, 2).map((model, index) => summarizeDiagramLabReport(
   buildBlindVisualObservationReport(DIAGRAM_SENSITIVITY_CASES.map((item) => ({
     caseId: item.id, profileId: model, profileName: model, model,
     repetition: 1, status: 'success' as const, durationMs: 2500,
@@ -25,6 +26,7 @@ const entries = models.slice(0, 2).map((model, index) => summarizeDiagramLabRepo
   })), 1, '2026-11-12T08:0' + index + ':00Z'), 'finished',
 ));
 
+const entries = models.slice(0, 2).map(model => radarSample('reference', 1, model, model, model));
 function observation(model: string, caseId: string, protocol: 'standard' | 'contract'): BiologyRadarObservation {
   const positives = caseId === 'A' ? 10 : caseId === 'B' ? 0 : 5;
   return {
@@ -161,7 +163,7 @@ it('selects a dated score and runs its saved method again for the same model', a
   const node = document.createElement('div');
   const root = createRoot(node);
   const runScience = vi.fn();
-  const previous = { ...entries[0]!, trial: { id: 'old', method: 'leaders-v1' as const,
+  const previous = { ...entries[0]!, trial: { id: 'old', method: 'graph-first-v1' as const,
     weights: (await import('../../src/evaluation/domain/diagramLabRadar.ts')).RADAR_PRESETS.balanced } };
   await act(async () => root.render(createElement(EvaluationRadarHome, {
     entries: [previous], history: [], profiles, model: models[0]!, choose: vi.fn(), busy: false,
@@ -173,9 +175,9 @@ it('selects a dated score and runs its saved method again for the same model', a
   await act(async () => buttons.find(b => b.textContent?.startsWith('Choisir cette méthode'))!.click());
   await act(async () => buttons.find(b => b.textContent === 'Évaluer avec cette méthode')!.click());
   const request = runScience.mock.calls[0]![0];
-  expect(request.trial.method).toBe('leaders-v1');
+  expect(request.trial.method).toBe('graph-first-v1');
   expect(request.trial.id).not.toBe('old');
-  expect(request.steps.at(-1).graphVariant).toBe('pixel-leaders-v1');
+  expect(request.steps.at(-1).graphVariant).toBe('isolated-arrows-outside');
   await act(async () => root.unmount());
 });
 
@@ -183,7 +185,7 @@ it('exports the selected scientific model with its frozen score, weights and rel
   const { buildRadarTimelineExport } = await import('../../src/evaluation/domain/radarTimelineExport.ts');
   const { sciencePoints } = await import('../../src/evaluation/domain/radarTimeline.ts');
   const { RADAR_PRESETS } = await import('../../src/evaluation/domain/diagramLabRadar.ts');
-  const first = entries[0]!;
+  const first = historicalEntries[0]!;
   const group = [{...first, trial: {id: 'trial', method: 'pixel-v1' as const, weights: RADAR_PRESETS.balanced}}];
   const points = sciencePoints(group, RADAR_PRESETS.scientific);
   points[0]!.score = 42;
@@ -211,24 +213,24 @@ it('launches every remaining scientific strategy as independent, sequentially ex
   await act(async () => open.click());
   const launch = [...node.querySelectorAll<HTMLButtonElement>('.method-lab button')]
     .find(button => button.textContent?.startsWith('Évaluer toutes les méthodes restantes'))!;
-  expect(launch.textContent).toContain('(8)');
+  expect(launch.textContent).toContain('(4)');
   const methodSelect = node.querySelector<HTMLSelectElement>('.lab-launch select')!;
   await act(async () => {
-    methodSelect.value = 'guided-v1';
+    methodSelect.value = 'graph-first-v2';
     methodSelect.dispatchEvent(new Event('change', { bubbles: true }));
   });
-  expect(methodSelect.value).toBe('guided-v1');
+  expect(methodSelect.value).toBe('graph-first-v2');
   expect(node.querySelector('.radar-method-help')?.textContent)
     .toContain('quel que soit le choix affiché');
   await act(async () => launch.click());
   expect(runScienceBatch).toHaveBeenCalledOnce();
   const requests = runScienceBatch.mock.calls[0]![0];
   expect(requests.map((request: {trial: {method: string}}) => request.trial.method))
-    .toEqual(['image-direct-v1', 'graph-first-v1', 'leaders-v1', 'pixel-v1', 'direct-v1', 'guided-v1',
+    .toEqual(['image-direct-v1', 'graph-first-v1', 
         'graph-first-v2', 'direct-image-generative-thinking']);
-  expect(new Set(requests.map((request: {trial: {id: string}}) => request.trial.id)).size).toBe(8);
+  expect(new Set(requests.map((request: {trial: {id: string}}) => request.trial.id)).size).toBe(4);
   expect(requests.every((request: {modelId: string; steps: unknown[]}) =>
-    request.modelId === models[0] && request.steps.length === 4)).toBe(true);
+    request.modelId === models[0] && request.steps.length === 2)).toBe(true);
   await act(async () => root.unmount());
 });
 
@@ -255,7 +257,7 @@ it('offers only biology methods without all measured axes and disables batching 
   await act(async () => root.unmount());
 });
 
-it('starts every remaining scientific method sequentially as separate four-battery radar trials in a single click', async () => {
+it('starts every remaining scientific method sequentially as separate two-battery radar trials in a single click', async () => {
   const node = document.createElement('div');
   const root = createRoot(node);
   const runScienceBatch = vi.fn();
@@ -268,7 +270,7 @@ it('starts every remaining scientific method sequentially as separate four-batte
   const open = [...section.querySelectorAll('button')].find(button => button.textContent === 'Analyse des méthodes')!;
   await act(async () => (open as HTMLButtonElement).click());
   const button = [...node.querySelectorAll<HTMLButtonElement>('.method-lab button')]
-    .find(button => button.textContent === 'Évaluer toutes les méthodes restantes (8)')!;
+    .find(button => button.textContent === 'Évaluer toutes les méthodes restantes (4)')!;
   expect(button).toBeTruthy();
   expect(button.disabled).toBe(false);
   await act(async () => button.click());
@@ -277,13 +279,13 @@ it('starts every remaining scientific method sequentially as separate four-batte
     trial: {id: string; method: string}; steps: Array<{protocol: string}>;
     profileId: string; modelId?: string;
   }>;
-  expect(requests).toHaveLength(8);
-  expect(new Set(requests.map(request => request.trial.id)).size).toBe(8);
+  expect(requests).toHaveLength(4);
+  expect(new Set(requests.map(request => request.trial.id)).size).toBe(4);
   expect(requests.map(request => request.trial.method)).toEqual(
-    Object.keys((await import('../../src/evaluation/domain/radarTimeline.ts')).scienceMethods)
+    (await import('../../src/evaluation/domain/radarTimeline.ts')).OBSERVATION_SCIENCE_METHOD_IDS
       .filter(method => method !== 'direct-image-systemone' && method !== 'vision-then-analysis' && !['direct-image-logprobs','direct-image-hybrid','direct-image-hybrid-zoom'].includes(method)));
   for (const request of requests) {
-    expect(request.steps.map(step => step.protocol)).toEqual(['reference','arrows','semantic','graph']);
+    expect(request.steps.map(step => step.protocol)).toEqual(['reference','arrows']);
     expect(request.profileId).toBe('alpha:4b');
     expect(request.modelId).toBe('alpha:4b');
   }
@@ -330,7 +332,7 @@ it('prevents starting a batch while another evaluation is in progress', async ()
 
 it('keeps four successive scientific methods as four independently selectable radars', async () => {
   const { RADAR_PRESETS } = await import('../../src/evaluation/domain/diagramLabRadar.ts');
-  const methods = ['leaders-v1', 'pixel-v1', 'direct-v1', 'guided-v1'] as const;
+  const methods = ['image-direct-v1', 'graph-first-v1', 'graph-first-v2', 'direct-image-generative-thinking'] as const;
   const completed = methods.map((method, index) => ({
     ...entries[0]!,
     id: 'saved-method-' + index,
@@ -362,7 +364,7 @@ it('keeps four successive scientific methods as four independently selectable ra
 });
 
 
-it('audits all twelve active scientific methods and schedules only pending method trials from one button', async () => {
+it('audits all eight active scientific methods and schedules only pending method trials from one button', async () => {
   const node = document.createElement('div');
   document.body.append(node);
   const root = createRoot(node);
@@ -376,26 +378,26 @@ it('audits all twelve active scientific methods and schedules only pending metho
   const analyse = [...node.querySelectorAll<HTMLButtonElement>('button')].find(button =>
     button.textContent?.trim() === 'Analyse des méthodes')!;
   await act(async () => analyse.click());
-  const audit = node.querySelector('section[aria-label="État des 12 méthodes scientifiques"]')!;
+  const audit = node.querySelector('section[aria-label="État des 8 méthodes scientifiques"]')!;
   expect(audit).toBeTruthy();
-  expect(audit.querySelectorAll('tbody tr')).toHaveLength(12);
+  expect(audit.querySelectorAll('tbody tr')).toHaveLength(8);
   expect(audit.textContent).toContain('Non testé');
-  expect(audit.textContent).toContain('/9');
+  expect(audit.textContent).toContain('/7');
   const launch = [...node.querySelectorAll<HTMLButtonElement>('button')].find(button =>
-    button.textContent?.includes('Évaluer toutes les méthodes restantes (8)'))!;
+    button.textContent?.includes('Évaluer toutes les méthodes restantes (4)'))!;
   expect(launch.disabled).toBe(false);
   await act(async () => launch.click());
   const requests = runScienceBatch.mock.calls[0]![0] as Array<{
     trial: {id:string; method:string}; steps: Array<{protocol:string}>;
   }>;
-  expect(requests).toHaveLength(8);
-  expect(new Set(requests.map(item => item.trial.method)).size).toBe(8);
-  expect(requests.every(item => item.steps.length === 4)).toBe(true);
+  expect(requests).toHaveLength(4);
+  expect(new Set(requests.map(item => item.trial.method)).size).toBe(4);
+  expect(requests.every(item => item.steps.length === 2)).toBe(true);
   const targeted = audit.querySelector<HTMLButtonElement>('tbody tr button')!;
   await act(async () => targeted.click());
   expect(runScience).toHaveBeenCalledWith(expect.objectContaining({
     trial: expect.objectContaining({method: 'image-direct-v1'}),
-    steps: expect.arrayContaining([expect.objectContaining({protocol: 'graph'})]),
+    steps: expect.arrayContaining([expect.objectContaining({protocol: 'reference'})]),
   }));
   await act(async () => root.unmount());
   node.remove();

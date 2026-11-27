@@ -96,18 +96,18 @@ it('keeps excluded scientific strategies out of the active sequential batch and 
     const all = () => [...node.querySelectorAll<HTMLButtonElement>('button')]
       .find(item => item.textContent?.includes('Évaluer toutes les méthodes restantes'))!;
     const include = node.querySelector<HTMLInputElement>(
-      'input[aria-label="Inclure '+scienceMethods['pixel-v1'].label+'"]',
+      'input[aria-label="Inclure '+scienceMethods['graph-first-v1'].label+'"]',
     )!;
-    expect(all().textContent).toContain('(8)');
+    expect(all().textContent).toContain('(4)');
     await act(async () => include.click());
-    expect(all().textContent).toContain('(7)');
-    expect(node.querySelector<HTMLSelectElement>('.lab-launch select')?.value).not.toBe('pixel-v1');
+    expect(all().textContent).toContain('(3)');
+    expect(node.querySelector<HTMLSelectElement>('.lab-launch select')?.value).not.toBe('graph-first-v1');
     await act(async () => all().click());
     expect(batch).toHaveBeenCalledTimes(1);
     const requests = batch.mock.calls[0]![0] as Array<{trial: {method: string}}>;
-    expect(requests).toHaveLength(7);
+    expect(requests).toHaveLength(3);
     expect(requests.map(row => row.trial.method)).toContain('image-direct-v1');
-    expect(requests.map(row => row.trial.method)).not.toContain('pixel-v1');
+    expect(requests.map(row => row.trial.method)).not.toContain('graph-first-v1');
     expect(requests.map(row => row.trial.method)).not.toContain('vision-then-analysis');
     const runOne = [...node.querySelectorAll<HTMLButtonElement>('button')]
       .find(item => item.textContent?.trim() === 'Évaluer avec cette méthode')!;
