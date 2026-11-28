@@ -3,6 +3,7 @@ import { createOllamaProvider } from '../src/correction/adapters/ai/ollamaProvid
 import { gradeDiagramImages } from '../src/correction/ports/gradeDiagramImages.ts';
 import { SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC } from '../src/correction/domain/scientificDiagramRubric.ts';
 import { OpenAiCompletionStream } from '../src/shared/domain/openAiCompletionStream.ts';
+import type { GradingProvider } from '../src/correction/ports/aiProvider.ts';
 
 const endpoint = 'https://mac-mini.test/proxy/api/v1/chat';
 const rubric = { ...SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC, criteria:
@@ -21,6 +22,34 @@ function result(content: string, id?: string) {
 }
 
 describe('conversation de schéma LM Studio', () => {
+  it('retries only the failed criterion, with the original image and a fresh conversation', async () => {
+    const calls: { criterion: string; images: unknown[]; conversation: unknown; attempt?: number }[] = [];
+    const attempts: { criterionId: string; attempt: number; status: string }[] = [];
+    const tries = new Map<string, number>();
+    const provider: GradingProvider = {
+      id: 'retry-test',
+      generate: vi.fn(async request => {
+        const criterion = JSON.parse(request.rubric).criteria[0].id as string;
+        const attempt = (tries.get(criterion) ?? 0) + 1;
+        tries.set(criterion, attempt);
+        calls.push({ criterion, images: request.images ?? [], conversation: request.diagramConversation, attempt: request.diagramCriterionAttempt });
+        if (criterion === rubric.criteria[0].id && attempt === 1) throw new Error('HTTP 500: Internal Server Error');
+        return answer(rubric.criteria.findIndex(item => item.id === criterion));
+      }),
+    };
+    const createProvider = () => provider;
+    const grade = await gradeDiagramImages(provider, {
+      ...copy('YQ=='), execution: { level: 2, createProvider },
+      onCriterionAttempt: event => { attempts.push({ criterionId: event.criterionId, attempt: event.attempt, status: event.status }); },
+    }, true);
+    expect(grade.criteria).toHaveLength(2);
+    expect(calls.map(call => call.criterion)).toEqual([rubric.criteria[0].id, rubric.criteria[1].id, rubric.criteria[0].id]);
+    expect(calls.every(call => call.images === copy('YQ==').images || (call.images as { base64: string }[])[0]?.base64 === 'YQ==')).toBe(true);
+    expect(calls[2]?.conversation).toEqual({});
+    expect(calls.map(call => call.attempt)).toEqual([1, 1, 2]);
+    expect(attempts).toContainEqual({ criterionId: rubric.criteria[0].id, attempt: 2, status: 'retrying' });
+  });
+
   it('envoie toutes les pages au premier tour de chaque copie, y compris après une réparation JSON', async () => {
     const outputs = ['invalide', answer(0), answer(1), answer(0), answer(1)];
     const calls: { previous_response_id?: string; input: { type: string; data_url?: string }[] }[] = [];

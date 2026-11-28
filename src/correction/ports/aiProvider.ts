@@ -36,6 +36,8 @@ export interface GradingRequest {
   retryDiagramGenerationLimit?: boolean;
   diagramConversation?: { responseId?: string };
   diagramCriterionLabel?: string;
+  /** Attempt ordinal for a criterion-local retry; included in local network diagnostics. */
+  diagramCriterionAttempt?: number;
   /** Read only the reference subject with the dedicated subject prompt, without transcribing or grading a copy. */
   subjectOnly?: boolean;
   /** Reference preparation may include an existing teacher answer key; transcribe it literally. */

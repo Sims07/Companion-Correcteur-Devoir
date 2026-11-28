@@ -24,6 +24,7 @@ import { parseStudentIdentityResponse } from '../../domain/studentIdentity.ts';
 import { buildIncrementalCriterionPrompt } from './gradingPrompts.ts';
 import { SCIENTIFIC_DIAGRAM_MAIN_TITLE_RULE } from '../../domain/scientificDiagramObservation.ts';
 import { resolveCloseDiagnosticCriteria } from '../../domain/diagnosticResolution.ts';
+import { MAX_DIAGRAM_CRITERION_ATTEMPTS } from '../../domain/diagramRetryPolicy.ts';
 import { parseArbitrationDecisions } from '../../domain/arbitrationDecision.ts';
 import { parseModelJson } from '../../../shared/domain/modelJson.ts';
 import { isLmStudioChat } from '../../../shared/domain/openAiCompletionStream.ts';
@@ -737,7 +738,9 @@ export function createOllamaProvider(
             headers: { 'Content-Type': 'application/json' },
             body: chat ? undefined : JSON.stringify(requestBody),
             signal: requestAbortController.signal,
-          }, request.diagramCriterionLabel ? intent + ' · ' + request.diagramCriterionLabel : intent, `Modèle ${model} · ${context}`);
+          }, request.diagramCriterionLabel
+            ? intent + ' · ' + request.diagramCriterionLabel + (request.diagramCriterionAttempt ? ` · tentative ${request.diagramCriterionAttempt}/${MAX_DIAGRAM_CRITERION_ATTEMPTS}` : '')
+            : intent, `Modèle ${model} · ${context}`);
           response = chat && usesResponses
             ? await sendLmStudioZoomDiagramTurn(endpoint, settings.apiKey ?? '', chat,
                 { ...requestBody, criterionLabel: request.diagramCriterionLabel, zoomBudget: settings.smartZoomBudget, omitReasoningParameter: settings.omitReasoningParameter },

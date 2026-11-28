@@ -3,6 +3,7 @@ import type { DiagnosticModelResult, GradingProvider, ImageInput } from './aiPro
 import { parseGradingProposal, type GradingProposal } from '../domain/grading.ts';
 import { sumGradeScores } from '../../shared/domain/scorePrecision.ts';
 import type { Rubric, RubricCriterion } from '../domain/rubric.ts';
+import { diagramRetryDelayMs, isRetryableDiagramFailure, MAX_DIAGRAM_CRITERION_ATTEMPTS } from '../domain/diagramRetryPolicy.ts';
 
 export interface DiagramImageGradingInput {
   execution?: { level: CriterionLevel; createProvider: () => GradingProvider;
@@ -15,6 +16,7 @@ export interface DiagramImageGradingInput {
   onCriterion?: (index: number, title: string, proposal?: GradingProposal) => void | Promise<void>;
   onCriterionFailure?: (index: number, cause: unknown) => void | Promise<void>;
   onDiagnosticResult?: (result: DiagnosticModelResult) => void;
+  onCriterionAttempt?: (event: { index: number; criterionId: string; attempt: number; status: 'started' | 'retrying' | 'completed' | 'failed'; durationMs?: number; cause?: string }) => void | Promise<void>;
 }
 
 /** An experimental shortcut may supply a provisional teacher-review proposal for one criterion.
@@ -45,31 +47,55 @@ export async function gradeDiagramImages(provider: GradingProvider,
     const title = criteria[0]?.title ?? rubric.title;
     if (split) await request.onCriterion?.(index, title);
     signal?.throwIfAborted();
-    let proposal: GradingProposal;
-    try {
-      const fast = shortcut ? await shortcut(criteria[0]!, signal, onActivity) : null;
-      signal?.throwIfAborted();
-      if (fast) {
-        proposal = fast;
-      } else {
-        const isolatedProvider = isolated ? request.execution!.createProvider() : provider;
-        const raw = await isolatedProvider.generate({
-          question: request.question.trim() || 'Évalue uniquement les caractéristiques observables du dessin selon le barème fourni.',
-          rubric: JSON.stringify(part),
-          images: request.images,
-          directGenerativeVision: true,
-          retryDiagramGenerationLimit: true,
-          ...(split || allowSmartZoom ? { diagramConversation: isolated ? (rootId ? { responseId: rootId } : {}) : diagramConversation } : {}),
-          ...(split ? { diagramCriterionLabel: (index + 1) + '/' + groups.length + ' · ' + title } : {}),
-        }, onActivity, undefined, undefined, request.onDiagnosticResult, undefined, undefined, undefined, signal);
+    let proposal: GradingProposal | undefined;
+    let lastCause: unknown;
+    for (let attempt = 1; attempt <= MAX_DIAGRAM_CRITERION_ATTEMPTS; attempt += 1) {
+      const started = Date.now();
+      await request.onCriterionAttempt?.({ index, criterionId: criteria[0]?.id ?? '', attempt, status: attempt === 1 ? 'started' : 'retrying' });
+      try {
+        const fast = attempt === 1 && shortcut ? await shortcut(criteria[0]!, signal, onActivity) : null;
         signal?.throwIfAborted();
-        proposal = parseGradingProposal(raw, part);
+        if (fast) {
+          proposal = fast;
+        } else {
+          // A retry starts a fresh provider conversation and resends the original image.
+          const isolatedProvider = isolated ? request.execution!.createProvider() : provider;
+          const raw = await isolatedProvider.generate({
+            question: request.question.trim() || 'Évalue uniquement les caractéristiques observables du dessin selon le barème fourni.',
+            rubric: JSON.stringify(part),
+            images: request.images,
+            directGenerativeVision: true,
+            retryDiagramGenerationLimit: true,
+            ...(split || allowSmartZoom ? { diagramConversation: attempt > 1 ? {} : isolated ? (rootId ? { responseId: rootId } : {}) : diagramConversation } : {}),
+            ...(split ? { diagramCriterionLabel: (index + 1) + '/' + groups.length + ' · ' + title } : {}),
+            ...(split ? { diagramCriterionAttempt: attempt } : {}),
+          }, onActivity, undefined, undefined, request.onDiagnosticResult, undefined, undefined, undefined, signal);
+          signal?.throwIfAborted();
+          proposal = parseGradingProposal(raw, part);
+        }
+        const durationMs = Date.now() - started;
+        await request.onCriterionAttempt?.({ index, criterionId: criteria[0]?.id ?? '', attempt, status: 'completed', durationMs });
+        break;
+      } catch (cause) {
+        signal?.throwIfAborted();
+        lastCause = cause;
+        const durationMs = Date.now() - started;
+        const retry = attempt < MAX_DIAGRAM_CRITERION_ATTEMPTS && isRetryableDiagramFailure(cause);
+        await request.onCriterionAttempt?.({ index, criterionId: criteria[0]?.id ?? '', attempt, status: retry ? 'retrying' : 'failed', durationMs, cause: cause instanceof Error ? cause.message : String(cause) });
+        if (!retry) break;
+        await new Promise<void>((resolve, reject) => {
+          const done = () => { signal?.removeEventListener('abort', abort); resolve(); };
+          const timeout = setTimeout(done, diagramRetryDelayMs(attempt + 1));
+          const abort = () => { clearTimeout(timeout); signal?.removeEventListener('abort', abort); reject(new DOMException('Traitement interrompu.', 'AbortError')); };
+          if (signal?.aborted) abort();
+          else signal?.addEventListener('abort', abort, { once: true });
+        });
       }
-    } catch (cause) {
-      signal?.throwIfAborted();
-      if (!split || !request.onCriterionFailure) throw cause;
-      lastFailure = cause;
-      await request.onCriterionFailure(index, cause);
+    }
+    if (!proposal) {
+      if (!split || !request.onCriterionFailure) throw lastCause;
+      lastFailure = lastCause;
+      await request.onCriterionFailure(index, lastCause);
       return;
     }
     proposals[index] = proposal;

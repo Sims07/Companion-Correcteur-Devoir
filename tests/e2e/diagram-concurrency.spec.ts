@@ -26,13 +26,20 @@ test('le benchmark conserve une exécution en navigation et permet un nouvel ess
   await expect(panel.getByRole('status')).toContainText('arrêtée');
   fail = true;
   await start.click();
-  await expect(panel.getByRole('status')).toContainText('Échec');
+  await expect(panel.getByRole('status')).toContainText('Échec', { timeout: 20_000 });
   await expect(start).toBeEnabled();
 
   await page.unroute('**/api/v1/chat');
   let calls = 0;
+  let attempts = 0;
+  let transientFailures = 1;
   const requests: Array<{ id: string; previous?: string; hasImage: boolean; preparation: boolean }> = [];
   await page.route('**/api/v1/chat', async route => {
+    attempts += 1;
+    if (transientFailures > 0) {
+      transientFailures -= 1;
+      return route.fulfill({ status: 503, body: 'serveur temporairement occupé' });
+    }
     const body = route.request().postDataJSON();
     const id = 'resp_' + ++calls;
     const prompt = body.input.find((item: { type: string }) => item.type === 'text').content;
@@ -60,6 +67,7 @@ test('le benchmark conserve une exécution en navigation et permet un nouvel ess
   await expect(panel.getByRole('status')).toContainText('Comparaison terminée.', {timeout:20_000});
   // Warm-up and A/B/C at level 1 keep four cumulative conversations.
   // A/B/C at level 2 start twelve independent image-bearing requests.
+  expect(attempts).toBe(29);
   expect(requests).toHaveLength(28);
   expect(requests.every(request => !request.preparation)).toBe(true);
   for (let offset = 0; offset < 16; offset += 4) {
