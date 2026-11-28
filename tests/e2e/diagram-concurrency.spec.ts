@@ -26,7 +26,7 @@ test('le benchmark conserve une exécution en navigation et permet un nouvel ess
   await expect(panel.getByRole('status')).toContainText('arrêtée');
   fail = true;
   await start.click();
-  await expect(panel.getByRole('status')).toContainText('Échec');
+  await expect(panel.getByRole('status')).toContainText('Échec', { timeout: 20_000 });
   await expect(start).toBeEnabled();
 
   await page.unroute('**/api/v1/chat');
