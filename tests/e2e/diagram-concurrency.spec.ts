@@ -31,20 +31,16 @@ test('le benchmark conserve une exécution en navigation et permet un nouvel ess
 
   await page.unroute('**/api/v1/chat');
   let calls = 0;
-  const branches = new Map<string, number>();
+  const requests: Array<{ id: string; previous?: string; hasImage: boolean; preparation: boolean }> = [];
   await page.route('**/api/v1/chat', async route => {
     const body = route.request().postDataJSON();
     const id = 'resp_' + ++calls;
     const prompt = body.input.find((item: { type: string }) => item.type === 'text').content;
+    const preparation = prompt.startsWith('Conserve ces pages');
+    requests.push({ id, previous: body.previous_response_id,
+      hasImage: body.input.some((item: { type: string }) => item.type === 'image'), preparation });
     let answer = 'OK';
-    if (prompt.startsWith('Conserve ces pages')) {
-      expect(body.input.some((item: { type: string }) => item.type === 'image')).toBe(true);
-      branches.set(id, 0);
-    } else {
-      if (branches.has(body.previous_response_id)) {
-        branches.set(body.previous_response_id, branches.get(body.previous_response_id)! + 1);
-        expect(body.input.every((item: { type: string }) => item.type !== 'image')).toBe(true);
-      }
+    if (!preparation) {
       const schema = JSON.parse(prompt.split('Schéma JSON de la réponse attendue :\n').at(-1));
       const criteria = schema.properties.criteria.properties;
       const key = Object.keys(criteria)[0];
@@ -62,7 +58,20 @@ test('le benchmark conserve une exécution en navigation et permet un nouvel ess
   await panel.getByLabel('Concurrence maximale').selectOption('2');
   await start.click();
   await expect(panel.getByRole('status')).toContainText('Comparaison terminée.', {timeout:20_000});
-  expect([...branches.values()]).toEqual([4,4,4]);
+  // Warm-up and A/B/C at level 1 keep four cumulative conversations.
+  // A/B/C at level 2 start twelve independent image-bearing requests.
+  expect(requests).toHaveLength(28);
+  expect(requests.every(request => !request.preparation)).toBe(true);
+  for (let offset = 0; offset < 16; offset += 4) {
+    const group = requests.slice(offset, offset + 4);
+    expect(group.map(request => request.hasImage)).toEqual([true, false, false, false]);
+    expect(group[0]!.previous ?? null).toBeNull();
+    for (let i = 1; i < group.length; i++) expect(group[i]!.previous).toBe(group[i - 1]!.id);
+  }
+  for (const request of requests.slice(16)) {
+    expect(request.hasImage).toBe(true);
+    expect(request.previous ?? null).toBeNull();
+  }
   await expect(panel.getByRole('row')).toHaveCount(7);
   await expect(panel.getByRole('button',{name:'Exporter la comparaison JSON'})).toBeEnabled();
 });
