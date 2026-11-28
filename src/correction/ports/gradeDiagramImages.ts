@@ -33,7 +33,9 @@ export async function gradeDiagramImages(provider: GradingProvider,
   const level = split ? request.execution?.level ?? 1 : 1;
   const contextMode = split ? request.execution?.contextMode : undefined;
   const isolated = level > 1 || contextMode !== undefined;
-  const shared = contextMode === 'shared' || (contextMode === undefined && level > 1);
+  // Production parallel correction always starts fresh image-bearing requests.
+  // Shared context is available only as an explicit diagnostic experiment.
+  const shared = contextMode === 'shared';
   const rootId = shared && groups.length > 1 ? await provider.prepareDiagramContext?.(request.images, signal) : undefined;
   if (contextMode === 'shared' && !rootId) throw new Error('Le serveur ne fournit pas de contexte partagé pour cette variante.');
   await runCriterionWorkers(groups.length, level, signal, async index => {

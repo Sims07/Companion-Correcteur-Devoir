@@ -84,25 +84,55 @@ describe('direct diagram teacher correction', () => {
   });
 });
 
-it('branches each parallel criterion from one image context and restores rubric order', async () => {
+it.each([2, 4, 8] as const)('sends independent images for parallel level %i and restores rubric order', async (level) => {
   const contexts: object[] = [];
+  let active = 0, peak = 0;
   const prepareDiagramContext = vi.fn(async () => 'resp_image');
   const generate: GradingProvider['generate'] = async request => {
     const part = JSON.parse(request.rubric);
     const conversation = request.diagramConversation!;
-    expect(conversation.responseId).toBe('resp_image');
+    expect(conversation.responseId).toBeUndefined();
+    expect(request.images).toEqual(images);
+    expect(part.criteria).toHaveLength(1);
+    peak = Math.max(peak, ++active);
     contexts.push(conversation);
     conversation.responseId = 'resp_private';
+    await Promise.resolve();
     if (part.criteria[0].id === rubric.criteria[0].id) await new Promise(resolve => setTimeout(resolve, 5));
+    active--;
     const raw = JSON.parse(response);
     raw.criteria = raw.criteria.filter((c: { criterionId: string }) => c.criterionId === part.criteria[0].id);
     return JSON.stringify(raw);
   };
   const createProvider = vi.fn(() => ({ id: 'test', generate, prepareDiagramContext }));
   const output = await correctScientificDiagramDirect({ checkReady: async () => {}, createProvider }, {
-    ...request(), configuration: { ...configuration, criterionByCriterion: true, criterionConcurrency: 2 },
+    ...request(), configuration: { ...configuration, criterionByCriterion: true, criterionConcurrency: level },
   });
-  expect(prepareDiagramContext).toHaveBeenCalledTimes(1);
+  expect(prepareDiagramContext).not.toHaveBeenCalled();
+  expect(peak).toBe(Math.min(level, rubric.criteria.length));
   expect(new Set(contexts).size).toBe(rubric.criteria.length);
   expect(output.criteria.map(c => c.criterionId)).toEqual(rubric.criteria.map(c => c.id));
+});
+
+
+it('preserves the cumulative conversation in sequential criterion correction', async () => {
+  const contexts: object[] = [];
+  const incoming: Array<string | undefined> = [];
+  const prepareDiagramContext = vi.fn(async () => 'unused');
+  const generate: GradingProvider['generate'] = async request => {
+    const conversation = request.diagramConversation!;
+    contexts.push(conversation);
+    incoming.push(conversation.responseId);
+    conversation.responseId = 'response-' + incoming.length;
+    const part = JSON.parse(request.rubric);
+    const raw = JSON.parse(response);
+    raw.criteria = raw.criteria.filter((c: { criterionId: string }) => c.criterionId === part.criteria[0].id);
+    return JSON.stringify(raw);
+  };
+  await correctScientificDiagramDirect({ checkReady: async () => {}, createProvider: () => ({ id: 'test', generate, prepareDiagramContext }) }, {
+    ...request(), configuration: { ...configuration, criterionByCriterion: true, criterionConcurrency: 1 },
+  });
+  expect(prepareDiagramContext).not.toHaveBeenCalled();
+  expect(new Set(contexts).size).toBe(1);
+  expect(incoming).toEqual(rubric.criteria.map((_criterion, i) => i ? 'response-' + i : undefined));
 });

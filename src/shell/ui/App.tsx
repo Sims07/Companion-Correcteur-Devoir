@@ -5102,7 +5102,7 @@ export function App({ evaluationVision = {}, service, archiveService, evaluation
         {criterionByCriterion && correctionMethod === 'generative' && <label>Exécution des critères de schéma
           <DesignSystemSelect id="ai-diagram-concurrency" value={criterionConcurrency} onChange={e => setCriterionConcurrency(e.target.value === 'auto' ? 'auto' : Number(e.target.value) as CriterionLevel)}>
             <option value="auto">Automatique · mesures du laboratoire</option>
-            {criterionLevels.map(n => <option key={n} value={n}>{n === 1 ? 'Séquentiel · 1 critère' : 'Parallèle · ' + n + ' critères'}</option>)}</DesignSystemSelect></label>}
+            {criterionLevels.map(n => <option key={n} value={n}>{n === 1 ? 'Séquentiel · 1 critère' : 'Parallèle · ' + n + ' critères'}</option>)}</DesignSystemSelect><small className="hint">En parallèle, chaque critère reçoit toutes les images de la copie dans une conversation indépendante. Le mode automatique utilise uniquement les calibrations de ce nouveau protocole.</small></label>}
         </details>
         <div className="settings-actions"><button type="button" className="primary-button" onClick={() => setShowAiSettings(false)}>Terminé, revenir au devoir</button></div>
       </section>}

@@ -106,6 +106,7 @@ export function DiagramConcurrencyPanel({ visible, busy, profiles, prepare, prov
       <option value="calibration">Comparer les niveaux (calibration)</option>
       <option value="diagnostic">Diagnostic qualité du parallélisme</option>
     </DesignSystemSelect></label>
+    {!diagnosticMode && <p>Le niveau 1 conserve la conversation séquentielle ; les niveaux parallèles renvoient les images à chaque groupe, sans contexte partagé. Les anciennes calibrations ne sont pas réutilisées.</p>}
     {diagnosticMode ? <>
       <p>Diagnostic uniquement : mêmes images, barème et profil. Aucun changement du niveau automatique. Ordre des variantes alterné.</p>
       <p>{diagnosticVariants.map(v => v.id + ' : ' + v.label).join(' · ')}</p>
@@ -124,6 +125,6 @@ export function DiagramConcurrencyPanel({ visible, busy, profiles, prepare, prov
       {!diagnosticMode && <><p>Pic mémoire du processus modèle, à relever sur le serveur pendant chaque série.</p>
       {Array.from(new Set(samples.map(s => s.level))).map(n => <label key={n}>Niveau {n} (Go) <input type="number" min="0" step="any" value={memory[n] ?? ''} onChange={e => setMemory({ ...memory, [n]: e.target.value })}/></label>)}
       </>}
-      <button onClick={() => downloadJson(diagnosticMode ? { schemaVersion: 1, model, profileKey, engine: runMetadata.engine || null, repetitions: runMetadata.repetitions, complete: samples.length === runMetadata.repetitions * 15, samples } : { model, profileKey, samples, peakMemoryGB: memory }, diagnosticMode ? 'companion-parallelisme-diagnostic.json' : 'companion-parallelisme.json')}>Exporter la comparaison JSON</button></>}
+      <button onClick={() => downloadJson(diagnosticMode ? { schemaVersion: 1, model, profileKey, engine: runMetadata.engine || null, repetitions: runMetadata.repetitions, complete: samples.length === runMetadata.repetitions * 15, samples } : { schemaVersion: 2, model, profileKey, parallelContextMode: 'independent', sequentialContextMode: 'cumulative', samples, peakMemoryGB: memory }, diagnosticMode ? 'companion-parallelisme-diagnostic.json' : 'companion-parallelisme.json')}>Exporter la comparaison JSON</button></>}
   </section>;
 }
