@@ -5,6 +5,7 @@ import { isOllamaInferenceRequest } from '../../shared/domain/ollamaTimings.ts';
 import { extractOllamaMessage, extractOllamaThinking } from '../../shared/domain/ollamaThinkingStream.ts';
 import { extractOpenAiCompletion, isLmStudioChat, isOpenAiCompletionRequest, isOpenAiResponsesRequest } from '../../shared/domain/openAiCompletionStream.ts';
 import type { ResponsesOutcome } from '../../shared/domain/responsesOutput.ts';
+import { buildNetworkErrorExport, isExportableNetworkError } from '../domain/networkErrorExport.ts';
 import { modelTokenRate } from '../../shared/domain/modelTokenRate.ts';
 
 type Filter = 'all' | 'pending' | 'error' | 'success';
@@ -76,6 +77,7 @@ export function NetworkInspector({ initialFilter = 'all', hasRunningCorrections 
   const [query, setQuery] = useState('');
   const [tab, setTab] = useState<'headers' | 'request' | 'response' | 'message' | 'thinking'>('headers');
   const [storageStatus, setStorageStatus] = useState(getNetworkInspectorStatus);
+  const [includeDetailedMessages, setIncludeDetailedMessages] = useState(false);
   const [clock, setClock] = useState(() => Date.now());
 
   const hasPendingRequests = records.some((record) => record.state === 'pending');
@@ -91,13 +93,23 @@ export function NetworkInspector({ initialFilter = 'all', hasRunningCorrections 
   }, [hasPendingRequests]);
 
   const filtered = useMemo(() => records.filter((record) => {
-    const matchesFilter = filter === 'all' || record.state === filter;
+    const matchesFilter = filter === 'all' || (filter === 'error' ? isExportableNetworkError(record) : filter === 'success' ? record.state === 'success' && !isExportableNetworkError(record) : record.state === filter);
     const matchesQuery = `${record.method} ${record.url} ${record.intent} ${record.context} ${record.status ?? ''} ${record.responseBody}`.toLocaleLowerCase('fr-FR').includes(query.trim().toLocaleLowerCase('fr-FR'));
     return matchesFilter && matchesQuery;
   }), [records, filter, query]);
   const selected = filtered.find((record) => record.id === selectedId) ?? filtered[0] ?? null;
   const pending = records.filter((record) => record.state === 'pending').length;
-  const errors = records.filter((record) => record.state === 'error').length;
+  const errors = records.filter(isExportableNetworkError).length;
+  function exportErrors() {
+    const now = new Date();
+    const report = buildNetworkErrorExport(loadNetworkHistory(), now.toISOString(), Boolean(getNetworkInspectorStatus().storageWarning), includeDetailedMessages);
+    const url = URL.createObjectURL(new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'companion-erreurs-reseau-' + now.toISOString().replace(/[:.]/g, '-') + '.json';
+    document.body.appendChild(link);
+    try { link.click(); } finally { link.remove(); window.setTimeout(() => URL.revokeObjectURL(url), 1000); }
+  }
   const liveDuration = (record: NetworkRequestRecord) => record.state === 'pending' ? Math.max(0, clock - Date.parse(record.startedAt)) : record.durationMs;
   const waitingForServer = (record: NetworkRequestRecord) => record.state === 'pending' && record.status === null && (liveDuration(record) ?? 0) >= 15_000;
   const visibleDuration = (record: NetworkRequestRecord) => record.state === 'pending' ? liveDuration(record)
@@ -133,9 +145,13 @@ export function NetworkInspector({ initialFilter = 'all', hasRunningCorrections 
   return <section className="network-inspector" aria-label="Inspecteur réseau">
     <header className="network-inspector-heading">
       <div><p className="eyebrow">OUTILS DE DÉVELOPPEMENT</p><h1>Inspecteur réseau</h1><p>Suivez les requêtes HTTP de l’application en direct et consultez leur historique local.</p></div>
-      <div className="network-inspector-actions">{hasRunningCorrections && onStopCorrections && <button type="button" className="context-stop-button" disabled={isStoppingCorrections} onClick={onStopCorrections} aria-label="Arrêter la correction en cours">{isStoppingCorrections ? 'Arrêt en cours…' : 'Arrêter la correction'}</button>}<span className="network-local-indicator">● Historique local</span><button type="button" className="secondary-button" onClick={() => { clearNetworkHistory(); setRecords([]); setSelectedId(null); setStorageStatus(getNetworkInspectorStatus()); }}>Effacer l’historique</button></div>
+      <div className="network-inspector-actions">{hasRunningCorrections && onStopCorrections && <button type="button" className="context-stop-button" disabled={isStoppingCorrections} onClick={onStopCorrections} aria-label="Arrêter la correction en cours">{isStoppingCorrections ? 'Arrêt en cours…' : 'Arrêter la correction'}</button>}<span className="network-local-indicator">● Historique local</span><button type="button" className="secondary-button" disabled={!errors} onClick={exportErrors}>Exporter les erreurs ({errors})</button><button type="button" className="secondary-button" onClick={() => { clearNetworkHistory(); setRecords([]); setSelectedId(null); setStorageStatus(getNetworkInspectorStatus()); }}>Effacer l’historique</button></div>
     </header>
     <div className="network-inspector-summary"><span><b>{records.length}</b> requêtes</span><span className={pending > 0 ? 'network-pending-badge' : ''}><b>{pending}</b> requête(s) en cours</span><span><b>{errors}</b> erreurs</span><span><b>{(storageStatus.storageBytes / 1024).toFixed(1)} Ko</b> occupés dans le stockage local</span></div>
+    <div className="network-export-options">
+      <label><input type="checkbox" checked={includeDetailedMessages} onChange={event => setIncludeDetailedMessages(event.target.checked)} /> Inclure les messages d’erreur serveur non reconnus</label>
+      <p>Export JSON de toutes les erreurs conservées, y compris les échecs de génération malgré un HTTP 200. Sans copies, prompts, réponses générées, en-têtes ni adresses de serveur. Par défaut, les messages non reconnus sont masqués ; si vous les incluez, vérifiez le fichier avant partage car un serveur peut y insérer des données sensibles.</p>
+    </div>
     {storageStatus.storageWarning && <p className="network-error" role="alert">{storageStatus.storageWarning}</p>}
     <div className="network-inspector-layout">
       <section className="network-request-list" aria-label="Liste des requêtes">
@@ -143,7 +159,7 @@ export function NetworkInspector({ initialFilter = 'all', hasRunningCorrections 
         <div className="network-request-table" role="list" aria-label="Requêtes HTTP">
           <div className="network-request-columns" aria-hidden="true"><span>Heure</span><span>Méthode</span><span>URL</span><span>Intention</span><span>HTTP</span><span>Durée modèle / réseau</span></div>
           {filtered.map((record) => <button type="button" role="listitem" key={record.id} className={selected?.id === record.id ? 'network-request-row selected' : 'network-request-row'} onClick={() => setSelectedId(record.id)}>
-            <span className="network-request-time" title={new Date(record.startedAt).toLocaleString("fr-FR")}>{formatTime(record.startedAt)}</span><span className="network-method">{record.method}</span><span className="network-url" title={record.url}>{record.url}</span><span className="network-intent" title={record.context ? `${record.intent} · ${record.context}` : record.intent}><strong>{record.intent}</strong>{record.context && <small>{record.context}</small>}</span><span className={`network-state ${record.state}`}>{record.state === 'pending' ? '…' : record.status ?? 'ERR'}</span><span className="network-duration" title={modelDurationLabel(record)}>{formatDuration(visibleDuration(record))}{isOllamaInferenceRequest(record.url) && record.state !== 'pending' && <small>{record.providerTimings ? 'Ollama' : 'Non mesuré'}</small>}{tokenRateLabel(record) && <small className="network-token-rate" title={modelTokenRate(record)?.source === 'native' ? 'Vitesse native de génération Ollama' : 'Débit bout-en-bout, temps réseau inclus'}>{tokenRateLabel(record)}</small>}{waitingForServer(record) && <small className="network-waiting-hint">En attente du serveur (modèle en cours de chargement ?)</small>}</span>
+            <span className="network-request-time" title={new Date(record.startedAt).toLocaleString("fr-FR")}>{formatTime(record.startedAt)}</span><span className="network-method">{record.method}</span><span className="network-url" title={record.url}>{record.url}</span><span className="network-intent" title={record.context ? `${record.intent} · ${record.context}` : record.intent}><strong>{record.intent}</strong>{record.context && <small>{record.context}</small>}</span><span className={`network-state ${isExportableNetworkError(record) ? 'error' : record.state}`} title={record.state === 'success' && isExportableNetworkError(record) ? 'Échec de génération malgré une réponse HTTP réussie' : undefined}>{record.state === 'pending' ? '…' : record.status ?? 'ERR'}</span><span className="network-duration" title={modelDurationLabel(record)}>{formatDuration(visibleDuration(record))}{isOllamaInferenceRequest(record.url) && record.state !== 'pending' && <small>{record.providerTimings ? 'Ollama' : 'Non mesuré'}</small>}{tokenRateLabel(record) && <small className="network-token-rate" title={modelTokenRate(record)?.source === 'native' ? 'Vitesse native de génération Ollama' : 'Débit bout-en-bout, temps réseau inclus'}>{tokenRateLabel(record)}</small>}{waitingForServer(record) && <small className="network-waiting-hint">En attente du serveur (modèle en cours de chargement ?)</small>}</span>
           </button>)}
           {!filtered.length && <p className="network-empty">Aucune requête. Les prochains appels HTTP apparaîtront ici.</p>}
         </div>

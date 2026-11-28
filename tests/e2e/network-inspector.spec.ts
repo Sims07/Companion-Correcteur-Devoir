@@ -187,3 +187,43 @@ test('HTTP 200 and a reasoning-only Responses result have separate diagnostics',
   await expect(diagnostics).toContainText('Tokens de raisonnement 18');
   await expect(diagnostics).toContainText('Tokens de sortie hors raisonnement 0');
 });
+
+
+test('exports HTTP and generation errors without private content', async ({ page }) => {
+  await page.addInitScript(() => {
+    const common = {
+      method: 'POST', url: 'https://private-server.local/v1/responses', intent: 'Évaluer les attendus du schéma · 1/4 · PRIVATE_COPY',
+      context: 'PRIVATE_STUDENT', startedAt: new Date().toISOString(), durationMs: 532,
+      statusText: '', requestHeaders: { authorization: 'SECRET' }, responseHeaders: {},
+      requestBody: JSON.stringify({ model: 'qwen/qwen3.8-27b@4bit', input: 'PRIVATE_PROMPT' }), error: null,
+    };
+    localStorage.setItem('companion-correcteur:network-inspector:v1', JSON.stringify([
+      { ...common, id: 'http-error', state: 'error', status: 500,
+        responseBody: JSON.stringify({ error: { message: 'Model does not exist.', type: 'internal_error', code: 'unknown' } }) },
+      { ...common, id: 'generation-error', state: 'success', status: 200, responseBody: 'PRIVATE_OUTPUT',
+        responsesDiagnostics: { outcome: 'json-invalid', providerStatus: 'completed' } },
+      { ...common, id: 'success', state: 'success', status: 200, responseBody: 'PRIVATE_OUTPUT',
+        responsesDiagnostics: { outcome: 'json-valid' } },
+    ]));
+  });
+  await page.goto('/');
+  await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('button', { name: 'Suivi & diagnostic' }).click();
+  const inspector = page.getByRole('region', { name: 'Inspecteur réseau' });
+  await inspector.getByRole('button', { name: 'Erreurs', exact: true }).click();
+  await expect(inspector.getByRole('listitem')).toHaveCount(2);
+  const downloadPromise = page.waitForEvent('download');
+  await inspector.getByRole('button', { name: 'Exporter les erreurs (2)', exact: true }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toMatch(/^companion-erreurs-reseau-.*\.json$/);
+  const stream = await download.createReadStream();
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+  const raw = Buffer.concat(chunks).toString('utf8');
+  const report = JSON.parse(raw);
+  expect(report.errors).toHaveLength(2);
+  expect(report.errors).toEqual(expect.arrayContaining([
+    expect.objectContaining({ httpStatus: 500, errorMessage: 'Model does not exist.' }),
+    expect.objectContaining({ httpStatus: 200, outcome: 'json-invalid' }),
+  ]));
+  expect(raw).not.toMatch(/PRIVATE_|SECRET|private-server/);
+});
